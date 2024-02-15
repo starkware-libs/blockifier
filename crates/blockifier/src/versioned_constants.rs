@@ -35,7 +35,7 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct VersionedConstants {
     // Limits.
-    pub event_size_limit: EventSizeLimit,
+    pub tx_event_size_limit: TxEventSizeLimit,
     pub invoke_tx_max_n_steps: u32,
     pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
@@ -154,7 +154,7 @@ pub struct L2ResourceGasCosts {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub struct EventSizeLimit {
+pub struct TxEventSizeLimit {
     pub max_data_length: usize,
     pub max_keys_length: usize,
     pub max_n_emitted_events: usize,

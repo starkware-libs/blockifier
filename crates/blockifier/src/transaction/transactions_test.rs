@@ -1781,15 +1781,15 @@ fn test_execute_tx_with_invalid_transaction_version() {
 }
 
 fn max_n_emitted_events() -> usize {
-    VERSIONED_CONSTANTS.event_size_limit.max_n_emitted_events
+    VERSIONED_CONSTANTS.tx_event_size_limit.max_n_emitted_events
 }
 
 fn max_event_keys() -> usize {
-    VERSIONED_CONSTANTS.event_size_limit.max_keys_length
+    VERSIONED_CONSTANTS.tx_event_size_limit.max_keys_length
 }
 
 fn max_event_data() -> usize {
-    VERSIONED_CONSTANTS.event_size_limit.max_data_length
+    VERSIONED_CONSTANTS.tx_event_size_limit.max_data_length
 }
 
 #[test_case(
