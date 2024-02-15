@@ -35,8 +35,10 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct VersionedConstants {
     // Limits.
+    #[serde(default = "EventSizeLimit::max")]
     pub event_size_limit: EventSizeLimit,
     pub invoke_tx_max_n_steps: u32,
+    #[serde(default)]
     pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
     pub validate_max_n_steps: u32,
@@ -116,11 +118,11 @@ impl VersionedConstants {
     }
 
     pub fn get_validate_block_number_rounding(&self) -> u64 {
-        self.os_constants.validate_block_number_rounding
+        self.os_constants.validate_rounding_consts.validate_block_number_rounding
     }
 
     pub fn get_validate_timestamp_rounding(&self) -> u64 {
-        self.os_constants.validate_timestamp_rounding
+        self.os_constants.validate_rounding_consts.validate_timestamp_rounding
     }
 
     #[cfg(any(feature = "testing", test))]
@@ -148,7 +150,7 @@ impl TryFrom<&Path> for VersionedConstants {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub struct L2ResourceGasCosts {
     // TODO(barak, 18/03/2024): Once we start charging per byte change to milligas_per_data_byte,
     // divide the value by 32 in the JSON file.
@@ -157,11 +159,21 @@ pub struct L2ResourceGasCosts {
     pub milligas_per_code_byte: u128,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub struct EventSizeLimit {
     pub max_data_length: usize,
     pub max_keys_length: usize,
     pub max_n_emitted_events: usize,
+}
+
+impl EventSizeLimit {
+    fn max() -> Self {
+        Self {
+            max_data_length: usize::MAX,
+            max_keys_length: usize::MAX,
+            max_n_emitted_events: usize::MAX,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -182,6 +194,58 @@ pub struct OsResources {
 }
 
 impl OsResources {
+    pub fn validate<'de, D: Deserializer<'de>>(
+        &self,
+    ) -> Result<(), <D as Deserializer<'de>>::Error> {
+        for tx_type in TransactionType::iter() {
+            if !self.execute_txs_inner.contains_key(&tx_type) {
+                return Err(DeserializationError::custom(format!(
+                    "ValidationError: os_resources.execute_tx_inner is missing transaction_type: \
+                     {tx_type:?}"
+                )));
+            }
+        }
+
+        for syscall_handler in DeprecatedSyscallSelector::iter() {
+            if !self.execute_syscalls.contains_key(&syscall_handler) {
+                return Err(DeserializationError::custom(format!(
+                    "ValidationError: os_resources.execute_syscalls are missing syscall handler: \
+                     {syscall_handler:?}"
+                )));
+            }
+        }
+
+        let known_builtin_names: HashSet<&str> = HashSet::from([
+            builtin_runner::OUTPUT_BUILTIN_NAME,
+            builtin_runner::HASH_BUILTIN_NAME,
+            builtin_runner::RANGE_CHECK_BUILTIN_NAME,
+            builtin_runner::SIGNATURE_BUILTIN_NAME,
+            builtin_runner::BITWISE_BUILTIN_NAME,
+            builtin_runner::EC_OP_BUILTIN_NAME,
+            builtin_runner::KECCAK_BUILTIN_NAME,
+            builtin_runner::POSEIDON_BUILTIN_NAME,
+            builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
+        ]);
+
+        let execution_resources = self
+            .execute_txs_inner
+            .values()
+            .flat_map(|resources_vector| {
+                [&resources_vector.constant, &resources_vector.calldata_factor]
+            })
+            .chain(self.execute_syscalls.values());
+        let builtin_names =
+            execution_resources.flat_map(|resources| resources.builtin_instance_counter.keys());
+        for builtin_name in builtin_names {
+            if !(known_builtin_names.contains(builtin_name.as_str())) {
+                return Err(DeserializationError::custom(format!(
+                    "ValidationError: unknown os resource {builtin_name}"
+                )));
+            }
+        }
+
+        Ok(())
+    }
     /// Calculates the additional resources needed for the OS to run the given transaction;
     /// i.e., the resources of the Starknet OS function `execute_transactions_inner`.
     /// Also adds the resources needed for the fee transfer execution, performed in the end·
@@ -237,52 +301,8 @@ impl<'de> Deserialize<'de> for OsResources {
 
         // Validations.
 
-        for tx_type in TransactionType::iter() {
-            if !os_resources.execute_txs_inner.contains_key(&tx_type) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: os_resources.execute_tx_inner is missing transaction_type: \
-                     {tx_type:?}"
-                )));
-            }
-        }
-
-        for syscall_handler in DeprecatedSyscallSelector::iter() {
-            if !os_resources.execute_syscalls.contains_key(&syscall_handler) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: os_resources.execute_syscalls are missing syscall handler: \
-                     {syscall_handler:?}"
-                )));
-            }
-        }
-
-        let known_builtin_names: HashSet<&str> = HashSet::from([
-            builtin_runner::OUTPUT_BUILTIN_NAME,
-            builtin_runner::HASH_BUILTIN_NAME,
-            builtin_runner::RANGE_CHECK_BUILTIN_NAME,
-            builtin_runner::SIGNATURE_BUILTIN_NAME,
-            builtin_runner::BITWISE_BUILTIN_NAME,
-            builtin_runner::EC_OP_BUILTIN_NAME,
-            builtin_runner::KECCAK_BUILTIN_NAME,
-            builtin_runner::POSEIDON_BUILTIN_NAME,
-            builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
-        ]);
-
-        let execution_resources = os_resources
-            .execute_txs_inner
-            .values()
-            .flat_map(|resources_vector| {
-                [&resources_vector.constant, &resources_vector.calldata_factor]
-            })
-            .chain(os_resources.execute_syscalls.values());
-        let builtin_names =
-            execution_resources.flat_map(|resources| resources.builtin_instance_counter.keys());
-        for builtin_name in builtin_names {
-            if !(known_builtin_names.contains(builtin_name.as_str())) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: unknown os resource {builtin_name}"
-                )));
-            }
-        }
+        #[cfg(not(any(feature = "testing", test)))]
+        validate(&os_resources);
 
         Ok(os_resources)
     }
@@ -303,10 +323,7 @@ impl<'de> Deserialize<'de> for OsResources {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(try_from = "OSConstantsRawJSON")]
 pub struct OSConstants {
-    // Flooring factor for block number in validate mode.
-    pub validate_block_number_rounding: u64,
-    // Flooring factor for timestamp in validate mode.
-    pub validate_timestamp_rounding: u64,
+    validate_rounding_consts: ValidateRoundingConsts,
 
     // Invariant: fixed keys.
     gas_costs: IndexMap<String, u64>,
@@ -381,11 +398,7 @@ impl TryFrom<OSConstantsRawJSON> for OSConstants {
         let gas_cost_whitelist: IndexSet<_> =
             Self::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
 
-        let OSConstantsRawJSON {
-            raw_json_file_as_dict,
-            validate_block_number_rounding,
-            validate_timestamp_rounding,
-        } = raw_json_data;
+        let OSConstantsRawJSON { raw_json_file_as_dict, validate_rounding_consts } = raw_json_data;
         for (key, value) in raw_json_file_as_dict {
             if !gas_cost_whitelist.contains(key.as_str()) {
                 // Ignore non-whitelist consts.
@@ -429,8 +442,7 @@ impl TryFrom<OSConstantsRawJSON> for OSConstants {
             }
         }
 
-        let os_constants =
-            OSConstants { gas_costs, validate_block_number_rounding, validate_timestamp_rounding };
+        let os_constants = OSConstants { gas_costs, validate_rounding_consts };
 
         // Skip validation in testing: to test validation run validate manually.
         #[cfg(not(any(feature = "testing", test)))]
@@ -446,8 +458,8 @@ impl TryFrom<OSConstantsRawJSON> for OSConstants {
 struct OSConstantsRawJSON {
     #[serde(flatten)]
     raw_json_file_as_dict: IndexMap<String, Value>,
-    validate_block_number_rounding: u64,
-    validate_timestamp_rounding: u64,
+    #[serde(default)]
+    validate_rounding_consts: ValidateRoundingConsts,
 }
 
 #[derive(Debug, Error)]
@@ -481,4 +493,18 @@ pub enum OsConstantsSerdeError {
 pub struct ResourcesParams {
     pub constant: ExecutionResources,
     pub calldata_factor: ExecutionResources,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ValidateRoundingConsts {
+    // Flooring factor for block number in validate mode.
+    pub validate_block_number_rounding: u64,
+    // Flooring factor for timestamp in validate mode.
+    pub validate_timestamp_rounding: u64,
+}
+
+impl Default for ValidateRoundingConsts {
+    fn default() -> Self {
+        Self { validate_block_number_rounding: 1, validate_timestamp_rounding: 1 }
+    }
 }
