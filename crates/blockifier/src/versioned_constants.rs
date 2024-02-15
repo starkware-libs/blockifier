@@ -39,11 +39,7 @@ pub struct VersionedConstants {
     pub invoke_tx_max_n_steps: u32,
     pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
-    // Flooring factor for block number in validate mode.
-    pub validate_block_number_rounding: u64,
     pub validate_max_n_steps: u32,
-    // Flooring factor for timestamp in validate mode.
-    pub validate_timestamp_rounding: u64,
 
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
@@ -117,6 +113,14 @@ impl VersionedConstants {
         syscall_counter: &SyscallCounter,
     ) -> Result<ExecutionResources, PostExecutionError> {
         self.os_resources.get_additional_os_syscall_resources(syscall_counter)
+    }
+
+    pub fn get_validate_block_number_rounding(&self) -> u64 {
+        self.os_constants.validate_block_number_rounding
+    }
+
+    pub fn get_validate_timestamp_rounding(&self) -> u64 {
+        self.os_constants.validate_timestamp_rounding
     }
 
     #[cfg(any(feature = "testing", test))]
@@ -299,6 +303,12 @@ impl<'de> Deserialize<'de> for OsResources {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(try_from = "OSConstantsRawJSON")]
 pub struct OSConstants {
+    // Flooring factor for block number in validate mode.
+    pub validate_block_number_rounding: u64,
+    // Flooring factor for timestamp in validate mode.
+    pub validate_timestamp_rounding: u64,
+
+    // Invariant: fixed keys.
     gas_costs: IndexMap<String, u64>,
 }
 
@@ -370,7 +380,13 @@ impl TryFrom<OSConstantsRawJSON> for OSConstants {
 
         let gas_cost_whitelist: IndexSet<_> =
             Self::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
-        for (key, value) in raw_json_data.raw_json_file_as_dict {
+
+        let OSConstantsRawJSON {
+            raw_json_file_as_dict,
+            validate_block_number_rounding,
+            validate_timestamp_rounding,
+        } = raw_json_data;
+        for (key, value) in raw_json_file_as_dict {
             if !gas_cost_whitelist.contains(key.as_str()) {
                 // Ignore non-whitelist consts.
                 continue;
@@ -413,7 +429,8 @@ impl TryFrom<OSConstantsRawJSON> for OSConstants {
             }
         }
 
-        let os_constants = OSConstants { gas_costs };
+        let os_constants =
+            OSConstants { gas_costs, validate_block_number_rounding, validate_timestamp_rounding };
 
         // Skip validation in testing: to test validation run validate manually.
         #[cfg(not(any(feature = "testing", test)))]
@@ -429,6 +446,8 @@ impl TryFrom<OSConstantsRawJSON> for OSConstants {
 struct OSConstantsRawJSON {
     #[serde(flatten)]
     raw_json_file_as_dict: IndexMap<String, Value>,
+    validate_block_number_rounding: u64,
+    validate_timestamp_rounding: u64,
 }
 
 #[derive(Debug, Error)]
