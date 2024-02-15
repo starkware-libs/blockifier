@@ -73,10 +73,8 @@ pub fn calculate_tx_gas_vector(
     let vm_usage_gas_vector = calculate_l1_gas_by_vm_usage(versioned_constants, &vm_resources)?;
 
     Ok(GasVector {
-        l1_gas: u128_from_usize(l1_gas_usage)
-            .expect("Conversion from usize to u128 should not fail."),
-        l1_data_gas: u128_from_usize(l1_blob_gas_usage)
-            .expect("Conversion from usize to u128 should not fail."),
+        l1_gas: u128_from_usize(l1_gas_usage),
+        l1_data_gas: u128_from_usize(l1_blob_gas_usage),
     } + vm_usage_gas_vector)
 }
 

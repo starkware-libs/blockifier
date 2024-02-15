@@ -65,15 +65,13 @@ pub fn get_events_milligas_cost(
     let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
     let (event_key_factor, data_word_cost) =
         (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.milligas_per_data_felt);
-    let safe_u128_from_usize =
-        |x| u128_from_usize(x).expect("Could not convert starknet gas usage from usize to u128.");
     events
         .iter()
         .map(|OrderedEvent { event, .. }| {
             // TODO(barak: 18/03/2024): Once we start charging per byte change to num_bytes_keys and
             // num_bytes_data.
-            let keys_size = safe_u128_from_usize(event.keys.len());
-            let data_size = safe_u128_from_usize(event.data.0.len());
+            let keys_size = u128_from_usize(event.keys.len());
+            let data_size = u128_from_usize(event.data.0.len());
             event_key_factor * data_word_cost * keys_size + data_word_cost * data_size
         })
         .sum()
@@ -102,8 +100,7 @@ pub fn get_messages_gas_cost<'a>(
             // message but we ignore it since refunded gas cannot be used for the current
             // transaction execution).
             + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE,
-        )
-        .expect("Could not convert starknet gas usage from usize to u128."),
+        ),
         l1_data_gas: 0,
     } + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
         + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
@@ -111,8 +108,7 @@ pub fn get_messages_gas_cost<'a>(
     let sharp_gas_usage = GasVector {
         l1_gas: u128_from_usize(
             message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
-        )
-        .expect("Could not convert sharp gas usage from usize to u128."),
+        ),
         l1_data_gas: 0,
     };
 
@@ -129,8 +125,7 @@ pub fn get_calldata_and_signature_gas_cost(
 ) -> GasVector {
     // TODO(Avi, 28/2/2024): Use rational numbers to calculate the gas cost once implemented.
     // TODO(Avi, 20/2/2024): Calculate the number of bytes instead of the number of felts.
-    let total_data_size = u128_from_usize(calldata_length + signature_length)
-        .expect("Could not convert total data size from usize to u128");
+    let total_data_size = u128_from_usize(calldata_length + signature_length);
     let l1_milligas =
         total_data_size * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
 
@@ -149,8 +144,7 @@ pub fn get_code_gas_cost(
                 // We assume each felt is a word.
                 * eth_gas_constants::WORD_WIDTH
                 + class_info.abi_length,
-        )
-        .expect("Failed to convert total code size from usize to u128.");
+        );
         let l1_milligas =
             total_code_size * versioned_constants.l2_resource_gas_costs.milligas_per_code_byte;
         GasVector { l1_gas: l1_milligas / 1000, l1_data_gas: 0 }
@@ -188,8 +182,7 @@ pub fn get_da_gas_cost(state_changes_count: StateChangesCount, use_kzg_da: bool)
             0,
             u128_from_usize(
                 onchain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT,
-            )
-            .expect("Failed to convert blob gas usage from usize to u128."),
+            ),
         )
     } else {
         // TODO(Yoni, 1/5/2024): count the exact amount of nonzero bytes for each DA entry.
@@ -214,7 +207,7 @@ pub fn get_da_gas_cost(state_changes_count: StateChangesCount, use_kzg_da: bool)
             naive_cost - discount
         };
 
-        (u128_from_usize(gas).expect("Failed to convert L1 gas usage from usize to u128."), 0)
+        (u128_from_usize(gas), 0)
     };
 
     GasVector { l1_gas, l1_data_gas: blob_gas }
@@ -283,8 +276,7 @@ fn get_event_emission_cost(n_topics: usize, data_length: usize) -> GasVector {
             eth_gas_constants::GAS_PER_LOG
                 + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
                 + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD,
-        )
-        .expect("Cannot convert event emission gas from usize to u128."),
+        ),
         l1_data_gas: 0,
     }
 }
