@@ -16,6 +16,8 @@ fn test_successful_parsing() {
             "entry_point_initial_budget": 4,
             "step_gas_cost": 5
         },
+        "validate_block_number_rounding": 111,
+        "validate_timestamp_rounding": 222,
         "ignore the gas string": "GAS!",
         "I look like a gas cost but my name is all wrong": 0
     }"#;
@@ -50,6 +52,12 @@ fn test_string_inside_composed_field() {
 }
 
 fn check_constants_serde_error(json_data: &str, expected_error_message: &str) {
+    let mut json_data_raw: IndexMap<String, Value> = serde_json::from_str(json_data).unwrap();
+    json_data_raw.insert("validate_block_number_rounding".to_string(), 0.into());
+    json_data_raw.insert("validate_timestamp_rounding".to_string(), 0.into());
+
+    let json_data = &serde_json::to_string(&json_data_raw).unwrap();
+
     let error = serde_json::from_str::<OSConstants>(json_data).unwrap_err();
     assert_eq!(error.to_string(), expected_error_message);
 }
