@@ -35,8 +35,10 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct VersionedConstants {
     // Limits.
+    #[serde(default = "EventSizeLimit::max")]
     pub event_size_limit: EventSizeLimit,
     pub invoke_tx_max_n_steps: u32,
+    #[serde(default)]
     pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
     pub validate_max_n_steps: u32,
@@ -116,11 +118,11 @@ impl VersionedConstants {
     }
 
     pub fn get_validate_block_number_rounding(&self) -> u64 {
-        self.os_constants.validate_block_number_rounding
+        self.os_constants.validate_rounding_consts.validate_block_number_rounding
     }
 
     pub fn get_validate_timestamp_rounding(&self) -> u64 {
-        self.os_constants.validate_timestamp_rounding
+        self.os_constants.validate_rounding_consts.validate_timestamp_rounding
     }
 
     #[cfg(any(feature = "testing", test))]
@@ -162,6 +164,16 @@ pub struct EventSizeLimit {
     pub max_data_length: usize,
     pub max_keys_length: usize,
     pub max_n_emitted_events: usize,
+}
+
+impl EventSizeLimit {
+    fn max() -> Self {
+        Self {
+            max_data_length: usize::MAX,
+            max_keys_length: usize::MAX,
+            max_n_emitted_events: usize::MAX,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -303,10 +315,9 @@ impl<'de> Deserialize<'de> for OsResources {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(try_from = "OSConstantsRawJSON")]
 pub struct OSConstants {
-    // Flooring factor for block number in validate mode.
-    pub validate_block_number_rounding: u64,
-    // Flooring factor for timestamp in validate mode.
-    pub validate_timestamp_rounding: u64,
+    #[serde(default)]
+    #[serde(flatten)]
+    validate_rounding_consts: ValidateRoundingConsts,
 
     // Invariant: fixed keys.
     gas_costs: IndexMap<String, u64>,
@@ -428,9 +439,11 @@ impl TryFrom<OSConstantsRawJSON> for OSConstants {
                 _ => return Err(OsConstantsSerdeError::UnhandledValueType(value)),
             }
         }
+        let validate_rounding_costs =
+            ValidateRoundingConsts { validate_block_number_rounding, validate_timestamp_rounding };
 
         let os_constants =
-            OSConstants { gas_costs, validate_block_number_rounding, validate_timestamp_rounding };
+            OSConstants { gas_costs, validate_rounding_consts: validate_rounding_costs };
 
         // Skip validation in testing: to test validation run validate manually.
         #[cfg(not(any(feature = "testing", test)))]
@@ -481,4 +494,18 @@ pub enum OsConstantsSerdeError {
 pub struct ResourcesParams {
     pub constant: ExecutionResources,
     pub calldata_factor: ExecutionResources,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ValidateRoundingConsts {
+    // Flooring factor for block number in validate mode.
+    pub validate_block_number_rounding: u64,
+    // Flooring factor for timestamp in validate mode.
+    pub validate_timestamp_rounding: u64,
+}
+
+impl Default for ValidateRoundingConsts {
+    fn default() -> Self {
+        Self { validate_block_number_rounding: 1, validate_timestamp_rounding: 1 }
+    }
 }
