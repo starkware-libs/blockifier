@@ -294,22 +294,26 @@ pub fn exceeds_event_size_limit(
     n_emitted_events: usize,
     event: &EventContent,
 ) -> Result<(), EmitEventError> {
-    let max_n_emitted_events = versioned_constants.event_size_limit.max_n_emitted_events;
-    if n_emitted_events > max_n_emitted_events {
+    let tx_event_limits = versioned_constants.event_limits;
+    if n_emitted_events > tx_event_limits.max_n_emitted_events {
         return Err(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
             n_emitted_events,
-            max_n_emitted_events,
+            max_n_emitted_events: tx_event_limits.max_n_emitted_events,
         });
     }
-    let max_keys_length = versioned_constants.event_size_limit.max_keys_length;
     let keys_length = event.keys.len();
-    if keys_length > versioned_constants.event_size_limit.max_keys_length {
-        return Err(EmitEventError::ExceedsMaxKeysLength { keys_length, max_keys_length });
+    if keys_length > tx_event_limits.max_keys_length {
+        return Err(EmitEventError::ExceedsMaxKeysLength {
+            keys_length,
+            max_keys_length: tx_event_limits.max_keys_length,
+        });
     }
-    let max_data_length = versioned_constants.event_size_limit.max_data_length;
     let data_length = event.data.0.len();
-    if data_length > max_data_length {
-        return Err(EmitEventError::ExceedsMaxDataLength { data_length, max_data_length });
+    if data_length > tx_event_limits.max_data_length {
+        return Err(EmitEventError::ExceedsMaxDataLength {
+            data_length,
+            max_data_length: tx_event_limits.max_data_length,
+        });
     }
 
     Ok(())
