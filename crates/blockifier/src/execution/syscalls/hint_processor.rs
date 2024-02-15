@@ -504,13 +504,14 @@ impl<'a> SyscallHintProcessor<'a> {
         let versioned_constants = self.context.versioned_constants();
         let block_data: Vec<StarkFelt> = if self.is_validate_mode() {
             // Round down to the nearest multiple of validate_block_number_rounding.
-            let rounded_block_number = (block_number
-                / versioned_constants.validate_block_number_rounding)
-                * versioned_constants.validate_block_number_rounding;
+            let validate_block_number_rounding =
+                versioned_constants.get_validate_block_number_rounding();
+            let rounded_block_number =
+                (block_number / validate_block_number_rounding) * validate_block_number_rounding;
             // Round down to the nearest multiple of validate_timestamp_rounding.
-            let rounded_timestamp = (block_timestamp
-                / versioned_constants.validate_timestamp_rounding)
-                * versioned_constants.validate_timestamp_rounding;
+            let validate_timestamp_rounding = versioned_constants.get_validate_timestamp_rounding();
+            let rounded_timestamp =
+                (block_timestamp / validate_timestamp_rounding) * validate_timestamp_rounding;
 
             vec![
                 StarkFelt::from(rounded_block_number),
