@@ -62,13 +62,12 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     for cairo_version in [CairoVersion::Cairo0, CairoVersion::Cairo1] {
         let empty_contract = FeatureContract::Empty(cairo_version).get_class();
         let class_info = calculate_class_info_for_testing(empty_contract);
-        let code_milligas_cost = u128_from_usize(
-            (class_info.bytecode_length() + class_info.sierra_program_length())
-                * eth_gas_constants::WORD_WIDTH
-                + class_info.abi_length(),
-        )
-        .unwrap()
-            * versioned_constants.l2_resource_gas_costs.milligas_per_code_byte;
+        let code_milligas_cost =
+            u128_from_usize(
+                (class_info.bytecode_length() + class_info.sierra_program_length())
+                    * eth_gas_constants::WORD_WIDTH
+                    + class_info.abi_length(),
+            ) * versioned_constants.l2_resource_gas_costs.milligas_per_code_byte;
         let manual_gas_vector =
             GasVector { l1_gas: code_milligas_cost / 1000, ..Default::default() };
         let declare_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
@@ -98,7 +97,6 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let calldata_length = 0;
     let signature_length = 2;
     let calldata_and_signature_milligas_cost = u128_from_usize(calldata_length + signature_length)
-        .unwrap()
         * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
     let manual_starknet_gas_usage = calldata_and_signature_milligas_cost / 1000;
     let manual_gas_vector = GasVector { l1_gas: manual_starknet_gas_usage, ..Default::default() }
@@ -135,7 +133,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&[], Some(l1_handler_payload_size));
     let calldata_and_signature_milligas_cost =
-        u128_from_usize(l1_handler_payload_size + signature_length).unwrap()
+        u128_from_usize(l1_handler_payload_size + signature_length)
             * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
     let manual_starknet_gas_usage = message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
         + eth_gas_constants::GAS_PER_COUNTER_DECREASE
@@ -147,7 +145,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let manual_sharp_gas_usage =
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
     let manual_gas_computation = GasVector {
-        l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
+        l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage),
         l1_data_gas: 0,
     };
 
@@ -216,7 +214,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let manual_sharp_blob_gas_usage =
         get_da_gas_cost(l2_to_l1_state_changes_count, use_kzg_da).l1_data_gas;
     let manual_gas_computation = GasVector {
-        l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage).unwrap(),
+        l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage),
         l1_data_gas: manual_sharp_blob_gas_usage,
     };
 
@@ -283,7 +281,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + storage_writings_gas_usage_vector.l1_gas
         // l2_to_l1_messages_gas_usage and storage_writings_gas_usage got a discount each, while
         // the combined calculation got it once.
-        + u128_from_usize(fee_balance_discount).unwrap(),
+        + u128_from_usize(fee_balance_discount),
         // Expected blob gas usage is from data availability only.
         l1_data_gas: get_da_gas_cost(combined_state_changes_count, use_kzg_da).l1_data_gas,
     };
@@ -337,12 +335,9 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     )
     .unwrap();
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
+    assert_eq!(u128_from_usize(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
     assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
-        l1_gas_usage
-    );
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()).unwrap(),
+        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()),
         l1_blob_gas_usage
     );
 
@@ -392,12 +387,9 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     )
     .unwrap();
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
+    assert_eq!(u128_from_usize(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
     assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.gas_usage()).unwrap(),
-        l1_gas_usage
-    );
-    assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()).unwrap(),
+        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()),
         l1_blob_gas_usage
     );
 }

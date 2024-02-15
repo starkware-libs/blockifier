@@ -30,6 +30,6 @@ pub fn usize_from_u128(val: u128) -> Result<usize, NumericConversionError> {
 
 /// Conversion from usize to u128. May fail on architectures with over 128 bits
 /// of address space.
-pub fn u128_from_usize(val: usize) -> Result<u128, NumericConversionError> {
-    val.try_into().map_err(|_| NumericConversionError::UsizeToU128Error(val))
+pub fn u128_from_usize(val: usize) -> u128 {
+    val.try_into().expect("Conversion from usize to u128 should not fail.")
 }
