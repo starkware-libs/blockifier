@@ -16,6 +16,8 @@ fn test_successful_parsing() {
             "entry_point_initial_budget": 4,
             "step_gas_cost": 5
         },
+        "validate_block_number_rounding": 111,
+        "validate_timestamp_rounding": 222,
         "ignore the gas string": "GAS!",
         "I look like a gas cost but my name is all wrong": 0
     }"#;
@@ -30,6 +32,54 @@ fn test_successful_parsing() {
 
     // Only the 3 values asserted against should be present, the rest are ignored.
     assert_eq!(versioned_constants.os_constants.gas_costs.len(), 3);
+}
+
+#[test]
+fn test_default_values() {
+    let json_data = r#"
+    {
+        "invoke_tx_max_n_steps": 2,
+        "validate_max_n_steps": 1,
+        "os_constants": {},
+        "os_resources": {
+            "execute_syscalls":{},
+            "execute_txs_inner": {
+                "Declare": {
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 16,
+                            "range_check_builtin": 63
+                        },
+                        "n_memory_holes": 0,
+                        "n_steps": 2839
+                }
+            }
+        },
+        "vm_resource_fee_cost": {},
+        "max_recursion_depth": 2
+    }"#;
+    let versioned_constants: VersionedConstants = serde_json::from_str(json_data).unwrap();
+
+    assert_eq!(versioned_constants.get_validate_block_number_rounding(), 1);
+    assert_eq!(versioned_constants.get_validate_timestamp_rounding(), 1);
+
+    assert_eq!(versioned_constants.event_size_limit, EventSizeLimit::max());
+    assert_eq!(versioned_constants.l2_resource_gas_costs, L2ResourceGasCosts::default());
+
+    // Calldata factor was initialized as 0, and did not affect the expected result, even if
+    // calldata length is nonzero.
+    let calldata_length = 2;
+    let expected_declare_resources = ExecutionResources {
+        n_steps: 2839,
+        builtin_instance_counter: HashMap::from([
+            ("pedersen_builtin".to_string(), 16),
+            ("range_check_builtin".to_string(), 63),
+        ]),
+        ..Default::default()
+    };
+    assert_eq!(
+        versioned_constants.os_resources_for_tx_type(&TransactionType::Declare, calldata_length),
+        expected_declare_resources
+    );
 }
 
 #[test]
@@ -50,6 +100,12 @@ fn test_string_inside_composed_field() {
 }
 
 fn check_constants_serde_error(json_data: &str, expected_error_message: &str) {
+    let mut json_data_raw: IndexMap<String, Value> = serde_json::from_str(json_data).unwrap();
+    json_data_raw.insert("validate_block_number_rounding".to_string(), 0.into());
+    json_data_raw.insert("validate_timestamp_rounding".to_string(), 0.into());
+
+    let json_data = &serde_json::to_string(&json_data_raw).unwrap();
+
     let error = serde_json::from_str::<OSConstants>(json_data).unwrap_err();
     assert_eq!(error.to_string(), expected_error_message);
 }
