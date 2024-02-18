@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::iter::Sum;
+use std::ops::Add;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::{Deserialize, Serialize};
@@ -87,6 +89,30 @@ struct ExecutionResourcesDef {
     builtin_instance_counter: HashMap<String, usize>,
 }
 
+#[derive(Default)]
+pub struct ExecutionSummary {
+    pub executed_class_hashes: HashSet<ClassHash>,
+    pub visited_storage_entries: HashSet<StorageEntry>,
+    pub n_events: usize,
+}
+
+impl Add for ExecutionSummary {
+    type Output = Self;
+
+    fn add(mut self, other: Self) -> Self {
+        self.executed_class_hashes.extend(other.executed_class_hashes);
+        self.visited_storage_entries.extend(other.visited_storage_entries);
+        self.n_events += other.n_events;
+        self
+    }
+}
+
+impl Sum for ExecutionSummary {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(ExecutionSummary::default(), |acc, x| acc + x)
+    }
+}
+
 /// Represents the full effects of executing an entry point, including the inner calls it invoked.
 #[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallInfo {
@@ -171,6 +197,28 @@ impl CallInfo {
     /// Returns the sum of events in CallInfo and its inner_calls
     pub fn get_number_of_events(&self) -> usize {
         self.into_iter().map(|call_info| call_info.execution.events.len()).sum()
+    }
+
+    pub fn summarize(&self) -> ExecutionSummary {
+        let mut executed_class_hashes: HashSet<ClassHash> = HashSet::new();
+        let mut visited_storage_entries: HashSet<StorageEntry> = HashSet::new();
+        let mut n_events: usize = 0;
+
+        for call_info in self.into_iter() {
+            let class_hash =
+                call_info.call.class_hash.expect("Class hash must be set after execution.");
+            executed_class_hashes.insert(class_hash);
+
+            let call_storage_entries = call_info
+                .accessed_storage_keys
+                .iter()
+                .map(|storage_key| (call_info.call.storage_address, *storage_key));
+            visited_storage_entries.extend(call_storage_entries);
+
+            n_events += call_info.execution.events.len();
+        }
+
+        ExecutionSummary { executed_class_hashes, visited_storage_entries, n_events }
     }
 }
 

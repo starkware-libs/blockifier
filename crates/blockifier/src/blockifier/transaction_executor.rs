@@ -85,8 +85,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             } else {
                 None
             };
-        let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
-        let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
@@ -97,11 +95,8 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // Prepare bouncer info; the countings here should be linear in the transactional
                 // state changes and execution info rather than the cumulative state attributes.
 
-                // TODO(Elin, 01/06/2024): consider traversing the calls to collect data once.
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
-                tx_executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
-                tx_visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
-                let n_events = tx_execution_info.get_number_of_events();
+                let tx_execution_summary = tx_execution_info.summarize();
 
                 // Count message to L1 resources.
                 let call_infos: IntoIter<&CallInfo> =
@@ -117,11 +112,11 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
-                    &tx_executed_class_hashes,
+                    &tx_execution_summary.executed_class_hashes,
                 )?;
                 additional_os_resources += &get_particia_update_resources(
                     &self.visited_storage_entries,
-                    &tx_visited_storage_entries,
+                    &tx_execution_summary.visited_storage_entries,
                 )?;
 
                 // Count residual state diff size (w.r.t. the OS output encoding).
@@ -142,11 +137,11 @@ impl<S: StateReader> TransactionExecutor<S> {
                     additional_os_resources,
                     message_segment_length,
                     state_diff_size,
-                    n_events,
+                    tx_execution_summary.n_events,
                 )?;
                 self.staged_for_commit_state = Some(transactional_state.stage(
-                    tx_executed_class_hashes,
-                    tx_visited_storage_entries,
+                    tx_execution_summary.executed_class_hashes,
+                    tx_execution_summary.visited_storage_entries,
                     tx_unique_state_changes_keys,
                 ));
 
