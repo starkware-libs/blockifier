@@ -43,7 +43,16 @@ fn test_default_values() {
         "os_constants": {},
         "os_resources": {
             "execute_syscalls":{},
-            "execute_txs_inner": {}
+            "execute_txs_inner": {
+                "Declare": {
+                        "builtin_instance_counter": {
+                            "pedersen_builtin": 16,
+                            "range_check_builtin": 63
+                        },
+                        "n_memory_holes": 0,
+                        "n_steps": 2839
+                }
+            }
         },
         "vm_resource_fee_cost": {},
         "max_recursion_depth": 2
@@ -55,6 +64,22 @@ fn test_default_values() {
 
     assert_eq!(versioned_constants.event_size_limit, EventSizeLimit::max());
     assert_eq!(versioned_constants.l2_resource_gas_costs, L2ResourceGasCosts::default());
+
+    // Calldata factor was initialized as 0, and did not affect the expected result, even if
+    // calldata length is nonzero.
+    let calldata_length = 2;
+    let expected_declare_resources = ExecutionResources {
+        n_steps: 2839,
+        builtin_instance_counter: HashMap::from([
+            ("pedersen_builtin".to_string(), 16),
+            ("range_check_builtin".to_string(), 63),
+        ]),
+        ..Default::default()
+    };
+    assert_eq!(
+        versioned_constants.os_resources_for_tx_type(&TransactionType::Declare, calldata_length),
+        expected_declare_resources
+    );
 }
 
 #[test]
