@@ -407,10 +407,13 @@ pub fn get_block_number(
     let versioned_constants = syscall_handler.context.versioned_constants();
     let block_number = syscall_handler.get_block_info().block_number;
     let block_number = match syscall_handler.execution_mode() {
-        ExecutionMode::Validate => BlockNumber(
-            (block_number.0 / versioned_constants.validate_block_number_rounding)
-                * versioned_constants.validate_block_number_rounding,
-        ),
+        ExecutionMode::Validate => {
+            let validate_block_number_rounding =
+                versioned_constants.get_validate_block_number_rounding();
+            BlockNumber(
+                (block_number.0 / validate_block_number_rounding) * validate_block_number_rounding,
+            )
+        }
         ExecutionMode::Execute => block_number,
     };
     Ok(GetBlockNumberResponse { block_number })
@@ -440,10 +443,12 @@ pub fn get_block_timestamp(
     let versioned_constants = syscall_handler.context.versioned_constants();
     let block_timestamp = syscall_handler.get_block_info().block_timestamp;
     let block_timestamp = match syscall_handler.execution_mode() {
-        ExecutionMode::Validate => BlockTimestamp(
-            (block_timestamp.0 / versioned_constants.validate_timestamp_rounding)
-                * versioned_constants.validate_timestamp_rounding,
-        ),
+        ExecutionMode::Validate => {
+            let validate_timestamp_rounding = versioned_constants.get_validate_timestamp_rounding();
+            BlockTimestamp(
+                (block_timestamp.0 / validate_timestamp_rounding) * validate_timestamp_rounding,
+            )
+        }
         ExecutionMode::Execute => block_timestamp,
     };
     Ok(GetBlockTimestampResponse { block_timestamp })
