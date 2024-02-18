@@ -323,13 +323,14 @@ pub fn emit_event(
     let execution_context = &mut syscall_handler.context;
     exceeds_event_size_limit(
         execution_context.versioned_constants(),
-        execution_context.n_emitted_events + 1,
+        execution_context.tx_n_emitted_events + 1,
         &request.content,
     )?;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
     execution_context.n_emitted_events += 1;
+    execution_context.tx_n_emitted_events += 1;
 
     Ok(EmitEventResponse {})
 }

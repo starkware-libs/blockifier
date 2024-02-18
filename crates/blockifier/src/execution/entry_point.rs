@@ -136,6 +136,8 @@ pub struct EntryPointExecutionContext {
     pub tx_context: Arc<TransactionContext>,
     // VM execution limits.
     pub vm_run_resources: RunResources,
+    //  Used for tracking the number events in the current transaction execution.
+    pub tx_n_emitted_events: usize,
     /// Used for tracking events order during the current execution.
     pub n_emitted_events: usize,
     /// Used for tracking L2-to-L1 messages order during the current execution.
@@ -155,10 +157,12 @@ impl EntryPointExecutionContext {
         tx_context: Arc<TransactionContext>,
         mode: ExecutionMode,
         limit_steps_by_resources: bool,
+        tx_n_emitted_events: usize,
     ) -> TransactionExecutionResult<Self> {
         let max_steps = Self::max_steps(&tx_context, &mode, limit_steps_by_resources)?;
         Ok(Self {
             vm_run_resources: RunResources::new(max_steps),
+            tx_n_emitted_events,
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
@@ -171,15 +175,22 @@ impl EntryPointExecutionContext {
     pub fn new_validate(
         tx_context: Arc<TransactionContext>,
         limit_steps_by_resources: bool,
+        tx_n_emitted_events: usize,
     ) -> TransactionExecutionResult<Self> {
-        Self::new(tx_context, ExecutionMode::Validate, limit_steps_by_resources)
+        Self::new(
+            tx_context,
+            ExecutionMode::Validate,
+            limit_steps_by_resources,
+            tx_n_emitted_events,
+        )
     }
 
     pub fn new_invoke(
         tx_context: Arc<TransactionContext>,
         limit_steps_by_resources: bool,
+        tx_n_emitted_events: usize,
     ) -> TransactionExecutionResult<Self> {
-        Self::new(tx_context, ExecutionMode::Execute, limit_steps_by_resources)
+        Self::new(tx_context, ExecutionMode::Execute, limit_steps_by_resources, tx_n_emitted_events)
     }
 
     /// Returns the maximum number of cairo steps allowed, given the max fee, gas price and the
