@@ -108,7 +108,9 @@ def merge_branches(src_branch: str, dst_branch: Optional[str]):
             'this commit is for any change needed to pass the CI."'
         )
     else:
-        run_command(f'git commit -m "chore: merge branch {src_branch} into {dst_branch} (with conflicts)"')
+        run_command(
+            f'git commit -m "chore: merge branch {src_branch} into {dst_branch} (with conflicts)"'
+        )
 
     print("Pushing...")
     run_command(f"git push --set-upstream origin {merge_branch}")
