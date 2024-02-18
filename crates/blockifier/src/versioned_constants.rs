@@ -9,7 +9,7 @@ use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{Number, Value};
+use serde_json::{Map, Number, Value};
 use strum::IntoEnumIterator;
 use thiserror::Error;
 
@@ -490,9 +490,40 @@ pub enum OsConstantsSerdeError {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(try_from = "ResourceParamsRaw")]
 pub struct ResourcesParams {
     pub constant: ExecutionResources,
     pub calldata_factor: ExecutionResources,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct ResourceParamsRaw {
+    #[serde(flatten)]
+    raw_resource_params_as_dict: Map<String, Value>,
+}
+
+impl TryFrom<ResourceParamsRaw> for ResourcesParams {
+    type Error = VersionedConstantsError;
+
+    fn try_from(raw_json_data: ResourceParamsRaw) -> Result<Self, Self::Error> {
+        if raw_json_data.raw_resource_params_as_dict.contains_key("constant") {
+            Ok(Self {
+                constant: serde_json::from_value(
+                    raw_json_data.raw_resource_params_as_dict["constant"].clone(),
+                )?,
+                calldata_factor: serde_json::from_value(
+                    raw_json_data.raw_resource_params_as_dict["calldata_factor"].clone(),
+                )?,
+            })
+        } else {
+            Ok(Self {
+                constant: serde_json::from_value(Value::Object(
+                    raw_json_data.raw_resource_params_as_dict,
+                ))?,
+                calldata_factor: Default::default(),
+            })
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
