@@ -13,7 +13,7 @@ use starknet_api::transaction::{
 use strum_macros::EnumIter;
 
 use crate::context::BlockContext;
-use crate::execution::call_info::CallInfo;
+use crate::execution::call_info::{CallInfo, ExecutionSummary};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::state::cached_state::StorageEntry;
@@ -228,6 +228,16 @@ impl TransactionExecutionInfo {
 
     pub fn is_reverted(&self) -> bool {
         self.revert_error.is_some()
+    }
+
+    pub fn summarize(&self) -> ExecutionSummary {
+        self.non_optional_call_infos().into_iter().map(|call_info| call_info.summarize()).fold(
+            ExecutionSummary::default(),
+            |mut acc, summary| {
+                acc.merge(summary);
+                acc
+            },
+        )
     }
 }
 
