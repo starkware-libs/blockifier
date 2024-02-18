@@ -11,7 +11,7 @@ use crate::execution::entry_point::CallEntryPoint;
 use crate::fee::gas_usage::get_message_segment_length;
 use crate::state::cached_state::StorageEntry;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::TransactionExecutionResult;
+use crate::transaction::objects::{ExecutionSummary, TransactionExecutionResult};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
@@ -171,6 +171,28 @@ impl CallInfo {
     /// Returns the sum of events in CallInfo and its inner_calls
     pub fn get_number_of_events(&self) -> usize {
         self.into_iter().map(|call_info| call_info.execution.events.len()).sum()
+    }
+
+    pub fn summarize(&self) -> ExecutionSummary {
+        let mut executed_class_hashes: HashSet<ClassHash> = HashSet::new();
+        let mut visited_storage_entries: HashSet<StorageEntry> = HashSet::new();
+        let mut n_events: usize = 0;
+
+        for call_info in self.into_iter() {
+            let class_hash =
+                call_info.call.class_hash.expect("Class hash must be set after execution.");
+            executed_class_hashes.insert(class_hash);
+
+            let call_storage_entries = call_info
+                .accessed_storage_keys
+                .iter()
+                .map(|storage_key| (call_info.call.storage_address, *storage_key));
+            visited_storage_entries.extend(call_storage_entries);
+
+            n_events += call_info.execution.events.len();
+        }
+
+        ExecutionSummary { executed_class_hashes, visited_storage_entries, n_events }
     }
 }
 
