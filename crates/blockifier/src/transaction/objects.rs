@@ -177,6 +177,20 @@ pub struct CommonAccountFields {
     pub only_query: bool,
 }
 
+#[derive(Default)]
+pub struct ExecutionSummary {
+    pub executed_class_hashes: HashSet<ClassHash>,
+    pub visited_storage_entries: HashSet<StorageEntry>,
+    pub n_events: usize,
+}
+impl ExecutionSummary {
+    pub fn merge(&mut self, other: ExecutionSummary) {
+        self.executed_class_hashes.extend(other.executed_class_hashes);
+        self.visited_storage_entries.extend(other.visited_storage_entries);
+        self.n_events += other.n_events;
+    }
+}
+
 /// Contains the information gathered by the execution of a transaction.
 #[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct TransactionExecutionInfo {
@@ -228,6 +242,14 @@ impl TransactionExecutionInfo {
 
     pub fn is_reverted(&self) -> bool {
         self.revert_error.is_some()
+    }
+
+    pub fn summarize(&self) -> ExecutionSummary {
+        let mut result: ExecutionSummary = Default::default();
+        for call_info in self.non_optional_call_infos() {
+            result.merge(call_info.summarize());
+        }
+        result
     }
 }
 
