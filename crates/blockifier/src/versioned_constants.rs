@@ -331,8 +331,8 @@ impl<'de> Deserialize<'de> for OsResources {
 
         // Validations.
 
-        #[cfg(not(any(feature = "testing", test)))]
-        validate(&os_resources);
+        #[cfg(not(test))]
+        os_resources.validate::<D>()?;
 
         Ok(os_resources)
     }
@@ -475,7 +475,7 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
         let os_constants = OSConstants { gas_costs, validate_rounding_consts };
 
         // Skip validation in testing: to test validation run validate manually.
-        #[cfg(not(any(feature = "testing", test)))]
+        #[cfg(not(test))]
         os_constants.validate()?;
 
         Ok(os_constants)
