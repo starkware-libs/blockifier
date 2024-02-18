@@ -249,7 +249,8 @@ impl OsResources {
             .flat_map(|resources_vector| {
                 [&resources_vector.constant, &resources_vector.calldata_factor]
             })
-            .chain(self.execute_syscalls.values());
+            .chain(self.execute_syscalls.values())
+            .chain(std::iter::once(&self.compute_os_kzg_commitment_info));
         let builtin_names =
             execution_resources.flat_map(|resources| resources.builtin_instance_counter.keys());
         for builtin_name in builtin_names {
@@ -330,105 +331,8 @@ impl<'de> Deserialize<'de> for OsResources {
 
         // Validations.
 
-<<<<<<< HEAD
-        for tx_type in TransactionType::iter() {
-            if !os_resources.execute_txs_inner.contains_key(&tx_type) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: os_resources.execute_tx_inner is missing transaction_type: \
-                     {tx_type:?}"
-                )));
-            }
-        }
-
-        for syscall_handler in DeprecatedSyscallSelector::iter() {
-            if !os_resources.execute_syscalls.contains_key(&syscall_handler) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: os_resources.execute_syscalls are missing syscall handler: \
-                     {syscall_handler:?}"
-                )));
-            }
-        }
-
-        let known_builtin_names: HashSet<&str> = HashSet::from([
-            builtin_runner::OUTPUT_BUILTIN_NAME,
-            builtin_runner::HASH_BUILTIN_NAME,
-            builtin_runner::RANGE_CHECK_BUILTIN_NAME,
-            builtin_runner::SIGNATURE_BUILTIN_NAME,
-            builtin_runner::BITWISE_BUILTIN_NAME,
-            builtin_runner::EC_OP_BUILTIN_NAME,
-            builtin_runner::KECCAK_BUILTIN_NAME,
-            builtin_runner::POSEIDON_BUILTIN_NAME,
-            builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
-        ]);
-
-        let execution_resources = os_resources
-            .execute_txs_inner
-            .values()
-            .flat_map(|resources_vector| {
-                [&resources_vector.constant, &resources_vector.calldata_factor]
-            })
-            .chain(os_resources.execute_syscalls.values())
-            .chain(std::iter::once(&os_resources.compute_os_kzg_commitment_info));
-        let builtin_names =
-            execution_resources.flat_map(|resources| resources.builtin_instance_counter.keys());
-        for builtin_name in builtin_names {
-            if !(known_builtin_names.contains(builtin_name.as_str())) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: unknown os resource {builtin_name}"
-                )));
-            }
-        }
-||||||| db4f260f
-        for tx_type in TransactionType::iter() {
-            if !os_resources.execute_txs_inner.contains_key(&tx_type) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: os_resources.execute_tx_inner is missing transaction_type: \
-                     {tx_type:?}"
-                )));
-            }
-        }
-
-        for syscall_handler in DeprecatedSyscallSelector::iter() {
-            if !os_resources.execute_syscalls.contains_key(&syscall_handler) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: os_resources.execute_syscalls are missing syscall handler: \
-                     {syscall_handler:?}"
-                )));
-            }
-        }
-
-        let known_builtin_names: HashSet<&str> = HashSet::from([
-            builtin_runner::OUTPUT_BUILTIN_NAME,
-            builtin_runner::HASH_BUILTIN_NAME,
-            builtin_runner::RANGE_CHECK_BUILTIN_NAME,
-            builtin_runner::SIGNATURE_BUILTIN_NAME,
-            builtin_runner::BITWISE_BUILTIN_NAME,
-            builtin_runner::EC_OP_BUILTIN_NAME,
-            builtin_runner::KECCAK_BUILTIN_NAME,
-            builtin_runner::POSEIDON_BUILTIN_NAME,
-            builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
-        ]);
-
-        let execution_resources = os_resources
-            .execute_txs_inner
-            .values()
-            .flat_map(|resources_vector| {
-                [&resources_vector.constant, &resources_vector.calldata_factor]
-            })
-            .chain(os_resources.execute_syscalls.values());
-        let builtin_names =
-            execution_resources.flat_map(|resources| resources.builtin_instance_counter.keys());
-        for builtin_name in builtin_names {
-            if !(known_builtin_names.contains(builtin_name.as_str())) {
-                return Err(DeserializationError::custom(format!(
-                    "ValidationError: unknown os resource {builtin_name}"
-                )));
-            }
-        }
-=======
         #[cfg(not(any(feature = "testing", test)))]
         validate(&os_resources);
->>>>>>> origin/main-v0.13.1
 
         Ok(os_resources)
     }
