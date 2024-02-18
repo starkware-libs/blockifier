@@ -157,7 +157,11 @@
         "l1_gas": "L1_GAS",
         "l2_gas": "L2_GAS",
         "l1_gas_index": 0,
-        "l2_gas_index": 1
+        "l2_gas_index": 1,
+        "validate_rounding_consts": {
+            "validate_block_number_rounding": 100,
+            "validate_timestamp_rounding": 3600
+        }
     },
     "os_resources": {
         "execute_syscalls": {
@@ -456,9 +460,7 @@
             "n_steps": 113
         }
     },
-    "validate_block_number_rounding": 100,
     "validate_max_n_steps": 1000000,
-    "validate_timestamp_rounding": 3600,
     "vm_resource_fee_cost": {
         "bitwise_builtin": 0.16,
         "ec_op_builtin": 2.56,
