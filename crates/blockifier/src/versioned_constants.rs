@@ -8,8 +8,8 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
 use serde::de::Error as DeserializationError;
-use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{Number, Value};
+use serde::{Deserialize, Deserializer};
+use serde_json::{Map, Number, Value};
 use strum::IntoEnumIterator;
 use thiserror::Error;
 
@@ -150,7 +150,7 @@ impl TryFrom<&Path> for VersionedConstants {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 pub struct L2ResourceGasCosts {
     // TODO(barak, 18/03/2024): Once we start charging per byte change to milligas_per_data_byte,
     // divide the value by 32 in the JSON file.
@@ -159,7 +159,7 @@ pub struct L2ResourceGasCosts {
     pub milligas_per_code_byte: u128,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 pub struct EventSizeLimit {
     pub max_data_length: usize,
     pub max_keys_length: usize,
@@ -309,7 +309,7 @@ impl<'de> Deserialize<'de> for OsResources {
 }
 
 // Below, serde first deserializes the json into a regular IndexMap wrapped by the newtype
-// `OSConstantsRawJSON`, then calls the `try_from` of the newtype, which handles the
+// `OsConstantsRawJson`, then calls the `try_from` of the newtype, which handles the
 // conversion into actual values.
 // Assumption: if the json has a value that contains the expression "FOO * 2", then the key `FOO`
 // must appear before this value in the JSON.
@@ -320,8 +320,8 @@ impl<'de> Deserialize<'de> for OsResources {
 // testing very difficult.
 // TODO: consider encoding the * and + operations inside the json file, instead of hardcoded below
 // in the `try_from`.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(try_from = "OSConstantsRawJSON")]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(try_from = "OsConstantsRawJson")]
 pub struct OSConstants {
     validate_rounding_consts: ValidateRoundingConsts,
 
@@ -389,16 +389,16 @@ impl OSConstants {
     }
 }
 
-impl TryFrom<OSConstantsRawJSON> for OSConstants {
+impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
-    fn try_from(raw_json_data: OSConstantsRawJSON) -> Result<Self, Self::Error> {
+    fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
         let mut gas_costs = IndexMap::new();
 
         let gas_cost_whitelist: IndexSet<_> =
             Self::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
 
-        let OSConstantsRawJSON { raw_json_file_as_dict, validate_rounding_consts } = raw_json_data;
+        let OsConstantsRawJson { raw_json_file_as_dict, validate_rounding_consts } = raw_json_data;
         for (key, value) in raw_json_file_as_dict {
             if !gas_cost_whitelist.contains(key.as_str()) {
                 // Ignore non-whitelist consts.
@@ -455,7 +455,7 @@ impl TryFrom<OSConstantsRawJSON> for OSConstants {
 // Intermediate representation of the JSON file in order to make the deserialization easier, using a
 // regular the try_from.
 #[derive(Debug, Deserialize)]
-struct OSConstantsRawJSON {
+struct OsConstantsRawJson {
     #[serde(flatten)]
     raw_json_file_as_dict: IndexMap<String, Value>,
     #[serde(default)]
@@ -490,12 +490,48 @@ pub enum OsConstantsSerdeError {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(try_from = "ResourceParamsRaw")]
 pub struct ResourcesParams {
     pub constant: ExecutionResources,
     pub calldata_factor: ExecutionResources,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
+struct ResourceParamsRaw {
+    #[serde(flatten)]
+    raw_resource_params_as_dict: Map<String, Value>,
+}
+
+impl TryFrom<ResourceParamsRaw> for ResourcesParams {
+    type Error = VersionedConstantsError;
+
+    fn try_from(mut json_data: ResourceParamsRaw) -> Result<Self, Self::Error> {
+        let constant_value = json_data.raw_resource_params_as_dict.remove("constant");
+        let calldata_factor_value = json_data.raw_resource_params_as_dict.remove("calldata_factor");
+
+        let (constant, calldata_factor) = match (constant_value, calldata_factor_value) {
+            (Some(constant), Some(calldata_factor)) => (constant, calldata_factor),
+            (Some(_), None) => {
+                return Err(serde_json::Error::custom(
+                    "Malformed JSON: If `constant` is present, then so should `calldata_factor`",
+                ))?;
+            }
+            (None, _) => {
+                // If `constant` is not found, use the entire map for `constant` and default
+                // `calldata_factor`
+                let entire_value = std::mem::take(&mut json_data.raw_resource_params_as_dict);
+                (Value::Object(entire_value), serde_json::to_value(ExecutionResources::default())?)
+            }
+        };
+
+        Ok(Self {
+            constant: serde_json::from_value(constant)?,
+            calldata_factor: serde_json::from_value(calldata_factor)?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
 struct ValidateRoundingConsts {
     // Flooring factor for block number in validate mode.
     pub validate_block_number_rounding: u64,
