@@ -1795,7 +1795,7 @@ fn max_event_data() -> usize {
 #[test_case(
     vec![stark_felt!(1_u16); max_event_keys()],
     vec![stark_felt!(2_u16); max_event_data()],
-    max_n_emitted_events(),
+    max_n_emitted_events() - 1, // Fee transfer emits 1 event.
     None;
     "Positive flow")]
 #[test_case(
