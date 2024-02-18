@@ -166,7 +166,7 @@
     "os_resources": {
         "execute_syscalls": {
             "CallContract": {
-                "n_steps": 760,
+                "n_steps": 766,
                 "builtin_instance_counter": {
                     "range_check_builtin": 20
                 },
@@ -266,7 +266,7 @@
                 "n_memory_holes": 0
             },
             "LibraryCall": {
-                "n_steps": 751,
+                "n_steps": 757,
                 "builtin_instance_counter": {
                     "range_check_builtin": 20
                 },
@@ -381,7 +381,7 @@
         "execute_txs_inner": {
             "Declare": {
                 "constant": {
-                    "n_steps": 2839,
+                    "n_steps": 2851,
                     "builtin_instance_counter": {
                         "pedersen_builtin": 16,
                         "range_check_builtin": 63
@@ -396,7 +396,7 @@
             },
             "DeployAccount": {
                 "constant": {
-                    "n_steps": 3792,
+                    "n_steps": 3804,
                     "builtin_instance_counter": {
                         "pedersen_builtin": 23,
                         "range_check_builtin": 83
@@ -413,7 +413,7 @@
             },
             "InvokeFunction": {
                 "constant": {
-                    "n_steps": 3546,
+                    "n_steps": 3558,
                     "builtin_instance_counter": {
                         "pedersen_builtin": 14,
                         "range_check_builtin": 80
