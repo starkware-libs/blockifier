@@ -9,7 +9,7 @@ use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{Number, Value};
+use serde_json::{Map, Number, Value};
 use strum::IntoEnumIterator;
 use thiserror::Error;
 
@@ -490,9 +490,45 @@ pub enum OsConstantsSerdeError {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(try_from = "ResourceParamsRaw")]
 pub struct ResourcesParams {
     pub constant: ExecutionResources,
     pub calldata_factor: ExecutionResources,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct ResourceParamsRaw {
+    #[serde(flatten)]
+    raw_resource_params_as_dict: Map<String, Value>,
+}
+
+impl TryFrom<ResourceParamsRaw> for ResourcesParams {
+    type Error = VersionedConstantsError;
+
+    fn try_from(mut json_data: ResourceParamsRaw) -> Result<Self, Self::Error> {
+        let constant_opt = json_data.raw_resource_params_as_dict.remove("constant");
+        let calldata_factor_opt = json_data.raw_resource_params_as_dict.remove("calldata_factor");
+
+        let (constant, calldata_factor) = match (constant_opt, calldata_factor_opt) {
+            (Some(constant), Some(calldata_factor)) => (constant, calldata_factor),
+            (Some(_), None) => {
+                return Err(serde_json::Error::custom(
+                    "Malformed JSON: If `constant` is present, then so should `calldata_factor`",
+                ))?;
+            }
+            (None, _) => {
+                // If "constant" is not found, use the entire map for "constant" and default
+                // "calldata_factor"
+                let entire_map = std::mem::take(&mut json_data.raw_resource_params_as_dict);
+                (Value::Object(entire_map), serde_json::to_value(ExecutionResources::default())?)
+            }
+        };
+
+        let constant = serde_json::from_value(constant)?;
+        let calldata_factor = serde_json::from_value(calldata_factor)?;
+
+        Ok(Self { constant, calldata_factor })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
