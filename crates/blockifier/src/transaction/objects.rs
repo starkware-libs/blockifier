@@ -177,6 +177,12 @@ pub struct CommonAccountFields {
     pub only_query: bool,
 }
 
+pub struct TxExecutionSummary {
+    pub executed_class_hashes: HashSet<ClassHash>,
+    pub visited_storage_entries: HashSet<StorageEntry>,
+    pub n_events: usize,
+}
+
 /// Contains the information gathered by the execution of a transaction.
 #[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct TransactionExecutionInfo {
@@ -228,6 +234,29 @@ impl TransactionExecutionInfo {
 
     pub fn is_reverted(&self) -> bool {
         self.revert_error.is_some()
+    }
+
+    pub fn calculate_info_naively_for_bouncer(&self) -> TxExecutionSummary {
+        TxExecutionSummary {
+            executed_class_hashes: self.get_executed_class_hashes(),
+            visited_storage_entries: self.get_visited_storage_entries(),
+            n_events: self.get_number_of_events(),
+        }
+    }
+
+    pub fn calculate_info_for_bouncer(&self) -> TxExecutionSummary {
+        let mut executed_class_hashes = HashSet::new();
+        let mut visited_storage_entries = HashSet::new();
+        let mut n_events = 0;
+
+        for call_info in self.non_optional_call_infos() {
+            let temp: TxExecutionSummary = call_info.calculate_tx_execution_summary();
+            executed_class_hashes.extend(temp.executed_class_hashes);
+            visited_storage_entries.extend(temp.visited_storage_entries);
+            n_events += temp.n_events;
+        }
+
+        TxExecutionSummary { executed_class_hashes, visited_storage_entries, n_events }
     }
 }
 
