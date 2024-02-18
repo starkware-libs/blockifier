@@ -994,34 +994,6 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     );
 }
 
-/// Returns the expected number of range checks in a declare transaction.
-fn declare_expected_range_check_builtin(
-    version: TransactionVersion,
-    declared_contract_version: CairoVersion,
-) -> usize {
-    // Cairo1 account has a vector as input in `__validate__`, so extra range checks needed.
-    // Not relevant in v0 transactions (no validate).
-    if version > TransactionVersion::ZERO
-        && matches!(declared_contract_version, CairoVersion::Cairo1)
-    {
-        65
-    } else {
-        63
-    }
-}
-
-/// Returns the expected number of cairo steps in a declare transaction.
-fn declare_n_steps(version: TransactionVersion, declared_contract_version: CairoVersion) -> usize {
-    if version == TransactionVersion::ZERO {
-        2839 // No `__validate__`. Same number of steps, regardless of declared contract version.
-    } else {
-        match declared_contract_version {
-            CairoVersion::Cairo0 => 2851,
-            CairoVersion::Cairo1 => 2889,
-        }
-    }
-}
-
 /// Expected CallInfo for `__validate__` call in a declare transaction.
 fn declare_validate_callinfo(
     version: TransactionVersion,
@@ -1135,6 +1107,21 @@ fn test_declare_tx(
     let code_gas = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
     let gas_usage = code_gas + da_gas;
 
+    let mut expected_cairo_resources =
+        versioned_constants.get_additional_os_tx_resources(TransactionType::Declare, 0).unwrap();
+    if let Some(expected_validate_call_info) = &expected_validate_call_info {
+        expected_cairo_resources += &expected_validate_call_info.resources
+    };
+    let mut expected_actual_resources = ResourcesMapping(HashMap::from([
+        (abi_constants::L1_GAS_USAGE.to_string(), gas_usage.l1_gas.try_into().unwrap()),
+        (abi_constants::BLOB_GAS_USAGE.to_string(), gas_usage.l1_data_gas.try_into().unwrap()),
+        (
+            abi_constants::N_STEPS_RESOURCE.to_string(),
+            expected_cairo_resources.n_steps + expected_cairo_resources.n_memory_holes,
+        ),
+    ]));
+    expected_actual_resources.0.extend(expected_cairo_resources.builtin_instance_counter);
+
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
@@ -1142,19 +1129,7 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), gas_usage.l1_gas.try_into().unwrap()),
-            (abi_constants::BLOB_GAS_USAGE.to_string(), gas_usage.l1_data_gas.try_into().unwrap()),
-            (HASH_BUILTIN_NAME.to_string(), 16),
-            (
-                RANGE_CHECK_BUILTIN_NAME.to_string(),
-                declare_expected_range_check_builtin(tx_version, account_cairo_version),
-            ),
-            (
-                abi_constants::N_STEPS_RESOURCE.to_string(),
-                declare_n_steps(tx_version, account_cairo_version),
-            ),
-        ])),
+        actual_resources: expected_actual_resources,
     };
 
     // Test execution info result.
