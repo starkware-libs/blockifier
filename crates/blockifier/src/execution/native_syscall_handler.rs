@@ -15,7 +15,7 @@ use starknet_api::transaction::{
 };
 use starknet_types_core::felt::Felt;
 
-use super::sierra_utils::{contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt};
+use super::sierra_utils::{chain_id_to_felt, contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt};
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
@@ -49,7 +49,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &mut self,
         block_number: u64,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Felt> {
+    ) -> SyscallResult<Felt> {
         if self.execution_context.execution_mode == ExecutionMode::Validate {
             let execution_mode_err = Felt::from_hex(INVALID_EXECUTION_MODE_ERROR).unwrap();
 
@@ -83,40 +83,39 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
     fn get_execution_info(
         &mut self,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<cairo_native::starknet::ExecutionInfo> {
+    ) -> SyscallResult<cairo_native::starknet::ExecutionInfo> {
+        let block_context = &self.execution_context.block_context;
+        let account_tx_context = &self.execution_context.account_tx_context;
+
+        let block_info: BlockInfo = BlockInfo {
+            block_number: block_context.block_number.0,
+            block_timestamp: block_context.block_timestamp.0,
+            sequencer_address: contract_address_to_felt(block_context.sequencer_address),
+        };
+
+        let signature = account_tx_context.signature().0.into_iter().map(starkfelt_to_felt).collect();
+
+        let tx_info = TxInfo {
+            version: starkfelt_to_felt(account_tx_context.version().0),
+            account_contract_address: contract_address_to_felt(account_tx_context.sender_address(),),
+            // todo(rodro): it is ok to unwrap as default? Also, will this be deprecated soon?
+            max_fee: account_tx_context.max_fee().unwrap_or_default().0,
+            signature,
+            transaction_hash: starkfelt_to_felt(account_tx_context.transaction_hash().0),
+            chain_id: chain_id_to_felt(&block_context.chain_id).unwrap(),
+            nonce: starkfelt_to_felt(account_tx_context.nonce().0),
+        };
+
+        let caller_address = contract_address_to_felt(self.caller_address);
+        let contract_address = contract_address_to_felt(self.contract_address);
+        let entry_point_selector = starkfelt_to_felt(self.entry_point_selector);
+
         Ok(cairo_native::starknet::ExecutionInfo {
-            block_info: BlockInfo {
-                block_number: self.execution_context.block_context.block_number.0,
-                block_timestamp: self.execution_context.block_context.block_timestamp.0,
-                sequencer_address: contract_address_to_felt(
-                    self.execution_context.block_context.sequencer_address,
-                ),
-            },
-            tx_info: TxInfo {
-                version: starkfelt_to_felt(self.execution_context.account_tx_context.version().0),
-                account_contract_address: contract_address_to_felt(
-                    self.execution_context.account_tx_context.sender_address(),
-                ),
-                // todo(rodro): it is ok to unwrap as default? Also, will this be deprecated soon?
-                max_fee: self.execution_context.account_tx_context.max_fee().unwrap_or_default().0,
-                signature: self
-                    .execution_context
-                    .account_tx_context
-                    .signature()
-                    .0
-                    .iter()
-                    .map(|stark_felt| starkfelt_to_felt(*stark_felt))
-                    .collect(),
-                transaction_hash: starkfelt_to_felt(
-                    self.execution_context.account_tx_context.transaction_hash().0,
-                ),
-                chain_id: Felt::from_hex(&self.execution_context.block_context.chain_id.as_hex())
-                    .unwrap(),
-                nonce: starkfelt_to_felt(self.execution_context.account_tx_context.nonce().0),
-            },
-            caller_address: contract_address_to_felt(self.caller_address),
-            contract_address: contract_address_to_felt(self.contract_address),
-            entry_point_selector: starkfelt_to_felt(self.entry_point_selector),
+            block_info,
+            tx_info,
+            caller_address,
+            contract_address,
+            entry_point_selector,
         })
     }
 
@@ -124,20 +123,19 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &mut self,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<ExecutionInfoV2> {
+        let block_context = &self.execution_context.block_context;
+        let account_tx_context = &self.execution_context.account_tx_context;
+
         Ok(ExecutionInfoV2 {
             block_info: BlockInfo {
-                block_number: self.execution_context.block_context.block_number.0,
-                block_timestamp: self.execution_context.block_context.block_timestamp.0,
-                sequencer_address: contract_address_to_felt(
-                    self.execution_context.block_context.sequencer_address,
-                ),
+                block_number: block_context.block_number.0,
+                block_timestamp: block_context.block_timestamp.0,
+                sequencer_address: contract_address_to_felt(block_context.sequencer_address),
             },
             tx_info: TxV2Info {
-                version: starkfelt_to_felt(self.execution_context.account_tx_context.version().0),
-                account_contract_address: contract_address_to_felt(
-                    self.execution_context.account_tx_context.sender_address(),
-                ),
-                max_fee: self.execution_context.account_tx_context.max_fee().unwrap_or_default().0,
+                version: starkfelt_to_felt(account_tx_context.version().0),
+                account_contract_address: contract_address_to_felt(account_tx_context.sender_address()),
+                max_fee: account_tx_context.max_fee().unwrap_or_default().0,
                 signature: vec![],
                 transaction_hash: Default::default(),
                 chain_id: Default::default(),
@@ -162,7 +160,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         calldata: &[Felt],
         deploy_from_zero: bool,
         remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<(Felt, Vec<Felt>)> {
+    ) -> SyscallResult<(Felt, Vec<Felt>)> {
         let deployer_address =
             if deploy_from_zero { ContractAddress::default() } else { self.contract_address };
 
@@ -209,11 +207,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         Ok((contract_address_felt, return_data))
     }
 
-    fn replace_class(
-        &mut self,
-        class_hash: Felt,
-        _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<()> {
+    fn replace_class(&mut self, class_hash: Felt, _remaining_gas: &mut u128) -> SyscallResult<()> {
         let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
         let contract_class = self
             .state
@@ -238,7 +232,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         function_selector: Felt,
         calldata: &[Felt],
         remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Vec<Felt>> {
+    ) -> SyscallResult<Vec<Felt>> {
         let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
 
         let wrapper_calldata = Calldata(Arc::new(
@@ -274,7 +268,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         entry_point_selector: Felt,
         calldata: &[Felt],
         remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Vec<Felt>> {
+    ) -> SyscallResult<Vec<Felt>> {
         let contract_address = ContractAddress::try_from(felt_to_starkfelt(address))
             .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
 
@@ -315,7 +309,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _address_domain: u32,
         address: Felt,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Felt> {
+    ) -> SyscallResult<Felt> {
         // TODO - in progress - Dom
         let storage_key = StorageKey(
             PatriciaKey::try_from(felt_to_starkfelt(address))
@@ -324,12 +318,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let read_result = self.state.get_storage_at(self.contract_address, storage_key);
         let unsafe_read_result =
             read_result.map_err(|_| vec![Felt::from_hex(FAILED_TO_READ_RESULT).unwrap()])?;
-        println!(
-            "[{}]: storage_read {}={}",
-            self.entry_point_selector,
-            address.to_hex_string(),
-            unsafe_read_result.to_string()
-        );
+
         Ok(starkfelt_to_felt(unsafe_read_result))
     }
 
@@ -339,20 +328,11 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         address: Felt,
         value: Felt,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<()> {
-        println!(
-            "[{}]: storage_write {}={}",
-            self.entry_point_selector,
-            address.to_hex_string(),
-            value.to_hex_string()
-        );
-
+    ) -> SyscallResult<()> {
         let storage_key = StorageKey(
             PatriciaKey::try_from(felt_to_starkfelt(address))
                 .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?,
         );
-
-        println!("{}", felt_to_starkfelt(value).to_string());
 
         let write_result =
             self.state.set_storage_at(self.contract_address, storage_key, felt_to_starkfelt(value));
@@ -365,7 +345,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         keys: &[Felt],
         data: &[Felt],
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<()> {
+    ) -> SyscallResult<()> {
         let order = self.execution_context.n_emitted_events;
 
         self.events.push(OrderedEvent {
@@ -389,7 +369,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         to_address: Felt,
         payload: &[Felt],
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<()> {
+    ) -> SyscallResult<()> {
         let order = self.execution_context.n_sent_messages_to_l1;
 
         self.l2_to_l1_messages.push(OrderedL2ToL1Message {
@@ -412,7 +392,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &mut self,
         input: &[u64],
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<cairo_native::starknet::U256> {
+    ) -> SyscallResult<cairo_native::starknet::U256> {
         let input_len = input.len();
 
         const KECCAK_FULL_RATE_IN_WORDS: usize = 17;
@@ -440,9 +420,14 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
         let hash = hash.concat();
 
-        Ok(cairo_native::starknet::U256(
-            hash[0..32].try_into().map_err(|_| vec![Felt::from_hex(FAILED_TO_PARSE).unwrap()])?,
-        ))
+        let hi: u128 = u128::from_le_bytes(
+            hash[16..32].try_into().map_err(|_| vec![Felt::from_hex(FAILED_TO_PARSE).unwrap()])?,
+        );
+        let lo: u128 = u128::from_le_bytes(
+            hash[0..16].try_into().map_err(|_| vec![Felt::from_hex(FAILED_TO_PARSE).unwrap()])?,
+        );
+
+        Ok(cairo_native::starknet::U256 { hi, lo })
     }
 
     fn secp256k1_add(
@@ -450,83 +435,77 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _p0: cairo_native::starknet::Secp256k1Point,
         _p1: cairo_native::starknet::Secp256k1Point,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
+    ) -> SyscallResult<cairo_native::starknet::Secp256k1Point> {
         todo!("Native syscall handler - secp256k1_add") // unimplemented in cairo native
     }
 
     fn secp256k1_get_point_from_x(
-        &self,
+        &mut self,
         _x: cairo_native::starknet::U256,
         _y_parity: bool,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
+    ) -> SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
         todo!("Native syscall handler - secp256k1_get_point_from_x") // unimplemented in cairo native
     }
 
     fn secp256k1_get_xy(
-        &self,
+        &mut self,
         _p: cairo_native::starknet::Secp256k1Point,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<(
-        cairo_native::starknet::U256,
-        cairo_native::starknet::U256,
-    )> {
+    ) -> SyscallResult<(cairo_native::starknet::U256, cairo_native::starknet::U256)> {
         todo!("Native syscall handler - secp256k1_get_xy") // unimplemented in cairo native
     }
 
     fn secp256k1_mul(
-        &self,
+        &mut self,
         _p: cairo_native::starknet::Secp256k1Point,
         _m: cairo_native::starknet::U256,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
+    ) -> SyscallResult<cairo_native::starknet::Secp256k1Point> {
         todo!("Native syscall handler - secp256k1_mul") // unimplemented in cairo native
     }
 
     fn secp256k1_new(
-        &self,
+        &mut self,
         _x: cairo_native::starknet::U256,
         _y: cairo_native::starknet::U256,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
+    ) -> SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
         todo!("Native syscall handler - secp256k1_new") // unimplemented in cairo native
     }
 
     fn secp256r1_add(
-        &self,
-        _p0: cairo_native::starknet::Secp256k1Point,
-        _p1: cairo_native::starknet::Secp256k1Point,
+        &mut self,
+        _p0: cairo_native::starknet::Secp256r1Point,
+        _p1: cairo_native::starknet::Secp256r1Point,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
+    ) -> SyscallResult<cairo_native::starknet::Secp256r1Point> {
         todo!("Native syscall handler - secp256r1_add") // unimplemented in cairo native
     }
 
     fn secp256r1_get_point_from_x(
-        &self,
+        &mut self,
         _x: cairo_native::starknet::U256,
         _y_parity: bool,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
+    ) -> SyscallResult<Option<cairo_native::starknet::Secp256r1Point>> {
         todo!("Native syscall handler - secp256r1_get_point_from_x") // unimplemented in cairo native
     }
 
     fn secp256r1_get_xy(
-        &self,
-        _p: cairo_native::starknet::Secp256k1Point,
+        &mut self,
+        _p: cairo_native::starknet::Secp256r1Point,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<(
-        cairo_native::starknet::U256,
-        cairo_native::starknet::U256,
-    )> {
+    ) -> SyscallResult<(cairo_native::starknet::U256, cairo_native::starknet::U256)> {
         todo!("Native syscall handler - secp256r1_get_xy") // unimplemented in cairo native
     }
 
     fn secp256r1_mul(
-        &self,
-        _p: cairo_native::starknet::Secp256k1Point,
+        &mut self,
+        _p: cairo_native::starknet::Secp256r1Point,
         _m: cairo_native::starknet::U256,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
+    ) -> SyscallResult<cairo_native::starknet::Secp256r1Point> {
         todo!("Native syscall handler - secp256r1_mul") // unimplemented in cairo native
     }
 
@@ -535,7 +514,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _x: cairo_native::starknet::U256,
         _y: cairo_native::starknet::U256,
         _remaining_gas: &mut u128,
-    ) -> cairo_native::starknet::SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
+    ) -> SyscallResult<Option<cairo_native::starknet::Secp256r1Point>> {
         todo!("Native syscall handler - secp256r1_new") // unimplemented in cairo native
     }
 

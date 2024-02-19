@@ -21,8 +21,7 @@ macro_rules! retdata {
     };
 }
 
-#[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct OrderedEvent {
     pub order: usize,
     pub event: EventContent,

@@ -12,8 +12,8 @@ use crate::test_utils::{
     ERC20_FULL_CONTRACT_PATH, LEGACY_TEST_CLASS_HASH, LEGACY_TEST_CONTRACT_ADDRESS,
     LEGACY_TEST_CONTRACT_CAIRO1_PATH, SECURITY_TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_ADDRESS,
     SECURITY_TEST_CONTRACT_CAIRO0_PATH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_ADDRESS_2, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_SIERRA_PATH,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
+    TEST_CONTRACT_ADDRESS_2, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
+    TEST_CONTRACT_SIERRA_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_FULL_CONTRACT_CLASS_HASH,
 };
 
@@ -44,6 +44,18 @@ pub fn create_test_state() -> CachedState<DictStateReader> {
     })
 }
 
+pub fn create_test_state_vm() -> CachedState<DictStateReader> {
+    let class_hash_to_class = get_class_hash_to_v1_class_mapping_vm();
+
+    let address_to_class_hash = common_map_setup();
+
+    CachedState::from(DictStateReader {
+        class_hash_to_class,
+        address_to_class_hash,
+        ..Default::default()
+    })
+}
+
 pub fn deprecated_create_deploy_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = get_class_hash_to_v0_class_mapping();
     create_deploy_test_state_from_classes(class_hash_to_class)
@@ -51,6 +63,11 @@ pub fn deprecated_create_deploy_test_state() -> CachedState<DictStateReader> {
 
 pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = get_class_hash_to_v1_class_mapping();
+    create_deploy_test_state_from_classes(class_hash_to_class)
+}
+
+pub fn create_deploy_test_state_vm() -> CachedState<DictStateReader> {
+    let class_hash_to_class = get_class_hash_to_v1_class_mapping_vm();
     create_deploy_test_state_from_classes(class_hash_to_class)
 }
 
@@ -112,6 +129,23 @@ fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
         (
             class_hash!(TEST_CLASS_HASH),
             SierraContractClassV1::from_file(TEST_CONTRACT_SIERRA_PATH).into(),
+        ),
+        (
+            class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+            ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
+        ),
+        (
+            class_hash!(LEGACY_TEST_CLASS_HASH),
+            ContractClassV1::from_file(LEGACY_TEST_CONTRACT_CAIRO1_PATH).into(),
+        ),
+    ])
+}
+
+fn get_class_hash_to_v1_class_mapping_vm() -> ContractClassMapping {
+    HashMap::from([
+        (
+            class_hash!(TEST_CLASS_HASH),
+            ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
         ),
         (
             class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
