@@ -7,12 +7,16 @@ use crate::abi::constants;
 use crate::block::{pre_process_block, BlockInfo, BlockNumberHashPair};
 use crate::context::ChainInfo;
 use crate::state::state_api::StateReader;
-use crate::test_utils::cached_state::create_test_state;
+use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::{CairoVersion, BALANCE};
 use crate::versioned_constants::VersionedConstants;
 
 #[test]
 fn test_pre_process_block() {
-    let mut state = create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let chain_info = &ChainInfo::create_for_testing();
+    let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
     // Test the positive flow of pre_process_block inside the allowed block number interval
     let block_number = constants::STORED_BLOCK_HASH_BUFFER;
