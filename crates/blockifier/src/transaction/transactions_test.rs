@@ -260,8 +260,9 @@ fn get_expected_cairo_resources(
     calldata_length: usize,
     call_infos: Vec<&Option<CallInfo>>,
 ) -> ExecutionResources {
-    let mut expected_cairo_resources =
-        versioned_constants.get_additional_os_tx_resources(tx_type, calldata_length).unwrap();
+    let mut expected_cairo_resources = versioned_constants
+        .get_additional_os_tx_resources(tx_type, calldata_length, 0, false)
+        .unwrap();
     for call_info in call_infos {
         if let Some(call_info) = &call_info {
             expected_cairo_resources += &call_info.resources
@@ -329,6 +330,7 @@ fn validate_final_balances(
     }
 }
 
+// TODO(Yoni, 1/4/2024): merge this with `get_expected_cairo_resources`.
 fn add_kzg_da_resources(
     resources: &mut ResourcesMapping,
     state_changes_count: StateChangesCount,
@@ -475,11 +477,6 @@ fn test_invoke_tx(
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
     let calldata_and_signature_gas =
         get_calldata_and_signature_gas_cost(calldata_length, signature_length, versioned_constants);
-<<<<<<< HEAD
-    let mut expected_execution_info = TransactionExecutionInfo {
-||||||| 828c57b0
-    let expected_execution_info = TransactionExecutionInfo {
-=======
 
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
@@ -487,8 +484,7 @@ fn test_invoke_tx(
         calldata_length,
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
-    let expected_execution_info = TransactionExecutionInfo {
->>>>>>> origin/main-v0.13.1
+    let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
