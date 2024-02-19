@@ -6,7 +6,7 @@
     },
     "gateway": {
         "max_calldata_length": 4000,
-        "max_contract_bytecode_size": 61440
+        "max_contract_bytecode_size": 81920
     },
     "invoke_tx_max_n_steps": 4000000,
     "l2_resource_gas_costs": {
