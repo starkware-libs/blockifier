@@ -101,8 +101,6 @@ fn versioned_constants_for_account_testing() -> VersionedConstants {
 }
 
 struct ExpectedResultTestInvokeTx {
-    range_check: usize,
-    n_steps: usize,
     resources: ExecutionResources,
     validate_gas_consumed: u64,
     execute_gas_consumed: u64,
@@ -256,6 +254,40 @@ fn expected_fee_transfer_call_info(
     })
 }
 
+fn get_expected_cairo_resources(
+    versioned_constants: &VersionedConstants,
+    tx_type: TransactionType,
+    calldata_length: usize,
+    call_infos: Vec<&Option<CallInfo>>,
+) -> ExecutionResources {
+    let mut expected_cairo_resources =
+        versioned_constants.get_additional_os_tx_resources(tx_type, calldata_length).unwrap();
+    for call_info in call_infos {
+        if let Some(call_info) = &call_info {
+            expected_cairo_resources += &call_info.resources
+        };
+    }
+
+    expected_cairo_resources
+}
+
+fn get_actual_resources(
+    cairo_resources: ExecutionResources,
+    gas_vector: GasVector,
+) -> ResourcesMapping {
+    let GasVector { l1_gas, l1_data_gas } = gas_vector;
+    let mut actual_resources = ResourcesMapping(HashMap::from([
+        (abi_constants::L1_GAS_USAGE.to_string(), l1_gas.try_into().unwrap()),
+        (abi_constants::BLOB_GAS_USAGE.to_string(), l1_data_gas.try_into().unwrap()),
+        (
+            abi_constants::N_STEPS_RESOURCE.to_string(),
+            cairo_resources.n_steps + cairo_resources.n_memory_holes,
+        ),
+    ]));
+    actual_resources.0.extend(cairo_resources.builtin_instance_counter);
+    actual_resources
+}
+
 /// Given the fee result of a single account transaction, verifies the final balances of the account
 /// and the sequencer (in both fee types) are as expected (assuming the initial sequencer balances
 /// are zero).
@@ -322,8 +354,6 @@ fn add_kzg_da_resources(
 #[rstest]
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
-        range_check: 102,
-        n_steps: 4421,
         resources: ExecutionResources {
             n_steps:  822,
             n_memory_holes:  0,
@@ -336,8 +366,6 @@ fn add_kzg_da_resources(
     CairoVersion::Cairo0)]
 #[case::with_cairo1_account(
     ExpectedResultTestInvokeTx{
-        range_check: 115,
-        n_steps: 4876,
         resources: ExecutionResources {
             n_steps: 1108,
             n_memory_holes: 1,
@@ -447,25 +475,29 @@ fn test_invoke_tx(
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
     let calldata_and_signature_gas =
         get_calldata_and_signature_gas_cost(calldata_length, signature_length, versioned_constants);
+<<<<<<< HEAD
     let mut expected_execution_info = TransactionExecutionInfo {
+||||||| 828c57b0
+    let expected_execution_info = TransactionExecutionInfo {
+=======
+
+    let expected_cairo_resources = get_expected_cairo_resources(
+        versioned_constants,
+        TransactionType::InvokeFunction,
+        calldata_length,
+        vec![&expected_validate_call_info, &expected_execute_call_info],
+    );
+    let expected_execution_info = TransactionExecutionInfo {
+>>>>>>> origin/main-v0.13.1
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         da_gas,
-        actual_resources: ResourcesMapping(HashMap::from([
-            (
-                abi_constants::BLOB_GAS_USAGE.to_string(),
-                usize_from_u128(da_gas.l1_data_gas).unwrap(),
-            ),
-            (
-                abi_constants::L1_GAS_USAGE.to_string(),
-                usize_from_u128(da_gas.l1_gas + calldata_and_signature_gas.l1_gas).unwrap(),
-            ),
-            (HASH_BUILTIN_NAME.to_string(), 14 + calldata_length),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_arguments.range_check),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), expected_arguments.n_steps),
-        ])),
+        actual_resources: get_actual_resources(
+            expected_cairo_resources,
+            da_gas + calldata_and_signature_gas,
+        ),
         revert_error: None,
     };
 
@@ -1023,34 +1055,6 @@ fn test_invalid_nonce(account_cairo_version: CairoVersion) {
     );
 }
 
-/// Returns the expected number of range checks in a declare transaction.
-fn declare_expected_range_check_builtin(
-    version: TransactionVersion,
-    declared_contract_version: CairoVersion,
-) -> usize {
-    // Cairo1 account has a vector as input in `__validate__`, so extra range checks needed.
-    // Not relevant in v0 transactions (no validate).
-    if version > TransactionVersion::ZERO
-        && matches!(declared_contract_version, CairoVersion::Cairo1)
-    {
-        65
-    } else {
-        63
-    }
-}
-
-/// Returns the expected number of cairo steps in a declare transaction.
-fn declare_n_steps(version: TransactionVersion, declared_contract_version: CairoVersion) -> usize {
-    if version == TransactionVersion::ZERO {
-        2839 // No `__validate__`. Same number of steps, regardless of declared contract version.
-    } else {
-        match declared_contract_version {
-            CairoVersion::Cairo0 => 2851,
-            CairoVersion::Cairo1 => 2889,
-        }
-    }
-}
-
 /// Expected CallInfo for `__validate__` call in a declare transaction.
 fn declare_validate_callinfo(
     version: TransactionVersion,
@@ -1161,7 +1165,12 @@ fn test_declare_tx(
     let state_changes_count = declare_expected_state_changes_count(tx_version);
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
     let code_gas = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
-    let gas_usage = code_gas + da_gas;
+    let expected_cairo_resources = get_expected_cairo_resources(
+        versioned_constants,
+        TransactionType::Declare,
+        0,
+        vec![&expected_validate_call_info],
+    );
 
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
@@ -1170,19 +1179,7 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), gas_usage.l1_gas.try_into().unwrap()),
-            (abi_constants::BLOB_GAS_USAGE.to_string(), gas_usage.l1_data_gas.try_into().unwrap()),
-            (HASH_BUILTIN_NAME.to_string(), 16),
-            (
-                RANGE_CHECK_BUILTIN_NAME.to_string(),
-                declare_expected_range_check_builtin(tx_version, account_cairo_version),
-            ),
-            (
-                abi_constants::N_STEPS_RESOURCE.to_string(),
-                declare_n_steps(tx_version, account_cairo_version),
-            ),
-        ])),
+        actual_resources: get_actual_resources(expected_cairo_resources, code_gas + da_gas),
     };
 
     add_kzg_da_resources(
@@ -1218,11 +1215,9 @@ fn test_declare_tx(
 }
 
 #[rstest]
-#[case(83, 3805, CairoVersion::Cairo0)]
-#[case(85, 3861, CairoVersion::Cairo1)]
+#[case(CairoVersion::Cairo0)]
+#[case(CairoVersion::Cairo1)]
 fn test_deploy_account_tx(
-    #[case] expected_range_check_builtin: usize,
-    #[case] expected_n_steps_resource: usize,
     #[case] cairo_version: CairoVersion,
     #[values(false, true)] use_kzg_da: bool,
 ) {
@@ -1307,6 +1302,12 @@ fn test_deploy_account_tx(
         ..StateChangesCount::default()
     };
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
+    let expected_cairo_resources = get_expected_cairo_resources(
+        &block_context.versioned_constants,
+        TransactionType::DeployAccount,
+        constructor_calldata.0.len(),
+        vec![&expected_validate_call_info, &expected_execute_call_info],
+    );
 
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
@@ -1315,16 +1316,7 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: ResourcesMapping(HashMap::from([
-            (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(da_gas.l1_gas).unwrap()),
-            (
-                abi_constants::BLOB_GAS_USAGE.to_string(),
-                usize_from_u128(da_gas.l1_data_gas).unwrap(),
-            ),
-            (HASH_BUILTIN_NAME.to_string(), 23),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), expected_range_check_builtin),
-            (abi_constants::N_STEPS_RESOURCE.to_string(), expected_n_steps_resource),
-        ])),
+        actual_resources: get_actual_resources(expected_cairo_resources, da_gas),
     };
 
     add_kzg_da_resources(
