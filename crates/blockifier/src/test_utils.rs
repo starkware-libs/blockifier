@@ -29,9 +29,9 @@ use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::test_utils::contracts::FeatureContract;
 use crate::utils::const_max;
 use crate::versioned_constants::VersionedConstants;
-
 // TODO(Dori, 1/2/2024): Remove these constants once all tests use the `contracts` and
 //   `initial_test_state` modules for testing.
 // Addresses.
@@ -200,6 +200,11 @@ pub fn get_test_contract_class() -> ContractClass {
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
     trivial_external_entry_point_with_address(contract_address!(TEST_CONTRACT_ADDRESS))
+}
+
+pub fn trivial_external_entry_point_new() -> CallEntryPoint {
+    let address = FeatureContract::TestContract(CairoVersion::Cairo1).get_instance_address(0);
+    trivial_external_entry_point_with_address(address)
 }
 
 pub fn trivial_external_entry_point_with_address(

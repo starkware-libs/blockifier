@@ -41,10 +41,11 @@ use crate::test_utils::cached_state::{create_deploy_test_state, create_test_stat
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, trivial_external_entry_point, CairoVersion, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
-    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    create_calldata, trivial_external_entry_point, trivial_external_entry_point_new, CairoVersion,
+    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
+    CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
@@ -67,7 +68,7 @@ fn test_storage_read_write() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
@@ -90,7 +91,7 @@ fn test_call_contract() {
 
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let calldata = create_calldata(
-        contract_address!(TEST_CONTRACT_ADDRESS),
+        FeatureContract::TestContract(CairoVersion::Cairo1).get_instance_address(0),
         "test_storage_read_write",
         &[
             stark_felt!(405_u16), // Calldata: address.
@@ -100,7 +101,7 @@ fn test_call_contract() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -187,7 +188,7 @@ fn emit_events(
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_emit_events"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
 
     entry_point_call.execute_directly(&mut state)
@@ -211,7 +212,7 @@ fn test_get_block_hash() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_get_block_hash"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
 
     assert_eq!(
@@ -233,7 +234,7 @@ fn test_get_block_hash() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_get_block_hash"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
     assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }
@@ -248,7 +249,7 @@ fn test_keccak() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_keccak"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
 
     assert_eq!(
@@ -491,18 +492,19 @@ fn test_library_call() {
     let mut state = create_test_state();
 
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
-        inner_entry_point_selector.0, // Function selector.
-        stark_felt!(2_u8),            // Calldata length.
-        stark_felt!(1234_u16),        // Calldata: address.
-        stark_felt!(91_u8)            // Calldata: value.
+        test_contract.get_class_hash().0, // Class hash.
+        inner_entry_point_selector.0,     // Function selector.
+        stark_felt!(2_u8),                // Calldata length.
+        stark_felt!(1234_u16),            // Calldata: address.
+        stark_felt!(91_u8)                // Calldata: value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
         calldata,
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-        ..trivial_external_entry_point()
+        class_hash: Some(test_contract.get_class_hash()),
+        ..trivial_external_entry_point_new()
     };
 
     assert_eq!(
@@ -519,18 +521,19 @@ fn test_library_call() {
 fn test_library_call_assert_fails() {
     let mut state = create_test_state();
     let inner_entry_point_selector = selector_from_name("assert_eq");
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
-        inner_entry_point_selector.0, // Function selector.
-        stark_felt!(2_u8),            // Calldata length.
-        stark_felt!(0_u8),            // Calldata: first assert value.
-        stark_felt!(1_u8)             // Calldata: second assert value.
+        test_contract.get_class_hash().0, // Class hash.
+        inner_entry_point_selector.0,     // Function selector.
+        stark_felt!(2_u8),                // Calldata length.
+        stark_felt!(0_u8),                // Calldata: first assert value.
+        stark_felt!(1_u8)                 // Calldata: second assert value.
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
         calldata,
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
-        ..trivial_external_entry_point()
+        class_hash: Some(test_contract.get_class_hash()),
+        ..trivial_external_entry_point_new()
     };
 
     assert_matches!(
@@ -546,8 +549,9 @@ fn test_nested_library_call() {
     let (key, value) = (255_u64, 44_u64);
     let outer_entry_point_selector = selector_from_name("test_library_call");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
+    let test_class_hash = FeatureContract::TestContract(CairoVersion::Cairo1).get_class_hash();
     let main_entry_point_calldata = calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        test_class_hash.0,            // Class hash.
         outer_entry_point_selector.0, // Library call function selector.
         inner_entry_point_selector.0, // Storage function selector.
         stark_felt!(key),             // Calldata: address.
@@ -558,33 +562,33 @@ fn test_nested_library_call() {
     let main_entry_point = CallEntryPoint {
         entry_point_selector: selector_from_name("test_nested_library_call"),
         calldata: main_entry_point_calldata,
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        class_hash: Some(test_class_hash),
         initial_gas: 9999906600,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: inner_entry_point_selector,
         calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
         initial_gas: 9999720720,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
     let library_entry_point = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata: calldata![
-            stark_felt!(TEST_CLASS_HASH), // Class hash.
+            test_class_hash.0,            // Class hash.
             inner_entry_point_selector.0, // Storage function selector.
             stark_felt!(2_u8),            // Calldata: address.
             stark_felt!(key + 1),         // Calldata: address.
             stark_felt!(value + 1)        // Calldata: value.
         ],
-        class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+        class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
         initial_gas: 9999814150,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
@@ -710,7 +714,7 @@ fn test_secp256k1() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_secp256k1"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
 
     assert_eq!(
@@ -727,7 +731,7 @@ fn test_secp256r1() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_secp256r1"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
 
     assert_eq!(
@@ -757,7 +761,7 @@ fn test_send_message_to_l1() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_send_message_to_l1"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
 
     let to_address = EthAddress::try_from(to_address).unwrap();
@@ -887,7 +891,7 @@ fn test_out_of_gas() {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
         initial_gas: REQUIRED_GAS_STORAGE_READ_WRITE_TEST - 1,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
     assert_matches!(error, EntryPointExecutionError::ExecutionFailed{ error_data }

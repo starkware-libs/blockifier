@@ -24,8 +24,8 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, trivial_external_entry_point, trivial_external_entry_point_with_address,
-    CairoVersion, BALANCE,
+    create_calldata, trivial_external_entry_point, trivial_external_entry_point_new,
+    trivial_external_entry_point_with_address, CairoVersion, BALANCE,
 };
 use crate::versioned_constants::VersionedConstants;
 
@@ -534,7 +534,7 @@ fn test_cairo1_entry_point_segment_arena() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("segment_arena_builtin"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new()
     };
 
     assert!(

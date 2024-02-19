@@ -58,9 +58,8 @@ use crate::test_utils::{
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
     CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
-    TEST_SEQUENCER_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -1643,7 +1642,8 @@ fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
         tx: starknet_api::transaction::L1HandlerTransaction {
             version: TransactionVersion::ZERO,
             nonce: Nonce::default(),
-            contract_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            contract_address: FeatureContract::TestContract(CairoVersion::Cairo1)
+                .get_instance_address(0),
             entry_point_selector: selector_from_name("l1_handler_set_value"),
             calldata: calldata.clone(),
         },
@@ -1667,14 +1667,15 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     // Build the expected call info.
     let accessed_storage_key = StorageKey::try_from(key).unwrap();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let expected_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+            class_hash: Some(test_contract.get_class_hash()),
             code_address: None,
             entry_point_type: EntryPointType::L1Handler,
             entry_point_selector: selector_from_name("l1_handler_set_value"),
             calldata: calldata.clone(),
-            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            storage_address: test_contract.get_instance_address(0),
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
             initial_gas: tx_initial_gas(),
@@ -1732,7 +1733,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     assert_eq!(
         state
             .get_storage_at(
-                contract_address!(TEST_CONTRACT_ADDRESS),
+                test_contract.get_instance_address(0),
                 StorageKey::try_from(key).unwrap(),
             )
             .unwrap(),
