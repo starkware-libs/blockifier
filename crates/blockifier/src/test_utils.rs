@@ -44,6 +44,7 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_ERC20_CONTRACT_ADDRESS2: &str = "0x1002";
+pub const TEST_ERC20_FULL_CONTRACT_ADDRESS: &str = "0x1003";
 
 // Class hashes.
 pub const TEST_CLASS_HASH: &str = "0x110";
@@ -57,6 +58,8 @@ pub const LEGACY_TEST_CLASS_HASH: &str = "0x117";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
+
+pub const TEST_ERC20_FULL_CONTRACT_CLASS_HASH: &str = "0x1011";
 
 // Paths.
 pub const ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
@@ -85,6 +88,8 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
     "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+pub const ERC20_FULL_CONTRACT_PATH: &str =
+    "./oz_erc20/target/dev/oz_erc20_Native.contract_class.json";
 
 #[derive(Clone, Copy, Debug)]
 pub enum CairoVersion {
@@ -196,7 +201,15 @@ pub fn get_test_contract_class() -> ContractClass {
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
+    external_entry_point(None)
+}
+
+pub fn erc20_external_entry_point() -> CallEntryPoint {
+    external_entry_point(Some(contract_address!(TEST_ERC20_FULL_CONTRACT_ADDRESS)))
+}
+
+pub fn external_entry_point(contract_address: Option<ContractAddress>) -> CallEntryPoint {
+    let contract_address = contract_address.unwrap_or(contract_address!(TEST_CONTRACT_ADDRESS));
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),

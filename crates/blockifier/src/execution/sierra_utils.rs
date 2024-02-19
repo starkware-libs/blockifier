@@ -10,6 +10,7 @@ use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
 use cairo_native::executor::NativeExecutor;
 use cairo_native::metadata::syscall_handler::SyscallHandlerMeta;
+use cairo_native::OptLevel;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
@@ -38,7 +39,12 @@ pub fn match_entrypoint(
     contract_entrypoints: &ContractEntryPoints,
 ) -> &ContractEntryPoint {
     match entry_point_type {
-        EntryPointType::Constructor => todo!("Sierra util: match_entrypoint - constructor"),
+        // todo: check it
+        EntryPointType::Constructor => contract_entrypoints
+            .constructor
+            .iter()
+            .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
+            .expect("entrypoint not found"),
         EntryPointType::External => contract_entrypoints
             .external
             .iter()
@@ -80,12 +86,16 @@ pub fn get_native_executor<'context>(
     program_cache: Rc<RefCell<ProgramCache<'context, ClassHash>>>,
 ) -> NativeExecutor<'context> {
     let program_cache = &mut (*program_cache.borrow_mut());
+
     match program_cache {
         ProgramCache::Aot(cache) => {
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Aot(match cached_executor {
                 Some(executor) => executor,
-                None => cache.compile_and_insert(class_hash, program),
+                None => {
+                    // panic!("here 1");
+                    cache.compile_and_insert(class_hash, program, OptLevel::Default)
+                }
             })
         }
         ProgramCache::Jit(_) => todo!("Sierra util: get native executor - jit"),
@@ -132,19 +142,16 @@ pub fn wrap_syscall_handler(syscall_handler: &mut NativeSyscallHandler<'_>) -> S
     SyscallHandlerMeta::new(syscall_handler)
 }
 
-// todo(rodro): String parsing is the lowest way to get from one to the other,
-//              we should find a faster one.
-//              Also, should we implement `From` traits for this?
 pub fn starkfelt_to_felt(starkfelt: StarkFelt) -> Felt {
-    Felt::from_hex(&starkfelt.to_string()).unwrap()
+    Felt::from_bytes_be_slice(starkfelt.bytes())
 }
 
 pub fn felt_to_starkfelt(felt: Felt) -> StarkFelt {
-    StarkFelt::try_from(felt.to_hex_string().as_str()).unwrap()
+    StarkFelt::new(felt.to_bytes_be()).unwrap()
 }
 
 pub fn contract_address_to_felt(contract_address: ContractAddress) -> Felt {
-    Felt::from_hex(&contract_address.0.key().to_string()).unwrap()
+    Felt::from_bytes_be_slice(&contract_address.0.key().bytes())
 }
 
 fn starkfelts_to_felts(data: &[StarkFelt]) -> Vec<Felt> {

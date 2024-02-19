@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use cairo_native::starknet::{BlockInfo, StarkNetSyscallHandler, TxInfo};
+use cairo_native::starknet::{
+    BlockInfo, ExecutionInfoV2, StarkNetSyscallHandler, SyscallResult, TxInfo, TxV2Info,
+};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, EthAddress,
     PatriciaKey,
@@ -111,6 +113,41 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 chain_id: Felt::from_hex(&self.execution_context.block_context.chain_id.as_hex())
                     .unwrap(),
                 nonce: starkfelt_to_felt(self.execution_context.account_tx_context.nonce().0),
+            },
+            caller_address: contract_address_to_felt(self.caller_address),
+            contract_address: contract_address_to_felt(self.contract_address),
+            entry_point_selector: starkfelt_to_felt(self.entry_point_selector),
+        })
+    }
+
+    fn get_execution_info_v2(
+        &mut self,
+        _remaining_gas: &mut u128,
+    ) -> SyscallResult<ExecutionInfoV2> {
+        Ok(ExecutionInfoV2 {
+            block_info: BlockInfo {
+                block_number: self.execution_context.block_context.block_number.0,
+                block_timestamp: self.execution_context.block_context.block_timestamp.0,
+                sequencer_address: contract_address_to_felt(
+                    self.execution_context.block_context.sequencer_address,
+                ),
+            },
+            tx_info: TxV2Info {
+                version: starkfelt_to_felt(self.execution_context.account_tx_context.version().0),
+                account_contract_address: contract_address_to_felt(
+                    self.execution_context.account_tx_context.sender_address(),
+                ),
+                max_fee: self.execution_context.account_tx_context.max_fee().unwrap_or_default().0,
+                signature: vec![],
+                transaction_hash: Default::default(),
+                chain_id: Default::default(),
+                nonce: Default::default(),
+                resource_bounds: vec![],
+                tip: 0,
+                paymaster_data: vec![],
+                nonce_data_availability_mode: 0,
+                fee_data_availability_mode: 0,
+                account_deployment_data: vec![],
             },
             caller_address: contract_address_to_felt(self.caller_address),
             contract_address: contract_address_to_felt(self.contract_address),
@@ -287,6 +324,12 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let read_result = self.state.get_storage_at(self.contract_address, storage_key);
         let unsafe_read_result =
             read_result.map_err(|_| vec![Felt::from_hex(FAILED_TO_READ_RESULT).unwrap()])?;
+        println!(
+            "[{}]: storage_read {}={}",
+            self.entry_point_selector,
+            address.to_hex_string(),
+            unsafe_read_result.to_string()
+        );
         Ok(starkfelt_to_felt(unsafe_read_result))
     }
 
@@ -297,7 +340,20 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         value: Felt,
         _remaining_gas: &mut u128,
     ) -> cairo_native::starknet::SyscallResult<()> {
-        let storage_key = StorageKey(PatriciaKey::try_from(felt_to_starkfelt(address)).unwrap());
+        println!(
+            "[{}]: storage_write {}={}",
+            self.entry_point_selector,
+            address.to_hex_string(),
+            value.to_hex_string()
+        );
+
+        let storage_key = StorageKey(
+            PatriciaKey::try_from(felt_to_starkfelt(address))
+                .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?,
+        );
+
+        println!("{}", felt_to_starkfelt(value).to_string());
+
         let write_result =
             self.state.set_storage_at(self.contract_address, storage_key, felt_to_starkfelt(value));
         write_result.map_err(|_| vec![Felt::from_hex(FAILED_TO_WRITE).unwrap()])?;

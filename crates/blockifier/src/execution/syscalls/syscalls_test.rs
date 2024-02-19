@@ -761,22 +761,22 @@ fn test_send_message_to_l1() {
     ],
     Some(FAILED_TO_EXECUTE_CALL);
     "No constructor: Negative flow: nonempty calldata")]
-// #[test_case(
-//     class_hash!(TEST_CLASS_HASH),
-//     calldata![
-//         stark_felt!(TEST_CLASS_HASH),     // Class hash.
-//         ContractAddressSalt::default().0, // Contract_address_salt.
-//         stark_felt!(2_u8),                // Calldata length.
-//         stark_felt!(1_u8),                // Calldata: arg1.
-//         stark_felt!(1_u8),                // Calldata: arg2.
-//         stark_felt!(0_u8)                 // deploy_from_zero.
-//     ],
-//     calldata![
-//         stark_felt!(1_u8),                // Calldata: arg1.
-//         stark_felt!(1_u8)                 // Calldata: arg2.
-//     ],
-//     None;
-//     "With constructor: Positive flow")]
+#[test_case(
+    class_hash!(TEST_CLASS_HASH),
+    calldata![
+        stark_felt!(TEST_CLASS_HASH),     // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+        stark_felt!(2_u8),                // Calldata length.
+        stark_felt!(1_u8),                // Calldata: arg1.
+        stark_felt!(1_u8),                // Calldata: arg2.
+        stark_felt!(0_u8)                 // deploy_from_zero.
+    ],
+    calldata![
+        stark_felt!(1_u8),                // Calldata: arg1.
+        stark_felt!(1_u8)                 // Calldata: arg2.
+    ],
+    None;
+    "With constructor: Positive flow")]
 #[test_case(
     class_hash!(TEST_CLASS_HASH),
     calldata![
@@ -836,7 +836,7 @@ fn test_deploy(
         0
     } else {
         retdata.0.push(constructor_calldata.0[0]);
-        16640
+        34650
     };
 
     assert_eq!(
