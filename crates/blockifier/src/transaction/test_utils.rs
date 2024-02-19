@@ -47,6 +47,10 @@ pub const GET_BLOCK_NUMBER: u64 = 5;
 pub const GET_BLOCK_TIMESTAMP: u64 = 6;
 pub const GET_SEQUENCER_ADDRESS: u64 = 7;
 
+// Corresponding constants to the ones in testing_account.
+pub const VALIDATE_WITHOUT_WRITE: u64 = 0;
+pub const VALIDATE_WITH_WRITE: u64 = 1;
+
 macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
         $(impl From<$specified_tx_type> for InvokeTransaction {
