@@ -44,7 +44,6 @@ use crate::fee::gas_usage::{
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
-use crate::test_utils::cached_state::create_test_state;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
@@ -58,9 +57,8 @@ use crate::test_utils::{
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
     CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH,
-    TEST_SEQUENCER_ADDRESS,
+    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -1681,12 +1679,16 @@ fn test_only_query_flag(#[case] only_query: bool) {
     assert!(!tx_execution_info.is_reverted())
 }
 
-fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
+fn l1_handler_tx(
+    calldata: &Calldata,
+    l1_fee: Fee,
+    contract_address: ContractAddress,
+) -> L1HandlerTransaction {
     L1HandlerTransaction {
         tx: starknet_api::transaction::L1HandlerTransaction {
             version: TransactionVersion::ZERO,
             nonce: Nonce::default(),
-            contract_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            contract_address,
             entry_point_selector: selector_from_name("l1_handler_set_value"),
             calldata: calldata.clone(),
         },
@@ -1697,14 +1699,16 @@ fn l1_handler_tx(calldata: &Calldata, l1_fee: Fee) -> L1HandlerTransaction {
 
 #[rstest]
 fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
-    let state = &mut create_test_state();
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let state = &mut test_state(&block_context.chain_info, 0_u128, &[(test_contract, 2)]);
+    let contract_address = test_contract.get_instance_address(0);
     let versioned_constants = &block_context.versioned_constants;
     let from_address = StarkFelt::from_u128(0x123);
     let key = StarkFelt::from_u128(0x876);
     let value = StarkFelt::from_u128(0x44);
     let calldata = calldata![from_address, key, value];
-    let tx = l1_handler_tx(&calldata, Fee(1));
+    let tx = l1_handler_tx(&calldata, Fee(1), test_contract.get_instance_address(0));
     let payload_size = tx.payload_size();
 
     let actual_execution_info = tx.execute(state, block_context, true, true).unwrap();
@@ -1713,12 +1717,12 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let accessed_storage_key = StorageKey::try_from(key).unwrap();
     let expected_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: Some(class_hash!(TEST_CLASS_HASH)),
+            class_hash: Some(test_contract.get_class_hash()),
             code_address: None,
             entry_point_type: EntryPointType::L1Handler,
             entry_point_selector: selector_from_name("l1_handler_set_value"),
             calldata: calldata.clone(),
-            storage_address: contract_address!(TEST_CONTRACT_ADDRESS),
+            storage_address: contract_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
             initial_gas: tx_initial_gas(),
@@ -1787,17 +1791,12 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     // Check the state changes.
     assert_eq!(
-        state
-            .get_storage_at(
-                contract_address!(TEST_CONTRACT_ADDRESS),
-                StorageKey::try_from(key).unwrap(),
-            )
-            .unwrap(),
+        state.get_storage_at(contract_address, StorageKey::try_from(key).unwrap(),).unwrap(),
         value,
     );
 
     // Negative flow: not enough fee paid on L1.
-    let tx_no_fee = l1_handler_tx(&calldata, Fee(0));
+    let tx_no_fee = l1_handler_tx(&calldata, Fee(0), contract_address);
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
     let expected_actual_fee =
