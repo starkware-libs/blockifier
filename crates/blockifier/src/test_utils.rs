@@ -12,6 +12,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use cairo_felt::Felt252;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use num_traits::{One, Zero};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -22,9 +23,12 @@ use starknet_api::transaction::{
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::execution::syscalls::SyscallSelector;
 use crate::test_utils::contracts::FeatureContract;
+use crate::transaction::transaction_types::TransactionType;
 use crate::utils::const_max;
 use crate::versioned_constants::VersionedConstants;
 // TODO(Dori, 1/2/2024): Remove these constants once all tests use the `contracts` and
@@ -313,6 +317,17 @@ macro_rules! check_transaction_execution_error_for_invalid_scenario {
     };
 }
 
+pub fn get_syscall_resources(syscall_selector: SyscallSelector) -> ExecutionResources {
+    let versioned_constants = VersionedConstants::create_for_testing();
+    let syscall_counter: SyscallCounter = HashMap::from([(syscall_selector, 1)]);
+    versioned_constants.get_additional_os_syscall_resources(&syscall_counter).unwrap()
+}
+
+pub fn get_transaction_resources(tx_type: TransactionType) -> ExecutionResources {
+    let versioned_constants = VersionedConstants::create_for_testing();
+    versioned_constants.get_additional_os_tx_resources(tx_type, 1, 0, false).unwrap()
+}
+
 pub fn create_calldata(
     contract_address: ContractAddress,
     entry_point_name: &str,
@@ -338,4 +353,8 @@ pub fn create_trivial_calldata(test_contract_address: ContractAddress) -> Callda
         "return_result",
         &[stark_felt!(2_u8)], // Calldata: num.
     )
+}
+
+pub fn u64_from_usize(val: usize) -> u64 {
+    val.try_into().unwrap()
 }

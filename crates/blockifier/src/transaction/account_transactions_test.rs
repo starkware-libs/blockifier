@@ -27,6 +27,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::execution::syscalls::SyscallSelector;
 use crate::fee::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
 use crate::fee::gas_usage::estimate_minimal_gas_vector;
 use crate::state::cached_state::{CachedState, StateChangesCount};
@@ -37,8 +38,9 @@ use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE,
-    DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    create_calldata, create_trivial_calldata, get_syscall_resources, get_transaction_resources,
+    u64_from_usize, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
@@ -832,7 +834,10 @@ fn test_max_fee_to_max_steps_conversion(
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
-    let actual_gas_used = 6065;
+    let actual_gas_used: u64 =
+        u64_from_usize(get_syscall_resources(SyscallSelector::CallContract).n_steps)
+            + u64_from_usize(get_transaction_resources(TransactionType::InvokeFunction).n_steps)
+            + 1751;
     let actual_gas_used_as_u128: u128 = actual_gas_used.into();
     let actual_fee = actual_gas_used_as_u128 * 100000000000;
     let actual_strk_gas_price =
