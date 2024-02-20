@@ -2,8 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::{Deserialize, Serialize};
-use starknet_api::core::{ClassHash, EthAddress};
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::{ClassHash, ContractAddress, EthAddress, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::patricia_key;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 
@@ -99,6 +100,30 @@ impl ExecutionSummary {
         self.executed_class_hashes.extend(other.executed_class_hashes);
         self.visited_storage_entries.extend(other.visited_storage_entries);
         self.n_events += other.n_events;
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ExecutionSummaryParameters {
+    pub num_of_events: usize,
+    pub class_hash: ClassHash,
+    pub storage_address: ContractAddress,
+    pub storage_key: StorageKey,
+}
+
+impl ExecutionSummaryParameters {
+    pub fn new(
+        num_of_events: usize,
+        class_hash: ClassHash,
+        storage_address: &str,
+        storage_key: &str,
+    ) -> Self {
+        ExecutionSummaryParameters {
+            num_of_events,
+            class_hash,
+            storage_address: ContractAddress(patricia_key!(storage_address)),
+            storage_key: StorageKey(patricia_key!(storage_key)),
+        }
     }
 }
 
@@ -208,6 +233,22 @@ impl CallInfo {
         }
 
         ExecutionSummary { executed_class_hashes, visited_storage_entries, n_events }
+    }
+
+    pub fn create_call_info_for_testing(params: &ExecutionSummaryParameters) -> Self {
+        CallInfo {
+            call: CallEntryPoint {
+                class_hash: Some(params.class_hash),
+                storage_address: params.storage_address,
+                ..Default::default()
+            },
+            execution: CallExecution {
+                events: (0..params.num_of_events).map(|_| OrderedEvent::default()).collect(),
+                ..Default::default()
+            },
+            accessed_storage_keys: vec![params.storage_key].into_iter().collect(),
+            ..Default::default()
+        }
     }
 }
 
