@@ -1,6 +1,11 @@
 use rstest::rstest;
+use starknet_api::core::ClassHash;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 
-use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};
+use crate::execution::call_info::{
+    CallExecution, CallInfo, ExecutionSummary, OrderedEvent, TestExecutionSummary,
+};
 use crate::transaction::objects::TransactionExecutionInfo;
 
 #[rstest]
@@ -41,4 +46,55 @@ fn test_transaction_execution_info_with_different_event_scenarios(
             + num_of_fee_transfer_events
             + num_of_inner_calls
     );
+}
+
+#[rstest]
+#[case(
+    TestExecutionSummary::new(1, ClassHash(stark_felt!("0x1")), "0x1", "0x1"),
+    TestExecutionSummary::new(2, ClassHash(stark_felt!("0x2")), "0x2", "0x2"),
+    TestExecutionSummary::new(3, ClassHash(stark_felt!("0x3")), "0x3", "0x3")
+)]
+fn test_summarize(
+    #[case] validate_params: TestExecutionSummary,
+    #[case] execute_params: TestExecutionSummary,
+    #[case] fee_transfer_params: TestExecutionSummary,
+) {
+    let validate_call_info = validate_params.to_call_info();
+    let execute_call_info = execute_params.to_call_info();
+    let fee_transfer_call_info = fee_transfer_params.to_call_info();
+
+    let transaction_execution_info = TransactionExecutionInfo {
+        validate_call_info: Some(validate_call_info),
+        execute_call_info: Some(execute_call_info),
+        fee_transfer_call_info: Some(fee_transfer_call_info),
+        ..Default::default()
+    };
+
+    let expected_summary = ExecutionSummary {
+        executed_class_hashes: vec![
+            validate_params.class_hash,
+            execute_params.class_hash,
+            fee_transfer_params.class_hash,
+        ]
+        .into_iter()
+        .collect(),
+        visited_storage_entries: vec![
+            (validate_params.storage_address, validate_params.storage_key),
+            (execute_params.storage_address, execute_params.storage_key),
+            (fee_transfer_params.storage_address, fee_transfer_params.storage_key),
+        ]
+        .into_iter()
+        .collect(),
+        n_events: validate_params.num_of_events
+            + execute_params.num_of_events
+            + fee_transfer_params.num_of_events,
+    };
+
+    // Call the summarize method
+    let actual_summary = transaction_execution_info.summarize();
+
+    // Compare the actual result with the expected result
+    assert_eq!(actual_summary.executed_class_hashes, expected_summary.executed_class_hashes);
+    assert_eq!(actual_summary.visited_storage_entries, expected_summary.visited_storage_entries);
+    assert_eq!(actual_summary.n_events, expected_summary.n_events);
 }
