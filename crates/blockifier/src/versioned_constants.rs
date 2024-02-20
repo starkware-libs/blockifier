@@ -15,9 +15,9 @@ use strum::IntoEnumIterator;
 use thiserror::Error;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
-use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::errors::PostExecutionError;
 use crate::execution::execution_utils::poseidon_hash_many_cost;
+use crate::execution::syscalls::SyscallSelector;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
 
@@ -221,7 +221,7 @@ pub struct OsResources {
     // steps).
     // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
     // TODO(ilya): Consider moving the resources of a keccak round to a seperate dict.
-    execute_syscalls: HashMap<DeprecatedSyscallSelector, ExecutionResources>,
+    execute_syscalls: HashMap<SyscallSelector, ExecutionResources>,
     // Mapping from every transaction to its extra execution resources in the OS,
     // i.e., resources that don't count during the execution itself.
     // For each transaction the OS uses a constant amount of VM resources, and an
@@ -246,7 +246,7 @@ impl OsResources {
             }
         }
 
-        for syscall_handler in DeprecatedSyscallSelector::iter() {
+        for syscall_handler in SyscallSelector::iter() {
             if !self.execute_syscalls.contains_key(&syscall_handler) {
                 return Err(DeserializationError::custom(format!(
                     "ValidationError: os_resources.execute_syscalls are missing syscall handler: \

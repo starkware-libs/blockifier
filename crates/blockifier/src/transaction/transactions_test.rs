@@ -35,6 +35,7 @@ use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
+use crate::execution::syscalls::SyscallSelector;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     estimate_minimal_gas_vector, get_da_gas_cost, get_onchain_data_segment_length,
@@ -50,11 +51,11 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, test_erc20_sequencer_balance_key, CairoVersion,
-    NonceManager, SaltManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
-    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_SEQUENCER_ADDRESS,
+    create_calldata, create_trivial_calldata, get_syscall_resources, get_tx_resources,
+    test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager, BALANCE,
+    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
+    CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -370,10 +371,10 @@ fn add_kzg_da_resources(
 #[rstest]
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
-        resources: ExecutionResources {
-            n_steps:  822,
+        resources: &get_syscall_resources(SyscallSelector::CallContract) + &ExecutionResources {
+            n_steps: 62,
             n_memory_holes:  0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
         validate_gas_consumed: 0,
         execute_gas_consumed: 0,
@@ -382,10 +383,10 @@ fn add_kzg_da_resources(
     CairoVersion::Cairo0)]
 #[case::with_cairo1_account(
     ExpectedResultTestInvokeTx{
-        resources: ExecutionResources {
-            n_steps: 1108,
+        resources: &get_syscall_resources(SyscallSelector::CallContract) + &ExecutionResources {
+            n_steps: 348,
             n_memory_holes: 1,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 28)]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 8)]),
         },
         validate_gas_consumed: 14360, // The gas consumption results from parsing the input
             // arguments.
@@ -1775,8 +1776,16 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     let mut expected_resource_mapping = ResourcesMapping(HashMap::from([
         (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
-        (abi_constants::N_STEPS_RESOURCE.to_string(), 1405),
-        (RANGE_CHECK_BUILTIN_NAME.to_string(), 23),
+        (
+            abi_constants::N_STEPS_RESOURCE.to_string(),
+            get_tx_resources(TransactionType::L1Handler).n_steps + 246,
+        ),
+        (
+            RANGE_CHECK_BUILTIN_NAME.to_string(),
+            get_tx_resources(TransactionType::L1Handler).builtin_instance_counter
+                [&RANGE_CHECK_BUILTIN_NAME.to_string()]
+                + 6,
+        ),
         (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas.l1_gas).unwrap()),
         (
             abi_constants::BLOB_GAS_USAGE.to_string(),
@@ -1811,7 +1820,6 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         state.get_storage_at(contract_address, StorageKey::try_from(key).unwrap(),).unwrap(),
         value,
     );
-
     // Negative flow: not enough fee paid on L1.
     let tx_no_fee = l1_handler_tx(&calldata, Fee(0), contract_address);
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
