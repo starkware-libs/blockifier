@@ -18,7 +18,7 @@ pub enum StateError {
     ProgramError(#[from] ProgramError),
     #[error("Requested {0:?} is unavailable for deployment.")]
     UnavailableContractAddress(ContractAddress),
-    #[error("Class with hash {0:#?} is not declared.")]
+    #[error("Class with hash {0} is not declared.")]
     UndeclaredClassHash(ClassHash),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
