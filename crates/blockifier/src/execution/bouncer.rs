@@ -9,7 +9,7 @@ use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 #[derive(Clone, Default)]
 pub struct BouncerInfo {
     pub state_diff_size: usize, // The number of felts needed to store the state diff.
-    pub l1_gas_amount: usize,
+    pub gas_weight: usize,
     pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
     pub execution_resources: VmExecutionResources,
     pub n_events: usize,
@@ -23,7 +23,7 @@ impl BouncerInfo {
         state_diff_size: usize,
         n_events: usize,
     ) -> TransactionExecutionResult<Self> {
-        let l1_gas_amount = *tx_actual_resources
+        let gas_weight = *tx_actual_resources
             .0
             .get("l1_gas_usage")
             .expect("Invalid Transaction Execution Info. Field l1_gas_usage was not found.");
@@ -69,7 +69,7 @@ impl BouncerInfo {
 
         Ok(Self {
             state_diff_size,
-            l1_gas_amount,
+            gas_weight,
             message_segment_length,
             execution_resources: merged_resources,
             n_events,
