@@ -13,6 +13,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use cairo_felt::Felt252;
+use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use num_traits::{One, Zero};
 use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::{
@@ -27,6 +28,8 @@ use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
+use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::utils::const_max;
@@ -354,6 +357,14 @@ macro_rules! check_transaction_execution_error_for_invalid_scenario {
             }
         }
     };
+}
+
+pub fn create_one_syscall(syscall_selector: DeprecatedSyscallSelector) -> (usize, usize) {
+    let versioned_constants = VersionedConstants::create_for_testing();
+    let syscall_counter: SyscallCounter = HashMap::from([(syscall_selector, 1)]);
+    let resources =
+        versioned_constants.get_additional_os_syscall_resources(&syscall_counter).unwrap();
+    (resources.n_steps, resources.builtin_instance_counter[&RANGE_CHECK_BUILTIN_NAME.to_string()])
 }
 
 pub fn create_calldata(
