@@ -19,7 +19,7 @@ use starknet_api::transaction::{
     L2ToL1Payload, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip,
     TransactionHash, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -43,8 +43,7 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
     create_calldata, trivial_external_entry_point, trivial_external_entry_point_new, CairoVersion,
     BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
-    CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+    CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
     TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
@@ -57,6 +56,9 @@ use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 34650;
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 128080;
 pub const REQUIRED_GAS_LIBRARY_CALL_TEST: u64 = REQUIRED_GAS_CALL_CONTRACT_TEST;
+
+const TEST_CONTRACT_V1: FeatureContract = FeatureContract::TestContract(CairoVersion::Cairo1);
+const EMPTY_CONTRACT_V1: FeatureContract = FeatureContract::Empty(CairoVersion::Cairo1);
 
 #[test]
 fn test_storage_read_write() {
@@ -678,7 +680,7 @@ fn test_nested_library_call() {
 
 #[test]
 fn test_replace_class() {
-    let mut state = create_deploy_test_state();
+    let mut state = create_deploy_test_state(CairoVersion::Cairo1);
 
     // Negative flow.
 
@@ -686,7 +688,7 @@ fn test_replace_class() {
     let entry_point_call = CallEntryPoint {
         calldata: calldata![stark_felt!(1234_u16)],
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(TEST_CONTRACT_V1)
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
@@ -699,20 +701,21 @@ fn test_replace_class() {
     let entry_point_call = CallEntryPoint {
         calldata: calldata![v0_class_hash.0],
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(TEST_CONTRACT_V1)
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    println!("{}", error);
     assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
 
     // Positive flow.
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
-    let old_class_hash = class_hash!(TEST_CLASS_HASH);
-    let new_class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
+    let contract_address = TEST_CONTRACT_V1.get_instance_address(0);
+    let old_class_hash = TEST_CONTRACT_V1.get_class_hash();
+    let new_class_hash = EMPTY_CONTRACT_V1.get_class_hash();
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
     let entry_point_call = CallEntryPoint {
         calldata: calldata![new_class_hash.0],
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(TEST_CONTRACT_V1)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -799,20 +802,20 @@ fn test_send_message_to_l1() {
 }
 
 #[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+    EMPTY_CONTRACT_V1.get_class_hash(),
     calldata![
-    stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
-    ContractAddressSalt::default().0,            // Contract_address_salt.
-    stark_felt!(0_u8),                           // Calldata length.
-    stark_felt!(0_u8)                            // deploy_from_zero.
+        EMPTY_CONTRACT_V1.get_class_hash().0, // Class hash.
+        ContractAddressSalt::default().0,            // Contract_address_salt.
+        stark_felt!(0_u8),                           // Calldata length.
+        stark_felt!(0_u8)                            // deploy_from_zero.
     ],
     calldata![],
     None ;
     "No constructor: Positive flow")]
 #[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+    EMPTY_CONTRACT_V1.get_class_hash(),
     calldata![
-        stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+        EMPTY_CONTRACT_V1.get_class_hash().0, // Class hash.
         ContractAddressSalt::default().0,            // Contract_address_salt.
         stark_felt!(2_u8),                           // Calldata length.
         stark_felt!(2_u8),                           // Calldata: address.
@@ -827,9 +830,9 @@ fn test_send_message_to_l1() {
     "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
     "No constructor: Negative flow: nonempty calldata")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
+    TEST_CONTRACT_V1.get_class_hash(),
     calldata![
-        stark_felt!(TEST_CLASS_HASH),     // Class hash.
+        TEST_CONTRACT_V1.get_class_hash().0,     // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
         stark_felt!(2_u8),                // Calldata length.
         stark_felt!(1_u8),                // Calldata: arg1.
@@ -843,9 +846,9 @@ fn test_send_message_to_l1() {
     None;
     "With constructor: Positive flow")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
+    TEST_CONTRACT_V1.get_class_hash(),
     calldata![
-        stark_felt!(TEST_CLASS_HASH),     // Class hash.
+        TEST_CONTRACT_V1.get_class_hash().0,     // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
         stark_felt!(2_u8),                // Calldata length.
         stark_felt!(3_u8),                // Calldata: arg1.
@@ -864,11 +867,11 @@ fn test_deploy(
     constructor_calldata: Calldata,
     expected_error: Option<&str>,
 ) {
-    let mut state = create_deploy_test_state();
+    let mut state = create_deploy_test_state(CairoVersion::Cairo1);
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(TEST_CONTRACT_V1)
     };
 
     if let Some(expected_error) = expected_error {
@@ -882,7 +885,7 @@ fn test_deploy(
         ContractAddressSalt::default(),
         class_hash,
         &constructor_calldata,
-        contract_address!(TEST_CONTRACT_ADDRESS),
+        TEST_CONTRACT_V1.get_instance_address(0),
     )
     .unwrap();
     let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];

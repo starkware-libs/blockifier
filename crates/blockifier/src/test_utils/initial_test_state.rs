@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use strum::IntoEnumIterator;
 
+use super::cached_state::create_contracts_mappings;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::context::ChainInfo;
 use crate::state::cached_state::CachedState;
@@ -42,8 +41,9 @@ pub fn test_state(
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u8)],
 ) -> CachedState<DictStateReader> {
-    let mut class_hash_to_class = HashMap::new();
-    let mut address_to_class_hash = HashMap::new();
+    // Set up the requested contracts.
+    let (mut class_hash_to_class, mut address_to_class_hash) =
+        create_contracts_mappings(contract_instances);
 
     // Declare and deploy account and ERC20 contracts.
     let erc20 = FeatureContract::ERC20;
@@ -52,16 +52,6 @@ pub fn test_state(
         .insert(chain_info.fee_token_address(&FeeType::Eth), erc20.get_class_hash());
     address_to_class_hash
         .insert(chain_info.fee_token_address(&FeeType::Strk), erc20.get_class_hash());
-
-    // Set up the rest of the requested contracts.
-    for (contract, n_instances) in contract_instances.iter() {
-        let class_hash = contract.get_class_hash();
-        class_hash_to_class.insert(class_hash, contract.get_class());
-        for instance in 0..*n_instances {
-            let instance_address = contract.get_instance_address(instance);
-            address_to_class_hash.insert(instance_address, class_hash);
-        }
-    }
 
     let mut state = CachedState::from(DictStateReader {
         address_to_class_hash,

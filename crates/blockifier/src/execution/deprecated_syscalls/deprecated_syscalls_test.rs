@@ -7,16 +7,14 @@ use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::core::{
-    calculate_contract_address, ChainId, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::core::{calculate_contract_address, ChainId, ClassHash, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, TransactionHash,
     TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -28,16 +26,14 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::state::state_api::StateReader;
-use crate::test_utils::cached_state::{
-    deprecated_create_deploy_test_state, deprecated_create_test_state,
-};
+use crate::test_utils::cached_state::{create_deploy_test_state, deprecated_create_test_state};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    trivial_external_entry_point, trivial_external_entry_point_with_address, CairoVersion,
-    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
-    CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    trivial_external_entry_point, trivial_external_entry_point_new,
+    trivial_external_entry_point_with_address, CairoVersion, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
@@ -45,6 +41,9 @@ use crate::transaction::objects::{
 };
 use crate::versioned_constants::VersionedConstants;
 use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
+
+const TEST_CONTRACT_V0: FeatureContract = FeatureContract::TestContract(CairoVersion::Cairo0);
+const EMPTY_CONTRACT_V0: FeatureContract = FeatureContract::Empty(CairoVersion::Cairo0);
 
 #[test]
 fn test_storage_read_write() {
@@ -293,20 +292,20 @@ fn test_replace_class() {
 }
 
 #[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+    EMPTY_CONTRACT_V0,
     calldata![
-    stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
-    ContractAddressSalt::default().0, // Contract_address_salt.
-    stark_felt!(0_u8), // Calldata length.
-    stark_felt!(0_u8) // deploy_from_zero.
+        EMPTY_CONTRACT_V0.get_class_hash().0, // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+        stark_felt!(0_u8), // Calldata length.
+        stark_felt!(0_u8) // deploy_from_zero.
     ],
     calldata![],
     None ;
     "No constructor: Positive flow")]
 #[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+    EMPTY_CONTRACT_V0,
     calldata![
-        stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
+        EMPTY_CONTRACT_V0.get_class_hash().0, // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
         stark_felt!(2_u8), // Calldata length.
         stark_felt!(2_u8), // Calldata: address.
@@ -321,9 +320,9 @@ fn test_replace_class() {
     "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
     "No constructor: Negative flow: nonempty calldata")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
+    TEST_CONTRACT_V0,
     calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        TEST_CONTRACT_V0.get_class_hash().0, // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
         stark_felt!(2_u8), // Calldata length.
         stark_felt!(1_u8), // Calldata: address.
@@ -337,9 +336,9 @@ fn test_replace_class() {
     None;
     "With constructor: Positive flow")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
+    TEST_CONTRACT_V0,
     calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        TEST_CONTRACT_V0.get_class_hash().0, // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
         stark_felt!(2_u8), // Calldata length.
         stark_felt!(3_u8), // Calldata: address.
@@ -353,9 +352,9 @@ fn test_replace_class() {
     Some("is unavailable for deployment.");
     "With constructor: Negative flow: deploy to the same address")]
 #[test_case(
-    class_hash!(TEST_CLASS_HASH),
+    TEST_CONTRACT_V0,
     calldata![
-        stark_felt!(TEST_CLASS_HASH), // Class hash.
+        TEST_CONTRACT_V0.get_class_hash().0, // Class hash.
         ContractAddressSalt::default().0, // Contract_address_salt.
         stark_felt!(2_u8), // Calldata length.
         stark_felt!(1_u8), // Calldata: address.
@@ -373,16 +372,16 @@ fn test_replace_class() {
     ));
     "With constructor: Negative flow: illegal value for deploy_from_zero")]
 fn test_deploy(
-    class_hash: ClassHash,
+    contract: FeatureContract,
     calldata: Calldata,
     constructor_calldata: Calldata,
     expected_error: Option<&str>,
 ) {
-    let mut state = deprecated_create_deploy_test_state();
+    let mut state = create_deploy_test_state(CairoVersion::Cairo0);
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(TEST_CONTRACT_V0)
     };
 
     if let Some(expected_error) = expected_error {
@@ -391,12 +390,13 @@ fn test_deploy(
         return;
     }
 
+    let class_hash = contract.get_class_hash();
     // No errors expected.
     let contract_address = calculate_contract_address(
         ContractAddressSalt::default(),
         class_hash,
         &constructor_calldata,
-        contract_address!(TEST_CONTRACT_ADDRESS),
+        TEST_CONTRACT_V0.get_instance_address(0),
     )
     .unwrap();
     assert_eq!(
@@ -462,7 +462,7 @@ fn test_block_info_syscalls(
 #[case(true)]
 #[case(false)]
 fn test_tx_info(#[case] only_query: bool) {
-    let mut state = deprecated_create_deploy_test_state();
+    let mut state = create_deploy_test_state(CairoVersion::Cairo0);
     let mut version = Felt252::from(1_u8);
     if only_query {
         let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
@@ -471,7 +471,7 @@ fn test_tx_info(#[case] only_query: bool) {
     let tx_hash = TransactionHash(stark_felt!(1991_u16));
     let max_fee = Fee(0);
     let nonce = Nonce(stark_felt!(3_u16));
-    let sender_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let sender_address = TEST_CONTRACT_V0.get_instance_address(0);
     let expected_tx_info = calldata![
         felt_to_stark_felt(&version), // Transaction version.
         *sender_address.0.key(),      // Account address.
@@ -484,7 +484,7 @@ fn test_tx_info(#[case] only_query: bool) {
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
         calldata: expected_tx_info,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(TEST_CONTRACT_V0)
     };
     let tx_info = TransactionInfo::Deprecated(DeprecatedTransactionInfo {
         common_fields: CommonAccountFields {
