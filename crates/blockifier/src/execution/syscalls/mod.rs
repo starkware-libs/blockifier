@@ -42,9 +42,9 @@ pub type WriteResponseResult = SyscallResult<()>;
 
 type SyscallSelector = DeprecatedSyscallSelector;
 
-pub const SYSCALL_MAX_EVENT_KEYS: usize = 1_000_000_000;
-pub const SYSCALL_MAX_EVENT_DATA: usize = 1_000_000_000;
-pub const SYSCALL_MAX_N_EMITTED_EVENTS: usize = 1_000_000_000;
+pub const SYSCALL_MAX_EVENT_KEYS: usize = 50;
+pub const SYSCALL_MAX_EVENT_DATA: usize = 100;
+pub const SYSCALL_MAX_N_EMITTED_EVENTS: usize = 100;
 
 pub trait SyscallRequest: Sized {
     fn read(_vm: &VirtualMachine, _ptr: &mut Relocatable) -> SyscallResult<Self>;

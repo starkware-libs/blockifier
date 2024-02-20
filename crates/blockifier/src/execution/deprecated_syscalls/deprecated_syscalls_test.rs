@@ -25,6 +25,10 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
+use crate::execution::syscalls::hint_processor::EmitEventError;
+use crate::execution::syscalls::{
+    SYSCALL_MAX_EVENT_DATA, SYSCALL_MAX_EVENT_KEYS, SYSCALL_MAX_N_EMITTED_EVENTS,
+};
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::{
@@ -490,21 +494,48 @@ fn test_emit_event() {
             ..Default::default()
         }
     );
+
+    // Negative flow, the data length exceeds the limit.
+    let data_too_long = vec![stark_felt!(2_u16); SYSCALL_MAX_EVENT_DATA + 1];
+    let error = emit_events(&n_emitted_events, &keys, &data_too_long).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxDataLength {
+        data_length: SYSCALL_MAX_EVENT_DATA + 1,
+        max_data_length: SYSCALL_MAX_EVENT_DATA,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+
+    // Negative flow, the keys length exceeds the limit.
+    let keys_too_long = vec![stark_felt!(1_u16); SYSCALL_MAX_EVENT_KEYS + 1];
+    let error = emit_events(&n_emitted_events, &keys_too_long, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxKeysLength {
+        keys_length: SYSCALL_MAX_EVENT_KEYS + 1,
+        max_keys_length: SYSCALL_MAX_EVENT_KEYS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+
+    // Negative flow, the number of events exceeds the limit.
+    let n_emitted_events_too_big = vec![stark_felt!((SYSCALL_MAX_N_EMITTED_EVENTS + 1) as u16)];
+    let error = emit_events(&n_emitted_events_too_big, &keys, &data).unwrap_err();
+    let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+        n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS + 1,
+        max_n_emitted_events: SYSCALL_MAX_N_EMITTED_EVENTS,
+    };
+    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
 }
 
 fn emit_events(
     n_emitted_events: &[StarkFelt],
-    keys: &[StarkFelt],
-    data: &[StarkFelt],
+    keys: &Vec<StarkFelt>,
+    data: &Vec<StarkFelt>,
 ) -> Result<CallInfo, EntryPointExecutionError> {
     let mut state = deprecated_create_test_state();
     let calldata = Calldata(
         concat(vec![
             n_emitted_events.to_owned(),
             vec![stark_felt!(keys.len() as u16)],
-            keys.to_owned(),
+            keys.clone(),
             vec![stark_felt!(data.len() as u16)],
-            data.to_owned(),
+            data.clone(),
         ])
         .into(),
     );
