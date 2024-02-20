@@ -175,9 +175,9 @@
     "os_resources": {
         "execute_syscalls": {
             "CallContract": {
-                "n_steps": 690,
+                "n_steps": 760,
                 "builtin_instance_counter": {
-                    "range_check_builtin": 12
+                    "range_check_builtin": 20
                 },
                 "n_memory_holes": 0
             },
@@ -199,7 +199,7 @@
                 "n_steps": 1010,
                 "builtin_instance_counter": {
                     "pedersen_builtin": 7,
-                    "range_check_builtin": 15
+                    "range_check_builtin": 19
                 },
                 "n_memory_holes": 0
             },
@@ -275,9 +275,9 @@
                 "n_memory_holes": 0
             },
             "LibraryCall": {
-                "n_steps": 681,
+                "n_steps": 751,
                 "builtin_instance_counter": {
-                    "range_check_builtin": 12
+                    "range_check_builtin": 20
                 },
                 "n_memory_holes": 0
             },
