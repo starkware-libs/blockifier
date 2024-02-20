@@ -1,10 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use cairo_felt::Felt252;
-use itertools::concat;
 use num_traits::Pow;
 use serde::Serialize;
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::transaction::{
     AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping,
@@ -16,7 +15,6 @@ use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, ExecutionSummary};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::state::cached_state::StorageEntry;
 use crate::transaction::constants;
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
@@ -207,29 +205,12 @@ impl TransactionExecutionInfo {
             .chain(self.fee_transfer_call_info.iter())
     }
 
-    /// Returns the set of class hashes that were executed during this transaction execution.
-    pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
-        concat(
-            self.non_optional_call_infos().map(|call_info| call_info.get_executed_class_hashes()),
-        )
-    }
-
-    /// Returns the set of storage entries visited during this transaction execution.
-    pub fn get_visited_storage_entries(&self) -> HashSet<StorageEntry> {
-        concat(
-            self.non_optional_call_infos().map(|call_info| call_info.get_visited_storage_entries()),
-        )
-    }
-
-    /// Returns the number of events emitted in this transaction execution.
-    pub fn get_number_of_events(&self) -> usize {
-        self.non_optional_call_infos().map(|call_info| call_info.get_number_of_events()).sum()
-    }
-
     pub fn is_reverted(&self) -> bool {
         self.revert_error.is_some()
     }
 
+    /// Returns a summary of transaction execution, including executed class hashes, visited storage
+    /// entries, and the number of emitted events.
     pub fn summarize(&self) -> ExecutionSummary {
         self.non_optional_call_infos().map(|call_info| call_info.summarize()).fold(
             ExecutionSummary::default(),
