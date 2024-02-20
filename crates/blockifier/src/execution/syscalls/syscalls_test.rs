@@ -36,14 +36,15 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{
     EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
+use crate::execution::syscalls::SyscallSelector;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    calldata_for_deploy_test, create_calldata, trivial_external_entry_point_new,
-    trivial_external_entry_point_with_address, CairoVersion, BALANCE, CHAIN_ID_NAME,
-    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
-    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_SEQUENCER_ADDRESS,
+    calldata_for_deploy_test, create_calldata, get_syscall_resources,
+    trivial_external_entry_point_new, trivial_external_entry_point_with_address, CairoVersion,
+    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
+    CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
@@ -625,11 +626,12 @@ fn test_nested_library_call() {
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
-    let library_call_resources = ExecutionResources {
-        n_steps: 1338,
-        n_memory_holes: 2,
-        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 35)]),
-    };
+    let library_call_resources = &get_syscall_resources(SyscallSelector::LibraryCall)
+        + &ExecutionResources {
+            n_steps: 587,
+            n_memory_holes: 2,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 15)]),
+        };
     let library_call_info = CallInfo {
         call: library_entry_point,
         execution: CallExecution {
@@ -654,11 +656,12 @@ fn test_nested_library_call() {
         ..Default::default()
     };
 
-    let main_call_resources = ExecutionResources {
-        n_steps: 3370,
-        n_memory_holes: 4,
-        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 87)]),
-    };
+    let main_call_resources = &(&get_syscall_resources(SyscallSelector::LibraryCall) * 3)
+        + &ExecutionResources {
+            n_steps: 1117,
+            n_memory_holes: 4,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 27)]),
+        };
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
         execution: CallExecution {
