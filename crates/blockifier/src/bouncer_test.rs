@@ -1,6 +1,6 @@
 use std::ops::Sub;
 
-use crate::bouncer::{BouncerWeights, BuiltinCount};
+use crate::bouncer::{Bouncer, BouncerWeights, BuiltinCount};
 
 #[test]
 fn test_block_weights_sub_checked() {
@@ -61,4 +61,55 @@ fn test_block_weights_sub_checked() {
 
     let result = max_bouncer_weights.checked_sub(bouncer_weights_exceeds_max);
     assert!(result.is_none());
+}
+
+#[test]
+fn test_tansactional_bouncer() {
+    let max_bouncer_weights = BouncerWeights {
+        gas: 10,
+        n_steps: 10,
+        message_segment_length: 10,
+        state_diff_size: 10,
+        builtin_count: BuiltinCount {
+            bitwise: 10,
+            ecdsa: 10,
+            ec_op: 10,
+            keccak: 10,
+            output: 10,
+            pedersen: 10,
+            poseidon: 10,
+            range_check: 10,
+        },
+    };
+
+    let tx_weights = BouncerWeights {
+        gas: 7,
+        n_steps: 0,
+        message_segment_length: 10,
+        state_diff_size: 7,
+        builtin_count: BuiltinCount {
+            bitwise: 6,
+            ecdsa: 7,
+            ec_op: 7,
+            keccak: 8,
+            output: 7,
+            pedersen: 7,
+            poseidon: 9,
+            range_check: 10,
+        },
+    };
+
+    let bouncer = Bouncer::new(max_bouncer_weights);
+    let mut transactional_bouncer = bouncer.create_transactional();
+    transactional_bouncer.transactional.capacity =
+        transactional_bouncer.transactional.capacity.checked_sub(tx_weights).unwrap();
+
+    // Test transactional bouncer abort
+    let parent = transactional_bouncer.clone().abort();
+    assert!(parent.capacity == max_bouncer_weights);
+
+    // Test transactional bouncer commit
+    let parent = transactional_bouncer.commit();
+    let expected_capacity = max_bouncer_weights.sub(tx_weights);
+    assert!(parent.capacity == expected_capacity);
 }
