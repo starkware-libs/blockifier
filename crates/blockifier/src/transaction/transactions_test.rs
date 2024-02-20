@@ -32,6 +32,7 @@ use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -53,7 +54,7 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, test_erc20_account_balance_key,
+    create_calldata, create_one_syscall, create_trivial_calldata, test_erc20_account_balance_key,
     test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
     ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
@@ -356,10 +357,10 @@ fn add_kzg_da_resources(
 #[rstest]
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
-        resources: ExecutionResources {
-            n_steps:  822,
+        resources: &create_one_syscall(DeprecatedSyscallSelector::CallContract) + &ExecutionResources {
+            n_steps: 62,
             n_memory_holes:  0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
         },
         validate_gas_consumed: 0,
         execute_gas_consumed: 0,
@@ -368,10 +369,10 @@ fn add_kzg_da_resources(
     CairoVersion::Cairo0)]
 #[case::with_cairo1_account(
     ExpectedResultTestInvokeTx{
-        resources: ExecutionResources {
-            n_steps: 1108,
+        resources: &create_one_syscall(DeprecatedSyscallSelector::CallContract) + &ExecutionResources {
+            n_steps: 348,
             n_memory_holes: 1,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 28)]),
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 8)]),
         },
         validate_gas_consumed: 14360, // The gas consumption results from parsing the input
             // arguments.

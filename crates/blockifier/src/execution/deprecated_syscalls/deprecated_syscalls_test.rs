@@ -23,6 +23,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::common_hints::ExecutionMode;
+use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::felt_to_stark_felt;
@@ -34,8 +35,8 @@ use crate::test_utils::cached_state::{
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    trivial_external_entry_point, trivial_external_entry_point_with_address, CairoVersion,
-    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
+    create_one_syscall, trivial_external_entry_point, trivial_external_entry_point_with_address,
+    CairoVersion, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
     CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH,
     TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
 };
@@ -152,11 +153,12 @@ fn test_nested_library_call() {
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
-    let mut library_call_resources = ExecutionResources {
-        n_steps: 790,
-        n_memory_holes: 0,
-        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 21)]),
-    };
+    let mut library_call_resources = &create_one_syscall(DeprecatedSyscallSelector::LibraryCall)
+        + &ExecutionResources {
+            n_steps: 39,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
+        };
     library_call_resources += &storage_entry_point_resources;
     let library_call_info = CallInfo {
         call: library_entry_point,
@@ -175,11 +177,12 @@ fn test_nested_library_call() {
     };
 
     // Nested library call cost: library_call(inner) + library_call(library_call(inner)).
-    let mut main_call_resources = ExecutionResources {
-        n_steps: 796,
-        n_memory_holes: 0,
-        builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 20)]),
-    };
+    let mut main_call_resources = &create_one_syscall(DeprecatedSyscallSelector::LibraryCall)
+        + &ExecutionResources {
+            n_steps: 45,
+            n_memory_holes: 0,
+            builtin_instance_counter: HashMap::new(),
+        };
     main_call_resources += &(&library_call_resources * 2);
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
@@ -198,7 +201,6 @@ fn test_call_contract() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut state = test_state(chain_info, 0, &[(test_contract, 1)]);
     let test_address = test_contract.get_instance_address(0);
-
     let trivial_external_entry_point = trivial_external_entry_point_with_address(test_address);
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
@@ -250,11 +252,15 @@ fn test_call_contract() {
             ..trivial_external_entry_point
         },
         execution: expected_execution,
-        resources: ExecutionResources {
-            n_steps: 1017,
-            n_memory_holes: 0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 23)]),
-        },
+        resources: &create_one_syscall(DeprecatedSyscallSelector::CallContract)
+            + &ExecutionResources {
+                n_steps: 257,
+                n_memory_holes: 0,
+                builtin_instance_counter: HashMap::from([(
+                    RANGE_CHECK_BUILTIN_NAME.to_string(),
+                    3,
+                )]),
+            },
         ..Default::default()
     };
 

@@ -23,6 +23,7 @@ use crate::abi::abi_utils::{
 use crate::abi::constants as abi_constants;
 use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
+use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -36,8 +37,9 @@ use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE,
-    DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    create_calldata, create_one_syscall, create_one_transaction, create_trivial_calldata,
+    CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
@@ -820,7 +822,10 @@ fn test_max_fee_to_max_steps_conversion(
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo0);
-    let actual_gas_used = 6065;
+    let actual_gas_used: u64 = create_one_syscall(DeprecatedSyscallSelector::CallContract).n_steps
+        as u64
+        + create_one_transaction(TransactionType::InvokeFunction).n_steps as u64
+        + 1751;
     let actual_gas_used_as_u128: u128 = actual_gas_used.into();
     let actual_fee = actual_gas_used_as_u128 * 100000000000;
     let actual_strk_gas_price =
