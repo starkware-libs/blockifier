@@ -9,9 +9,9 @@ use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::state::cached_state::{CachedState, ContractClassMapping};
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
-    LEGACY_TEST_CLASS_HASH, LEGACY_TEST_CONTRACT_ADDRESS, LEGACY_TEST_CONTRACT_CAIRO1_PATH,
-    SECURITY_TEST_CLASS_HASH, SECURITY_TEST_CONTRACT_ADDRESS, SECURITY_TEST_CONTRACT_CAIRO0_PATH,
-    TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2, TEST_CONTRACT_CAIRO0_PATH,
+    LEGACY_TEST_CLASS_HASH, LEGACY_TEST_CONTRACT_CAIRO1_PATH, SECURITY_TEST_CLASS_HASH,
+    SECURITY_TEST_CONTRACT_ADDRESS, SECURITY_TEST_CONTRACT_CAIRO0_PATH, TEST_CLASS_HASH,
+    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2, TEST_CONTRACT_CAIRO0_PATH,
     TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
     TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
@@ -19,22 +19,6 @@ use crate::test_utils::{
 pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = get_class_hash_to_v0_class_mapping();
     let address_to_class_hash = get_address_to_v0_class_hash();
-
-    CachedState::from(DictStateReader {
-        class_hash_to_class,
-        address_to_class_hash,
-        ..Default::default()
-    })
-}
-
-pub fn create_test_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = get_class_hash_to_v1_class_mapping();
-
-    let mut address_to_class_hash = common_map_setup();
-    address_to_class_hash.insert(
-        contract_address!(LEGACY_TEST_CONTRACT_ADDRESS),
-        class_hash!(LEGACY_TEST_CLASS_HASH),
-    );
 
     CachedState::from(DictStateReader {
         class_hash_to_class,

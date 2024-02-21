@@ -19,13 +19,13 @@ use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::test_utils::cached_state::{create_test_state, deprecated_create_test_state};
+use crate::test_utils::cached_state::deprecated_create_test_state;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, trivial_external_entry_point, trivial_external_entry_point_with_address,
-    CairoVersion, BALANCE,
+    create_calldata, trivial_external_entry_point, trivial_external_entry_point_new,
+    trivial_external_entry_point_with_address, CairoVersion, BALANCE,
 };
 use crate::versioned_constants::VersionedConstants;
 
@@ -529,12 +529,14 @@ fn test_storage_related_members() {
 
 #[test]
 fn test_cairo1_entry_point_segment_arena() {
-    let mut state = create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let chain_info = &ChainInfo::create_for_testing();
+    let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
     let calldata = calldata![];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("segment_arena_builtin"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
 
     assert!(
