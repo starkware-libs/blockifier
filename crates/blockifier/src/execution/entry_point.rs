@@ -249,10 +249,7 @@ impl EntryPointExecutionContext {
         let upper_bound_u128 = if gas_per_step.is_zero() {
             u128::MAX
         } else {
-            (gas_per_step.inv()
-                * u128_from_usize(tx_gas_upper_bound)
-                    .expect("Conversion from usize to u128 should not fail."))
-            .to_integer()
+            (gas_per_step.inv() * u128_from_usize(tx_gas_upper_bound)).to_integer()
         };
         let tx_upper_bound = usize_from_u128(upper_bound_u128).unwrap_or_else(|_| {
             log::warn!(

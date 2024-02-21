@@ -54,8 +54,7 @@ pub fn calculate_l1_gas_by_vm_usage(
         .iter()
         .map(|(key, resource_val)| {
             ((*resource_val)
-                * u128_from_usize(vm_resource_usage.0.get(key).cloned().unwrap_or_default())
-                    .expect("Conversion from usize to u128 should not fail."))
+                * u128_from_usize(vm_resource_usage.0.get(key).cloned().unwrap_or_default()))
             .ceil()
             .to_integer()
         })
