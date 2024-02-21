@@ -62,10 +62,17 @@ impl<S: StateReader> CachedState<S> {
     /// root); the state updates correspond to them.
     pub fn get_actual_state_changes(&mut self) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
-        let cache = self.cache.borrow();
+        let storage_changes = self.cache.borrow().get_storage_updates();
+        self.get_actual_state_changes_given_storage_updates(storage_changes)
+    }
 
+    fn get_actual_state_changes_given_storage_updates(
+        &mut self,
+        storage_updates: HashMap<StorageEntry, StarkFelt>,
+    ) -> StateResult<StateChanges> {
+        let cache = self.cache.borrow();
         Ok(StateChanges {
-            storage_updates: cache.get_storage_updates(),
+            storage_updates,
             nonce_updates: cache.get_nonce_updates(),
             // Class hash updates (deployed contracts + replace_class syscall).
             class_hash_updates: cache.get_class_hash_updates(),
@@ -484,6 +491,21 @@ impl StateCache {
         subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
+    fn get_storage_updates_execute(
+        &self,
+        validation_cached_state: &StateCache,
+    ) -> HashMap<StorageEntry, StarkFelt> {
+        let mut storage_writes = validation_cached_state.storage_writes.clone();
+        // Extend the storage writes from validation with the storage writes of execution to get the
+        // total storage writes.
+        storage_writes.extend(&self.storage_writes);
+        // Remove storage writes that are identical to the initial value (no change).
+        // TODO(Aner, 22/2/2024): Add test for writing and reseting storage updates in execute only.
+        // TODO(Aner, 22/2/2024): Add test for writing and reseting storage updates in validate
+        // only.
+        subtract_mappings(&storage_writes, &validation_cached_state.storage_initial_values)
+    }
+
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
         subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
@@ -607,6 +629,13 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             tx_unique_state_changes_keys,
             visited_pcs,
         }
+    }
+
+    pub fn get_actual_state_changes_execute(&mut self) -> StateResult<StateChanges> {
+        self.update_initial_values_of_write_only_access()?;
+        let storage_changes =
+            self.cache.borrow().get_storage_updates_execute(&self.state.0.cache.borrow());
+        self.get_actual_state_changes_given_storage_updates(storage_changes)
     }
 
     /// Commits changes in the child (wrapping) state to its parent.
