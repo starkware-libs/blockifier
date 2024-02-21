@@ -3,14 +3,14 @@ use rstest::{fixture, rstest};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{EventContent, EventData, EventKey};
 
+use crate::abi::constants;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};
 use crate::fee::eth_gas_constants;
-use crate::fee::gas_usage::{get_da_gas_cost, get_tx_events_gas_cost};
+use crate::fee::gas_usage::{get_da_gas_cost, get_message_segment_length, get_tx_events_gas_cost};
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::objects::GasVector;
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
-
 #[fixture]
 fn versioned_constants() -> &'static VersionedConstants {
     VersionedConstants::latest_constants()
@@ -160,4 +160,27 @@ fn test_onchain_data_discount() {
     let cost_ratio = (actual_cost as f64) / (cost_without_discount as f64);
     assert!(cost_ratio <= 0.9);
     assert!(cost_ratio >= 0.88);
+}
+
+#[rstest]
+#[case(vec![10, 20, 30], Some(50))]
+#[case(vec![10, 20, 30], None)]
+#[case(vec![], Some(50))]
+#[case(vec![], None)]
+fn test_get_message_segment_length(
+    #[case] l2_to_l1_payload_lengths: Vec<usize>,
+    #[case] l1_handler_payload_size: Option<usize>,
+) {
+    let result = get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
+
+    let expected_result: usize = l2_to_l1_payload_lengths.len()
+        * constants::L2_TO_L1_MSG_HEADER_SIZE
+        + l2_to_l1_payload_lengths.iter().sum::<usize>()
+        + if let Some(size) = l1_handler_payload_size {
+            constants::L1_TO_L2_MSG_HEADER_SIZE + size
+        } else {
+            0
+        };
+
+    assert_eq!(result, expected_result);
 }
