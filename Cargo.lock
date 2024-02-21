@@ -974,7 +974,7 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/cairo_native?rev=986f344#986f344b8e6d108bdce4cd560bb6862f151f3886"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=8b49c84#8b49c84318c23a33bd9081c99b7bd312631abf03"
 dependencies = [
  "bumpalo",
  "cairo-lang-compiler",
@@ -1013,7 +1013,7 @@ dependencies = [
 [[package]]
 name = "cairo-native-runtime"
 version = "0.1.0"
-source = "git+https://github.com/lambdaclass/cairo_native?rev=986f344#986f344b8e6d108bdce4cd560bb6862f151f3886"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=8b49c84#8b49c84318c23a33bd9081c99b7bd312631abf03"
 dependencies = [
  "cairo-lang-runner",
  "lazy_static",
@@ -2133,9 +2133,9 @@ dependencies = [
 
 [[package]]
 name = "lambdaworks-math"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "540c0715d7da472edc421ceca702d3f3a716b3b9168b6211f2e3939cb14c863c"
+checksum = "3c6c4d0ddd1fcd235be5196b1bcc404f89ad3e911f4c190fa01459e05dbf40f8"
 
 [[package]]
 name = "lazy_static"
@@ -3663,9 +3663,9 @@ dependencies = [
 
 [[package]]
 name = "starknet-types-core"
-version = "0.0.5"
+version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2441eb61d91a6bae832fda48e50b6ff09faa6cf63bfadd22dc16798d2cc024d"
+checksum = "5b6b868f545d43b474c2c00e9349c489fdeb7ff17eb00cdf339744ac4cae0930"
 dependencies = [
  "bitvec",
  "lambdaworks-math",
