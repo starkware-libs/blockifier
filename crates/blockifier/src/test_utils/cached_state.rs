@@ -159,10 +159,16 @@ fn get_class_hash_to_v1_class_mapping_vm() -> ContractClassMapping {
 }
 
 pub fn get_erc20_class_hash_mapping() -> ContractClassMapping {
-    HashMap::from([(
-        class_hash!(TEST_ERC20_FULL_CONTRACT_CLASS_HASH),
-        SierraContractClassV1::from_file(ERC20_FULL_CONTRACT_PATH).into(),
-    )])
+    HashMap::from([
+        (
+            class_hash!(TEST_ERC20_FULL_CONTRACT_CLASS_HASH),
+            SierraContractClassV1::from_file(ERC20_FULL_CONTRACT_PATH).into(),
+        ),
+        (
+            class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
+            ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),
+        ),
+    ])
 }
 
 fn get_address_to_v0_class_hash() -> HashMap<ContractAddress, ClassHash> {
