@@ -11,6 +11,7 @@
 
 pub mod abi;
 pub mod blockifier;
+pub mod bouncer;
 pub mod context;
 pub mod execution;
 pub mod fee;
