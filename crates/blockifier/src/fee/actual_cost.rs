@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ContractAddress;
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants as abi_constants;
@@ -12,7 +14,9 @@ use crate::fee::gas_usage::{
     get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost, get_messages_gas_cost,
     get_tx_events_gas_cost,
 };
-use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
+use crate::state::cached_state::{
+    CachedState, StateChanges, StateChangesCount, StorageEntry, TransactionalState,
+};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
     GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
@@ -59,6 +63,7 @@ pub struct ActualCostBuilder<'a> {
     validate_call_info: Option<&'a CallInfo>,
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
+    storage_updates_before_validation: HashMap<StorageEntry, StarkFelt>,
     sender_address: Option<ContractAddress>,
     l1_payload_size: Option<usize>,
     calldata_length: usize,
@@ -82,6 +87,7 @@ impl<'a> ActualCostBuilder<'a> {
             validate_call_info: None,
             execute_call_info: None,
             state_changes: StateChanges::default(),
+            storage_updates_before_validation: HashMap::default(),
             l1_payload_size: None,
             calldata_length,
             n_reverted_steps: 0,
@@ -126,6 +132,31 @@ impl<'a> ActualCostBuilder<'a> {
         state: &mut CachedState<impl StateReader>,
     ) -> StateResult<Self> {
         let new_state_changes = state.get_actual_state_changes()?;
+        self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
+        Ok(self)
+    }
+
+    /// The following two methods are used for revertable transactions, to correctly compute the
+    /// storage updates when execute resets storage writes from validation.
+    pub fn try_add_state_changes_validate(
+        mut self,
+        state: &mut CachedState<impl StateReader>,
+    ) -> StateResult<Self> {
+        let new_state_changes = state.get_actual_state_changes()?;
+        // Save the storage updates before validation, to be used when executing the transaction.
+        self.storage_updates_before_validation = self.state_changes.storage_updates.clone();
+        self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
+        Ok(self)
+    }
+
+    pub fn try_add_state_changes_execute(
+        mut self,
+        state: &mut TransactionalState<'a, impl StateReader>,
+    ) -> StateResult<Self> {
+        let new_state_changes = state.get_actual_state_changes_execute()?;
+        // Restore the storage updates to those before validation. Clone due to Rust's borrow
+        // checker... (Copilot helped me write this message. Thanks, Copilot!)
+        self.state_changes.storage_updates = self.storage_updates_before_validation.clone();
         self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
         Ok(self)
     }

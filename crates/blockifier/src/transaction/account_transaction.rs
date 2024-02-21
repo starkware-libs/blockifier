@@ -433,7 +433,7 @@ impl AccountTransaction {
         let actual_cost_builder_with_validation_changes = self
             .to_actual_cost_builder(tx_context.clone())
             .with_validate_call_info(&validate_call_info)
-            .try_add_state_changes(state)?;
+            .try_add_state_changes_validate(state)?;
 
         // Create copies of state and resources for the execution.
         // Both will be rolled back if the execution is reverted or committed upon success.
@@ -464,7 +464,7 @@ impl AccountTransaction {
                     // Fee is determined by the sum of `validate` and `execute` state changes.
                     // Since `execute_state_changes` are not yet committed, we merge them manually
                     // with `validate_state_changes` to count correctly.
-                    .try_add_state_changes(&mut execution_state)?
+                    .try_add_state_changes_execute(&mut execution_state)?
                     .build(&execution_resources)?;
 
                 // Post-execution checks.

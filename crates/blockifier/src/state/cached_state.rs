@@ -484,6 +484,18 @@ impl StateCache {
         subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
+    fn get_storage_updates_execute(
+        &self,
+        validation_cached_state: &StateCache,
+    ) -> HashMap<StorageEntry, StarkFelt> {
+        let mut storage_writes = validation_cached_state.storage_writes.clone();
+        // extend the storage writes from validation with the storage writes of execution to get the
+        // total storage writes.
+        storage_writes.extend(&self.storage_writes);
+        // remove storage writes that are identical to the initial value (no change).
+        subtract_mappings(&storage_writes, &validation_cached_state.storage_initial_values)
+    }
+
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
         subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
@@ -607,6 +619,20 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             tx_unique_state_changes_keys,
             visited_pcs,
         }
+    }
+
+    pub fn get_actual_state_changes_execute(&mut self) -> StateResult<StateChanges> {
+        self.update_initial_values_of_write_only_access()?;
+        let cache = self.cache.borrow();
+        Ok(StateChanges {
+            // Storage updates (update according to the initial values before validation).
+            storage_updates: cache.get_storage_updates_execute(&self.state.0.cache.borrow()),
+            nonce_updates: cache.get_nonce_updates(),
+            // Class hash updates (deployed contracts + replace_class syscall).
+            class_hash_updates: cache.get_class_hash_updates(),
+            // Compiled class hash updates (declare Cairo 1 contract).
+            compiled_class_hash_updates: cache.get_compiled_class_hash_updates(),
+        })
     }
 
     /// Commits changes in the child (wrapping) state to its parent.
