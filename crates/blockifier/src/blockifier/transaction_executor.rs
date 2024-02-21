@@ -33,6 +33,7 @@ pub enum TransactionExecutorError {
 }
 
 pub type TransactionExecutorResult<T> = Result<T, TransactionExecutorError>;
+pub type VisitedSegmentsMapping = Vec<(ClassHash, Vec<usize>)>;
 
 // TODO(Gilad): make this hold TransactionContext instead of BlockContext.
 pub struct TransactionExecutor<S: StateReader> {
@@ -189,11 +190,11 @@ impl<S: StateReader> TransactionExecutor<S> {
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
-    /// visited PC values.
+    /// visited segment values.
     pub fn finalize(
         &mut self,
         is_pending_block: bool,
-    ) -> (CommitmentStateDiff, Vec<(ClassHash, Vec<usize>)>) {
+    ) -> TransactionExecutorResult<(CommitmentStateDiff, VisitedSegmentsMapping)> {
         // Do not cache classes that were declared during a pending block.
         // They will be redeclared, and should not be cached since the content of this block is
         // transient.
@@ -201,19 +202,20 @@ impl<S: StateReader> TransactionExecutor<S> {
             self.state.move_classes_to_global_cache();
         }
 
-        // Extract visited PCs from block_context, and convert it to a python-friendly type.
-        let visited_pcs = self
+        // Get the visited segments of each contract class.
+        // This is done by taking all the visited PCs of each contract, and compress them to one
+        // representative for each visited segment.
+        let visited_segments = self
             .state
             .visited_pcs
             .iter()
-            .map(|(class_hash, class_visited_pcs)| {
-                let mut class_visited_pcs_vec: Vec<_> = class_visited_pcs.iter().cloned().collect();
-                class_visited_pcs_vec.sort();
-                (*class_hash, class_visited_pcs_vec)
+            .map(|(class_hash, class_visited_pcs)| -> TransactionExecutorResult<_> {
+                let contract_class = self.state.get_compiled_contract_class(*class_hash)?;
+                Ok((*class_hash, contract_class.get_visited_segments(class_visited_pcs)?))
             })
-            .collect();
+            .collect::<TransactionExecutorResult<_>>()?;
 
-        (self.state.to_state_diff(), visited_pcs)
+        Ok((self.state.to_state_diff(), visited_segments))
     }
 
     pub fn commit(&mut self) {
