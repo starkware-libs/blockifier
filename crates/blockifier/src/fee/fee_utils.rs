@@ -53,12 +53,16 @@ pub fn calculate_l1_gas_by_vm_usage(
     let vm_l1_gas_usage = vm_resource_fee_costs
         .iter()
         .map(|(key, resource_val)| {
-            (*resource_val) * vm_resource_usage.0.get(key).cloned().unwrap_or_default() as f64
+            ((*resource_val)
+                * u128_from_usize(vm_resource_usage.0.get(key).cloned().unwrap_or_default())
+                    .expect("Conversion from usize to u128 should not fail."))
+            .ceil()
+            .to_integer()
         })
-        .fold(f64::NAN, f64::max);
+        .fold(0, u128::max);
 
     // TODO(Dori, 1/5/2024): Check this conversion.
-    Ok(GasVector { l1_gas: vm_l1_gas_usage.ceil() as u128, l1_data_gas: 0 })
+    Ok(GasVector { l1_gas: vm_l1_gas_usage, l1_data_gas: 0 })
 }
 
 /// Computes and returns the total L1 gas consumption.

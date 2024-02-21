@@ -456,14 +456,41 @@
     },
     "validate_max_n_steps": 1000000,
     "vm_resource_fee_cost": {
-        "bitwise_builtin": 0.16,
-        "ec_op_builtin": 2.56,
-        "ecdsa_builtin": 5.12,
-        "keccak_builtin": 5.12,
-        "n_steps": 0.0025,
-        "output_builtin": 0,
-        "pedersen_builtin": 0.08,
-        "poseidon_builtin": 0.08,
-        "range_check_builtin": 0.04
+        "bitwise_builtin": [
+            16,
+            100
+        ],
+        "ec_op_builtin": [
+            256,
+            100
+        ],
+        "ecdsa_builtin": [
+            512,
+            100
+        ],
+        "keccak_builtin": [
+            512,
+            100
+        ],
+        "n_steps": [
+            25,
+            10000
+        ],
+        "output_builtin": [
+            0,
+            1
+        ],
+        "pedersen_builtin": [
+            8,
+            100
+        ],
+        "poseidon_builtin": [
+            8,
+            100
+        ],
+        "range_check_builtin": [
+            4,
+            100
+        ]
     }
 }
