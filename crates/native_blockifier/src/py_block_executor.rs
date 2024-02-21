@@ -30,6 +30,7 @@ use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
 
 pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
+pub(crate) type PyVisitedSegmentsMapping = Vec<(PyFelt, Vec<usize>)>;
 
 #[cfg(test)]
 #[path = "py_block_executor_test.rs"]
@@ -161,10 +162,13 @@ impl PyBlockExecutor {
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
-    /// visited PC values.
-    pub fn finalize(&mut self, is_pending_block: bool) -> (PyStateDiff, Vec<(PyFelt, Vec<usize>)>) {
+    /// visited segment values.
+    pub fn finalize(
+        &mut self,
+        is_pending_block: bool,
+    ) -> NativeBlockifierResult<(PyStateDiff, PyVisitedSegmentsMapping)> {
         log::debug!("Finalizing execution...");
-        let (commitment_state_diff, visited_pcs) = self.tx_executor().finalize(is_pending_block);
+        let (commitment_state_diff, visited_pcs) = self.tx_executor().finalize(is_pending_block)?;
         let visited_pcs = visited_pcs
             .into_iter()
             .map(|(class_hash, class_visited_pcs_vec)| {
@@ -174,7 +178,7 @@ impl PyBlockExecutor {
         let finalized_state = (PyStateDiff::from(commitment_state_diff), visited_pcs);
         log::debug!("Finalized execution.");
 
-        finalized_state
+        Ok(finalized_state)
     }
 
     pub fn commit_tx(&mut self) {
