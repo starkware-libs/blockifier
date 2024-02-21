@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ContractAddress;
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::abi::constants as abi_constants;
@@ -62,6 +63,7 @@ pub struct ActualCostBuilder<'a> {
     validate_call_info: Option<&'a CallInfo>,
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
+    storage_updates_before_validation: HashMap<StorageEntry, StarkFelt>,
     sender_address: Option<ContractAddress>,
     l1_payload_size: Option<usize>,
     calldata_length: usize,
@@ -85,6 +87,7 @@ impl<'a> ActualCostBuilder<'a> {
             validate_call_info: None,
             execute_call_info: None,
             state_changes: StateChanges::default(),
+            storage_updates_before_validation: HashMap::default(),
             l1_payload_size: None,
             calldata_length,
             n_reverted_steps: 0,
