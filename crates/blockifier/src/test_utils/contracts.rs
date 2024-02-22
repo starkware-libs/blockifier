@@ -22,6 +22,7 @@ const LEGACY_CONTRACT_BASE: u32 = 5 * CLASS_HASH_BASE;
 const SECURITY_TEST_CONTRACT_BASE: u32 = 6 * CLASS_HASH_BASE;
 const TEST_CONTRACT_BASE: u32 = 7 * CLASS_HASH_BASE;
 const ERC20_CONTRACT_BASE: u32 = 8 * CLASS_HASH_BASE;
+const ACCOUNT_WRITING_VALIDATION_BASE: u32 = 9 * CLASS_HASH_BASE;
 
 // Contract names.
 const ACCOUNT_LONG_VALIDATE_NAME: &str = "account_with_long_validate";
@@ -31,6 +32,7 @@ const FAULTY_ACCOUNT_NAME: &str = "account_faulty";
 const LEGACY_CONTRACT_NAME: &str = "legacy_test_contract";
 const SECURITY_TEST_CONTRACT_NAME: &str = "security_tests_contract";
 const TEST_CONTRACT_NAME: &str = "test_contract";
+const ACCOUNT_WRITING_VALIDATION_NAME: &str = "account_writing_validation";
 
 // ERC20 contract is in a unique location.
 const ERC20_CONTRACT_PATH: &str =
@@ -45,6 +47,7 @@ pub enum FeatureContract {
     ERC20,
     Empty(CairoVersion),
     FaultyAccount(CairoVersion),
+    AccountWritingValidation(CairoVersion),
     LegacyTestContract,
     SecurityTests,
     TestContract(CairoVersion),
@@ -57,6 +60,7 @@ impl FeatureContract {
             | Self::AccountWithoutValidations(version)
             | Self::Empty(version)
             | Self::FaultyAccount(version)
+            | Self::AccountWritingValidation(version)
             | Self::TestContract(version) => *version,
             Self::SecurityTests | Self::ERC20 => CairoVersion::Cairo0,
             Self::LegacyTestContract => CairoVersion::Cairo1,
@@ -82,6 +86,7 @@ impl FeatureContract {
                 Self::LegacyTestContract => LEGACY_CONTRACT_BASE,
                 Self::SecurityTests => SECURITY_TEST_CONTRACT_BASE,
                 Self::TestContract(_) => TEST_CONTRACT_BASE,
+                Self::AccountWritingValidation(_) => ACCOUNT_WRITING_VALIDATION_BASE,
             }
     }
 
@@ -95,6 +100,7 @@ impl FeatureContract {
             Self::LegacyTestContract => LEGACY_CONTRACT_NAME,
             Self::SecurityTests => SECURITY_TEST_CONTRACT_NAME,
             Self::TestContract(_) => TEST_CONTRACT_NAME,
+            Self::AccountWritingValidation(_) => ACCOUNT_WRITING_VALIDATION_NAME,
             // ERC20 is a special case - not in the feature_contracts directory.
             Self::ERC20 => return ERC20_CONTRACT_PATH.into(),
         };
@@ -118,6 +124,7 @@ impl FeatureContract {
             | Self::AccountWithoutValidations(v)
             | Self::Empty(v)
             | Self::FaultyAccount(v)
+            | Self::AccountWritingValidation(v)
             | Self::TestContract(v) => *v = version,
             Self::ERC20 | Self::LegacyTestContract | Self::SecurityTests => {
                 panic!("{self:?} contract has no configurable version.")
