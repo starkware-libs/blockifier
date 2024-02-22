@@ -137,6 +137,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             da_gas,
             actual_resources,
             revert_error: None,
+            bouncer_resources_override: None,
         })
     }
 }
