@@ -220,6 +220,11 @@ impl TransactionExecutionInfo {
     pub fn summarize(&self) -> ExecutionSummary {
         self.non_optional_call_infos().map(|call_info| call_info.summarize()).sum()
     }
+
+    /// Returns the resources to be accounted for in the bouncer.
+    pub fn bouncer_resources(&self) -> &ResourcesMapping {
+        self.bouncer_resources_override.as_ref().unwrap_or(&self.actual_resources)
+    }
 }
 
 /// A mapping from a transaction execution resource to its actual usage.

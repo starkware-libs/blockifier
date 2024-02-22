@@ -138,10 +138,8 @@ impl<S: StateReader> TransactionExecutor<S> {
                     get_onchain_data_segment_length(tx_unique_state_changes_keys.count());
 
                 // Finalize counting logic.
-                // TODO(Dori, 1/6/2024): Take the bouncer resources, not the actual resources.
-                let actual_resources = &tx_execution_info.actual_resources;
                 let bouncer_info = BouncerInfo::calculate(
-                    actual_resources,
+                    tx_execution_info.bouncer_resources(),
                     starknet_gas_usage,
                     additional_os_resources,
                     message_segment_length,
