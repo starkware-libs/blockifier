@@ -673,15 +673,15 @@
                 "destination": "starkware.starknet.common.syscalls.TxInfo",
                 "type": "alias"
             },
-            "__main__.VALIDATION_WITHOUT_WRITE": {
+            "__main__.WRITE_EXECUTE_ONLY": {
                 "type": "const",
                 "value": 1
             },
-            "__main__.VALIDATION_WITH_WRITE": {
+            "__main__.WRITE_VALIDATE_EXECUTE": {
                 "type": "const",
                 "value": 2
             },
-            "__main__.VALIDATION_WITH_WRITE_ONLY_IN_VALIDATION": {
+            "__main__.WRITE_VALIDATE_ONLY": {
                 "type": "const",
                 "value": 3
             },
