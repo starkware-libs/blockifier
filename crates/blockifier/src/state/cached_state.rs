@@ -30,8 +30,8 @@ pub struct CachedState<S: StateReader> {
     pub state: S,
     // Invariant: read/write access is managed by CachedState.
     // Using interior mutability to update caches during `State`'s immutable getters.
-    cache: RefCell<StateCache>,
-    class_hash_to_class: RefCell<ContractClassMapping>,
+    pub(crate) cache: RefCell<StateCache>,
+    pub(crate) class_hash_to_class: RefCell<ContractClassMapping>,
     // Invariant: managed by CachedState.
     global_class_hash_to_class: GlobalContractCache,
     /// A map from class hash to the set of PC values that were visited in the class.
@@ -382,16 +382,16 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
-    nonce_initial_values: HashMap<ContractAddress, Nonce>,
-    class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    storage_initial_values: HashMap<StorageEntry, StarkFelt>,
-    compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
+    pub(crate) nonce_initial_values: HashMap<ContractAddress, Nonce>,
+    pub(crate) class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
+    pub(crate) storage_initial_values: HashMap<StorageEntry, StarkFelt>,
+    pub(crate) compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
 
     // Writer's cached information.
-    nonce_writes: HashMap<ContractAddress, Nonce>,
-    class_hash_writes: HashMap<ContractAddress, ClassHash>,
-    storage_writes: HashMap<StorageEntry, StarkFelt>,
-    compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
+    pub(crate) nonce_writes: HashMap<ContractAddress, Nonce>,
+    pub(crate) class_hash_writes: HashMap<ContractAddress, ClassHash>,
+    pub(crate) storage_writes: HashMap<StorageEntry, StarkFelt>,
+    pub(crate) compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
 }
 
 impl StateCache {
