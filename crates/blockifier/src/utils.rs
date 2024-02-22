@@ -19,6 +19,7 @@ where
 
 /// Returns the max value of two constants, at compile time.
 pub const fn const_max(a: u128, b: u128) -> u128 {
+    #[allow(clippy::as_conversions)]
     [a, b][(a < b) as usize]
 }
 

@@ -109,6 +109,7 @@ pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
 
 // The max_fee / resource bounds used for txs in this test.
 pub const MAX_L1_GAS_AMOUNT: u64 = 1000000;
+#[allow(clippy::as_conversions)]
 pub const MAX_L1_GAS_AMOUNT_U128: u128 = MAX_L1_GAS_AMOUNT as u128;
 pub const MAX_L1_GAS_PRICE: u128 = DEFAULT_STRK_L1_GAS_PRICE;
 pub const MAX_RESOURCE_COMMITMENT: u128 = MAX_L1_GAS_AMOUNT_U128 * MAX_L1_GAS_PRICE;
