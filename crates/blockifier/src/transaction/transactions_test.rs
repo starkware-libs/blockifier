@@ -327,9 +327,8 @@ fn validate_final_balances(
     }
 }
 
-// TODO(Yoni, 1/4/2024): merge this with `get_expected_cairo_resources`.
-fn add_kzg_da_resources(
-    resources: &mut ResourcesMapping,
+fn add_kzg_da_resources_to_resources_mapping(
+    target: &mut ResourcesMapping,
     state_changes_count: StateChangesCount,
     versioned_constants: &VersionedConstants,
     use_kzg_da: bool,
@@ -346,8 +345,29 @@ fn add_kzg_da_resources(
         .insert(abi_constants::N_STEPS_RESOURCE.to_string(), os_kzg_da_resources.n_steps);
 
     resources_to_add.into_iter().for_each(|(key, value)| {
-        resources.0.entry(key.to_string()).and_modify(|v| *v += value).or_insert(value);
+        target.0.entry(key.to_string()).and_modify(|v| *v += value).or_insert(value);
     });
+}
+
+// TODO(Yoni, 1/4/2024): merge this with `get_expected_cairo_resources`.
+fn add_kzg_da_resources(
+    tx_execution_info: &mut TransactionExecutionInfo,
+    state_changes_count: StateChangesCount,
+    versioned_constants: &VersionedConstants,
+    use_kzg_da: bool,
+) {
+    add_kzg_da_resources_to_resources_mapping(
+        &mut tx_execution_info.actual_resources,
+        state_changes_count,
+        versioned_constants,
+        use_kzg_da,
+    );
+    add_kzg_da_resources_to_resources_mapping(
+        &mut tx_execution_info.bouncer_resources,
+        state_changes_count,
+        versioned_constants,
+        use_kzg_da,
+    );
 }
 
 #[rstest]
@@ -481,21 +501,21 @@ fn test_invoke_tx(
         calldata_length,
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
+    let actual_resources =
+        get_actual_resources(expected_cairo_resources, da_gas + calldata_and_signature_gas);
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         da_gas,
-        actual_resources: get_actual_resources(
-            expected_cairo_resources,
-            da_gas + calldata_and_signature_gas,
-        ),
+        actual_resources: actual_resources.clone(),
         revert_error: None,
+        bouncer_resources: actual_resources,
     };
 
     add_kzg_da_resources(
-        &mut expected_execution_info.actual_resources,
+        &mut expected_execution_info,
         state_changes_count,
         versioned_constants,
         use_kzg_da,
@@ -1167,6 +1187,7 @@ fn test_declare_tx(
         vec![&expected_validate_call_info],
     );
 
+    let actual_resources = get_actual_resources(expected_cairo_resources, code_gas + da_gas);
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
@@ -1174,11 +1195,12 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: get_actual_resources(expected_cairo_resources, code_gas + da_gas),
+        actual_resources: actual_resources.clone(),
+        bouncer_resources: actual_resources,
     };
 
     add_kzg_da_resources(
-        &mut expected_execution_info.actual_resources,
+        &mut expected_execution_info,
         state_changes_count,
         versioned_constants,
         use_kzg_da,
@@ -1304,6 +1326,7 @@ fn test_deploy_account_tx(
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
 
+    let actual_resources = get_actual_resources(expected_cairo_resources, da_gas);
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -1311,11 +1334,12 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: get_actual_resources(expected_cairo_resources, da_gas),
+        actual_resources: actual_resources.clone(),
+        bouncer_resources: actual_resources,
     };
 
     add_kzg_da_resources(
-        &mut expected_execution_info.actual_resources,
+        &mut expected_execution_info,
         state_changes_count,
         versioned_constants,
         use_kzg_da,
@@ -1759,7 +1783,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         ),
     ]));
 
-    add_kzg_da_resources(
+    add_kzg_da_resources_to_resources_mapping(
         &mut expected_resource_mapping,
         state_changes_count,
         versioned_constants,
@@ -1773,8 +1797,9 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
         da_gas: expected_da_gas,
-        actual_resources: expected_resource_mapping,
+        actual_resources: expected_resource_mapping.clone(),
         revert_error: None,
+        bouncer_resources: expected_resource_mapping,
     };
 
     // Check the actual returned execution info.
