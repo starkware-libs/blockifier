@@ -7,6 +7,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::Version;
 use crate::execution::contract_class::ContractClass;
+use crate::state::cached_state::CachedState;
 use crate::state::state_api::{StateReader, StateResult};
 
 #[cfg(test)]
@@ -35,6 +36,88 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: VersionedStorage::default(),
             compiled_class_hashes: VersionedStorage::default(),
             compiled_contract_classes: VersionedStorage::default(),
+        }
+    }
+
+    pub fn validate_read_set(
+        &mut self,
+        version: Version,
+        transactional_state: &mut CachedState<VersionedStateProxy<CachedState<S>>>,
+        // versioned_state: &mut Arc<Mutex<VersionedState<CachedState<S>>>>,
+    ) -> bool {
+        let cache = transactional_state.cache.borrow();
+        for ((contract_address, storage_key), expected_value) in &cache.storage_initial_values {
+            let value = match self.storage.read(version - 1, (*contract_address, *storage_key)) {
+                Some(value) => Ok(value),
+                None => self.initial_state.get_storage_at(*contract_address, *storage_key),
+            };
+            if *expected_value != value.unwrap() {
+                return false;
+            }
+        }
+        for (contract_address, expected_value) in &cache.nonce_initial_values {
+            let value = match self.nonces.read(version - 1, *contract_address) {
+                Some(value) => Ok(value),
+                None => self.initial_state.get_nonce_at(*contract_address),
+            };
+            if *expected_value != value.unwrap() {
+                return false;
+            }
+        }
+        for (contract_address, expected_value) in &cache.class_hash_initial_values {
+            let value = match self.class_hashes.read(version - 1, *contract_address) {
+                Some(value) => Ok(value),
+                None => self.initial_state.get_class_hash_at(*contract_address),
+            };
+            if *expected_value != value.unwrap() {
+                return false;
+            }
+        }
+        for (class_hash, expected_value) in &cache.compiled_class_hash_initial_values {
+            let value = match self.compiled_class_hashes.read(version - 1, *class_hash) {
+                Some(value) => Ok(value),
+                None => self.initial_state.get_compiled_class_hash(*class_hash),
+            };
+            if *expected_value != value.unwrap() {
+                return false;
+            }
+        }
+        let class_hash_to_class = transactional_state.class_hash_to_class.borrow();
+        for (class_hash, expected_value) in &*class_hash_to_class {
+            let value = match self.compiled_contract_classes.read(version - 1, *class_hash) {
+                Some(value) => Ok(value),
+                None => self.initial_state.get_compiled_contract_class(*class_hash),
+            };
+            if *expected_value != value.unwrap() {
+                return false;
+            }
+        }
+        // All values in the read set match the values from versioned state, return true.
+        true
+    }
+
+    pub fn apply_writes(
+        &mut self,
+        version: Version,
+        transactional_state: &mut CachedState<VersionedStateProxy<CachedState<S>>>,
+    ) {
+        let cache = transactional_state.cache.borrow();
+
+        for (key, value) in &cache.storage_writes {
+            self.storage.write(version, *key, *value);
+        }
+        for (key, value) in &cache.nonce_writes {
+            self.nonces.write(version, *key, *value);
+        }
+        for (key, value) in &cache.class_hash_writes {
+            self.class_hashes.write(version, *key, *value);
+        }
+        for (key, value) in &cache.compiled_class_hash_writes {
+            self.compiled_class_hashes.write(version, *key, *value);
+        }
+        let class_hash_to_class = transactional_state.class_hash_to_class.borrow();
+        for (key, value) in &*class_hash_to_class {
+            self.compiled_contract_classes.write(version, *key, value.clone());
         }
     }
 }
