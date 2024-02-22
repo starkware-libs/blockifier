@@ -25,8 +25,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    HasRelatedFeeType, TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
-    TransactionInfoCreator, TransactionPreValidationResult,
+    HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
+    TransactionInfo, TransactionInfoCreator, TransactionPreValidationResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::update_remaining_gas;
@@ -450,6 +450,8 @@ impl AccountTransaction {
         // Pre-compute cost in case of revert.
         let execution_steps_consumed =
             n_allotted_execution_steps - execution_context.n_remaining_steps();
+        let bouncer_revert_resources =
+            actual_cost_builder_with_validation_changes.clone().build(&resources)?.actual_resources;
         let revert_cost = actual_cost_builder_with_validation_changes
             .clone()
             .with_reverted_steps(execution_steps_consumed)
@@ -488,6 +490,7 @@ impl AccountTransaction {
                                 actual_fee: post_execution_report.recommended_fee(),
                                 ..revert_cost
                             },
+                            bouncer_revert_resources,
                         ))
                     }
                     None => {
@@ -513,6 +516,7 @@ impl AccountTransaction {
                         actual_fee: post_execution_report.recommended_fee(),
                         ..revert_cost
                     },
+                    bouncer_revert_resources,
                 ))
             }
         }
@@ -591,6 +595,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     da_gas: final_da_gas,
                     actual_resources: final_resources,
                 },
+            bouncer_resources_override,
         } = self.run_or_revert(
             state,
             &mut remaining_gas,
@@ -609,6 +614,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             da_gas: final_da_gas,
             actual_resources: final_resources,
             revert_error,
+            bouncer_resources_override,
         };
         Ok(tx_execution_info)
     }
@@ -630,6 +636,7 @@ struct ValidateExecuteCallInfo {
     execute_call_info: Option<CallInfo>,
     revert_error: Option<String>,
     final_cost: ActualCost,
+    bouncer_resources_override: Option<ResourcesMapping>,
 }
 
 impl ValidateExecuteCallInfo {
@@ -638,19 +645,27 @@ impl ValidateExecuteCallInfo {
         execute_call_info: Option<CallInfo>,
         final_cost: ActualCost,
     ) -> Self {
-        Self { validate_call_info, execute_call_info, revert_error: None, final_cost }
+        Self {
+            validate_call_info,
+            execute_call_info,
+            revert_error: None,
+            final_cost,
+            bouncer_resources_override: None,
+        }
     }
 
     pub fn new_reverted(
         validate_call_info: Option<CallInfo>,
         revert_error: String,
         final_cost: ActualCost,
+        bouncer_resources: ResourcesMapping,
     ) -> Self {
         Self {
             validate_call_info,
             execute_call_info: None,
             revert_error: Some(revert_error),
             final_cost,
+            bouncer_resources_override: Some(bouncer_resources),
         }
     }
 }
