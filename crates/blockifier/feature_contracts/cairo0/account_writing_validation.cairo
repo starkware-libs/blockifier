@@ -125,7 +125,6 @@ func execute{syscall_ptr: felt*}() {
         storage_write(address=storage_ptr, value=storage_value);
         return ();
     }
-    
     // Unknown scenario.
     return ();
 }

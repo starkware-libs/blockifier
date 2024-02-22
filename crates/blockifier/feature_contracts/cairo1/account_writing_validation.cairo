@@ -25,12 +25,6 @@ mod Account {
     // Run the validate method and write to storage only inside validation, no writes inside execution.
     const VALIDATION_WITH_WRITE_ONLY_IN_VALIDATION: felt252 = 3;
 
-    #[storage]
-    struct Storage {
-        my_storage_var: felt252,
-        my_storage_map: LegacyMap<felt252, felt252>,
-    }
-
     #[external(v0)]
     fn __validate_declare__(self: @ContractState, class_hash: felt252) -> felt252 {
         starknet::VALIDATED
