@@ -8,11 +8,14 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::Version;
 use crate::execution::contract_class::ContractClass;
+use crate::state::cached_state::{ContractClassMapping, StateCache};
 use crate::state::state_api::{State, StateReader, StateResult};
 
 #[cfg(test)]
 #[path = "versioned_state_proxy_test.rs"]
 pub mod test;
+
+const READ_ERR: &str = "Error: read value missing in the versioned storage";
 
 /// A collection of versioned storages.
 /// Represents a versioned state used as shared state between a chunk of workers.
@@ -36,6 +39,92 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: VersionedStorage::default(),
             compiled_class_hashes: VersionedStorage::default(),
             compiled_contract_classes: VersionedStorage::default(),
+        }
+    }
+
+    // Note: Invoke this function after `update_initial_values_of_write_only_access`.
+    // Transactions that overwrite previously written values are not charged. Hence, altering a
+    // write-only cell can impact the fee calculation, leading to a re-execution.
+    // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared
+    // object (probabily `VersionedState`). As RefCell operations are not thread-safe. Therefore,
+    // accessing this function should be protected by a mutex to ensure thread safety.
+    pub fn validate_read_set(
+        &mut self,
+        version: Version,
+        transactional_state: &mut StateCache,
+    ) -> StateResult<bool> {
+        // If the version is 0, then the read set is valid. Since version 0 has no predecessors,
+        // there's nothing to compare it to.
+        if version == 0 {
+            return Ok(true);
+        }
+        let prev_version = version - 1;
+        // let cache = transactional_state.cache.borrow();
+        for (&(contract_address, storage_key), expected_value) in
+            &transactional_state.storage_initial_values
+        {
+            let value =
+                self.storage.read(prev_version, (contract_address, storage_key)).expect(READ_ERR);
+
+            if &value != expected_value {
+                return Ok(false);
+            }
+        }
+
+        for (&contract_address, expected_value) in &transactional_state.nonce_initial_values {
+            let value = self.nonces.read(prev_version, contract_address).expect(READ_ERR);
+
+            if &value != expected_value {
+                return Ok(false);
+            }
+        }
+
+        for (&contract_address, expected_value) in &transactional_state.class_hash_initial_values {
+            let value = self.class_hashes.read(prev_version, contract_address).expect(READ_ERR);
+
+            if &value != expected_value {
+                return Ok(false);
+            }
+        }
+
+        // Added for symmetry. We currently do not update this initial mapping.
+        for (&class_hash, expected_value) in &transactional_state.compiled_class_hash_initial_values
+        {
+            let value = self.compiled_class_hashes.read(prev_version, class_hash).expect(READ_ERR);
+
+            if &value != expected_value {
+                return Ok(false);
+            }
+        }
+
+        // TODO(Mohammad, 01/04/2024): Edit the code to handle the case of a deploy preceding a
+        // decalre transaction.
+
+        // All values in the read set match the values from versioned state, return true.
+        Ok(true)
+    }
+
+    pub fn apply_writes(
+        &mut self,
+        version: Version,
+        transactional_state: &mut StateCache,
+        class_hash_to_class: ContractClassMapping,
+        // transactional_state: &mut CachedState<VersionedStateProxy<CachedState<S>>>,
+    ) {
+        for (&key, &value) in &transactional_state.storage_writes {
+            self.storage.write(version, key, value);
+        }
+        for (&key, &value) in &transactional_state.nonce_writes {
+            self.nonces.write(version, key, value);
+        }
+        for (&key, &value) in &transactional_state.class_hash_writes {
+            self.class_hashes.write(version, key, value);
+        }
+        for (&key, &value) in &transactional_state.compiled_class_hash_writes {
+            self.compiled_class_hashes.write(version, key, value);
+        }
+        for (key, value) in class_hash_to_class {
+            self.compiled_contract_classes.write(version, key, value.clone());
         }
     }
 }
