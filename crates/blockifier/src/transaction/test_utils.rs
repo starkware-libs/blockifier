@@ -47,7 +47,7 @@ pub const GET_BLOCK_NUMBER: u64 = 5;
 pub const GET_BLOCK_TIMESTAMP: u64 = 6;
 pub const GET_SEQUENCER_ADDRESS: u64 = 7;
 
-// Corresponding constants to the ones in testing_account.
+// Corresponding constants to the ones in account_writing_validation.
 pub const NO_WRITE: u64 = 0;
 pub const VALIDATION_WITHOUT_WRITE: u64 = 1;
 pub const VALIDATION_WITH_WRITE: u64 = 2;
