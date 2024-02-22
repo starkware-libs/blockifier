@@ -500,8 +500,6 @@ impl StateCache {
         // total storage writes.
         storage_writes.extend(&self.storage_writes);
         // Remove storage writes that are identical to the initial value (no change).
-        // TODO(Aner, 22/2/2024): Add test for writing and reseting storage updates in execute only.
-        // TODO(Aner, 22/2/2024): Add test for writing and reseting storage updates in validate
         // only.
         subtract_mappings(&storage_writes, &validation_state_cache.storage_initial_values)
     }
