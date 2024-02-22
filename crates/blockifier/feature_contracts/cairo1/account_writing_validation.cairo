@@ -19,17 +19,15 @@ mod Account {
     // Run the validate method, no writes inside validation or execution.
     const NO_WRITES: felt252 = 0;
     // Run the validate method, no writes inside validation, writes inside execution.
-    const VALIDATION_WITHOUT_WRITE: felt252 = 1;
+    const WRITE_EXECUTE_ONLY: felt252 = 1;
     // Run the validate method and write to storage inside validation and execution.
-    const VALIDATION_WITH_WRITE: felt252 = 2;
+    const WRITE_VALIDATE_EXECUTE: felt252 = 2;
     // Run the validate method and write to storage only inside validation, no writes inside execution.
-    const VALIDATION_WITH_WRITE_ONLY_IN_VALIDATION: felt252 = 3;
+    const WRITE_VALIDATE_ONLY: felt252 = 3;
 
     #[storage]
-    struct Storage {
-        my_storage_var: felt252,
-        my_storage_map: LegacyMap<felt252, felt252>,
-    }
+    struct Storage {}
+
 
     #[external(v0)]
     fn __validate_declare__(self: @ContractState, class_hash: felt252) -> felt252 {
@@ -74,35 +72,18 @@ mod Account {
         let signature = tx_info.signature;
         let scenario = *signature[0_u32];
 
-        if (scenario == NO_WRITES || scenario == VALIDATION_WITHOUT_WRITE) {
+        if (scenario == NO_WRITES || scenario == WRITE_EXECUTE_ONLY) {
             return starknet::VALIDATED;
         }
-
-        if (scenario == VALIDATION_WITH_WRITE_ONLY_IN_VALIDATION) {
+        if (scenario == WRITE_VALIDATE_ONLY) {
             //First write to storage.
-            let index = *signature[1_u32];
-            let value = *signature[2_u32];
-            let storage_address = index.try_into().unwrap();
-            let address_domain = 0;
-            syscalls::storage_write_syscall(address_domain, storage_address, value)
-                .unwrap_syscall();
+            write(*signature[1_u32], *signature[2_u32]);
             //Second write to storage.
-            let index = *signature[3_u32];
-            let value = *signature[4_u32];
-            let storage_address = index.try_into().unwrap();
-            let address_domain = 0;
-            syscalls::storage_write_syscall(address_domain, storage_address, value)
-                .unwrap_syscall();
+            write(*signature[3_u32], *signature[4_u32]);
             return starknet::VALIDATED;
         }
-
-        if (scenario == VALIDATION_WITH_WRITE) {
-            let index = *signature[1_u32];
-            let value = *signature[2_u32];
-            let storage_address = index.try_into().unwrap();
-            let address_domain = 0;
-            syscalls::storage_write_syscall(address_domain, storage_address, value)
-                .unwrap_syscall();
+        if (scenario == WRITE_VALIDATE_EXECUTE) {
+            write(*signature[1_u32], *signature[2_u32]);
             return starknet::VALIDATED;
         }
         // Unknown scenario.
@@ -114,39 +95,27 @@ mod Account {
         let signature = tx_info.signature;
         let scenario = *signature[0_u32];
 
-        if (scenario == NO_WRITES || scenario == VALIDATION_WITH_WRITE_ONLY_IN_VALIDATION) {
+        if (scenario == NO_WRITES || scenario == WRITE_VALIDATE_ONLY) {
             return starknet::VALIDATED;
         }
-
-        if (scenario == VALIDATION_WITHOUT_WRITE) {
+        if (scenario == WRITE_EXECUTE_ONLY) {
             //First write to storage.
-            let index = *signature[1_u32];
-            let value = *signature[2_u32];
-            let storage_address = index.try_into().unwrap();
-            let address_domain = 0;
-            syscalls::storage_write_syscall(address_domain, storage_address, value)
-                .unwrap_syscall();
-
+            write(*signature[1_u32], *signature[2_u32]);
             //Second write to storage.
-            let index = *signature[3_u32];
-            let value = *signature[4_u32];
-            let storage_address = index.try_into().unwrap();
-            let address_domain = 0;
-            syscalls::storage_write_syscall(address_domain, storage_address, value)
-                .unwrap_syscall();
+            write(*signature[3_u32], *signature[4_u32]);
             return starknet::VALIDATED;
         }
-
-        if (scenario == VALIDATION_WITH_WRITE) {
-            let index = *signature[3_u32];
-            let value = *signature[4_u32];
-            let storage_address = index.try_into().unwrap();
-            let address_domain = 0;
-            syscalls::storage_write_syscall(address_domain, storage_address, value)
-                .unwrap_syscall();
+        if (scenario == WRITE_VALIDATE_EXECUTE) {
+            write(*signature[3_u32], *signature[4_u32]);
             return starknet::VALIDATED;
         }
         // Unknown scenario.
         starknet::VALIDATED
+    }
+
+    fn write(index: felt252, value: felt252) {
+        let storage_address = index.try_into().unwrap();
+        let address_domain = 0;
+        syscalls::storage_write_syscall(address_domain, storage_address, value).unwrap_syscall();
     }
 }
