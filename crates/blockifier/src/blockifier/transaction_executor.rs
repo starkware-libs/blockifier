@@ -138,6 +138,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     get_onchain_data_segment_length(tx_unique_state_changes_keys.count());
 
                 // Finalize counting logic.
+                // TODO(Dori, 1/6/2024): Take the bouncer resources, not the actual resources.
                 let actual_resources = &tx_execution_info.actual_resources;
                 let bouncer_info = BouncerInfo::calculate(
                     actual_resources,
@@ -187,7 +188,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             limit_steps_by_resources,
         )?;
 
-        let actual_cost = account_tx
+        let (actual_cost, _bouncer_resources) = account_tx
             .to_actual_cost_builder(tx_context)
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(&mut self.state)?

@@ -199,6 +199,8 @@ pub struct TransactionExecutionInfo {
     // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
     //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
     pub revert_error: Option<String>,
+    /// If not None, contains the resources to account for in the bouncer.
+    pub bouncer_resources_override: Option<ResourcesMapping>,
 }
 
 impl TransactionExecutionInfo {
@@ -221,8 +223,7 @@ impl TransactionExecutionInfo {
 }
 
 /// A mapping from a transaction execution resource to its actual usage.
-#[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct ResourcesMapping(pub HashMap<String, usize>);
 
 impl ResourcesMapping {

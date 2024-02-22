@@ -492,6 +492,7 @@ fn test_invoke_tx(
             da_gas + calldata_and_signature_gas,
         ),
         revert_error: None,
+        bouncer_resources_override: None,
     };
 
     add_kzg_da_resources(
@@ -1175,6 +1176,7 @@ fn test_declare_tx(
         da_gas,
         revert_error: None,
         actual_resources: get_actual_resources(expected_cairo_resources, code_gas + da_gas),
+        bouncer_resources_override: None,
     };
 
     add_kzg_da_resources(
@@ -1312,6 +1314,7 @@ fn test_deploy_account_tx(
         da_gas,
         revert_error: None,
         actual_resources: get_actual_resources(expected_cairo_resources, da_gas),
+        bouncer_resources_override: None,
     };
 
     add_kzg_da_resources(
@@ -1775,6 +1778,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         da_gas: expected_da_gas,
         actual_resources: expected_resource_mapping,
         revert_error: None,
+        bouncer_resources_override: None,
     };
 
     // Check the actual returned execution info.
