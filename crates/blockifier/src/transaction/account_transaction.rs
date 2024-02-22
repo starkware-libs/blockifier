@@ -25,8 +25,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    HasRelatedFeeType, TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
-    TransactionInfoCreator, TransactionPreValidationResult,
+    HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
+    TransactionInfo, TransactionInfoCreator, TransactionPreValidationResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::update_remaining_gas;
@@ -382,7 +382,7 @@ impl AccountTransaction {
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
         }
 
-        let actual_cost = self
+        let (actual_cost, _bouncer_resources) = self
             .to_actual_cost_builder(tx_context.clone())
             .with_validate_call_info(&validate_call_info)
             .with_execute_call_info(&execute_call_info)
@@ -450,7 +450,7 @@ impl AccountTransaction {
         // Pre-compute cost in case of revert.
         let execution_steps_consumed =
             n_allotted_execution_steps - execution_context.n_remaining_steps();
-        let revert_cost = actual_cost_builder_with_validation_changes
+        let (revert_cost, bouncer_revert_resources) = actual_cost_builder_with_validation_changes
             .clone()
             .with_reverted_steps(execution_steps_consumed)
             .build(&resources)?;
@@ -459,7 +459,7 @@ impl AccountTransaction {
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
-                let actual_cost = actual_cost_builder_with_validation_changes
+                let (actual_cost, _bouncer_resources) = actual_cost_builder_with_validation_changes
                     .with_execute_call_info(&execute_call_info)
                     // Fee is determined by the sum of `validate` and `execute` state changes.
                     // Since `execute_state_changes` are not yet committed, we merge them manually
@@ -488,6 +488,7 @@ impl AccountTransaction {
                                 actual_fee: post_execution_report.recommended_fee(),
                                 ..revert_cost
                             },
+                            bouncer_revert_resources,
                         ))
                     }
                     None => {
@@ -513,6 +514,7 @@ impl AccountTransaction {
                         actual_fee: post_execution_report.recommended_fee(),
                         ..revert_cost
                     },
+                    bouncer_revert_resources,
                 ))
             }
         }
@@ -591,6 +593,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     da_gas: final_da_gas,
                     actual_resources: final_resources,
                 },
+            bouncer_resources_override,
         } = self.run_or_revert(
             state,
             &mut remaining_gas,
@@ -609,6 +612,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             da_gas: final_da_gas,
             actual_resources: final_resources,
             revert_error,
+            bouncer_resources_override,
         };
         Ok(tx_execution_info)
     }
@@ -630,6 +634,7 @@ struct ValidateExecuteCallInfo {
     execute_call_info: Option<CallInfo>,
     revert_error: Option<String>,
     final_cost: ActualCost,
+    bouncer_resources_override: Option<ResourcesMapping>,
 }
 
 impl ValidateExecuteCallInfo {
@@ -638,19 +643,27 @@ impl ValidateExecuteCallInfo {
         execute_call_info: Option<CallInfo>,
         final_cost: ActualCost,
     ) -> Self {
-        Self { validate_call_info, execute_call_info, revert_error: None, final_cost }
+        Self {
+            validate_call_info,
+            execute_call_info,
+            revert_error: None,
+            final_cost,
+            bouncer_resources_override: None,
+        }
     }
 
     pub fn new_reverted(
         validate_call_info: Option<CallInfo>,
         revert_error: String,
         final_cost: ActualCost,
+        bouncer_resources: ResourcesMapping,
     ) -> Self {
         Self {
             validate_call_info,
             execute_call_info: None,
             revert_error: Some(revert_error),
             final_cost,
+            bouncer_resources_override: Some(bouncer_resources),
         }
     }
 }

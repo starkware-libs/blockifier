@@ -21,6 +21,7 @@ use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
 use crate::abi::constants as abi_constants;
+use crate::abi::constants::N_STEPS_RESOURCE;
 use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
@@ -477,6 +478,17 @@ fn test_revert_invoke(
         (stark_felt!(BALANCE - tx_execution_info.actual_fee.0), stark_felt!(0_u8))
     );
     assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
+
+    // Check that the bouncer resources have less cairo steps, and are identical to actual resources
+    // apart from that.
+    let mut bouncer_resources = tx_execution_info.bouncer_resources_override.unwrap().clone();
+    let mut actual_resources = tx_execution_info.actual_resources.clone();
+    let bouncer_steps = bouncer_resources.0.remove(N_STEPS_RESOURCE).unwrap();
+    let actual_steps = actual_resources.0.remove(N_STEPS_RESOURCE).unwrap();
+    if bouncer_steps >= actual_steps {
+        panic!("Expected {} < {}.", bouncer_steps, actual_steps);
+    }
+    assert_eq!(bouncer_resources.0, actual_resources.0);
 
     // Check that execution state changes were reverted.
     assert_eq!(
