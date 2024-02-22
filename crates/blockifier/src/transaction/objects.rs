@@ -231,6 +231,10 @@ impl TransactionExecutionInfo {
     pub fn is_reverted(&self) -> bool {
         self.revert_error.is_some()
     }
+
+    pub fn bouncer_resources(&self) -> &ResourcesMapping {
+        self.bouncer_resources_override.as_ref().unwrap_or(&self.actual_resources)
+    }
 }
 
 /// A mapping from a transaction execution resource to its actual usage.
