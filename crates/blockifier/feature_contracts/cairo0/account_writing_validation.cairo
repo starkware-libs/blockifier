@@ -17,13 +17,13 @@ from starkware.starknet.common.syscalls import (
 )
 
 // Run the validate method, no writes inside validation or execution.
-    const NO_WRITES = 0;
-    // Run the validate method, no writes inside validation, writes inside execution.
-    const VALIDATION_WITHOUT_WRITE = 1;
-    // Run the validate method and write to storage inside validation and execution.
-    const VALIDATION_WITH_WRITE = 2;
-    // Run the validate method and write to storage only inside validation, no writes inside execution.
-    const VALIDATION_WITH_WRITE_ONLY_IN_VALIDATION = 3;
+const NO_WRITES = 0;
+// Run the validate method, no writes inside validation, writes inside execution.
+const WRITE_EXECUTE_ONLY = 1;
+// Run the validate method and write to storage inside validation and execution.
+const WRITE_VALIDATE_EXECUTE = 2;
+// Run the validate method and write to storage only inside validation, no writes inside execution.
+const WRITE_VALIDATE_ONLY = 3;
 
 @external
 func __validate_declare__{syscall_ptr: felt*}(class_hash: felt) {
@@ -68,27 +68,18 @@ func validate{syscall_ptr: felt*}() {
     if (scenario == NO_WRITES) {
         return ();
     }
-    if (scenario == VALIDATION_WITHOUT_WRITE) {
+    if (scenario == WRITE_EXECUTE_ONLY) {
         return ();
     }
-    
-
-    if (scenario == VALIDATION_WITH_WRITE_ONLY_IN_VALIDATION) {
+    if (scenario == WRITE_VALIDATE_ONLY) {
         // First write to storage.
-        let storage_ptr = tx_info.signature[1];
-        let storage_value = tx_info.signature[2];
-        storage_write(address=storage_ptr, value=storage_value);
+        storage_write(address=tx_info.signature[1], value=tx_info.signature[2]);
         // Second write to storage.
-        let storage_ptr = tx_info.signature[3];
-        let storage_value = tx_info.signature[4];
-        storage_write(address=storage_ptr, value=storage_value);
+        storage_write(address=tx_info.signature[3], value=tx_info.signature[4]);
         return ();
     }
-
-    if (scenario == VALIDATION_WITH_WRITE) {
-        let storage_ptr = tx_info.signature[1];
-        let storage_value = tx_info.signature[2];
-        storage_write(address=storage_ptr, value=storage_value);
+    if (scenario == WRITE_VALIDATE_EXECUTE) {
+        storage_write(address=tx_info.signature[1], value=tx_info.signature[2]);
         return ();
     }
     // Unknown scenario.
@@ -103,29 +94,20 @@ func execute{syscall_ptr: felt*}() {
     if (scenario == NO_WRITES) {
         return ();
     }
-    if (scenario == VALIDATION_WITH_WRITE_ONLY_IN_VALIDATION) {
+    if (scenario == WRITE_VALIDATE_ONLY) {
         return ();
     }
-
-    if (scenario == VALIDATION_WITHOUT_WRITE) {
+    if (scenario == WRITE_EXECUTE_ONLY) {
         // First write to storage.
-        let storage_ptr = tx_info.signature[1];
-        let storage_value = tx_info.signature[2];
-        storage_write(address=storage_ptr, value=storage_value);
+        storage_write(address=tx_info.signature[1], value=tx_info.signature[2]);
         // Second write to storage.
-        let storage_ptr = tx_info.signature[3];
-        let storage_value = tx_info.signature[4];
-        storage_write(address=storage_ptr, value=storage_value);
+        storage_write(address=tx_info.signature[3], value=tx_info.signature[4]);
         return ();
     }
-
-    if (scenario == VALIDATION_WITH_WRITE) {
-        let storage_ptr = tx_info.signature[3];
-        let storage_value = tx_info.signature[4];
-        storage_write(address=storage_ptr, value=storage_value);
+    if (scenario == WRITE_VALIDATE_EXECUTE) {
+        storage_write(address=tx_info.signature[3], value=tx_info.signature[4]);
         return ();
     }
-    
     // Unknown scenario.
     return ();
 }
