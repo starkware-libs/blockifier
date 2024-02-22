@@ -95,12 +95,14 @@ impl<'a> ActualCostBuilder<'a> {
         self
     }
 
-    // Call the `build` method to construct the actual cost object, after feeding the builder
-    // using the setters below.
+    /// Call the `build` method to construct the actual cost object, after feeding the builder
+    /// using the setters below.
+    /// In addition to actual cost, the method returns the resources the bouncer should take into
+    /// account when adding the transaction to the block.
     pub fn build(
         self,
         execution_resources: &ExecutionResources,
-    ) -> TransactionExecutionResult<ActualCost> {
+    ) -> TransactionExecutionResult<(ActualCost, ResourcesMapping)> {
         self.calculate_actual_fee_and_resources(execution_resources)
     }
 
@@ -150,7 +152,7 @@ impl<'a> ActualCostBuilder<'a> {
     fn calculate_actual_fee_and_resources(
         self,
         execution_resources: &ExecutionResources,
-    ) -> TransactionExecutionResult<ActualCost> {
+    ) -> TransactionExecutionResult<(ActualCost, ResourcesMapping)> {
         let use_kzg_da = self.use_kzg_da();
         let state_changes_count = self.state_changes.count_for_fee_charge(
             self.sender_address,
@@ -186,6 +188,9 @@ impl<'a> ActualCostBuilder<'a> {
             use_kzg_da,
         )?;
 
+        // Bouncer resources should not include reverted steps; should include the rest, though.
+        let bouncer_resources = actual_resources.clone();
+
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
         *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
             self.n_reverted_steps;
@@ -200,7 +205,7 @@ impl<'a> ActualCostBuilder<'a> {
             Fee(0)
         };
 
-        Ok(ActualCost { actual_fee, da_gas, actual_resources })
+        Ok((ActualCost { actual_fee, da_gas, actual_resources }, bouncer_resources))
     }
 
     /// Returns the gas usage of a transaction, specifically:
