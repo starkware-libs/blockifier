@@ -48,7 +48,7 @@ use crate::transaction::test_utils::{
     create_account_tx_for_validate_test, create_test_init_data, deploy_and_fund_account,
     l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs,
     TestInitData, INVALID, NO_WRITE, WRITE_EXECUTE_ONLY, WRITE_VALIDATE_EXECUTE,
-    WRITE_VALIDATE_ONLY,
+    WRITE_VALIDATE_FAIL_EXECUTE, WRITE_VALIDATE_ONLY,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -1176,13 +1176,11 @@ fn test_count_actual_storage_changes(
 /// Test for counting actual storage changes, with storage writes in validation.
 #[rstest]
 fn test_count_actual_storage_changes_with_storage_writes_in_validation(
-    mut block_context: BlockContext,
+    block_context: BlockContext,
     #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
-    #[values(false, true)] use_kzg_da: bool,
 ) {
     // Create initial state.
-    block_context.block_info.use_kzg_da = use_kzg_da;
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWritingValidation(cairo_version);
     let mut state = test_state(chain_info, BALANCE, &[(account_contract, 1)]);
@@ -1206,8 +1204,8 @@ fn test_count_actual_storage_changes_with_storage_writes_in_validation(
         nonce: nonce_manager.next(account_address),
     };
 
-    let account_tx = account_invoke_tx(invoke_args.clone());
-    let execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let execution_info = run_invoke_tx(&mut state, &block_context, invoke_args.clone()).unwrap();
+    assert!(!execution_info.is_reverted());
 
     let da_gas_usage_no_storage_writes = execution_info.da_gas;
 
@@ -1216,19 +1214,23 @@ fn test_count_actual_storage_changes_with_storage_writes_in_validation(
     let scenario_info = vec![scenario.into(), 15_u8.into(), 1_u8.into(), 15_u8.into(), 0_u8.into()];
     let fake_signature = TransactionSignature(scenario_info);
 
-    let account_tx = account_invoke_tx(InvokeTxArgs {
-        nonce: nonce_manager.next(account_address),
-        signature: fake_signature,
-        ..invoke_args.clone()
-    });
-
-    let execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args.clone()
+        },
+    )
+    .unwrap();
     let da_gas_usage_validation_reset_storage_writes_execution = execution_info.da_gas;
 
     assert_eq!(
         da_gas_usage_no_storage_writes,
         da_gas_usage_validation_reset_storage_writes_execution
     );
+    assert!(!execution_info.is_reverted());
 
     // Scenario: Only execution changes same storage to a new
     // value and then back to original value, execution passes.
@@ -1239,16 +1241,20 @@ fn test_count_actual_storage_changes_with_storage_writes_in_validation(
     let scenario_info = vec![scenario.into(), 15_u8.into(), 1_u8.into(), 15_u8.into(), 0_u8.into()];
     let fake_signature = TransactionSignature(scenario_info);
 
-    let account_tx = account_invoke_tx(InvokeTxArgs {
-        nonce: nonce_manager.next(account_address),
-        signature: fake_signature,
-        ..invoke_args.clone()
-    });
-
-    let execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args.clone()
+        },
+    )
+    .unwrap();
     let da_gas_usage_reset_storage_writes_execution = execution_info.da_gas;
 
     assert_eq!(da_gas_usage_no_storage_writes, da_gas_usage_reset_storage_writes_execution);
+    assert!(!execution_info.is_reverted());
 
     // Scenario: Only validation changes same storage to a new
     // value and then back to original value, execution passes.
@@ -1259,83 +1265,162 @@ fn test_count_actual_storage_changes_with_storage_writes_in_validation(
     let scenario_info = vec![scenario.into(), 15_u8.into(), 1_u8.into(), 15_u8.into(), 0_u8.into()];
     let fake_signature = TransactionSignature(scenario_info);
 
-    let account_tx = account_invoke_tx(InvokeTxArgs {
-        nonce: nonce_manager.next(account_address),
-        signature: fake_signature,
-        ..invoke_args.clone()
-    });
-
-    let execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args.clone()
+        },
+    )
+    .unwrap();
     let da_gas_usage_reset_storage_writes_validation = execution_info.da_gas;
 
     assert_eq!(da_gas_usage_no_storage_writes, da_gas_usage_reset_storage_writes_validation);
+    assert!(!execution_info.is_reverted());
 
-    // Scenario: Validation and/or execution both change same storage to a new
+    // Scenarios: Validation and/or execution both change same storage to a new
     // value, execution passes.
     // Expected: single storage change, da_gas as if single write happened.
 
-    let scenario = WRITE_EXECUTE_ONLY;
-    // Write 1 to cell 16 in execute.
-    let scenario_info = vec![scenario.into(), 16_u8.into(), 1_u8.into(), 0_u8.into(), 0_u8.into()];
-    let fake_signature = TransactionSignature(scenario_info);
-    let account_tx = account_invoke_tx(InvokeTxArgs {
-        nonce: nonce_manager.next(account_address),
-        signature: fake_signature,
-        ..invoke_args.clone()
-    });
+    let mut fresh_cell = 16_u8;
 
-    let execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let scenario = WRITE_EXECUTE_ONLY;
+    // Write 1 to cell in execute.
+    let scenario_info =
+        vec![scenario.into(), fresh_cell.into(), 1_u8.into(), 0_u8.into(), 0_u8.into()];
+    let fake_signature = TransactionSignature(scenario_info);
+
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args.clone()
+        },
+    )
+    .unwrap();
+    assert!(!execution_info.is_reverted());
     let da_gas_usage_single_storage_write = execution_info.da_gas;
 
     let scenario = WRITE_VALIDATE_EXECUTE;
-    // Write 1 to cell 17 in validate, then 2 to same cell in execute.
-    let scenario_info = vec![scenario.into(), 17_u8.into(), 1_u8.into(), 17_u8.into(), 2_u8.into()];
+    // Write 1 to cell in validate, then 2 to same cell in execute.
+    fresh_cell += 1;
+    let scenario_info =
+        vec![scenario.into(), fresh_cell.into(), 1_u8.into(), fresh_cell.into(), 2_u8.into()];
     let fake_signature = TransactionSignature(scenario_info);
-    let account_tx = account_invoke_tx(InvokeTxArgs {
-        nonce: nonce_manager.next(account_address),
-        signature: fake_signature,
-        ..invoke_args.clone()
-    });
 
-    let execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args.clone()
+        },
+    )
+    .unwrap();
     let da_gas_usage_write_to_same_cell_validation_execution = execution_info.da_gas;
 
     assert_eq!(
         da_gas_usage_single_storage_write,
         da_gas_usage_write_to_same_cell_validation_execution
     );
+    assert!(!execution_info.is_reverted());
 
     let scenario = WRITE_VALIDATE_ONLY;
-    // Write 1 then 2 to same cell (18) in validate.
-    let scenario_info = vec![scenario.into(), 18_u8.into(), 1_u8.into(), 18_u8.into(), 2_u8.into()];
+    // Write 1 then 2 to same cell in validate.
+    fresh_cell += 1;
+    let scenario_info =
+        vec![scenario.into(), fresh_cell.into(), 1_u8.into(), fresh_cell.into(), 2_u8.into()];
     let fake_signature = TransactionSignature(scenario_info);
-    let account_tx = account_invoke_tx(InvokeTxArgs {
-        nonce: nonce_manager.next(account_address),
-        signature: fake_signature,
-        ..invoke_args.clone()
-    });
 
-    let execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args.clone()
+        },
+    )
+    .unwrap();
     let da_gas_usage_write_twice_to_same_cell_validation = execution_info.da_gas;
 
     assert_eq!(da_gas_usage_single_storage_write, da_gas_usage_write_twice_to_same_cell_validation);
+    assert!(!execution_info.is_reverted());
 
     let scenario = WRITE_EXECUTE_ONLY;
-    // Write 1 then 2 to same cell (19) in execute.
-    let scenario_info = vec![scenario.into(), 19_u8.into(), 1_u8.into(), 19_u8.into(), 2_u8.into()];
+    // Write 1 then 2 to same cell in execute.
+    fresh_cell += 1;
+    let scenario_info =
+        vec![scenario.into(), fresh_cell.into(), 1_u8.into(), fresh_cell.into(), 2_u8.into()];
     let fake_signature = TransactionSignature(scenario_info);
-    let account_tx = account_invoke_tx(InvokeTxArgs {
-        nonce: nonce_manager.next(account_address),
-        signature: fake_signature,
-        ..invoke_args.clone()
-    });
 
-    let execution_info = account_tx.execute(&mut state, &block_context, true, true).unwrap();
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args.clone()
+        },
+    )
+    .unwrap();
     let da_gas_usage_write_twice_to_same_cell_execution = execution_info.da_gas;
 
     assert_eq!(da_gas_usage_single_storage_write, da_gas_usage_write_twice_to_same_cell_execution);
+    assert!(!execution_info.is_reverted());
 
-    // TODO(Aner, 1/4/2024): Scenarios: Validation and execution both change same storage
+    // Scenarios: Validation and execution both change same storage
     // (undo / new value), execution reverts.
     // Expected: storage change and da_gas according to write in validation.
+
+    let scenario = WRITE_VALIDATE_FAIL_EXECUTE;
+    // Write 1 to cell in validate, reset cell to 0 in execute, fail execution (reverted
+    // transaction).
+    fresh_cell += 1;
+    let scenario_info =
+        vec![scenario.into(), fresh_cell.into(), 1_u8.into(), fresh_cell.into(), 0_u8.into()];
+    let fake_signature = TransactionSignature(scenario_info);
+
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args.clone()
+        },
+    )
+    .unwrap();
+    let da_gas_usage_write_twice_to_same_cell_execution = execution_info.da_gas;
+
+    assert_eq!(da_gas_usage_single_storage_write, da_gas_usage_write_twice_to_same_cell_execution);
+    assert!(execution_info.is_reverted());
+
+    let scenario = WRITE_VALIDATE_FAIL_EXECUTE;
+    // Write 1 to cell in validate, then 2 to same cell in execute, fail execution (reverted
+    // transaction).
+    fresh_cell += 1;
+    let scenario_info =
+        vec![scenario.into(), fresh_cell.into(), 1_u8.into(), fresh_cell.into(), 2_u8.into()];
+    let fake_signature = TransactionSignature(scenario_info);
+
+    let execution_info = run_invoke_tx(
+        &mut state,
+        &block_context,
+        InvokeTxArgs {
+            nonce: nonce_manager.next(account_address),
+            signature: fake_signature,
+            ..invoke_args
+        },
+    )
+    .unwrap();
+    let da_gas_usage_write_twice_to_same_cell_execution = execution_info.da_gas;
+
+    assert_eq!(da_gas_usage_single_storage_write, da_gas_usage_write_twice_to_same_cell_execution);
+    assert!(execution_info.is_reverted());
 }
