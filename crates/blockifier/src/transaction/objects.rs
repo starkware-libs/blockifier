@@ -251,6 +251,10 @@ impl ResourcesMapping {
     pub fn blob_gas_usage(&self) -> usize {
         *self.0.get(crate::abi::constants::BLOB_GAS_USAGE).unwrap()
     }
+
+    pub fn get_builtin_count_or_default(&self, name: &str) -> usize {
+        *self.0.get(name).unwrap_or(&0)
+    }
 }
 
 pub trait HasRelatedFeeType {
