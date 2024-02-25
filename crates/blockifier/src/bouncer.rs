@@ -1,12 +1,15 @@
 use std::collections::HashSet;
+use std::vec::IntoIter;
 
 use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
 use crate::blockifier::transaction_executor::TransactionExecutorResult;
+use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
+use crate::fee::gas_usage::get_messages_gas_usage;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
-use crate::transaction::objects::TransactionExecutionInfo;
+use crate::transaction::objects::{GasVector, TransactionExecutionInfo};
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -134,4 +137,22 @@ impl TransactionalBouncer {
     pub fn abort(self) -> Bouncer {
         self.bouncer
     }
+}
+
+pub fn calc_message_l1_resources(
+    tx_execution_info: &TransactionExecutionInfo,
+    l1_handler_payload_size: Option<usize>,
+) -> TransactionExecutorResult<(usize, GasVector)> {
+    let call_infos: IntoIter<&CallInfo> =
+        [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
+            .iter()
+            .filter_map(|&call_info| call_info.as_ref())
+            .collect::<Vec<&CallInfo>>()
+            .into_iter();
+
+    let message_cost_info = MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
+
+    let starknet_gas_usage = get_messages_gas_usage(&message_cost_info, l1_handler_payload_size);
+
+    Ok((message_cost_info.message_segment_length, starknet_gas_usage))
 }
