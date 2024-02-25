@@ -32,6 +32,7 @@ pub const CONSUMED_MSG_TO_L2_ENCODED_DATA_SIZE: usize =
 pub const L1_GAS_USAGE: &str = "l1_gas_usage";
 pub const BLOB_GAS_USAGE: &str = "l1_blob_gas_usage";
 pub const N_STEPS_RESOURCE: &str = "n_steps";
+pub const N_MEMORY_HOLES: &str = "n_memory_holes";
 
 // Casm hash calculation-related constants.
 pub const CAIRO0_ENTRY_POINT_STRUCT_SIZE: usize = 2;
