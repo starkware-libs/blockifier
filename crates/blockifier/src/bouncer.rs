@@ -11,7 +11,7 @@ use crate::blockifier::transaction_executor::{
 };
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
-use crate::transaction::objects::ResourcesMapping;
+use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -160,6 +160,19 @@ impl TransactionalBouncer {
             + execution_info_resources.get_or_default(constants::N_MEMORY_HOLES);
 
         Ok((n_steps, builtin_count))
+    }
+
+    pub fn update_used_state_entries_sets<S: StateReader>(
+        &mut self,
+        tx_execution_info: &TransactionExecutionInfo,
+        state: &mut TransactionalState<'_, S>,
+    ) -> TransactionExecutorResult<()> {
+        self.child.executed_class_hashes.extend(tx_execution_info.get_executed_class_hashes());
+        self.child.visited_storage_entries.extend(tx_execution_info.get_visited_storage_entries());
+        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        self.child.state_changes_keys =
+            tx_state_changes_keys.difference(&self.parent.state_changes_keys);
+        Ok(())
     }
 
     pub fn commit(mut self) -> Bouncer {
