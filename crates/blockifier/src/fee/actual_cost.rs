@@ -8,9 +8,7 @@ use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ClassInfo;
-use crate::fee::gas_usage::{
-    get_code_gas_cost, get_da_gas_cost, get_messages_gas_cost, get_tx_events_gas_cost,
-};
+use crate::fee::gas_usage::{get_da_gas_cost, get_messages_gas_cost, get_tx_events_gas_cost};
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -62,7 +60,6 @@ pub struct ActualCostBuilder<'a> {
     sender_address: Option<ContractAddress>,
     l1_payload_size: Option<usize>,
     n_reverted_steps: usize,
-    class_info: Option<ClassInfo>,
 }
 
 impl<'a> ActualCostBuilder<'a> {
@@ -74,7 +71,11 @@ impl<'a> ActualCostBuilder<'a> {
         signature_length: usize,
     ) -> Self {
         Self {
-            starknet_resources: StarknetResources { calldata_length, signature_length },
+            starknet_resources: StarknetResources {
+                calldata_length,
+                signature_length,
+                ..Default::default()
+            },
             sender_address: Some(tx_context.tx_info.sender_address()),
             tx_context,
             tx_type,
@@ -83,7 +84,6 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes: StateChanges::default(),
             l1_payload_size: None,
             n_reverted_steps: 0,
-            class_info: None,
         }
     }
 
@@ -113,8 +113,9 @@ impl<'a> ActualCostBuilder<'a> {
         self
     }
 
-    pub fn with_class_info(mut self, class_info: ClassInfo) -> Self {
-        self.class_info = Some(class_info);
+    pub fn with_class_info(self, class_info: ClassInfo) -> Self {
+        // TODO - better name??
+        self.starknet_resources.set_code_size(Some(&class_info));
         self
     }
 
@@ -168,7 +169,6 @@ impl<'a> ActualCostBuilder<'a> {
             state_changes_count,
             &self.starknet_resources,
             self.l1_payload_size,
-            self.class_info,
             use_kzg_da,
         )?;
 
@@ -188,7 +188,7 @@ impl<'a> ActualCostBuilder<'a> {
 
         let tx_info = &self.tx_context.tx_info;
         let actual_fee = if tx_info.enforce_fee()?
-        // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
+        // L1 handler transactions are not charged a    n L2 fee but it is compared to the L1 fee.
             || self.tx_type == TransactionType::L1Handler
         {
             tx_info.calculate_tx_fee(&actual_resources, &self.tx_context.block_context)?
@@ -212,13 +212,11 @@ impl<'a> ActualCostBuilder<'a> {
         state_changes_count: StateChangesCount,
         starknet_resources: &StarknetResources,
         l1_handler_payload_size: Option<usize>,
-        class_info: Option<ClassInfo>,
         use_kzg_da: bool,
     ) -> TransactionExecutionResult<GasVector> {
         Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
             + get_da_gas_cost(state_changes_count, use_kzg_da)
             + starknet_resources.to_gas_vector(versioned_constants)
-            + get_code_gas_cost(class_info, versioned_constants)
             + get_tx_events_gas_cost(call_infos, versioned_constants))
     }
 }
