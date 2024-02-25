@@ -3,7 +3,10 @@ use std::collections::HashSet;
 use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
-use crate::state::cached_state::{StateChangesKeys, StorageEntry};
+use crate::blockifier::transaction_executor::TransactionExecutorResult;
+use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
+use crate::state::state_api::StateReader;
+use crate::transaction::objects::TransactionExecutionInfo;
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -106,6 +109,22 @@ impl TransactionalBouncer {
     }
 
     // TODO update function (in the next PR)
+
+    pub fn update_auxiliary_info<S: StateReader>(
+        &mut self,
+        tx_execution_info: &TransactionExecutionInfo,
+        state: &mut TransactionalState<'_, S>,
+    ) -> TransactionExecutorResult<()> {
+        let tx_execution_summary = tx_execution_info.summarize();
+        self.transactional.executed_class_hashes.extend(tx_execution_summary.executed_class_hashes);
+        self.transactional
+            .visited_storage_entries
+            .extend(tx_execution_summary.visited_storage_entries);
+        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        self.transactional.state_changes_keys =
+            tx_state_changes_keys.difference(&self.bouncer.state_changes_keys);
+        Ok(())
+    }
 
     pub fn commit(mut self) -> Bouncer {
         self.bouncer.merge(self.transactional);
