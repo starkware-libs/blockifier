@@ -21,6 +21,8 @@ use crate::transaction::constants;
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
+use crate::utils::u128_from_usize;
+use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "objects_test.rs"]
@@ -250,6 +252,28 @@ impl ResourcesMapping {
     #[cfg(test)]
     pub fn blob_gas_usage(&self) -> usize {
         *self.0.get(crate::abi::constants::BLOB_GAS_USAGE).unwrap()
+    }
+}
+
+/// Containes all the L2 resources consumed by a transaction
+#[derive(Clone, Debug, Default)]
+pub struct StarknetResources {
+    pub calldata_length: usize,
+    pub signature_length: usize,
+}
+
+impl StarknetResources {
+    // Returns the gas cost for transaction calldata and transaction signature. Each felt costs a
+    // fixed and configurable amount of gas. This cost represents the cost of storing the
+    // calldata and the signature on L2.
+    pub fn to_gas_vector(&self, versioned_constants: &VersionedConstants) -> GasVector {
+        // TODO(Avi, 28/2/2024): Use rational numbers to calculate the gas cost once implemented.
+        // TODO(Avi, 20/2/2024): Calculate the number of bytes instead of the number of felts.
+        let total_data_size = u128_from_usize(self.calldata_length + self.signature_length);
+        let l1_milligas =
+            total_data_size * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
+
+        GasVector { l1_gas: l1_milligas / 1000, l1_data_gas: 0 }
     }
 }
 

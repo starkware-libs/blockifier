@@ -18,7 +18,7 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{create_calldata, create_trivial_calldata, CairoVersion, BALANCE, MAX_FEE};
 use crate::transaction::constants;
-use crate::transaction::objects::{GasVector, HasRelatedFeeType};
+use crate::transaction::objects::{GasVector, HasRelatedFeeType, StarknetResources};
 use crate::transaction::test_utils::{account_invoke_tx, calculate_class_info_for_testing};
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::utils::{u128_from_usize, usize_from_u128};
@@ -49,8 +49,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
-        0,
-        0,
+        &StarknetResources::default(),
         None,
         None,
         use_kzg_da,
@@ -74,8 +73,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
             &versioned_constants,
             std::iter::empty(),
             StateChangesCount::default(),
-            0,
-            0,
+            &StarknetResources::default(),
             None,
             Some(class_info),
             use_kzg_da,
@@ -96,6 +94,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     // Manual calculation.
     let calldata_length = 0;
     let signature_length = 2;
+    let starknet_resources = StarknetResources { calldata_length, signature_length };
     let calldata_and_signature_milligas_cost = u128_from_usize(calldata_length + signature_length)
         * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
     let manual_starknet_gas_usage = calldata_and_signature_milligas_cost / 1000;
@@ -106,8 +105,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         &versioned_constants,
         std::iter::empty(),
         deploy_account_state_changes_count,
-        calldata_length,
-        signature_length,
+        &starknet_resources,
         None,
         None,
         use_kzg_da,
@@ -122,8 +120,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         &versioned_constants,
         std::iter::empty(),
         StateChangesCount::default(),
-        l1_handler_payload_size,
-        signature_length,
+        &StarknetResources { calldata_length: l1_handler_payload_size, signature_length },
         Some(l1_handler_payload_size),
         None,
         use_kzg_da,
@@ -192,8 +189,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         &versioned_constants,
         call_infos_iter.clone(),
         l2_to_l1_state_changes_count,
-        0,
-        0,
+        &StarknetResources::default(),
         None,
         None,
         use_kzg_da,
@@ -234,8 +230,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         &versioned_constants,
         std::iter::empty(),
         storage_writes_state_changes_count,
-        0,
-        0,
+        &StarknetResources::default(),
         None,
         None,
         use_kzg_da,
@@ -259,8 +254,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         &versioned_constants,
         call_infos_iter,
         combined_state_changes_count,
-        l1_handler_payload_size,
-        signature_length,
+        &StarknetResources { calldata_length: l1_handler_payload_size, signature_length },
         Some(l1_handler_payload_size),
         None,
         use_kzg_da,
@@ -311,6 +305,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     });
     let calldata_length = account_tx.calldata_length();
     let signature_length = account_tx.signature_length();
+    let starknet_resources = StarknetResources { calldata_length, signature_length };
     let fee_token_address = chain_info.fee_token_address(&account_tx.fee_type());
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
 
@@ -327,8 +322,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         versioned_constants,
         std::iter::empty(),
         state_changes_count,
-        calldata_length,
-        signature_length,
+        &starknet_resources,
         None,
         None,
         use_kzg_da,
@@ -363,6 +357,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
 
     let calldata_length = account_tx.calldata_length();
     let signature_length = account_tx.signature_length();
+    let starknet_resources = StarknetResources { calldata_length, signature_length };
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     // For the balance update of the sender and the recipient.
     let n_storage_updates = 2;
@@ -379,8 +374,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         versioned_constants,
         std::iter::empty(),
         state_changes_count,
-        calldata_length,
-        signature_length,
+        &starknet_resources,
         None,
         None,
         use_kzg_da,
