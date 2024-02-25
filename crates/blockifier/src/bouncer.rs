@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::vec::IntoIter;
 
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use derive_more::Add;
@@ -9,6 +10,7 @@ use crate::abi::constants;
 use crate::blockifier::transaction_executor::{
     get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
 };
+use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
@@ -183,4 +185,18 @@ impl TransactionalBouncer {
     pub fn abort(self) -> Bouncer {
         self.parent
     }
+}
+
+pub fn calc_message_segment_length(
+    tx_execution_info: &TransactionExecutionInfo,
+    l1_handler_payload_size: Option<usize>,
+) -> TransactionExecutorResult<usize> {
+    let call_infos: IntoIter<&CallInfo> =
+        [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
+            .iter()
+            .filter_map(|&call_info| call_info.as_ref())
+            .collect::<Vec<&CallInfo>>()
+            .into_iter();
+    let msg_l1_cost_info = MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
+    Ok(msg_l1_cost_info.message_segment_length)
 }

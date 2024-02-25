@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::vec::IntoIter;
 
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
@@ -8,8 +7,9 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::bouncer::BouncerInfo;
+use crate::bouncer::calc_message_segment_length;
 use crate::context::BlockContext;
-use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
+use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{
@@ -79,6 +79,8 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: Transaction,
         charge_fee: bool,
     ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo)> {
+        // TODO(yael, 25/2/2024): consider moving the l1_handler_payload_size calc into
+        // calc_message_segment_length(), this requires clone or copy of the tx.
         let l1_handler_payload_size: Option<usize> =
             if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
                 Some(l1_handler_tx.payload_size())
@@ -104,14 +106,8 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let n_events = tx_execution_info.get_number_of_events();
 
                 // Count message to L1 resources.
-                let call_infos: IntoIter<&CallInfo> =
-                    [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
-                        .iter()
-                        .filter_map(|&call_info| call_info.as_ref())
-                        .collect::<Vec<&CallInfo>>()
-                        .into_iter();
-                let MessageL1CostInfo { l2_to_l1_payload_lengths: _, message_segment_length } =
-                    MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
+                let message_segment_length =
+                    calc_message_segment_length(&tx_execution_info, l1_handler_payload_size)?;
 
                 // Count additional OS resources.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
