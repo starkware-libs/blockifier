@@ -7,6 +7,7 @@ fn test_block_weights_sub_checked() {
     let max_bouncer_weights = BouncerWeights {
         gas: 10,
         n_steps: 10,
+        n_events: 10,
         message_segment_length: 10,
         state_diff_size: 10,
         builtin_count: BuiltinCount {
@@ -18,12 +19,14 @@ fn test_block_weights_sub_checked() {
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
+            segment_arena: 10,
         },
     };
 
     let bouncer_weights = BouncerWeights {
         gas: 7,
         n_steps: 0,
+        n_events: 0,
         message_segment_length: 10,
         state_diff_size: 7,
         builtin_count: BuiltinCount {
@@ -35,6 +38,7 @@ fn test_block_weights_sub_checked() {
             pedersen: 7,
             poseidon: 9,
             range_check: 10,
+            segment_arena: 10,
         },
     };
 
@@ -45,6 +49,7 @@ fn test_block_weights_sub_checked() {
     let bouncer_weights_exceeds_max = BouncerWeights {
         gas: 5,
         n_steps: 5,
+        n_events: 5,
         message_segment_length: 5,
         state_diff_size: 5,
         builtin_count: BuiltinCount {
@@ -56,6 +61,7 @@ fn test_block_weights_sub_checked() {
             pedersen: 5,
             poseidon: 5,
             range_check: 5,
+            segment_arena: 5,
         },
     };
 
@@ -68,6 +74,7 @@ fn test_tansactional_bouncer() {
     let max_bouncer_weights = BouncerWeights {
         gas: 10,
         n_steps: 10,
+        n_events: 10,
         message_segment_length: 10,
         state_diff_size: 10,
         builtin_count: BuiltinCount {
@@ -79,12 +86,14 @@ fn test_tansactional_bouncer() {
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
+            segment_arena: 10,
         },
     };
 
     let tx_weights = BouncerWeights {
         gas: 7,
         n_steps: 0,
+        n_events: 0,
         message_segment_length: 10,
         state_diff_size: 7,
         builtin_count: BuiltinCount {
@@ -96,20 +105,21 @@ fn test_tansactional_bouncer() {
             pedersen: 7,
             poseidon: 9,
             range_check: 10,
+            segment_arena: 10,
         },
     };
 
-    let bouncer = Bouncer::new(max_bouncer_weights);
+    let bouncer = Bouncer::new_block_bouncer(max_bouncer_weights);
     let mut transactional_bouncer = bouncer.create_transactional();
-    transactional_bouncer.transactional.capacity =
-        transactional_bouncer.transactional.capacity.checked_sub(tx_weights).unwrap();
+    transactional_bouncer.transactional.available_capacity =
+        transactional_bouncer.transactional.available_capacity.checked_sub(tx_weights).unwrap();
 
     // Test transactional bouncer abort
     let parent = transactional_bouncer.clone().abort();
-    assert!(parent.capacity == max_bouncer_weights);
+    assert!(parent.available_capacity == max_bouncer_weights);
 
     // Test transactional bouncer commit
     let parent = transactional_bouncer.commit();
     let expected_capacity = max_bouncer_weights.sub(tx_weights);
-    assert!(parent.capacity == expected_capacity);
+    assert!(parent.available_capacity == expected_capacity);
 }

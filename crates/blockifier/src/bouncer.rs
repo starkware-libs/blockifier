@@ -67,7 +67,7 @@ pub struct BuiltinCount {
     pedersen: usize,
     poseidon: usize,
     range_check: usize,
-    segment_arena: usize, // needed here?
+    segment_arena: usize, // needed here? If was not present in the original bouncer code
 }
 
 impl From<&ResourcesMapping> for BuiltinCount {
@@ -102,20 +102,27 @@ impl BuiltinCount {
 
 #[derive(Clone)]
 pub struct Bouncer {
-    executed_class_hashes: HashSet<ClassHash>,
-    visited_storage_entries: HashSet<StorageEntry>,
-    state_changes_keys: StateChangesKeys,
-    capacity: BouncerWeights,
+    pub executed_class_hashes: HashSet<ClassHash>,
+    pub visited_storage_entries: HashSet<StorageEntry>,
+    pub state_changes_keys: StateChangesKeys,
+    pub available_capacity: BouncerWeights,
+    // The maximum capacity of the block is contant throughout a block lifecycle.
+    max_capacity: BouncerWeights,
 }
 
 impl Bouncer {
-    pub fn new(capacity: BouncerWeights) -> Self {
+    fn new(available_capacity: BouncerWeights, max_block_capacity: BouncerWeights) -> Self {
         Bouncer {
             executed_class_hashes: HashSet::new(),
             visited_storage_entries: HashSet::new(),
             state_changes_keys: StateChangesKeys::default(),
-            capacity,
+            available_capacity,
+            max_capacity: max_block_capacity,
         }
+    }
+
+    pub fn new_block_bouncer(max_block_capacity: BouncerWeights) -> Bouncer {
+        Bouncer::new(max_block_capacity, max_block_capacity)
     }
 
     pub fn create_transactional(self) -> TransactionBouncer {
@@ -126,20 +133,22 @@ impl Bouncer {
         self.executed_class_hashes.extend(other.executed_class_hashes);
         self.visited_storage_entries.extend(other.visited_storage_entries);
         self.state_changes_keys.extend(&other.state_changes_keys);
-        self.capacity = other.capacity;
+        self.available_capacity = other.available_capacity;
     }
 }
 
 #[derive(Clone)]
 pub struct TransactionBouncer {
+    // The parent bouncer can only be modified by merging the transactional bouncer into it.
     parent: Bouncer,
+    // The transactional bouncer is modified according to the transaction execution.
     transactional: Bouncer,
 }
 
 impl TransactionBouncer {
     pub fn new(parent: Bouncer) -> TransactionBouncer {
-        let capacity = parent.capacity;
-        TransactionBouncer { parent, transactional: Bouncer::new(capacity) }
+        let transactional = Bouncer::new(parent.available_capacity, parent.max_capacity);
+        TransactionBouncer { parent, transactional }
     }
 
     pub fn update<S: StateReader>(
@@ -148,16 +157,13 @@ impl TransactionBouncer {
         tx_execution_info: TransactionExecutionInfo,
         tx: Transaction,
     ) -> TransactionExecutorResult<()> {
-        self.update_used_state_entries(&tx_execution_info, state)?;
-
+        self.update_used_state_entries_sets(&tx_execution_info, state)?;
         self.update_capacity(state, &tx_execution_info, &tx)?;
 
-        // TODO - also check that the transction weight is not bigger than a full block
-        // TODO what about timestamps
+        // TODO what about timestamps (we need to close the block in case that there is a
+        // transaction that is older than the max_lifespan), should this logic be in the bouncer or
+        // outside?
 
-        // Note: block-constant felts are not counted here. so the bouncer needs to
-        // tune the size limit accordingly. E.g., the felt that encodes the number of
-        // modified contracts in a block.
         Ok(())
     }
 
@@ -169,8 +175,11 @@ impl TransactionBouncer {
     ) -> TransactionExecutorResult<()> {
         let (tx_n_steps, tx_builtin_count) =
             self.calc_n_steps_and_builtin_count(&tx_execution_info.actual_resources, state)?;
+        // Note: this counting does not take into account state changes that happen in the block level.
+        // E.g., the felt that encodes the number of modified contracts in a block.
         let tx_state_diff_size =
             get_onchain_data_segment_length(self.transactional.state_changes_keys.count());
+
         let tx_weights = BouncerWeights {
             gas: tx_execution_info.actual_resources.get_builtin_count(constants::L1_GAS_USAGE),
             n_steps: tx_n_steps,
@@ -179,25 +188,38 @@ impl TransactionBouncer {
             n_events: tx_execution_info.get_number_of_events(),
             builtin_count: tx_builtin_count,
         };
-        self.transactional.capacity = self
-            .transactional
-            .capacity
+
+        // Check if the transaction is too large to fit any block.
+        self.parent
+            .max_capacity
             .checked_sub(tx_weights)
-            .ok_or(TransactionExecutionError::ExeedsBlockCapacity)?;
+            .ok_or(TransactionExecutionError::TxTooLarge)?;
+
+        // Check if the transaction can fit the current block available capacity.
+        self.transactional.available_capacity = self
+            .transactional
+            .available_capacity
+            .checked_sub(tx_weights)
+            .ok_or(TransactionExecutionError::BlockFull)?;
         Ok(())
     }
 
-    fn update_used_state_entries<S: StateReader>(
+    fn update_used_state_entries_sets<S: StateReader>(
         &mut self,
         tx_execution_info: &TransactionExecutionInfo,
         state: &mut TransactionalState<'_, S>,
     ) -> TransactionExecutorResult<()> {
+        // Count the marginal contribution to the executed_class_hashes
         self.transactional
             .executed_class_hashes
             .extend(tx_execution_info.get_executed_class_hashes());
+
+        // Count the marginal contribution to the visited_storage_entries
         self.transactional
             .visited_storage_entries
             .extend(tx_execution_info.get_visited_storage_entries());
+
+        // Count the marginal contribution to the state diff (w.r.t. the OS output encoding).
         let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
         self.transactional.state_changes_keys =
             tx_state_changes_keys.difference(&self.parent.state_changes_keys);
@@ -206,10 +228,10 @@ impl TransactionBouncer {
 
     fn calc_n_steps_and_builtin_count<S: StateReader>(
         &self,
-        actual_resources: &ResourcesMapping,
+        execution_info_resources: &ResourcesMapping,
         state: &TransactionalState<'_, S>,
     ) -> TransactionExecutorResult<(usize, BuiltinCount)> {
-        // Count additional OS resources.
+        // Count the additional OS resources that are not present in the transaction exection info.
         let mut additional_os_resources = get_casm_hash_calculation_resources(
             state,
             &self.parent.executed_class_hashes,
@@ -219,16 +241,18 @@ impl TransactionBouncer {
             &self.parent.visited_storage_entries,
             &self.transactional.visited_storage_entries,
         )?;
-
-        let actual_builtin_count = BuiltinCount::from(actual_resources);
         let additional_builtin_count =
             BuiltinCount::from(&ResourcesMapping(additional_os_resources.builtin_instance_counter));
-        let builtin_count = actual_builtin_count + additional_builtin_count;
 
+        // Sum all the builtin resources.
+        let execution_info_builtin_count = BuiltinCount::from(execution_info_resources);
+        let builtin_count = execution_info_builtin_count + additional_builtin_count;
+
+        // The n_steps counter also includes the count of memory holes.
         let n_steps = additional_os_resources.n_steps
-            + actual_resources.get_builtin_count(constants::N_STEPS_RESOURCE)
+            + execution_info_resources.get_builtin_count(constants::N_STEPS_RESOURCE)
             + additional_os_resources.n_memory_holes
-            + actual_resources.get_builtin_count("n_memory_holes");
+            + execution_info_resources.get_builtin_count("n_memory_holes"); // TODO: Add a constant for "n_memory_holes".
 
         Ok((n_steps, builtin_count))
     }
@@ -243,6 +267,7 @@ impl TransactionBouncer {
     }
 }
 
+// TODO: this is duplicate with the function in transaction_executor. remove on of them.
 fn calc_message_segment_length(
     tx_execution_info: &TransactionExecutionInfo,
     tx: &Transaction,
