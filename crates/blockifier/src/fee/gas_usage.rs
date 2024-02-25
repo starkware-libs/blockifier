@@ -86,23 +86,6 @@ pub fn get_messages_gas_cost<'a>(
     Ok(starknet_gas_usage + sharp_gas_usage)
 }
 
-// Returns the gas cost for transaction calldata and transaction signature. Each felt costs a fixed
-// and configurable amount of gas. This cost represents the cost of storing the calldata and the
-// signature on L2.
-pub fn get_calldata_and_signature_gas_cost(
-    calldata_length: usize,
-    signature_length: usize,
-    versioned_constants: &VersionedConstants,
-) -> GasVector {
-    // TODO(Avi, 28/2/2024): Use rational numbers to calculate the gas cost once implemented.
-    // TODO(Avi, 20/2/2024): Calculate the number of bytes instead of the number of felts.
-    let total_data_size = u128_from_usize(calldata_length + signature_length);
-    let l1_milligas =
-        total_data_size * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
-
-    GasVector { l1_gas: l1_milligas / 1000, l1_data_gas: 0 }
-}
-
 // Returns the gas cost of declared class codes (Sierra, Casm and ABI). Each code felt costs a fixed
 // and configurable amount of gas. The cost is 0 for non-Declare transactions.
 pub fn get_code_gas_cost(

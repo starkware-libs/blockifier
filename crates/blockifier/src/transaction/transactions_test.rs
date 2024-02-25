@@ -38,8 +38,8 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    estimate_minimal_gas_vector, get_calldata_and_signature_gas_cost, get_code_gas_cost,
-    get_da_gas_cost, get_onchain_data_segment_length,
+    estimate_minimal_gas_vector, get_code_gas_cost, get_da_gas_cost,
+    get_onchain_data_segment_length,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -66,8 +66,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    FeeType, GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo,
-    TransactionInfo,
+    FeeType, GasVector, HasRelatedFeeType, ResourcesMapping, StarknetResources,
+    TransactionExecutionInfo, TransactionInfo,
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
@@ -401,6 +401,7 @@ fn test_invoke_tx(
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
     let calldata_length = invoke_tx.calldata().0.len();
     let signature_length = invoke_tx.signature().0.len();
+    let starknet_resources = StarknetResources { calldata_length, signature_length };
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
@@ -473,8 +474,7 @@ fn test_invoke_tx(
     };
 
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
-    let calldata_and_signature_gas =
-        get_calldata_and_signature_gas_cost(calldata_length, signature_length, versioned_constants);
+    let calldata_and_signature_gas = starknet_resources.to_l1_gas(versioned_constants);
 
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
