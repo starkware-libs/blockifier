@@ -62,6 +62,8 @@ pub enum TransactionExecutionError {
     DeclareTransactionError { class_hash: ClassHash },
     #[error("Transaction execution has failed: {0}")]
     ExecutionError(#[source] EntryPointExecutionError),
+    #[error("Transaction resources can't fit into the current block.")]
+    ExeedsBlockCapacity,
     #[error(transparent)]
     FeeCheckError(#[from] FeeCheckError),
     #[error(

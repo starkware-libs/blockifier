@@ -253,7 +253,7 @@ impl<S: StateReader> TransactionExecutor<S> {
 /// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
 /// executed classes by the current transaction.
 pub fn get_casm_hash_calculation_resources<S: StateReader>(
-    state: &mut TransactionalState<'_, S>,
+    state: &TransactionalState<'_, S>,
     block_executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
 ) -> TransactionExecutorResult<ExecutionResources> {

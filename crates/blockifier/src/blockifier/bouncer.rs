@@ -44,7 +44,7 @@ impl BouncerInfo {
             .map(|name| {
                 (
                     name.name().to_string(),
-                    tx_actual_resources.0.get(name.name()).copied().unwrap_or_default(),
+                    get_builtin_count(tx_actual_resources, name),
                 )
             })
             .collect();
@@ -75,4 +75,8 @@ impl BouncerInfo {
             n_events,
         })
     }
+}
+
+fn get_builtin_count(tx_actual_resources: &ResourcesMapping, name: &BuiltinName) -> usize {
+    tx_actual_resources.0.get(name.name()).copied().unwrap_or_default()
 }
