@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo, OrderedEvent};
-use crate::execution::contract_class::ClassInfo;
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::state::cached_state::StateChangesCount;
@@ -99,29 +98,6 @@ pub fn get_messages_gas_cost<'a>(
 
     Ok(starknet_gas_usage + sharp_gas_usage)
 }
-
-// Returns the gas cost of declared class codes (Sierra, Casm and ABI). Each code felt costs a fixed
-// and configurable amount of gas. The cost is 0 for non-Declare transactions.
-pub fn get_code_gas_cost(
-    class_info: Option<ClassInfo>,
-    versioned_constants: &VersionedConstants,
-) -> GasVector {
-    if let Some(class_info) = class_info {
-        let total_code_size = u128_from_usize(
-            (class_info.bytecode_length() + class_info.sierra_program_length())
-                // We assume each felt is a word.
-                * eth_gas_constants::WORD_WIDTH
-                + class_info.abi_length(),
-        );
-        let l1_gas = (versioned_constants.l2_resource_gas_costs.gas_per_code_byte
-            * total_code_size)
-            .to_integer();
-        GasVector { l1_gas, l1_data_gas: 0 }
-    } else {
-        GasVector { l1_gas: 0, l1_data_gas: 0 }
-    }
-}
-
 /// Returns the number of felts added to the output data availability segment as a result of adding
 /// a transaction to a batch. Note that constant cells - such as the one that holds the number of
 /// modified contracts - are not counted.
