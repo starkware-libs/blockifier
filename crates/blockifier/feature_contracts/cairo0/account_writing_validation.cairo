@@ -24,6 +24,8 @@ const WRITE_EXECUTE_ONLY = 1;
 const WRITE_VALIDATE_EXECUTE = 2;
 // Run the validate method and write to storage only inside validation, no writes inside execution.
 const WRITE_VALIDATE_ONLY = 3;
+// Run the validate method and write to storage inside validation, fail in execution.
+const WRITE_VALIDATE_FAIL_EXECUTE = 4;
 
 @external
 func __validate_declare__{syscall_ptr: felt*}(class_hash: felt) {
@@ -82,6 +84,10 @@ func validate{syscall_ptr: felt*}() {
         storage_write(address=tx_info.signature[1], value=tx_info.signature[2]);
         return ();
     }
+    if (scenario == WRITE_VALIDATE_FAIL_EXECUTE) {
+        storage_write(address=tx_info.signature[1], value=tx_info.signature[2]);
+        return ();
+    }
     // Unknown scenario.
     return();
 }
@@ -106,6 +112,11 @@ func execute{syscall_ptr: felt*}() {
     }
     if (scenario == WRITE_VALIDATE_EXECUTE) {
         storage_write(address=tx_info.signature[3], value=tx_info.signature[4]);
+        return ();
+    }
+    if (scenario == WRITE_VALIDATE_FAIL_EXECUTE) {
+        storage_write(address=tx_info.signature[3], value=tx_info.signature[4]);
+        assert 0 = 1;
         return ();
     }
     // Unknown scenario.
