@@ -38,8 +38,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
-    estimate_minimal_gas_vector, get_code_gas_cost, get_da_gas_cost,
-    get_onchain_data_segment_length,
+    estimate_minimal_gas_vector, get_da_gas_cost, get_onchain_data_segment_length,
 };
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::errors::StateError;
@@ -401,7 +400,7 @@ fn test_invoke_tx(
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
     let calldata_length = invoke_tx.calldata().0.len();
     let signature_length = invoke_tx.signature().0.len();
-    let starknet_resources = StarknetResources { calldata_length, signature_length };
+    let starknet_resources = StarknetResources::new(calldata_length, signature_length, None);
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
@@ -1115,6 +1114,8 @@ fn test_declare_tx(
     let class_hash = empty_contract.get_class_hash();
     let class_info = calculate_class_info_for_testing(empty_contract.get_class());
     let sender_address = account.get_instance_address(0);
+    let mut starknet_resources = StarknetResources::default();
+    starknet_resources.set_code_size(Some(&class_info));
 
     let account_tx = declare_tx(
         declare_tx_args! {
@@ -1158,7 +1159,7 @@ fn test_declare_tx(
 
     let state_changes_count = declare_expected_state_changes_count(tx_version);
     let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
-    let code_gas = get_code_gas_cost(Some(class_info.clone()), versioned_constants);
+    let code_gas = starknet_resources.get_code_cost(versioned_constants);
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
         TransactionType::Declare,

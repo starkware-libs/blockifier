@@ -13,7 +13,9 @@ use strum_macros::EnumIter;
 
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, ExecutionSummary};
+use crate::execution::contract_class::ClassInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
 use crate::transaction::constants;
 use crate::transaction::errors::{
@@ -241,23 +243,74 @@ impl ResourcesMapping {
 }
 
 /// Containes all the L2 resources consumed by a transaction
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Copy)]
 pub struct StarknetResources {
     pub calldata_length: usize,
-    pub signature_length: usize,
+    signature_length: usize,
+    code_size: usize,
 }
 
 impl StarknetResources {
+    pub fn new(
+        calldata_length: usize,
+        signature_length: usize,
+        class_info: Option<&ClassInfo>,
+    ) -> Self {
+        Self {
+            calldata_length,
+            signature_length,
+            code_size: StarknetResources::calculate_code_size(class_info),
+        }
+    }
+
+    /// Returns the gas cost of the starknet resources, summing all components.
+    pub fn to_gas_vector(&self, versioned_constants: &VersionedConstants) -> GasVector {
+        self.get_calldata_and_signature_cost(versioned_constants)
+            + self.get_code_cost(versioned_constants)
+    }
+
+    /// Sets the code_size field from a ClassInfo from (Sierra, Casm and ABI). Each code felt costs
+    /// a fixed and configurable amount of gas. The cost is 0 for non-Declare transactions.
+    pub fn set_code_size(&mut self, class_info: Option<&ClassInfo>) {
+        self.code_size = StarknetResources::calculate_code_size(class_info);
+    }
+
     // Returns the gas cost for transaction calldata and transaction signature. Each felt costs a
     // fixed and configurable amount of gas. This cost represents the cost of storing the
     // calldata and the signature on L2.
-    pub fn to_gas_vector(&self, versioned_constants: &VersionedConstants) -> GasVector {
+    pub fn get_calldata_and_signature_cost(
+        &self,
+        versioned_constants: &VersionedConstants,
+    ) -> GasVector {
         // TODO(Avi, 20/2/2024): Calculate the number of bytes instead of the number of felts.
         let total_data_size = u128_from_usize(self.calldata_length + self.signature_length);
         let l1_gas = (versioned_constants.l2_resource_gas_costs.gas_per_data_felt
             * total_data_size)
             .to_integer();
         GasVector { l1_gas, l1_data_gas: 0 }
+    }
+
+    // Returns the gas cost of declared class codes.
+    pub fn get_code_cost(&self, versioned_constants: &VersionedConstants) -> GasVector {
+        GasVector {
+            l1_gas: (versioned_constants.l2_resource_gas_costs.gas_per_code_byte
+                * u128_from_usize(self.code_size))
+            .to_integer(),
+            l1_data_gas: 0,
+        }
+    }
+
+    // Private and static method that calculates the code size from ClassInfo
+    fn calculate_code_size(class_info: Option<&ClassInfo>) -> usize {
+        if let Some(class_info) = class_info {
+            (class_info.bytecode_length()
+                + class_info.sierra_program_length())
+                    // We assume each felt is a word.
+                    * eth_gas_constants::WORD_WIDTH
+                + class_info.abi_length()
+        } else {
+            0
+        }
     }
 }
 
