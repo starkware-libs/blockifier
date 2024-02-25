@@ -24,6 +24,8 @@ mod Account {
     const WRITE_VALIDATE_EXECUTE: felt252 = 2;
     // Run the validate method and write to storage only inside validation, no writes inside execution.
     const WRITE_VALIDATE_ONLY: felt252 = 3;
+    // Run the validate method and write to storage inside validation, fail in execution.
+    const WRITE_VALIDATE_FAIL_EXECUTE: felt252 = 4;
 
     #[storage]
     struct Storage {}
@@ -82,7 +84,7 @@ mod Account {
             write(*signature[3_u32], *signature[4_u32]);
             return starknet::VALIDATED;
         }
-        if (scenario == WRITE_VALIDATE_EXECUTE) {
+        if (scenario == WRITE_VALIDATE_EXECUTE || scenario == WRITE_VALIDATE_FAIL_EXECUTE) {
             write(*signature[1_u32], *signature[2_u32]);
             return starknet::VALIDATED;
         }
@@ -108,6 +110,11 @@ mod Account {
         if (scenario == WRITE_VALIDATE_EXECUTE) {
             write(*signature[3_u32], *signature[4_u32]);
             return starknet::VALIDATED;
+        }
+        if (scenario == WRITE_VALIDATE_FAIL_EXECUTE) {
+            write(*signature[3_u32], *signature[4_u32]);
+            assert(0 == 1, 'Invalid scenario');
+            return 'INVALID';
         }
         // Unknown scenario.
         starknet::VALIDATED
