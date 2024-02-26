@@ -25,7 +25,7 @@ use crate::errors::{
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::{py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
-use crate::py_utils::{int_to_chain_id, py_attr, versioned_constants_with_overrides, PyFelt};
+use crate::py_utils::{int_to_chain_id, versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
 
@@ -302,24 +302,14 @@ impl PyBlockExecutor {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, FromPyObject)]
 pub struct PyGeneralConfig {
     pub starknet_os_config: PyOsConfig,
     pub invoke_tx_max_n_steps: u32,
     pub validate_max_n_steps: u32,
 }
 
-impl FromPyObject<'_> for PyGeneralConfig {
-    fn extract(general_config: &PyAny) -> PyResult<Self> {
-        let starknet_os_config: PyOsConfig = py_attr(general_config, "starknet_os_config")?;
-        let invoke_tx_max_n_steps: u32 = py_attr(general_config, "invoke_tx_max_n_steps")?;
-        let validate_max_n_steps: u32 = py_attr(general_config, "validate_max_n_steps")?;
-
-        Ok(Self { starknet_os_config, invoke_tx_max_n_steps, validate_max_n_steps })
-    }
-}
-
-#[derive(FromPyObject, Clone)]
+#[derive(Clone, FromPyObject)]
 pub struct PyOsConfig {
     #[pyo3(from_py_with = "int_to_chain_id")]
     pub chain_id: ChainId,
