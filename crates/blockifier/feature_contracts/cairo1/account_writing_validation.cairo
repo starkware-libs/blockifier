@@ -18,14 +18,16 @@ mod Account {
     // Scenarios.
     // Run the validate method, no writes inside validation or execution.
     const NO_WRITES: felt252 = 0;
+    // Run the validate method, single write inside execution.
+    const WRITE_SINGLE_VALUE: felt252 = 1;
     // Run the validate method, no writes inside validation, writes inside execution.
-    const WRITE_EXECUTE_ONLY: felt252 = 1;
+    const WRITE_EXECUTE_ONLY: felt252 = 2;
     // Run the validate method and write to storage inside validation and execution.
-    const WRITE_VALIDATE_EXECUTE: felt252 = 2;
+    const WRITE_VALIDATE_EXECUTE: felt252 = 3;
     // Run the validate method and write to storage only inside validation, no writes inside execution.
-    const WRITE_VALIDATE_ONLY: felt252 = 3;
+    const WRITE_VALIDATE_ONLY: felt252 = 4;
     // Run the validate method and write to storage inside validation, fail in execution.
-    const WRITE_VALIDATE_FAIL_EXECUTE: felt252 = 4;
+    const WRITE_VALIDATE_FAIL_EXECUTE: felt252 = 5;
 
     #[storage]
     struct Storage {}
@@ -74,7 +76,9 @@ mod Account {
         let signature = tx_info.signature;
         let scenario = *signature[0_u32];
 
-        if (scenario == NO_WRITES || scenario == WRITE_EXECUTE_ONLY) {
+        if (scenario == NO_WRITES
+            || scenario == WRITE_SINGLE_VALUE
+            || scenario == WRITE_EXECUTE_ONLY) {
             return starknet::VALIDATED;
         }
         if (scenario == WRITE_VALIDATE_ONLY) {
@@ -98,6 +102,10 @@ mod Account {
         let scenario = *signature[0_u32];
 
         if (scenario == NO_WRITES || scenario == WRITE_VALIDATE_ONLY) {
+            return starknet::VALIDATED;
+        }
+        if (scenario == WRITE_SINGLE_VALUE) {
+            write(15, 1);
             return starknet::VALIDATED;
         }
         if (scenario == WRITE_EXECUTE_ONLY) {
