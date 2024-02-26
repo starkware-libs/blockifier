@@ -19,13 +19,12 @@ use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::test_utils::cached_state::deprecated_create_test_state;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, trivial_external_entry_point, trivial_external_entry_point_new,
-    trivial_external_entry_point_with_address, CairoVersion, BALANCE,
+    create_calldata, trivial_external_entry_point_new, trivial_external_entry_point_with_address,
+    CairoVersion, BALANCE,
 };
 use crate::versioned_constants::VersionedConstants;
 
@@ -71,10 +70,11 @@ fn test_call_info_iteration() {
 
 #[test]
 fn test_entry_point_without_arg() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("without_arg"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -84,12 +84,13 @@ fn test_entry_point_without_arg() {
 
 #[test]
 fn test_entry_point_with_arg() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let calldata = calldata![stark_felt!(25_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("with_arg"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -99,12 +100,13 @@ fn test_entry_point_with_arg() {
 
 #[test]
 fn test_long_retdata() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let calldata = calldata![];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_long_retdata"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -120,12 +122,13 @@ fn test_long_retdata() {
 
 #[test]
 fn test_entry_point_with_builtin() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let calldata = calldata![stark_felt!(47_u8), stark_felt!(31_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("bitwise_and"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -135,12 +138,13 @@ fn test_entry_point_with_builtin() {
 
 #[test]
 fn test_entry_point_with_hint() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let calldata = calldata![stark_felt!(81_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("sqrt"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -150,12 +154,13 @@ fn test_entry_point_with_hint() {
 
 #[test]
 fn test_entry_point_with_return_value() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let calldata = calldata![stark_felt!(23_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("return_result"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -165,10 +170,11 @@ fn test_entry_point_with_return_value() {
 
 #[test]
 fn test_entry_point_not_found_in_contract() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let entry_point_selector = EntryPointSelector(stark_felt!(2_u8));
     let entry_point_call =
-        CallEntryPoint { entry_point_selector, ..trivial_external_entry_point() };
+        CallEntryPoint { entry_point_selector, ..trivial_external_entry_point_new(test_contract) };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
     assert_eq!(
         format!("Entry point {entry_point_selector:?} not found in contract."),
@@ -178,10 +184,11 @@ fn test_entry_point_not_found_in_contract() {
 
 #[test]
 fn test_storage_var() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_storage_var"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -496,12 +503,13 @@ fn test_post_run_validation_security_failure() {
 // Note read values also contain the reads performed right before a write operation.
 #[test]
 fn test_storage_related_members() {
-    let mut state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
 
     // Test storage variable.
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_storage_var"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
     assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), stark_felt!(39_u8)]);
@@ -517,7 +525,7 @@ fn test_storage_related_members() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
     assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), value]);
