@@ -466,10 +466,9 @@ fn test_block_info_syscalls(
 }
 
 #[rstest]
-#[case(true)]
-#[case(false)]
-fn test_tx_info(#[case] only_query: bool) {
-    let mut state = deprecated_create_deploy_test_state();
+fn test_tx_info(#[values(false, true)] only_query: bool) {
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let mut version = Felt252::from(1_u8);
     if only_query {
         let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
@@ -478,7 +477,7 @@ fn test_tx_info(#[case] only_query: bool) {
     let tx_hash = TransactionHash(stark_felt!(1991_u16));
     let max_fee = Fee(0);
     let nonce = Nonce(stark_felt!(3_u16));
-    let sender_address = ContractAddress(patricia_key!(TEST_CONTRACT_ADDRESS));
+    let sender_address = test_contract.get_instance_address(0);
     let expected_tx_info = calldata![
         felt_to_stark_felt(&version), // Transaction version.
         *sender_address.0.key(),      // Account address.
@@ -491,7 +490,7 @@ fn test_tx_info(#[case] only_query: bool) {
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
         calldata: expected_tx_info,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     let tx_info = TransactionInfo::Deprecated(DeprecatedTransactionInfo {
         common_fields: CommonAccountFields {
