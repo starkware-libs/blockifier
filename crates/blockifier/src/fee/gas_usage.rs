@@ -13,7 +13,7 @@ use crate::transaction::objects::{
     TransactionPreValidationResult,
 };
 use crate::utils::{u128_from_usize, usize_from_u128};
-use crate::versioned_constants::VersionedConstants;
+use crate::versioned_constants::{ResourceCost, VersionedConstants};
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -23,19 +23,19 @@ pub fn get_tx_events_gas_cost<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     versioned_constants: &VersionedConstants,
 ) -> GasVector {
-    let l1_milligas: u128 = call_infos
-        .map(|call_info| get_events_milligas_cost(&call_info.execution.events, versioned_constants))
+    let l1_gas = call_infos
+        .map(|call_info| get_events_gas_cost(&call_info.execution.events, versioned_constants))
         .sum();
-    GasVector { l1_gas: l1_milligas / 1000_u128, l1_data_gas: 0_u128 }
+    GasVector { l1_gas, l1_data_gas: 0 }
 }
 
-pub fn get_events_milligas_cost(
+pub fn get_events_gas_cost(
     events: &[OrderedEvent],
     versioned_constants: &VersionedConstants,
 ) -> u128 {
     let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
     let (event_key_factor, data_word_cost) =
-        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.milligas_per_data_felt);
+        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.gas_per_data_felt);
     events
         .iter()
         .map(|OrderedEvent { event, .. }| {
@@ -43,9 +43,10 @@ pub fn get_events_milligas_cost(
             // num_bytes_data.
             let keys_size = u128_from_usize(event.keys.len());
             let data_size = u128_from_usize(event.data.0.len());
-            event_key_factor * data_word_cost * keys_size + data_word_cost * data_size
+            data_word_cost * (event_key_factor * keys_size + data_size)
         })
-        .sum()
+        .sum::<ResourceCost>()
+        .to_integer()
 }
 
 /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
@@ -94,13 +95,11 @@ pub fn get_calldata_and_signature_gas_cost(
     signature_length: usize,
     versioned_constants: &VersionedConstants,
 ) -> GasVector {
-    // TODO(Avi, 28/2/2024): Use rational numbers to calculate the gas cost once implemented.
     // TODO(Avi, 20/2/2024): Calculate the number of bytes instead of the number of felts.
     let total_data_size = u128_from_usize(calldata_length + signature_length);
-    let l1_milligas =
-        total_data_size * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
-
-    GasVector { l1_gas: l1_milligas / 1000, l1_data_gas: 0 }
+    let l1_gas = (versioned_constants.l2_resource_gas_costs.gas_per_data_felt * total_data_size)
+        .to_integer();
+    GasVector { l1_gas, l1_data_gas: 0 }
 }
 
 // Returns the gas cost of declared class codes (Sierra, Casm and ABI). Each code felt costs a fixed
@@ -116,9 +115,10 @@ pub fn get_code_gas_cost(
                 * eth_gas_constants::WORD_WIDTH
                 + class_info.abi_length(),
         );
-        let l1_milligas =
-            total_code_size * versioned_constants.l2_resource_gas_costs.milligas_per_code_byte;
-        GasVector { l1_gas: l1_milligas / 1000, l1_data_gas: 0 }
+        let l1_gas = (versioned_constants.l2_resource_gas_costs.gas_per_code_byte
+            * total_code_size)
+            .to_integer();
+        GasVector { l1_gas, l1_data_gas: 0 }
     } else {
         GasVector { l1_gas: 0, l1_data_gas: 0 }
     }
