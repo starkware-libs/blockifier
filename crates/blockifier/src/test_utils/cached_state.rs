@@ -10,22 +10,10 @@ use crate::state::cached_state::{CachedState, ContractClassMapping};
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
     LEGACY_TEST_CLASS_HASH, LEGACY_TEST_CONTRACT_CAIRO1_PATH, SECURITY_TEST_CLASS_HASH,
-    SECURITY_TEST_CONTRACT_ADDRESS, SECURITY_TEST_CONTRACT_CAIRO0_PATH, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_ADDRESS_2, TEST_CONTRACT_CAIRO0_PATH,
-    TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH,
-    TEST_EMPTY_CONTRACT_CLASS_HASH,
+    SECURITY_TEST_CONTRACT_CAIRO0_PATH, TEST_CLASS_HASH, TEST_CONTRACT_ADDRESS,
+    TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CAIRO0_PATH,
+    TEST_EMPTY_CONTRACT_CAIRO1_PATH, TEST_EMPTY_CONTRACT_CLASS_HASH,
 };
-
-pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = get_class_hash_to_v0_class_mapping();
-    let address_to_class_hash = get_address_to_v0_class_hash();
-
-    CachedState::from(DictStateReader {
-        class_hash_to_class,
-        address_to_class_hash,
-        ..Default::default()
-    })
-}
 
 pub fn deprecated_create_deploy_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = get_class_hash_to_v0_class_mapping();
@@ -62,13 +50,6 @@ fn create_deploy_test_state_from_classes(
     })
 }
 
-fn common_map_setup() -> HashMap<ContractAddress, ClassHash> {
-    HashMap::from([
-        (contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH)),
-        (contract_address!(TEST_CONTRACT_ADDRESS_2), class_hash!(TEST_CLASS_HASH)),
-    ])
-}
-
 fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
     HashMap::from([
         (
@@ -101,13 +82,4 @@ fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
             ContractClassV1::from_file(LEGACY_TEST_CONTRACT_CAIRO1_PATH).into(),
         ),
     ])
-}
-
-fn get_address_to_v0_class_hash() -> HashMap<ContractAddress, ClassHash> {
-    let mut address_to_class_hash = common_map_setup();
-    address_to_class_hash.insert(
-        contract_address!(SECURITY_TEST_CONTRACT_ADDRESS),
-        class_hash!(SECURITY_TEST_CLASS_HASH),
-    );
-    address_to_class_hash
 }
