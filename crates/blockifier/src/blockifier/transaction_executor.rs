@@ -157,14 +157,14 @@ impl<S: StateReader> TransactionExecutor<S> {
                     l1_handler_payload_size,
                 );
                 println!("yael Bouncer res: {:?}", res);
-                transactional_bouncer.compare_bouncer_results(
-                    &bouncer_info,
-                    &tx_executed_class_hashes,
-                    &tx_visited_storage_entries,
-                    &tx_unique_state_changes_keys,
-                );
 
                 if res.is_ok() {
+                    transactional_bouncer.compare_bouncer_results(
+                        &bouncer_info,
+                        &tx_executed_class_hashes,
+                        &tx_visited_storage_entries,
+                        &tx_unique_state_changes_keys,
+                    );
                     transactional_bouncer.commit();
                 } else {
                     transactional_bouncer.abort();
