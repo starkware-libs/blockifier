@@ -165,7 +165,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 );
 
                 if res.is_ok() {
-                    self.bouncer = transactional_bouncer.commit();
+                    transactional_bouncer.commit();
                 } else {
                     transactional_bouncer.abort();
                 }

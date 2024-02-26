@@ -137,28 +137,27 @@ impl Bouncer {
         Bouncer::new(max_block_capacity, max_block_capacity)
     }
 
-    pub fn create_transactional<'a>(&'a self) -> TransactionBouncer {
+    pub fn create_transactional(&mut self) -> TransactionBouncer {
         TransactionBouncer::new(self)
     }
 
-    pub fn merge(&mut self, other: Bouncer) {
-        self.executed_class_hashes.extend(other.executed_class_hashes);
-        self.visited_storage_entries.extend(other.visited_storage_entries);
+    pub fn merge(&mut self, other: &mut Bouncer) {
+        self.executed_class_hashes.extend(&other.executed_class_hashes);
+        self.visited_storage_entries.extend(&other.visited_storage_entries);
         self.state_changes_keys.extend(&other.state_changes_keys);
         self.available_capacity = other.available_capacity;
     }
 }
 
-#[derive(Clone)]
 pub struct TransactionBouncer<'a> {
     // The parent bouncer can only be modified by merging the transactional bouncer into it.
-    parent: &'a Bouncer,
+    parent: &'a mut Bouncer,
     // The transactional bouncer is modified according to the transaction execution.
     transactional: Bouncer,
 }
 
 impl<'a> TransactionBouncer<'a> {
-    pub fn new(parent: &'a Bouncer) -> TransactionBouncer {
+    pub fn new(parent: &'a mut Bouncer) -> TransactionBouncer {
         let transactional = Bouncer::new(parent.available_capacity, parent.max_capacity);
         TransactionBouncer { parent, transactional }
     }
@@ -278,12 +277,12 @@ impl<'a> TransactionBouncer<'a> {
         Ok((n_steps, builtin_count))
     }
 
-    pub fn commit(mut self) -> &'a Bouncer {
-        self.parent.merge(self.transactional);
+    pub fn commit(&'a mut self) -> &'a Bouncer {
+        self.parent.merge(&mut self.transactional);
         self.parent
     }
 
-    pub fn abort(self) -> &'a Bouncer {
+    pub fn abort(&'a self) -> &'a Bouncer {
         self.parent
     }
 
