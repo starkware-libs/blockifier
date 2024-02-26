@@ -8,6 +8,7 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::bouncer::BouncerInfo;
+use crate::bouncer::{Bouncer, BouncerWeights};
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::actual_cost::ActualCost;
@@ -51,6 +52,7 @@ pub struct TransactionExecutor<S: StateReader> {
     // Is `Some` only after transaction has finished executing, and before commit/revert have been
     // called. `None` while a transaction is being executed and in between transactions.
     pub staged_for_commit_state: Option<StagedTransactionalState>,
+    pub bouncer: Bouncer,
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
@@ -65,6 +67,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             state_changes_keys: StateChangesKeys::default(),
             state,
             staged_for_commit_state: None,
+            bouncer: Bouncer::new_block_bouncer(BouncerWeights::tmp_max()),
         };
         log::debug!("Initialized Transaction Executor.");
 
@@ -87,6 +90,12 @@ impl<S: StateReader> TransactionExecutor<S> {
             } else {
                 None
             };
+
+        //////// New bouncer logic start ////////
+        let mut transactional_bouncer = self.bouncer.clone().create_transactional(); //TODO lifetime
+        //
+        //////// New bouncer logic end   ////////
+
         let mut tx_executed_class_hashes = HashSet::<ClassHash>::new();
         let mut tx_visited_storage_entries = HashSet::<StorageEntry>::new();
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
@@ -140,6 +149,28 @@ impl<S: StateReader> TransactionExecutor<S> {
                     state_diff_size,
                     n_events,
                 )?;
+
+                //////// New bouncer logic start ////////
+                let res = transactional_bouncer.update(
+                    &mut transactional_state,
+                    &tx_execution_info,
+                    l1_handler_payload_size,
+                );
+                println!("yael Bouncer res: {:?}", res);
+                transactional_bouncer.compare_bouncer_results(
+                    &bouncer_info,
+                    &tx_executed_class_hashes,
+                    &tx_visited_storage_entries,
+                    &tx_unique_state_changes_keys,
+                );
+
+                if res.is_ok() {
+                    self.bouncer = transactional_bouncer.commit();
+                } else {
+                    transactional_bouncer.abort();
+                }
+                //////// New bouncer logic end   ////////
+
                 self.staged_for_commit_state = Some(transactional_state.stage(
                     tx_executed_class_hashes,
                     tx_visited_storage_entries,
@@ -293,7 +324,7 @@ pub fn get_particia_update_resources(
     Ok(patricia_update_resources)
 }
 
-fn calc_message_segment_length(
+pub fn calc_message_segment_length(
     tx_execution_info: &TransactionExecutionInfo,
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutorResult<usize> {

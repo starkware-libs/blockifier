@@ -6,7 +6,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use crate::abi::constants;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct BouncerInfo {
     pub state_diff_size: usize, // The number of felts needed to store the state diff.
     pub gas_weight: usize,
@@ -41,12 +41,7 @@ impl BouncerInfo {
         ];
         let builtin_instance_counter: HashMap<String, usize> = builtin_ordered_list
             .iter()
-            .map(|name| {
-                (
-                    name.name().to_string(),
-                    get_builtin_count(tx_actual_resources, name),
-                )
-            })
+            .map(|name| (name.name().to_string(), get_builtin_count(tx_actual_resources, name)))
             .collect();
         let tx_actual_resources = VmExecutionResources {
             n_steps: tx_actual_resources

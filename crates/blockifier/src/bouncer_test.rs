@@ -19,7 +19,6 @@ fn test_block_weights_sub_checked() {
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
-            segment_arena: 10,
         },
     };
 
@@ -38,7 +37,6 @@ fn test_block_weights_sub_checked() {
             pedersen: 7,
             poseidon: 9,
             range_check: 10,
-            segment_arena: 10,
         },
     };
 
@@ -61,7 +59,6 @@ fn test_block_weights_sub_checked() {
             pedersen: 5,
             poseidon: 5,
             range_check: 5,
-            segment_arena: 5,
         },
     };
 
@@ -86,7 +83,6 @@ fn test_tansactional_bouncer() {
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
-            segment_arena: 10,
         },
     };
 
@@ -105,7 +101,6 @@ fn test_tansactional_bouncer() {
             pedersen: 7,
             poseidon: 9,
             range_check: 10,
-            segment_arena: 10,
         },
     };
 

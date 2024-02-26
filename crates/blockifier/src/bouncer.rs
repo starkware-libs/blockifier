@@ -1,21 +1,21 @@
 use std::collections::HashSet;
-use std::vec::IntoIter;
 
+use cairo_vm::serde::deserialize_program::BuiltinName;
 use derive_more::Add;
 use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
 use crate::abi::constants;
+use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::{
-    get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
+    calc_message_segment_length, get_casm_hash_calculation_resources,
+    get_particia_update_resources, TransactionExecutorResult,
 };
-use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
-use crate::transaction::transaction_execution::Transaction;
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -55,6 +55,17 @@ impl BouncerWeights {
         n_events,
         builtin_count
     );
+
+    pub fn tmp_max() -> Self {
+        Self {
+            gas: 5000000,
+            n_steps: 20000000,
+            message_segment_length: 3750,
+            state_diff_size: 20000,
+            n_events: 10000,
+            builtin_count: BuiltinCount::tmp_max(),
+        }
+    }
 }
 
 #[derive(Add, Clone, Copy, Debug, Default, derive_more::Sub, Deserialize, PartialEq)]
@@ -67,37 +78,38 @@ pub struct BuiltinCount {
     pedersen: usize,
     poseidon: usize,
     range_check: usize,
-    segment_arena: usize, // needed here? If was not present in the original bouncer code
 }
 
 impl From<&ResourcesMapping> for BuiltinCount {
     fn from(resource_mapping: &ResourcesMapping) -> Self {
         Self {
-            bitwise: resource_mapping.get_builtin_count("bitwise"),
-            ecdsa: resource_mapping.get_builtin_count("ecdsa"),
-            ec_op: resource_mapping.get_builtin_count("ec_op"),
-            keccak: resource_mapping.get_builtin_count("keccak"),
-            output: resource_mapping.get_builtin_count("output"),
-            pedersen: resource_mapping.get_builtin_count("pedersen"),
-            poseidon: resource_mapping.get_builtin_count("poseidon"),
-            range_check: resource_mapping.get_builtin_count("range_check"),
-            segment_arena: resource_mapping.get_builtin_count("segment_arena"),
+            bitwise: resource_mapping.get_builtin_count(BuiltinName::bitwise.name()),
+            ecdsa: resource_mapping.get_builtin_count(BuiltinName::ecdsa.name()),
+            ec_op: resource_mapping.get_builtin_count(BuiltinName::ec_op.name()),
+            keccak: resource_mapping.get_builtin_count(BuiltinName::keccak.name()),
+            output: resource_mapping.get_builtin_count(BuiltinName::output.name()),
+            pedersen: resource_mapping.get_builtin_count(BuiltinName::pedersen.name()),
+            poseidon: resource_mapping.get_builtin_count(BuiltinName::poseidon.name()),
+            range_check: resource_mapping.get_builtin_count(BuiltinName::range_check.name()),
         }
     }
 }
 
 impl BuiltinCount {
-    impl_checked_sub!(
-        bitwise,
-        ecdsa,
-        ec_op,
-        keccak,
-        output,
-        pedersen,
-        poseidon,
-        range_check,
-        segment_arena
-    );
+    impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, output, pedersen, poseidon, range_check);
+
+    pub fn tmp_max() -> Self {
+        Self {
+            bitwise: 39062,
+            ecdsa: 1220,
+            ec_op: 2441,
+            keccak: 0,
+            output: 0,
+            pedersen: 78125,
+            poseidon: 78125,
+            range_check: 156250,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -154,11 +166,11 @@ impl TransactionBouncer {
     pub fn update<S: StateReader>(
         &mut self,
         state: &mut TransactionalState<'_, S>,
-        tx_execution_info: TransactionExecutionInfo,
-        tx: Transaction,
+        tx_execution_info: &TransactionExecutionInfo,
+        l1_handler_payload_size: Option<usize>,
     ) -> TransactionExecutorResult<()> {
-        self.update_used_state_entries_sets(&tx_execution_info, state)?;
-        self.update_capacity(state, &tx_execution_info, &tx)?;
+        self.update_used_state_entries_sets(tx_execution_info, state)?;
+        self.update_capacity(state, tx_execution_info, l1_handler_payload_size)?;
 
         // TODO what about timestamps (we need to close the block in case that there is a
         // transaction that is older than the max_lifespan), should this logic be in the bouncer or
@@ -171,19 +183,21 @@ impl TransactionBouncer {
         &mut self,
         state: &mut TransactionalState<'_, S>,
         tx_execution_info: &TransactionExecutionInfo,
-        tx: &Transaction,
+        l1_handler_payload_size: Option<usize>,
     ) -> TransactionExecutorResult<()> {
         let (tx_n_steps, tx_builtin_count) =
             self.calc_n_steps_and_builtin_count(&tx_execution_info.actual_resources, state)?;
-        // Note: this counting does not take into account state changes that happen in the block level.
-        // E.g., the felt that encodes the number of modified contracts in a block.
+        // Note: this counting does not take into account state changes that happen in the block
+        // level. E.g., the felt that encodes the number of modified contracts in a block.
         let tx_state_diff_size =
             get_onchain_data_segment_length(self.transactional.state_changes_keys.count());
+        let message_segment_length =
+            calc_message_segment_length(tx_execution_info, l1_handler_payload_size)?;
 
         let tx_weights = BouncerWeights {
             gas: tx_execution_info.actual_resources.get_builtin_count(constants::L1_GAS_USAGE),
             n_steps: tx_n_steps,
-            message_segment_length: calc_message_segment_length(tx_execution_info, tx)?,
+            message_segment_length,
             state_diff_size: tx_state_diff_size,
             n_events: tx_execution_info.get_number_of_events(),
             builtin_count: tx_builtin_count,
@@ -241,12 +255,19 @@ impl TransactionBouncer {
             &self.parent.visited_storage_entries,
             &self.transactional.visited_storage_entries,
         )?;
+
+        println!("yael additional_os_resources {:?}", additional_os_resources);
+
         let additional_builtin_count =
             BuiltinCount::from(&ResourcesMapping(additional_os_resources.builtin_instance_counter));
 
+        println!("yael additional_builtin_count {:?}", additional_builtin_count);
+
         // Sum all the builtin resources.
         let execution_info_builtin_count = BuiltinCount::from(execution_info_resources);
+        println!("yael execution_info_builtin_count {:?}", execution_info_builtin_count);
         let builtin_count = execution_info_builtin_count + additional_builtin_count;
+        println!("yael builtin_count {:?}", builtin_count);
 
         // The n_steps counter also includes the count of memory holes.
         let n_steps = additional_os_resources.n_steps
@@ -265,25 +286,152 @@ impl TransactionBouncer {
     pub fn abort(self) -> Bouncer {
         self.parent
     }
-}
 
-// TODO: this is duplicate with the function in transaction_executor. remove on of them.
-fn calc_message_segment_length(
-    tx_execution_info: &TransactionExecutionInfo,
-    tx: &Transaction,
-) -> TransactionExecutorResult<usize> {
-    let call_infos: IntoIter<&CallInfo> =
-        [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
-            .iter()
-            .filter_map(|&call_info| call_info.as_ref())
-            .collect::<Vec<&CallInfo>>()
-            .into_iter();
-    let l1_handler_payload_size: Option<usize> =
-        if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
-            Some(l1_handler_tx.payload_size())
-        } else {
-            None
-        };
-    let msg_l1_cost_info = MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
-    Ok(msg_l1_cost_info.message_segment_length)
+    pub fn compare_bouncer_results(
+        &self,
+        bouncer_info: &BouncerInfo,
+        tx_executed_class_hashes: &HashSet<ClassHash>,
+        tx_visited_storage_entries: &HashSet<StorageEntry>,
+        tx_unique_state_changes_keys: &StateChangesKeys,
+    ) {
+        println!("yael Bouncer Info {:?}", bouncer_info);
+        println!(
+            "yael Bouncer parent-transactional {:?}",
+            self.parent.available_capacity - self.transactional.available_capacity
+        );
+        println!(
+            "yael tx_executed_class_hashes {:?}, new : {:?}",
+            tx_executed_class_hashes, self.transactional.executed_class_hashes
+        );
+        println!(
+            "yael tx_visited_storage_entries {:?}, new : {:?}",
+            tx_visited_storage_entries, self.transactional.visited_storage_entries
+        );
+        println!(
+            "yael tx_unique_state_changes_keys {:?}, new : {:?}",
+            tx_unique_state_changes_keys, self.transactional.state_changes_keys
+        );
+
+        assert_eq!(
+            tx_executed_class_hashes, &self.transactional.executed_class_hashes,
+            "yael error in executed_class_hashes"
+        );
+        assert_eq!(
+            tx_visited_storage_entries, &self.transactional.visited_storage_entries,
+            "yael error in visited_storage_entries"
+        );
+        assert_eq!(
+            tx_unique_state_changes_keys, &self.transactional.state_changes_keys,
+            "yael error in state_changes_keys"
+        );
+
+        assert_eq!(
+            bouncer_info.gas_weight,
+            self.parent.available_capacity.gas - self.transactional.available_capacity.gas,
+            "yael error in gas_weight"
+        );
+        assert_eq!(
+            bouncer_info.message_segment_length,
+            self.parent.available_capacity.message_segment_length
+                - self.transactional.available_capacity.message_segment_length,
+            "yael error in message_segment_length"
+        );
+        assert_eq!(
+            bouncer_info.state_diff_size,
+            self.parent.available_capacity.state_diff_size
+                - self.transactional.available_capacity.state_diff_size,
+            "yael error in state_diff_size"
+        );
+        assert_eq!(
+            bouncer_info.n_events,
+            self.parent.available_capacity.n_events
+                - self.transactional.available_capacity.n_events,
+            "yael error in n_events"
+        );
+        assert_eq!(
+            bouncer_info.execution_resources.n_steps,
+            self.parent.available_capacity.n_steps - self.transactional.available_capacity.n_steps,
+            "yael error in n_steps"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::bitwise.name())
+                .unwrap(),
+            self.parent.available_capacity.builtin_count.bitwise
+                - self.transactional.available_capacity.builtin_count.bitwise,
+            "yael error in bitwise"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::ecdsa.name())
+                .unwrap(),
+            self.parent.available_capacity.builtin_count.ecdsa
+                - self.transactional.available_capacity.builtin_count.ecdsa,
+            "yael error in ecdsa"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::ec_op.name())
+                .unwrap(),
+            self.parent.available_capacity.builtin_count.ec_op
+                - self.transactional.available_capacity.builtin_count.ec_op,
+            "yael error in ec_op"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::keccak.name())
+                .unwrap(),
+            self.parent.available_capacity.builtin_count.keccak
+                - self.transactional.available_capacity.builtin_count.keccak,
+            "yael error in keccak"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::output.name())
+                .unwrap(),
+            self.parent.available_capacity.builtin_count.output
+                - self.transactional.available_capacity.builtin_count.output,
+            "yael error in output"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::pedersen.name())
+                .unwrap(),
+            self.parent.available_capacity.builtin_count.pedersen
+                - self.transactional.available_capacity.builtin_count.pedersen,
+            "yael error in pedersen"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::poseidon.name())
+                .unwrap(),
+            self.parent.available_capacity.builtin_count.poseidon
+                - self.transactional.available_capacity.builtin_count.poseidon,
+            "yael error in poseidon"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::range_check.name())
+                .unwrap(),
+            self.parent.available_capacity.builtin_count.range_check
+                - self.transactional.available_capacity.builtin_count.range_check,
+            "yael error in range_check"
+        );
+    }
 }
