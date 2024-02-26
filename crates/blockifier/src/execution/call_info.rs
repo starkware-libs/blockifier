@@ -128,36 +128,6 @@ pub struct CallInfo {
 }
 
 impl CallInfo {
-    /// Returns the set of class hashes that were executed during this call execution.
-    // TODO: Add unit test for this method
-    pub fn get_executed_class_hashes(&self) -> HashSet<ClassHash> {
-        let mut class_hashes = HashSet::new();
-        let self_with_inner_calls = self.into_iter();
-        for call_info in self_with_inner_calls {
-            let class_hash =
-                call_info.call.class_hash.expect("Class hash must be set after execution.");
-            class_hashes.insert(class_hash);
-        }
-
-        class_hashes
-    }
-
-    /// Returns the set of storage entries visited during this call execution.
-    // TODO: Add unit test for this method
-    pub fn get_visited_storage_entries(&self) -> HashSet<StorageEntry> {
-        let mut storage_entries = HashSet::new();
-        let self_with_inner_calls = self.into_iter();
-        for call_info in self_with_inner_calls {
-            let call_storage_entries = call_info
-                .accessed_storage_keys
-                .iter()
-                .map(|storage_key| (call_info.call.storage_address, *storage_key));
-            storage_entries.extend(call_storage_entries);
-        }
-
-        storage_entries
-    }
-
     /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
     /// by the order in which they were sent.
     pub fn get_sorted_l2_to_l1_payload_lengths(&self) -> TransactionExecutionResult<Vec<usize>> {
@@ -192,11 +162,6 @@ impl CallInfo {
                 }),
             },
         )
-    }
-
-    /// Returns the sum of events in CallInfo and its inner_calls
-    pub fn get_number_of_events(&self) -> usize {
-        self.into_iter().map(|call_info| call_info.execution.events.len()).sum()
     }
 
     pub fn summarize(&self) -> ExecutionSummary {

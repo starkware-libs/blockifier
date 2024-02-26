@@ -1,6 +1,10 @@
 use rstest::rstest;
+use starknet_api::core::ClassHash;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};
+use crate::execution::entry_point::CallEntryPoint;
 use crate::transaction::objects::TransactionExecutionInfo;
 
 #[rstest]
@@ -15,6 +19,10 @@ fn test_transaction_execution_info_with_different_event_scenarios(
 ) {
     fn call_info_with_x_events(num_of_events: usize, num_of_inner_calls: usize) -> CallInfo {
         CallInfo {
+            call: CallEntryPoint {
+                class_hash: Some(ClassHash(stark_felt!("0x1"))),
+                ..Default::default()
+            },
             execution: CallExecution {
                 events: (0..num_of_events).map(|_i| OrderedEvent::default()).collect(),
                 ..Default::default()
@@ -35,7 +43,7 @@ fn test_transaction_execution_info_with_different_event_scenarios(
     };
 
     assert_eq!(
-        transaction_execution_info.get_number_of_events(),
+        transaction_execution_info.summarize().n_events,
         num_of_validate_events
             + num_of_execute_events
             + num_of_fee_transfer_events
