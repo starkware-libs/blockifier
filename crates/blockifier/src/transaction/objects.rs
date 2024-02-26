@@ -252,13 +252,12 @@ impl StarknetResources {
     // fixed and configurable amount of gas. This cost represents the cost of storing the
     // calldata and the signature on L2.
     pub fn to_gas_vector(&self, versioned_constants: &VersionedConstants) -> GasVector {
-        // TODO(Avi, 28/2/2024): Use rational numbers to calculate the gas cost once implemented.
         // TODO(Avi, 20/2/2024): Calculate the number of bytes instead of the number of felts.
         let total_data_size = u128_from_usize(self.calldata_length + self.signature_length);
-        let l1_milligas =
-            total_data_size * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
-
-        GasVector { l1_gas: l1_milligas / 1000, l1_data_gas: 0 }
+        let l1_gas = (versioned_constants.l2_resource_gas_costs.gas_per_data_felt
+            * total_data_size)
+            .to_integer();
+        GasVector { l1_gas, l1_data_gas: 0 }
     }
 }
 
