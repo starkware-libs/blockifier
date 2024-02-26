@@ -1670,13 +1670,13 @@ fn test_only_query_flag(#[case] only_query: bool) {
 fn l1_handler_tx(
     calldata: &Calldata,
     l1_fee: Fee,
-    cairo_version: CairoVersion,
+    contract_address: ContractAddress,
 ) -> L1HandlerTransaction {
     L1HandlerTransaction {
         tx: starknet_api::transaction::L1HandlerTransaction {
             version: TransactionVersion::ZERO,
             nonce: Nonce::default(),
-            contract_address: FeatureContract::TestContract(cairo_version).get_instance_address(0),
+            contract_address,
             entry_point_selector: selector_from_name("l1_handler_set_value"),
             calldata: calldata.clone(),
         },
@@ -1692,12 +1692,13 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let chain_info = &ChainInfo::create_for_testing();
     let state = &mut test_state(chain_info, BALANCE, &[(test_contract, 1)]);
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
+    let contract_address = test_contract.get_instance_address(0);
     let versioned_constants = &block_context.versioned_constants;
     let from_address = StarkFelt::from_u128(0x123);
     let key = StarkFelt::from_u128(0x876);
     let value = StarkFelt::from_u128(0x44);
     let calldata = calldata![from_address, key, value];
-    let tx = l1_handler_tx(&calldata, Fee(1), cairo_version);
+    let tx = l1_handler_tx(&calldata, Fee(1), contract_address);
     let payload_size = tx.payload_size();
 
     let actual_execution_info = tx.execute(state, block_context, true, true).unwrap();
@@ -1711,7 +1712,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
             entry_point_type: EntryPointType::L1Handler,
             entry_point_selector: selector_from_name("l1_handler_set_value"),
             calldata: calldata.clone(),
-            storage_address: test_contract.get_instance_address(0),
+            storage_address: contract_address,
             caller_address: ContractAddress::default(),
             call_type: CallType::Call,
             initial_gas: tx_initial_gas(),
@@ -1780,17 +1781,12 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     // Check the state changes.
     assert_eq!(
-        state
-            .get_storage_at(
-                test_contract.get_instance_address(0),
-                StorageKey::try_from(key).unwrap(),
-            )
-            .unwrap(),
+        state.get_storage_at(contract_address, StorageKey::try_from(key).unwrap(),).unwrap(),
         value,
     );
 
     // Negative flow: not enough fee paid on L1.
-    let tx_no_fee = l1_handler_tx(&calldata, Fee(0), cairo_version);
+    let tx_no_fee = l1_handler_tx(&calldata, Fee(0), contract_address);
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
     let expected_actual_fee =
