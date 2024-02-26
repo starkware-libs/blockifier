@@ -190,9 +190,9 @@ impl TryFrom<&Path> for VersionedConstants {
 pub struct L2ResourceGasCosts {
     // TODO(barak, 18/03/2024): Once we start charging per byte change to milligas_per_data_byte,
     // divide the value by 32 in the JSON file.
-    pub milligas_per_data_felt: u128,
+    pub gas_per_data_felt: ResourceCost,
     pub event_key_factor: u128,
-    pub milligas_per_code_byte: u128,
+    pub gas_per_code_byte: ResourceCost,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]

@@ -6,16 +6,16 @@ use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::{
-    TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
-};
+use blockifier::transaction::objects::{TransactionExecutionResult, TransactionInfo};
 use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::{pyclass, pymethods, PyAny};
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
+use crate::py_block_executor::{
+    into_block_context_args, PyGeneralConfig, ThinTransactionExecutionInfo,
+};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
@@ -144,14 +144,14 @@ impl PyValidator {
         &mut self,
         tx: &PyAny,
         optional_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(TransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(ThinTransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
         let tx: Transaction = py_tx(tx, optional_class_info)?;
         let (tx_execution_info, bouncer_info) =
             self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        Ok((tx_execution_info, py_bouncer_info))
+        Ok((tx_execution_info.into(), py_bouncer_info))
     }
 
     fn perform_pre_validation_stage(

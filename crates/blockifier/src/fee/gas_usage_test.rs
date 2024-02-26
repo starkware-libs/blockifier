@@ -20,7 +20,7 @@ fn versioned_constants() -> &'static VersionedConstants {
 fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
     let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
     let (event_key_factor, data_word_cost) =
-        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.milligas_per_data_felt);
+        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.gas_per_data_felt);
 
     let call_info_1 = &CallInfo::default();
     let call_info_2 = &CallInfo::default();
@@ -60,7 +60,7 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
     let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
     let expected = GasVector {
         // 4 keys and 6 data words overall.
-        l1_gas: (event_key_factor * data_word_cost * 4_u128 + data_word_cost * 6_u128) / 1000,
+        l1_gas: (data_word_cost * (event_key_factor * 4_u128 + 6_u128)).to_integer(),
         l1_data_gas: 0_u128,
     };
     let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
