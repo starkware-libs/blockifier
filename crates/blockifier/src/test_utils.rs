@@ -14,20 +14,18 @@ use std::path::PathBuf;
 
 use cairo_felt::Felt252;
 use num_traits::{One, Zero};
-use starknet_api::core::{ContractAddress, EntryPointSelector, Nonce, PatriciaKey};
-use starknet_api::deprecated_contract_class::{
-    ContractClass as DeprecatedContractClass, EntryPointType,
-};
+use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Resource, ResourceBounds, ResourceBoundsMapping,
 };
-use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
+use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
-use crate::execution::entry_point::{CallEntryPoint, CallType};
+use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::test_utils::contracts::FeatureContract;
 use crate::utils::const_max;
@@ -212,15 +210,10 @@ pub fn trivial_external_entry_point_with_address(
     contract_address: ContractAddress,
 ) -> CallEntryPoint {
     CallEntryPoint {
-        class_hash: None,
         code_address: Some(contract_address),
-        entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(stark_felt!(0_u8)),
-        calldata: calldata![],
         storage_address: contract_address,
-        caller_address: ContractAddress::default(),
-        call_type: CallType::Call,
         initial_gas: VersionedConstants::create_for_testing().gas_cost("initial_gas_cost"),
+        ..Default::default()
     }
 }
 
