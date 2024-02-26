@@ -92,7 +92,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             };
 
         //////// New bouncer logic start ////////
-        let mut transactional_bouncer = self.bouncer.clone().create_transactional(); //TODO lifetime
+        let mut transactional_bouncer = self.bouncer.create_transactional();
         //
         //////// New bouncer logic end   ////////
 
