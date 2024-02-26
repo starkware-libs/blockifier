@@ -8,11 +8,14 @@ use starknet_api::core::PatriciaKey;
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 
-use crate::context::BlockContext;
+use crate::context::{BlockContext, ChainInfo};
 use crate::state::cached_state::*;
-use crate::test_utils::cached_state::deprecated_create_test_state;
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::{get_test_contract_class, TEST_CLASS_HASH, TEST_EMPTY_CONTRACT_CLASS_HASH};
+use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::{
+    get_test_contract_class, CairoVersion, TEST_CLASS_HASH, TEST_EMPTY_CONTRACT_CLASS_HASH,
+};
 
 const CONTRACT_ADDRESS: &str = "0x100";
 
@@ -139,10 +142,10 @@ fn get_and_increment_nonce() {
 #[test]
 fn get_contract_class() {
     // Positive flow.
-    let existing_class_hash = class_hash!(TEST_CLASS_HASH);
-    let state = deprecated_create_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let state = test_state(&ChainInfo::create_for_testing(), 0_u128, &[(test_contract, 0)]);
     assert_eq!(
-        state.get_compiled_contract_class(existing_class_hash).unwrap(),
+        state.get_compiled_contract_class(test_contract.get_class_hash()).unwrap(),
         get_test_contract_class()
     );
 
