@@ -61,14 +61,14 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     for cairo_version in [CairoVersion::Cairo0, CairoVersion::Cairo1] {
         let empty_contract = FeatureContract::Empty(cairo_version).get_class();
         let class_info = calculate_class_info_for_testing(empty_contract);
-        let code_milligas_cost =
-            u128_from_usize(
+        let code_gas_cost = versioned_constants.l2_resource_gas_costs.gas_per_code_byte
+            * u128_from_usize(
                 (class_info.bytecode_length() + class_info.sierra_program_length())
                     * eth_gas_constants::WORD_WIDTH
                     + class_info.abi_length(),
-            ) * versioned_constants.l2_resource_gas_costs.milligas_per_code_byte;
+            );
         let manual_gas_vector =
-            GasVector { l1_gas: code_milligas_cost / 1000, ..Default::default() };
+            GasVector { l1_gas: code_gas_cost.to_integer(), ..Default::default() };
         let declare_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
             &versioned_constants,
             std::iter::empty(),
@@ -95,9 +95,10 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let calldata_length = 0;
     let signature_length = 2;
     let starknet_resources = StarknetResources { calldata_length, signature_length };
-    let calldata_and_signature_milligas_cost = u128_from_usize(calldata_length + signature_length)
-        * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
-    let manual_starknet_gas_usage = calldata_and_signature_milligas_cost / 1000;
+    let calldata_and_signature_gas_cost =
+        versioned_constants.l2_resource_gas_costs.gas_per_data_felt
+            * u128_from_usize(calldata_length + signature_length);
+    let manual_starknet_gas_usage = calldata_and_signature_gas_cost.to_integer();
     let manual_gas_vector = GasVector { l1_gas: manual_starknet_gas_usage, ..Default::default() }
         + get_da_gas_cost(deploy_account_state_changes_count, use_kzg_da);
 
@@ -129,16 +130,16 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&[], Some(l1_handler_payload_size));
-    let calldata_and_signature_milligas_cost =
-        u128_from_usize(l1_handler_payload_size + signature_length)
-            * versioned_constants.l2_resource_gas_costs.milligas_per_data_felt;
+    let calldata_and_signature_gas_cost =
+        versioned_constants.l2_resource_gas_costs.gas_per_data_felt
+            * u128_from_usize(l1_handler_payload_size + signature_length);
     let manual_starknet_gas_usage = message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
         + eth_gas_constants::GAS_PER_COUNTER_DECREASE
         + usize_from_u128(
             get_consumed_message_to_l2_emissions_cost(Some(l1_handler_payload_size)).l1_gas,
         )
         .unwrap()
-        + usize_from_u128(calldata_and_signature_milligas_cost / 1000).unwrap();
+        + usize_from_u128(calldata_and_signature_gas_cost.to_integer()).unwrap();
     let manual_sharp_gas_usage =
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
     let manual_gas_computation = GasVector {
