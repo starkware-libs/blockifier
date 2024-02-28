@@ -106,15 +106,15 @@ fn test_transactional_bouncer() {
 
     let bouncer = Bouncer::new(max_bouncer_weights);
     let mut transactional_bouncer = bouncer.create_transactional();
-    transactional_bouncer.child.capacity =
-        transactional_bouncer.child.capacity.checked_sub(tx_weights).unwrap();
+    transactional_bouncer.child.available_capacity =
+        transactional_bouncer.child.available_capacity.checked_sub(tx_weights).unwrap();
 
     // Test transactional bouncer abort
     let parent = transactional_bouncer.clone().abort();
-    assert!(parent.capacity == max_bouncer_weights);
+    assert!(parent.available_capacity == max_bouncer_weights);
 
     // Test transactional bouncer commit
     let parent = transactional_bouncer.commit();
     let expected_capacity = max_bouncer_weights.sub(tx_weights);
-    assert!(parent.capacity == expected_capacity);
+    assert!(parent.available_capacity == expected_capacity);
 }

@@ -11,8 +11,10 @@ use crate::blockifier::transaction_executor::{
     get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
 };
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
+use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 
 #[cfg(test)]
@@ -92,7 +94,9 @@ pub struct Bouncer {
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
     // The capacity is calculated based of the values of the other Bouncer fields.
-    capacity: BouncerWeights,
+    available_capacity: BouncerWeights,
+    // The maximum capacity of the block is contant throughout a block lifecycle.
+    max_capacity: BouncerWeights,
 }
 
 impl Bouncer {
@@ -101,7 +105,8 @@ impl Bouncer {
             executed_class_hashes: HashSet::new(),
             state_changes_keys: StateChangesKeys::default(),
             visited_storage_entries: HashSet::new(),
-            capacity,
+            available_capacity: capacity,
+            max_capacity: capacity,
         }
     }
 
@@ -113,7 +118,7 @@ impl Bouncer {
         self.executed_class_hashes.extend(other.executed_class_hashes);
         self.state_changes_keys.extend(&other.state_changes_keys);
         self.visited_storage_entries.extend(other.visited_storage_entries);
-        self.capacity = other.capacity;
+        self.available_capacity = other.available_capacity;
     }
 }
 
@@ -127,8 +132,63 @@ pub struct TransactionalBouncer {
 
 impl TransactionalBouncer {
     pub fn new(parent: Bouncer) -> TransactionalBouncer {
-        let capacity = parent.capacity;
+        let capacity = parent.available_capacity;
         TransactionalBouncer { parent, child: Bouncer::new(capacity) }
+    }
+
+    pub fn update<S: StateReader>(
+        &mut self,
+        state: &mut TransactionalState<'_, S>,
+        tx_execution_info: &TransactionExecutionInfo,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutorResult<()> {
+        self.update_used_state_entries_sets(tx_execution_info, state)?;
+        self.update_capacity(state, tx_execution_info, l1_handler_payload_size)?;
+
+        // TODO what about timestamps (we need to close the block in case that there is a
+        // transaction that is older than the max_lifespan), should this logic be in the bouncer or
+        // outside?
+
+        Ok(())
+    }
+
+    fn update_capacity<S: StateReader>(
+        &mut self,
+        state: &mut TransactionalState<'_, S>,
+        tx_execution_info: &TransactionExecutionInfo,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutorResult<()> {
+        let (tx_n_steps, tx_builtin_count) =
+            self.calc_n_steps_and_builtin_count(&tx_execution_info.actual_resources, state)?;
+        // Note: this counting does not take into account state changes that happen in the block
+        // level. E.g., the felt that encodes the number of modified contracts in a block.
+        let tx_state_diff_size =
+            get_onchain_data_segment_length(self.child.state_changes_keys.count());
+        let message_segment_length =
+            calc_message_segment_length(tx_execution_info, l1_handler_payload_size)?;
+
+        let tx_weights = BouncerWeights {
+            gas: tx_execution_info.actual_resources.get_or_default(constants::L1_GAS_USAGE),
+            n_steps: tx_n_steps,
+            message_segment_length,
+            state_diff_size: tx_state_diff_size,
+            n_events: tx_execution_info.get_number_of_events(),
+            builtin_count: tx_builtin_count,
+        };
+
+        // Check if the transaction is too large to fit any block.
+        self.parent
+            .max_capacity
+            .checked_sub(tx_weights)
+            .ok_or(TransactionExecutionError::TxTooLarge)?;
+
+        // Check if the transaction can fit the current block available capacity.
+        self.child.available_capacity = self
+            .child
+            .available_capacity
+            .checked_sub(tx_weights)
+            .ok_or(TransactionExecutionError::BlockFull)?;
+        Ok(())
     }
 
     // TODO update function (in the following PRs)
