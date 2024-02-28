@@ -13,7 +13,7 @@ use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::utils::subtract_mappings;
+use crate::utils::{strict_subtract_mappings, subtract_mappings};
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
@@ -481,17 +481,19 @@ impl StateCache {
     }
 
     fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
-        subtract_mappings(&self.storage_writes, &self.storage_initial_values)
+        strict_subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
-        subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
+        strict_subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
 
     fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
-        subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
+        strict_subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
     }
 
+    // strict_subtract_mappings is not fit for this case, as the keys of compiled_class_hash_writes
+    // are not a subset of the keys of compiled_class_hash_initial_values.
     fn get_compiled_class_hash_updates(&self) -> HashMap<ClassHash, CompiledClassHash> {
         subtract_mappings(
             &self.compiled_class_hash_writes,
