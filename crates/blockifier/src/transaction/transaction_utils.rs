@@ -32,7 +32,7 @@ pub fn calculate_tx_resources(
     let l1_blob_gas_usage = usize_from_u128(gas_vector.l1_data_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    let data_segment_length = get_onchain_data_segment_length(&state_changes_count);
     let total_vm_usage = execution_resources
         + &versioned_constants.get_additional_os_tx_resources(
             tx_type,

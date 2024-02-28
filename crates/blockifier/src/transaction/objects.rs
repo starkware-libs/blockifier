@@ -17,6 +17,8 @@ use crate::execution::contract_class::ClassInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
+use crate::fee::gas_usage::get_da_gas_cost;
+use crate::state::cached_state::StateChangesCount;
 use crate::transaction::constants;
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
@@ -246,6 +248,7 @@ impl ResourcesMapping {
 #[derive(Clone, Debug, Default, Copy)]
 pub struct StarknetResources {
     pub calldata_length: usize,
+    pub state_changes_count: StateChangesCount,
     signature_length: usize,
     code_size: usize,
 }
@@ -255,18 +258,25 @@ impl StarknetResources {
         calldata_length: usize,
         signature_length: usize,
         class_info: Option<&ClassInfo>,
+        state_changes_count: StateChangesCount,
     ) -> Self {
         Self {
             calldata_length,
             signature_length,
             code_size: StarknetResources::calculate_code_size(class_info),
+            state_changes_count,
         }
     }
 
     /// Returns the gas cost of the starknet resources, summing all components.
-    pub fn to_gas_vector(&self, versioned_constants: &VersionedConstants) -> GasVector {
+    pub fn to_gas_vector(
+        &self,
+        versioned_constants: &VersionedConstants,
+        use_kzg_da: bool,
+    ) -> GasVector {
         self.get_calldata_and_signature_cost(versioned_constants)
             + self.get_code_cost(versioned_constants)
+            + self.get_state_changes_cost(use_kzg_da)
     }
 
     /// Sets the code_size field from a ClassInfo from (Sierra, Casm and ABI). Each code felt costs
@@ -298,6 +308,11 @@ impl StarknetResources {
             .to_integer(),
             l1_data_gas: 0,
         }
+    }
+
+    // Returns the gas cost of the transaction's state changes.
+    pub fn get_state_changes_cost(&self, use_kzg_da: bool) -> GasVector {
+        get_da_gas_cost(&self.state_changes_count, use_kzg_da)
     }
 
     // Private and static method that calculates the code size from ClassInfo

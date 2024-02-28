@@ -135,7 +135,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // tune the size limit accordingly. E.g., the felt that encodes the number of
                 // modified contracts in a block.
                 let state_diff_size =
-                    get_onchain_data_segment_length(tx_unique_state_changes_keys.count());
+                    get_onchain_data_segment_length(&tx_unique_state_changes_keys.count());
 
                 // Finalize counting logic.
                 let actual_resources = &tx_execution_info.actual_resources;
