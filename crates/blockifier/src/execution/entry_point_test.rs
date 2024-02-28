@@ -58,7 +58,7 @@ fn test_call_info_iteration() {
         ..Default::default()
     };
 
-    for (i, call_info) in root.into_iter().enumerate() {
+    for (i, call_info) in root.iter().enumerate() {
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
         assert_eq!(

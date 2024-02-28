@@ -131,10 +131,10 @@ impl CallInfo {
     /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
     /// by the order in which they were sent.
     pub fn get_sorted_l2_to_l1_payload_lengths(&self) -> TransactionExecutionResult<Vec<usize>> {
-        let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
+        let n_messages = self.iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
         let mut starknet_l2_to_l1_payload_lengths: Vec<Option<usize>> = vec![None; n_messages];
 
-        for call_info in self.into_iter() {
+        for call_info in self.iter() {
             for ordered_message_content in &call_info.execution.l2_to_l1_messages {
                 let message_order = ordered_message_content.order;
                 if message_order >= n_messages {
@@ -169,7 +169,7 @@ impl CallInfo {
         let mut visited_storage_entries: HashSet<StorageEntry> = HashSet::new();
         let mut n_events: usize = 0;
 
-        for call_info in self.into_iter() {
+        for call_info in self.iter() {
             let class_hash =
                 call_info.call.class_hash.expect("Class hash must be set after execution.");
             executed_class_hashes.insert(class_hash);
@@ -191,6 +191,13 @@ pub struct CallInfoIter<'a> {
     call_infos: Vec<&'a CallInfo>,
 }
 
+impl<'a> CallInfo {
+    pub fn iter(&'a self) -> CallInfoIter<'a> {
+        let call_infos = vec![self];
+        CallInfoIter { call_infos }
+    }
+}
+
 impl<'a> Iterator for CallInfoIter<'a> {
     type Item = &'a CallInfo;
 
@@ -202,14 +209,5 @@ impl<'a> Iterator for CallInfoIter<'a> {
         // Push order is right to left.
         self.call_infos.extend(call_info.inner_calls.iter().rev());
         Some(call_info)
-    }
-}
-
-impl<'a> IntoIterator for &'a CallInfo {
-    type Item = &'a CallInfo;
-    type IntoIter = CallInfoIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        CallInfoIter { call_infos: vec![self] }
     }
 }

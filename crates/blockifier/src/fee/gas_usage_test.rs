@@ -25,7 +25,7 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
     let call_info_1 = &CallInfo::default();
     let call_info_2 = &CallInfo::default();
     let call_info_3 = &CallInfo::default();
-    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    let call_infos = call_info_1.iter().chain(call_info_2.iter()).chain(call_info_3.iter());
     assert_eq!(GasVector::default(), get_tx_events_gas_cost(call_infos, versioned_constants));
 
     let create_event = |keys_size: usize, data_size: usize| OrderedEvent {
@@ -57,7 +57,7 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
         }],
         ..Default::default()
     };
-    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    let call_infos = call_info_1.iter().chain(call_info_2.iter()).chain(call_info_3.iter());
     let expected = GasVector {
         // 4 keys and 6 data words overall.
         l1_gas: (event_key_factor * data_word_cost * 4_u128 + data_word_cost * 6_u128) / 1000,
