@@ -329,7 +329,7 @@ fn validate_final_balances(
 
 fn add_kzg_da_resources_to_resources_mapping(
     target: &mut ResourcesMapping,
-    state_changes_count: StateChangesCount,
+    state_changes_count: &StateChangesCount,
     versioned_constants: &VersionedConstants,
     use_kzg_da: bool,
 ) {
@@ -337,7 +337,7 @@ fn add_kzg_da_resources_to_resources_mapping(
         return;
     }
 
-    let data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    let data_segment_length = get_onchain_data_segment_length(&state_changes_count);
     let os_kzg_da_resources = versioned_constants.os_kzg_da_resources(data_segment_length);
 
     let mut resources_to_add = os_kzg_da_resources.builtin_instance_counter;
@@ -358,13 +358,13 @@ fn add_kzg_da_resources(
 ) {
     add_kzg_da_resources_to_resources_mapping(
         &mut tx_execution_info.actual_resources,
-        state_changes_count,
+        &state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
     add_kzg_da_resources_to_resources_mapping(
         &mut tx_execution_info.bouncer_resources,
-        state_changes_count,
+        &state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
@@ -420,7 +420,16 @@ fn test_invoke_tx(
     let calldata = Calldata(Arc::clone(&invoke_tx.calldata().0));
     let calldata_length = invoke_tx.calldata().0.len();
     let signature_length = invoke_tx.signature().0.len();
-    let starknet_resources = StarknetResources::new(calldata_length, signature_length, None);
+    let starknet_resources = StarknetResources::new(
+        calldata_length,
+        signature_length,
+        None,
+        StateChangesCount {
+            n_storage_updates: 1,
+            n_modified_contracts: 1,
+            ..StateChangesCount::default()
+        },
+    );
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
@@ -486,14 +495,9 @@ fn test_invoke_tx(
         FeatureContract::ERC20.get_class_hash(),
     );
 
-    let state_changes_count = StateChangesCount {
-        n_storage_updates: 1,
-        n_modified_contracts: 1,
-        ..StateChangesCount::default()
-    };
-
-    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
-    let calldata_and_signature_gas = starknet_resources.to_gas_vector(versioned_constants);
+    let da_gas = starknet_resources.get_state_changes_cost(use_kzg_da);
+    let calldata_and_signature_gas =
+        starknet_resources.get_calldata_and_signature_cost(versioned_constants);
 
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
@@ -516,7 +520,7 @@ fn test_invoke_tx(
 
     add_kzg_da_resources(
         &mut expected_execution_info,
-        state_changes_count,
+        starknet_resources.state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
@@ -1134,7 +1138,8 @@ fn test_declare_tx(
     let class_hash = empty_contract.get_class_hash();
     let class_info = calculate_class_info_for_testing(empty_contract.get_class());
     let sender_address = account.get_instance_address(0);
-    let mut starknet_resources = StarknetResources::default();
+    let mut starknet_resources =
+        StarknetResources::new(0, 0, None, declare_expected_state_changes_count(tx_version));
     starknet_resources.set_code_size(Some(&class_info));
 
     let account_tx = declare_tx(
@@ -1177,8 +1182,7 @@ fn test_declare_tx(
         FeatureContract::ERC20.get_class_hash(),
     );
 
-    let state_changes_count = declare_expected_state_changes_count(tx_version);
-    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
+    let da_gas = starknet_resources.get_state_changes_cost(use_kzg_da);
     let code_gas = starknet_resources.get_code_cost(versioned_constants);
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
@@ -1201,7 +1205,7 @@ fn test_declare_tx(
 
     add_kzg_da_resources(
         &mut expected_execution_info,
-        state_changes_count,
+        starknet_resources.state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
@@ -1318,7 +1322,7 @@ fn test_deploy_account_tx(
         n_class_hash_updates: 1,
         ..StateChangesCount::default()
     };
-    let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
+    let da_gas = get_da_gas_cost(&state_changes_count, use_kzg_da);
     let expected_cairo_resources = get_expected_cairo_resources(
         &block_context.versioned_constants,
         TransactionType::DeployAccount,
@@ -1785,7 +1789,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     add_kzg_da_resources_to_resources_mapping(
         &mut expected_resource_mapping,
-        state_changes_count,
+        &state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
