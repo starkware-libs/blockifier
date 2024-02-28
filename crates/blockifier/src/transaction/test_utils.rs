@@ -47,6 +47,13 @@ pub const GET_BLOCK_NUMBER: u64 = 5;
 pub const GET_BLOCK_TIMESTAMP: u64 = 6;
 pub const GET_SEQUENCER_ADDRESS: u64 = 7;
 
+// Corresponding constants to the ones in account_writing_validation.
+pub const NO_WRITE: u64 = 0;
+pub const WRITE_EXECUTE_ONLY: u64 = 1;
+pub const WRITE_VALIDATE_EXECUTE: u64 = 2;
+pub const WRITE_VALIDATE_ONLY: u64 = 3;
+pub const WRITE_VALIDATE_FAIL_EXECUTE: u64 = 4;
+
 macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
         $(impl From<$specified_tx_type> for InvokeTransaction {
