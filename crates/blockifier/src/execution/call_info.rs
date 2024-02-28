@@ -4,8 +4,9 @@ use std::ops::Add;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::{Deserialize, Serialize};
-use starknet_api::core::{ClassHash, EthAddress};
-use starknet_api::hash::StarkFelt;
+use starknet_api::core::{ClassHash, ContractAddress, EthAddress, PatriciaKey};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::patricia_key;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 
@@ -110,6 +111,46 @@ impl Add for ExecutionSummary {
 impl Sum for ExecutionSummary {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(ExecutionSummary::default(), |acc, x| acc + x)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct TestExecutionSummary {
+    pub num_of_events: usize,
+    pub class_hash: ClassHash,
+    pub storage_address: ContractAddress,
+    pub storage_key: StorageKey,
+}
+
+impl TestExecutionSummary {
+    pub fn new(
+        num_of_events: usize,
+        class_hash: ClassHash,
+        storage_address: &str,
+        storage_key: &str,
+    ) -> Self {
+        TestExecutionSummary {
+            num_of_events,
+            class_hash,
+            storage_address: ContractAddress(patricia_key!(storage_address)),
+            storage_key: StorageKey(patricia_key!(storage_key)),
+        }
+    }
+
+    pub fn to_call_info(&self) -> CallInfo {
+        CallInfo {
+            call: CallEntryPoint {
+                class_hash: Some(self.class_hash),
+                storage_address: self.storage_address,
+                ..Default::default()
+            },
+            execution: CallExecution {
+                events: (0..self.num_of_events).map(|_| OrderedEvent::default()).collect(),
+                ..Default::default()
+            },
+            accessed_storage_keys: vec![self.storage_key].into_iter().collect(),
+            ..Default::default()
+        }
     }
 }
 
