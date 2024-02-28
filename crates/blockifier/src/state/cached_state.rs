@@ -13,7 +13,7 @@ use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::utils::subtract_mappings;
+use crate::utils::strict_subtract_mappings;
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
@@ -139,6 +139,20 @@ impl<S: StateReader> CachedState<S> {
                 cache
                     .class_hash_initial_values
                     .insert(*contract_address, self.state.get_class_hash_at(*contract_address)?);
+            }
+        }
+
+        for class_hash in cache.compiled_class_hash_writes.keys() {
+            if !cache.compiled_class_hash_initial_values.contains_key(class_hash) {
+                // First access to this cell was write; cache initial value.
+                println!("class_hash: {:?}", class_hash);
+                println!(
+                    "compiled class hash: {:?}",
+                    self.state.get_compiled_class_hash(*class_hash)?
+                );
+                cache
+                    .compiled_class_hash_initial_values
+                    .insert(*class_hash, self.state.get_compiled_class_hash(*class_hash)?);
             }
         }
 
@@ -481,19 +495,19 @@ impl StateCache {
     }
 
     fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
-        subtract_mappings(&self.storage_writes, &self.storage_initial_values)
+        strict_subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
-        subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
+        strict_subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
 
     fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
-        subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
+        strict_subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
     }
 
     fn get_compiled_class_hash_updates(&self) -> HashMap<ClassHash, CompiledClassHash> {
-        subtract_mappings(
+        strict_subtract_mappings(
             &self.compiled_class_hash_writes,
             &self.compiled_class_hash_initial_values,
         )
