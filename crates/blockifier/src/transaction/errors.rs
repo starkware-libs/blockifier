@@ -90,6 +90,11 @@ pub enum TransactionExecutionError {
     TryFromIntError(#[from] std::num::TryFromIntError),
     #[error("Transaction validation has failed: {0}")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
+    #[error(
+        "Invalid segment structure: PC {0} was visited, but the beginning of the segment {1} was \
+         not."
+    )]
+    InvalidSegmentStructure(usize, usize),
 }
 
 #[derive(Debug, Error)]
