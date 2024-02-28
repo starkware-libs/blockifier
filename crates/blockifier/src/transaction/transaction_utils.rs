@@ -4,11 +4,11 @@ use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::transaction::TransactionVersion;
 
+use super::objects::StarknetResources;
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
-use crate::state::cached_state::StateChangesCount;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
@@ -23,8 +23,7 @@ pub fn calculate_tx_resources(
     execution_resources: &ExecutionResources,
     gas_vector: GasVector,
     tx_type: TransactionType,
-    calldata_length: usize,
-    state_changes_count: StateChangesCount,
+    starknet_resources: &StarknetResources,
     use_kzg_da: bool,
 ) -> TransactionExecutionResult<ResourcesMapping> {
     let l1_gas_usage = usize_from_u128(gas_vector.l1_gas)
@@ -32,11 +31,12 @@ pub fn calculate_tx_resources(
     let l1_blob_gas_usage = usize_from_u128(gas_vector.l1_data_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    let data_segment_length =
+        get_onchain_data_segment_length(&starknet_resources.state_changes_count);
     let total_vm_usage = execution_resources
         + &versioned_constants.get_additional_os_tx_resources(
             tx_type,
-            calldata_length,
+            starknet_resources.calldata_length,
             data_segment_length,
             use_kzg_da,
         )?;

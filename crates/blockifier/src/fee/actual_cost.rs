@@ -8,7 +8,7 @@ use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ClassInfo;
-use crate::fee::gas_usage::{get_da_gas_cost, get_messages_gas_cost, get_tx_events_gas_cost};
+use crate::fee::gas_usage::{get_messages_gas_cost, get_tx_events_gas_cost};
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -71,7 +71,12 @@ impl<'a> ActualCostBuilder<'a> {
         signature_length: usize,
     ) -> Self {
         Self {
-            starknet_resources: StarknetResources::new(calldata_length, signature_length, None),
+            starknet_resources: StarknetResources::new(
+                calldata_length,
+                signature_length,
+                None,
+                StateChangesCount::default(),
+            ),
             sender_address: Some(tx_context.tx_info.sender_address()),
             tx_context,
             tx_type,
@@ -143,11 +148,11 @@ impl<'a> ActualCostBuilder<'a> {
 
     // Construct the actual cost object using all fields that were set in the builder.
     fn calculate_actual_fee_and_resources(
-        self,
+        mut self,
         execution_resources: &ExecutionResources,
     ) -> TransactionExecutionResult<(ActualCost, ResourcesMapping)> {
         let use_kzg_da = self.use_kzg_da();
-        let state_changes_count = self.state_changes.count_for_fee_charge(
+        self.starknet_resources.state_changes_count = self.state_changes.count_for_fee_charge(
             self.sender_address,
             self.tx_context
                 .block_context
@@ -155,7 +160,7 @@ impl<'a> ActualCostBuilder<'a> {
                 .fee_token_address(&self.tx_context.tx_info.fee_type()),
         );
         // TODO(Dafna, 1/6/2024): Compute the DA size and pass it instead of state_changes_count.
-        let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
+        let da_gas = self.starknet_resources.get_state_changes_cost(use_kzg_da);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
@@ -163,7 +168,6 @@ impl<'a> ActualCostBuilder<'a> {
         let gas_usage_vector = Self::calculate_tx_gas_usage_vector(
             &self.tx_context.block_context.versioned_constants,
             non_optional_call_infos,
-            state_changes_count,
             &self.starknet_resources,
             self.l1_payload_size,
             use_kzg_da,
@@ -174,8 +178,7 @@ impl<'a> ActualCostBuilder<'a> {
             execution_resources,
             gas_usage_vector,
             self.tx_type,
-            self.starknet_resources.calldata_length,
-            state_changes_count,
+            &self.starknet_resources,
             use_kzg_da,
         )?;
 
@@ -209,14 +212,12 @@ impl<'a> ActualCostBuilder<'a> {
     fn calculate_tx_gas_usage_vector(
         versioned_constants: &VersionedConstants,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
-        state_changes_count: StateChangesCount,
         starknet_resources: &StarknetResources,
         l1_handler_payload_size: Option<usize>,
         use_kzg_da: bool,
     ) -> TransactionExecutionResult<GasVector> {
         Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
-            + get_da_gas_cost(state_changes_count, use_kzg_da)
-            + starknet_resources.to_gas_vector(versioned_constants)
+            + starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
             + get_tx_events_gas_cost(call_infos, versioned_constants))
     }
 }
