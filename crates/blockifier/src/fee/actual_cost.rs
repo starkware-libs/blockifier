@@ -9,13 +9,12 @@ use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ClassInfo;
 use crate::fee::gas_usage::{
-    get_calldata_and_signature_gas_cost, get_code_gas_cost, get_da_gas_cost, get_messages_gas_cost,
-    get_tx_events_gas_cost,
+    get_code_gas_cost, get_da_gas_cost, get_messages_gas_cost, get_tx_events_gas_cost,
 };
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
-    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    GasVector, HasRelatedFeeType, ResourcesMapping, StarknetResources, TransactionExecutionResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
@@ -56,14 +55,13 @@ impl ActualCost {
 pub struct ActualCostBuilder<'a> {
     pub tx_context: Arc<TransactionContext>,
     pub tx_type: TransactionType,
+    starknet_resources: StarknetResources,
     validate_call_info: Option<&'a CallInfo>,
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
     sender_address: Option<ContractAddress>,
     l1_payload_size: Option<usize>,
-    calldata_length: usize,
     n_reverted_steps: usize,
-    signature_length: usize,
     class_info: Option<ClassInfo>,
 }
 
@@ -76,6 +74,7 @@ impl<'a> ActualCostBuilder<'a> {
         signature_length: usize,
     ) -> Self {
         Self {
+            starknet_resources: StarknetResources { calldata_length, signature_length },
             sender_address: Some(tx_context.tx_info.sender_address()),
             tx_context,
             tx_type,
@@ -83,9 +82,7 @@ impl<'a> ActualCostBuilder<'a> {
             execute_call_info: None,
             state_changes: StateChanges::default(),
             l1_payload_size: None,
-            calldata_length,
             n_reverted_steps: 0,
-            signature_length,
             class_info: None,
         }
     }
@@ -169,8 +166,7 @@ impl<'a> ActualCostBuilder<'a> {
             &self.tx_context.block_context.versioned_constants,
             non_optional_call_infos,
             state_changes_count,
-            self.calldata_length,
-            self.signature_length,
+            &self.starknet_resources,
             self.l1_payload_size,
             self.class_info,
             use_kzg_da,
@@ -181,7 +177,7 @@ impl<'a> ActualCostBuilder<'a> {
             execution_resources,
             gas_usage_vector,
             self.tx_type,
-            self.calldata_length,
+            self.starknet_resources.calldata_length,
             state_changes_count,
             use_kzg_da,
         )?;
@@ -214,19 +210,14 @@ impl<'a> ActualCostBuilder<'a> {
         versioned_constants: &VersionedConstants,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
         state_changes_count: StateChangesCount,
-        calldata_length: usize,
-        signature_length: usize,
+        starknet_resources: &StarknetResources,
         l1_handler_payload_size: Option<usize>,
         class_info: Option<ClassInfo>,
         use_kzg_da: bool,
     ) -> TransactionExecutionResult<GasVector> {
         Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
             + get_da_gas_cost(state_changes_count, use_kzg_da)
-            + get_calldata_and_signature_gas_cost(
-                calldata_length,
-                signature_length,
-                versioned_constants,
-            )
+            + starknet_resources.to_gas_vector(versioned_constants)
             + get_code_gas_cost(class_info, versioned_constants)
             + get_tx_events_gas_cost(call_infos, versioned_constants))
     }
