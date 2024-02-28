@@ -464,7 +464,7 @@ impl AccountTransaction {
                     // Fee is determined by the sum of `validate` and `execute` state changes.
                     // Since `execute_state_changes` are not yet committed, we merge them manually
                     // with `validate_state_changes` to count correctly.
-                    .try_add_state_changes(&mut execution_state)?
+                    .try_add_revertible_state_changes(&mut execution_state)?
                     .build(&execution_resources)?;
 
                 // Post-execution checks.
