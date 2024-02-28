@@ -48,19 +48,17 @@ pub fn get_events_milligas_cost(
         .sum()
 }
 
-/// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
-/// Starknet and SHARP contracts.
-pub fn get_messages_gas_cost<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
+// Returns an estimation of the gas usage of the Starknet contract when processing L1<>L2 messages
+// on L1.
+pub fn get_starknet_gas_usage(
+    message_segment_length: usize,
+    l2_to_l1_payload_lengths: &[usize],
     l1_handler_payload_size: Option<usize>,
-) -> TransactionExecutionResult<GasVector> {
-    let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =
-        MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
-
+) -> GasVector {
     let n_l2_to_l1_messages = l2_to_l1_payload_lengths.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
 
-    let starknet_gas_usage = GasVector {
+    GasVector {
         // Starknet's updateState gets the message segment as an argument.
         l1_gas: u128_from_usize(
             message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
@@ -74,8 +72,23 @@ pub fn get_messages_gas_cost<'a>(
         ),
         l1_data_gas: 0,
     } + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
-        + get_log_message_to_l1_emissions_cost(&l2_to_l1_payload_lengths);
+        + get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths)
+}
 
+/// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
+/// Starknet and SHARP contracts.
+pub fn get_messages_gas_cost<'a>(
+    call_infos: impl Iterator<Item = &'a CallInfo>,
+    l1_handler_payload_size: Option<usize>,
+) -> TransactionExecutionResult<GasVector> {
+    let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =
+        MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
+
+    let starknet_gas_usage = get_starknet_gas_usage(
+        message_segment_length,
+        &l2_to_l1_payload_lengths,
+        l1_handler_payload_size,
+    );
     let sharp_gas_usage = GasVector {
         l1_gas: u128_from_usize(
             message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,

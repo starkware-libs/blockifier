@@ -11,7 +11,7 @@ use crate::blockifier::bouncer::BouncerInfo;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::actual_cost::ActualCost;
-use crate::fee::gas_usage::get_onchain_data_segment_length;
+use crate::fee::gas_usage::{get_onchain_data_segment_length, get_starknet_gas_usage};
 use crate::state::cached_state::{
     CachedState, CommitmentStateDiff, StagedTransactionalState, StateChangesKeys, StorageEntry,
     TransactionalState,
@@ -105,8 +105,14 @@ impl<S: StateReader> TransactionExecutor<S> {
                         .filter_map(|&call_info| call_info.as_ref())
                         .collect::<Vec<&CallInfo>>()
                         .into_iter();
-                let MessageL1CostInfo { l2_to_l1_payload_lengths: _, message_segment_length } =
+                let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =
                     MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
+
+                let starknet_gas_usage = get_starknet_gas_usage(
+                    message_segment_length,
+                    &l2_to_l1_payload_lengths,
+                    l1_handler_payload_size,
+                );
 
                 // Count additional OS resources.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
@@ -134,6 +140,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let actual_resources = &tx_execution_info.actual_resources;
                 let bouncer_info = BouncerInfo::calculate(
                     actual_resources,
+                    starknet_gas_usage,
                     additional_os_resources,
                     message_segment_length,
                     state_diff_size,
