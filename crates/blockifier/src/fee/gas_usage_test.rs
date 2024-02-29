@@ -106,7 +106,7 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
     let manual_blob_gas_usage =
         on_chain_data_segment_length * eth_gas_constants::DATA_GAS_PER_FIELD_ELEMENT;
 
-    let computed_gas_vector = get_da_gas_cost(state_changes_count, true);
+    let computed_gas_vector = get_da_gas_cost(&state_changes_count, true);
     assert_eq!(
         GasVector { l1_gas: 0, l1_data_gas: u128_from_usize(manual_blob_gas_usage) },
         computed_gas_vector
@@ -117,7 +117,7 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
 fn test_onchain_data_discount() {
     let use_kzg_da = false;
     // Check that there's no negative cost.
-    assert_eq!(get_da_gas_cost(StateChangesCount::default(), use_kzg_da).l1_gas, 0);
+    assert_eq!(get_da_gas_cost(&StateChangesCount::default(), use_kzg_da).l1_gas, 0);
 
     // Check discount: modified_contract_felt and fee balance discount.
     let state_changes_count = StateChangesCount {
@@ -147,7 +147,7 @@ fn test_onchain_data_discount() {
         + fee_balance_value_cost;
 
     assert_eq!(
-        get_da_gas_cost(state_changes_count, use_kzg_da).l1_gas,
+        get_da_gas_cost(&state_changes_count, use_kzg_da).l1_gas,
         expected_cost.try_into().unwrap()
     );
 
@@ -156,7 +156,7 @@ fn test_onchain_data_discount() {
         StateChangesCount { n_storage_updates: 27, ..StateChangesCount::default() };
 
     let cost_without_discount = (state_changes_count.n_storage_updates * 2) * (512 + 100);
-    let actual_cost = get_da_gas_cost(state_changes_count, use_kzg_da).l1_gas;
+    let actual_cost = get_da_gas_cost(&state_changes_count, use_kzg_da).l1_gas;
     let cost_ratio = ResourceCost::new(actual_cost, u128_from_usize(cost_without_discount));
     assert!(cost_ratio <= ResourceCost::new(9, 10));
     assert!(cost_ratio >= ResourceCost::new(88, 100));

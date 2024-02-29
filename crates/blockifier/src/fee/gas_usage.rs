@@ -102,7 +102,7 @@ pub fn get_messages_gas_cost<'a>(
 /// Returns the number of felts added to the output data availability segment as a result of adding
 /// a transaction to a batch. Note that constant cells - such as the one that holds the number of
 /// modified contracts - are not counted.
-pub fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -> usize {
+pub fn get_onchain_data_segment_length(state_changes_count: &StateChangesCount) -> usize {
     // For each newly modified contract:
     // contract address (1 word).
     // + 1 word with the following info: A flag indicating whether the class hash was updated, the
@@ -120,7 +120,7 @@ pub fn get_onchain_data_segment_length(state_changes_count: StateChangesCount) -
 }
 
 /// Returns the gas cost of data availability on L1.
-pub fn get_da_gas_cost(state_changes_count: StateChangesCount, use_kzg_da: bool) -> GasVector {
+pub fn get_da_gas_cost(state_changes_count: &StateChangesCount, use_kzg_da: bool) -> GasVector {
     let onchain_data_segment_length = get_onchain_data_segment_length(state_changes_count);
 
     let (l1_gas, blob_gas) = if use_kzg_da {
@@ -259,9 +259,10 @@ pub fn estimate_minimal_gas_vector(
         },
     };
     let GasVector { l1_gas: gas_cost, l1_data_gas: blob_gas_cost } =
-        get_da_gas_cost(state_changes_by_account_transaction, block_info.use_kzg_da);
+        get_da_gas_cost(&state_changes_by_account_transaction, block_info.use_kzg_da);
 
-    let data_segment_length = get_onchain_data_segment_length(state_changes_by_account_transaction);
+    let data_segment_length =
+        get_onchain_data_segment_length(&state_changes_by_account_transaction);
     let os_steps_for_type =
         versioned_constants.os_resources_for_tx_type(&tx.tx_type(), tx.calldata_length()).n_steps
             + versioned_constants.os_kzg_da_resources(data_segment_length).n_steps;
