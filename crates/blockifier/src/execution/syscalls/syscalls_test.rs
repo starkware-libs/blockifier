@@ -40,9 +40,9 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    calldata_for_deploy_test, create_calldata, trivial_external_entry_point,
-    trivial_external_entry_point_new, CairoVersion, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    calldata_for_deploy_test, create_calldata, trivial_external_entry_point_new,
+    trivial_external_entry_point_with_address, CairoVersion, BALANCE, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
     CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
@@ -468,7 +468,7 @@ fn test_get_execution_info(
     ];
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
-        storage_address: test_contract_address,
+        code_address: None,
         calldata: Calldata(
             [
                 expected_block_info.to_vec(),
@@ -480,7 +480,7 @@ fn test_get_execution_info(
             .concat()
             .into(),
         ),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_with_address(test_contract_address)
     };
 
     let result = match execution_mode {
