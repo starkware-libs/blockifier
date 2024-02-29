@@ -140,7 +140,6 @@ impl From<BuiltinCount> for HashMapWrapper {
         map.insert(BuiltinName::ecdsa.name().to_string(), val.ecdsa);
         map.insert(BuiltinName::ec_op.name().to_string(), val.ec_op);
         map.insert(BuiltinName::keccak.name().to_string(), val.keccak);
-        map.insert(BuiltinName::output.name().to_string(), val.output);
         map.insert(BuiltinName::pedersen.name().to_string(), val.pedersen);
         map.insert(BuiltinName::poseidon.name().to_string(), val.poseidon);
         map.insert(BuiltinName::range_check.name().to_string(), val.range_check);
@@ -155,7 +154,6 @@ impl From<&ResourcesMapping> for BuiltinCount {
             ecdsa: resource_mapping.get_builtin_count(BuiltinName::ecdsa.name()),
             ec_op: resource_mapping.get_builtin_count(BuiltinName::ec_op.name()),
             keccak: resource_mapping.get_builtin_count(BuiltinName::keccak.name()),
-            output: resource_mapping.get_builtin_count(BuiltinName::output.name()),
             pedersen: resource_mapping.get_builtin_count(BuiltinName::pedersen.name()),
             poseidon: resource_mapping.get_builtin_count(BuiltinName::poseidon.name()),
             range_check: resource_mapping.get_builtin_count(BuiltinName::range_check.name()),
@@ -164,7 +162,7 @@ impl From<&ResourcesMapping> for BuiltinCount {
 }
 
 impl BuiltinCount {
-    impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, output, pedersen, poseidon, range_check);
+    impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
 
     pub fn tmp_max() -> Self {
         Self {
@@ -172,7 +170,6 @@ impl BuiltinCount {
             ecdsa: 1220,
             ec_op: 2441,
             keccak: 0,
-            output: 0,
             pedersen: 78125,
             poseidon: 78125,
             range_check: 156250,
@@ -460,16 +457,6 @@ impl<'a> TransactionBouncer<'a> {
             self.parent.available_capacity.builtin_count.keccak
                 - self.transactional.available_capacity.builtin_count.keccak,
             "yael error in keccak"
-        );
-        assert_eq!(
-            *bouncer_info
-                .execution_resources
-                .builtin_instance_counter
-                .get(BuiltinName::output.name())
-                .unwrap(),
-            self.parent.available_capacity.builtin_count.output
-                - self.transactional.available_capacity.builtin_count.output,
-            "yael error in output"
         );
         assert_eq!(
             *bouncer_info
