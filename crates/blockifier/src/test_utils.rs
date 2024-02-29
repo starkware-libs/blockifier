@@ -1,4 +1,3 @@
-pub mod cached_state;
 pub mod contracts;
 pub mod declare;
 pub mod deploy_account;
@@ -239,7 +238,7 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 pub fn calldata_for_deploy_test(
     class_hash: ClassHash,
     constructor_calldata: &Vec<StarkFelt>,
-    deploy_from_zero_scenario: bool,
+    valid_deploy_from_zero: bool,
 ) -> Calldata {
     let mut calldata = Vec::new();
     calldata.extend(vec![
@@ -248,7 +247,7 @@ pub fn calldata_for_deploy_test(
         stark_felt!(u8::try_from(constructor_calldata.len()).unwrap()),
     ]);
     calldata.extend(constructor_calldata);
-    calldata.push(stark_felt!(if deploy_from_zero_scenario { 0_u8 } else { 2_u8 }));
+    calldata.push(stark_felt!(if valid_deploy_from_zero { 0_u8 } else { 2_u8 }));
     Calldata(calldata.into())
 }
 
