@@ -51,24 +51,28 @@ pub struct BouncerWeights {
 impl From<HashMapWrapper> for BouncerWeights {
     fn from(mut raw_data: HashMapWrapper) -> Self {
         Self {
-            gas: raw_data.remove(constants::L1_GAS_USAGE).unwrap(),
-            n_steps: raw_data.remove(constants::N_STEPS_RESOURCE).unwrap(),
-            message_segment_length: raw_data.remove(constants::MESSAGE_SEGMENT_LENGTH).unwrap(),
-            state_diff_size: raw_data.remove(constants::STATE_DIFF_SIZE).unwrap(),
-            n_events: raw_data.remove(constants::N_EVENTS).unwrap(),
+            gas: raw_data.remove("gas_weight").expect("gas weight is missing"),
+            n_steps: raw_data.remove(constants::N_STEPS_RESOURCE).expect("n_steps is missing"),
+            message_segment_length: raw_data
+                .remove(constants::MESSAGE_SEGMENT_LENGTH)
+                .expect("msg segment length is missing"),
+            state_diff_size: raw_data
+                .remove(constants::STATE_DIFF_SIZE)
+                .expect("state diff size is missing"),
+            n_events: raw_data.remove(constants::N_EVENTS).expect("n_events is missing"),
             builtin_count: BuiltinCount::from(raw_data),
         }
     }
 }
-impl Into<HashMapWrapper> for BouncerWeights {
-    fn into(self) -> HashMapWrapper {
+impl From<BouncerWeights> for HashMapWrapper {
+    fn from(val: BouncerWeights) -> Self {
         let mut map = HashMapWrapper::new();
-        map.insert(constants::L1_GAS_USAGE.to_string(), self.gas);
-        map.insert(constants::N_STEPS_RESOURCE.to_string(), self.n_steps);
-        map.insert(constants::MESSAGE_SEGMENT_LENGTH.to_string(), self.message_segment_length);
-        map.insert(constants::STATE_DIFF_SIZE.to_string(), self.state_diff_size);
-        map.insert(constants::N_EVENTS.to_string(), self.n_events);
-        map.extend::<HashMap<String, usize>>(self.builtin_count.into());
+        map.insert(constants::L1_GAS_USAGE.to_string(), val.gas);
+        map.insert(constants::N_STEPS_RESOURCE.to_string(), val.n_steps);
+        map.insert(constants::MESSAGE_SEGMENT_LENGTH.to_string(), val.message_segment_length);
+        map.insert(constants::STATE_DIFF_SIZE.to_string(), val.state_diff_size);
+        map.insert(constants::N_EVENTS.to_string(), val.n_events);
+        map.extend::<HashMap<String, usize>>(val.builtin_count.into());
         map
     }
 }
@@ -102,7 +106,6 @@ pub struct BuiltinCount {
     ecdsa: usize,
     ec_op: usize,
     keccak: usize,
-    output: usize,
     pedersen: usize,
     poseidon: usize,
     range_check: usize,
@@ -111,31 +114,36 @@ pub struct BuiltinCount {
 impl From<HashMapWrapper> for BuiltinCount {
     fn from(mut raw_data: HashMapWrapper) -> Self {
         let builtin_count = Self {
-            bitwise: raw_data.remove(BuiltinName::bitwise.name()).unwrap(),
-            ecdsa: raw_data.remove(BuiltinName::ecdsa.name()).unwrap(),
-            ec_op: raw_data.remove(BuiltinName::ec_op.name()).unwrap(),
-            keccak: raw_data.remove(BuiltinName::keccak.name()).unwrap(),
-            output: raw_data.remove(BuiltinName::output.name()).unwrap(),
-            pedersen: raw_data.remove(BuiltinName::pedersen.name()).unwrap(),
-            poseidon: raw_data.remove(BuiltinName::poseidon.name()).unwrap(),
-            range_check: raw_data.remove(BuiltinName::range_check.name()).unwrap(),
+            bitwise: raw_data.remove(BuiltinName::bitwise.name()).expect("bitwise is missing"),
+            ecdsa: raw_data.remove(BuiltinName::ecdsa.name()).expect("ecdsa is missing"),
+            ec_op: raw_data.remove(BuiltinName::ec_op.name()).expect("ec_op is missing"),
+            keccak: raw_data.remove(BuiltinName::keccak.name()).expect("keccak is missing"),
+            pedersen: raw_data.remove(BuiltinName::pedersen.name()).expect("pedersen is missing"),
+            poseidon: raw_data.remove(BuiltinName::poseidon.name()).expect("poseidon is missing"),
+            range_check: raw_data
+                .remove(BuiltinName::range_check.name())
+                .expect("range_check is missing"),
         };
-        assert!(raw_data.is_empty());
+        assert!(
+            raw_data.is_empty(),
+            "The following keys do not exist in BuiltinCount: {:?} ",
+            raw_data.keys()
+        );
         builtin_count
     }
 }
 
-impl Into<HashMapWrapper> for BuiltinCount {
-    fn into(self) -> HashMapWrapper {
+impl From<BuiltinCount> for HashMapWrapper {
+    fn from(val: BuiltinCount) -> Self {
         let mut map = HashMapWrapper::new();
-        map.insert(BuiltinName::bitwise.name().to_string(), self.bitwise);
-        map.insert(BuiltinName::ecdsa.name().to_string(), self.ecdsa);
-        map.insert(BuiltinName::ec_op.name().to_string(), self.ec_op);
-        map.insert(BuiltinName::keccak.name().to_string(), self.keccak);
-        map.insert(BuiltinName::output.name().to_string(), self.output);
-        map.insert(BuiltinName::pedersen.name().to_string(), self.pedersen);
-        map.insert(BuiltinName::poseidon.name().to_string(), self.poseidon);
-        map.insert(BuiltinName::range_check.name().to_string(), self.range_check);
+        map.insert(BuiltinName::bitwise.name().to_string(), val.bitwise);
+        map.insert(BuiltinName::ecdsa.name().to_string(), val.ecdsa);
+        map.insert(BuiltinName::ec_op.name().to_string(), val.ec_op);
+        map.insert(BuiltinName::keccak.name().to_string(), val.keccak);
+        map.insert(BuiltinName::output.name().to_string(), val.output);
+        map.insert(BuiltinName::pedersen.name().to_string(), val.pedersen);
+        map.insert(BuiltinName::poseidon.name().to_string(), val.poseidon);
+        map.insert(BuiltinName::range_check.name().to_string(), val.range_check);
         map
     }
 }

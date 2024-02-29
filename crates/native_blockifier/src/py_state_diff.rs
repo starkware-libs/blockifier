@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::bouncer::BouncerWeights;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::test_utils::{
     DEFAULT_ETH_L1_DATA_GAS_PRICE, DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE,
@@ -124,11 +125,21 @@ pub struct PyResourcePrice {
     pub price_in_fri: u128,
 }
 
-#[derive(Clone, Default, Debug, FromPyObject)]
+#[derive(Clone, Debug, FromPyObject)]
 pub struct PyBouncerInfo {
     pub full_total_weights_with_keccak: HashMap<String, usize>,
     pub full_total_weights: HashMap<String, usize>,
     pub lifespan: usize,
+}
+
+impl Default for PyBouncerInfo {
+    fn default() -> Self {
+        Self {
+            full_total_weights_with_keccak: BouncerWeights::default().into(),
+            full_total_weights: BouncerWeights::default().into(),
+            lifespan: usize::default(),
+        }
+    }
 }
 
 #[derive(FromPyObject)]

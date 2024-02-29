@@ -131,6 +131,7 @@ impl PyBlockExecutor {
             &next_block_info,
             &self.versioned_constants,
         )?;
+        println!("yael end of setup block execution");
 
         let tx_executor = TransactionExecutor::new(state, block_context);
         self.tx_executor = Some(tx_executor);
@@ -375,6 +376,7 @@ pub fn into_block_context_args(
             lifespan: block_info.bouncer_info.lifespan,
         }
     );
+    println!("yael beginning of into block context args2");
     let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
     let block_info = BlockInfo {
         block_number: BlockNumber(block_info.block_number),
@@ -419,6 +421,7 @@ pub fn into_block_context_args(
         },
         use_kzg_da: block_info.use_kzg_da,
     };
+    println!("yael beginning of pre process block2.55");
 
     Ok((block_info, chain_info))
 }
@@ -432,6 +435,8 @@ fn pre_process_block(
     block_info: &PyBlockInfo,
     versioned_constants: &VersionedConstants,
 ) -> NativeBlockifierResult<BlockContext> {
+    println!("yael beginning of pre process block");
+
     let old_block_number_and_hash = old_block_number_and_hash
         .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
 
@@ -445,8 +450,10 @@ fn pre_process_block(
             versioned_constants.validate_max_n_steps,
         ))?;
     }
+    println!("yael beginning of pre process block2");
 
     let (block_info, chain_info) = into_block_context_args(general_config, block_info)?;
+    println!("yael beginning of pre process block2.5");
     let block_context = pre_process_block_blockifier(
         state,
         old_block_number_and_hash,
@@ -454,6 +461,7 @@ fn pre_process_block(
         chain_info,
         versioned_constants.clone(),
     )?;
+    println!("yael beginning of pre process block3");
 
     Ok(block_context)
 }
