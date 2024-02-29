@@ -16,9 +16,9 @@ use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::{
     into_block_context_args, PyGeneralConfig, ThinTransactionExecutionInfo,
 };
-use crate::py_state_diff::PyBlockInfo;
+use crate::py_state_diff::{PyBlockInfo, PyBouncerInfo};
 use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
-use crate::py_transaction_execution_info::PyBouncerInfo;
+use crate::py_transaction_execution_info::PyBouncerInfo as PyBouncerInfoOld;
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
 
@@ -36,7 +36,7 @@ impl PyValidator {
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
-        next_block_info: PyBlockInfo,
+        mut next_block_info: PyBlockInfo,
         validate_max_n_steps: u32,
         max_recursion_depth: usize,
         global_contract_cache_size: usize,
@@ -48,6 +48,7 @@ impl PyValidator {
         let state_reader = PyStateReader::new(state_reader_proxy);
         let state = CachedState::new(state_reader, global_contract_cache);
 
+        next_block_info.bouncer_info = PyBouncerInfo::default();
         let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
         // TODO(Yael 24/01/24): calc block_context using pre_process_block
         let block_context =
@@ -144,12 +145,12 @@ impl PyValidator {
         &mut self,
         tx: &PyAny,
         optional_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(ThinTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(ThinTransactionExecutionInfo, PyBouncerInfoOld)> {
         let limit_execution_steps_by_resource_bounds = true;
         let tx: Transaction = py_tx(tx, optional_class_info)?;
         let (tx_execution_info, bouncer_info, _accumulated_weights) =
             self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
-        let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
+        let py_bouncer_info = PyBouncerInfoOld::from(bouncer_info);
 
         Ok((tx_execution_info.into(), py_bouncer_info))
     }

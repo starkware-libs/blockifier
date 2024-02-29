@@ -67,7 +67,7 @@ impl From<HashMapWrapper> for BouncerWeights {
 impl From<BouncerWeights> for HashMapWrapper {
     fn from(val: BouncerWeights) -> Self {
         let mut map = HashMapWrapper::new();
-        map.insert(constants::L1_GAS_USAGE.to_string(), val.gas);
+        map.insert("gas_weight".to_string(), val.gas);
         map.insert(constants::N_STEPS_RESOURCE.to_string(), val.n_steps);
         map.insert(constants::MESSAGE_SEGMENT_LENGTH.to_string(), val.message_segment_length);
         map.insert(constants::STATE_DIFF_SIZE.to_string(), val.state_diff_size);
@@ -117,7 +117,7 @@ impl From<HashMapWrapper> for BuiltinCount {
             bitwise: raw_data.remove(BuiltinName::bitwise.name()).expect("bitwise is missing"),
             ecdsa: raw_data.remove(BuiltinName::ecdsa.name()).expect("ecdsa is missing"),
             ec_op: raw_data.remove(BuiltinName::ec_op.name()).expect("ec_op is missing"),
-            keccak: raw_data.remove(BuiltinName::keccak.name()).expect("keccak is missing"),
+            keccak: raw_data.remove(BuiltinName::keccak.name()).unwrap_or(0),
             pedersen: raw_data.remove(BuiltinName::pedersen.name()).expect("pedersen is missing"),
             poseidon: raw_data.remove(BuiltinName::poseidon.name()).expect("poseidon is missing"),
             range_check: raw_data
