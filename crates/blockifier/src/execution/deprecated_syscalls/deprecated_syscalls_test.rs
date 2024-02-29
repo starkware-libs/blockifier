@@ -45,10 +45,12 @@ use crate::transaction::objects::{
 use crate::versioned_constants::VersionedConstants;
 use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 
+const TEST_CONTRACT: FeatureContract = FeatureContract::TestContract(CairoVersion::Cairo0);
+const EMPTY_CONTRACT: FeatureContract = FeatureContract::Empty(CairoVersion::Cairo0);
+
 #[test]
 fn test_storage_read_write() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(TEST_CONTRACT, 1)]);
 
     let key = stark_felt!(1234_u16);
     let value = stark_felt!(18_u8);
@@ -56,7 +58,7 @@ fn test_storage_read_write() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
-        ..trivial_external_entry_point_new(test_contract)
+        ..trivial_external_entry_point_new(TEST_CONTRACT)
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
@@ -71,11 +73,10 @@ fn test_storage_read_write() {
 
 #[test]
 fn test_library_call() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(TEST_CONTRACT, 1)]);
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let calldata = calldata![
-        stark_felt!(test_contract.get_class_hash().0), // Class hash.
+        stark_felt!(TEST_CONTRACT.get_class_hash().0), // Class hash.
         inner_entry_point_selector.0,                  // Function selector.
         stark_felt!(2_u8),                             // Calldata length.
         stark_felt!(1234_u16),                         // Calldata: address.
@@ -84,8 +85,8 @@ fn test_library_call() {
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_library_call"),
         calldata,
-        class_hash: Some(test_contract.get_class_hash()),
-        ..trivial_external_entry_point_new(test_contract)
+        class_hash: Some(TEST_CONTRACT.get_class_hash()),
+        ..trivial_external_entry_point_new(TEST_CONTRACT)
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
@@ -95,13 +96,12 @@ fn test_library_call() {
 
 #[test]
 fn test_nested_library_call() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(TEST_CONTRACT, 1)]);
     let (key, value) = (255_u64, 44_u64);
     let outer_entry_point_selector = selector_from_name("test_library_call");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let main_entry_point_calldata = calldata![
-        stark_felt!(test_contract.get_class_hash().0), // Class hash.
+        stark_felt!(TEST_CONTRACT.get_class_hash().0), // Class hash.
         outer_entry_point_selector.0,                  // Library call function selector.
         inner_entry_point_selector.0,                  // Storage function selector.
         stark_felt!(2_u8),                             // Calldata length.
@@ -113,30 +113,30 @@ fn test_nested_library_call() {
     let main_entry_point = CallEntryPoint {
         entry_point_selector: selector_from_name("test_nested_library_call"),
         calldata: main_entry_point_calldata,
-        class_hash: Some(test_contract.get_class_hash()),
-        ..trivial_external_entry_point_new(test_contract)
+        class_hash: Some(TEST_CONTRACT.get_class_hash()),
+        ..trivial_external_entry_point_new(TEST_CONTRACT)
     };
     let nested_storage_entry_point = CallEntryPoint {
         entry_point_selector: inner_entry_point_selector,
         calldata: calldata![stark_felt!(key + 1), stark_felt!(value + 1)],
-        class_hash: Some(test_contract.get_class_hash()),
+        class_hash: Some(TEST_CONTRACT.get_class_hash()),
         code_address: None,
         call_type: CallType::Delegate,
-        ..trivial_external_entry_point_new(test_contract)
+        ..trivial_external_entry_point_new(TEST_CONTRACT)
     };
     let library_entry_point = CallEntryPoint {
         entry_point_selector: outer_entry_point_selector,
         calldata: calldata![
-            stark_felt!(test_contract.get_class_hash().0), // Class hash.
+            stark_felt!(TEST_CONTRACT.get_class_hash().0), // Class hash.
             inner_entry_point_selector.0,                  // Storage function selector.
             stark_felt!(2_u8),                             // Calldata length.
             stark_felt!(key + 1),                          // Calldata: address.
             stark_felt!(value + 1)                         // Calldata: value.
         ],
-        class_hash: Some(test_contract.get_class_hash()),
+        class_hash: Some(TEST_CONTRACT.get_class_hash()),
         code_address: None,
         call_type: CallType::Delegate,
-        ..trivial_external_entry_point_new(test_contract)
+        ..trivial_external_entry_point_new(TEST_CONTRACT)
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
@@ -198,9 +198,8 @@ fn test_nested_library_call() {
 #[test]
 fn test_call_contract() {
     let chain_info = &ChainInfo::create_for_testing();
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(chain_info, 0, &[(test_contract, 1)]);
-    let test_address = test_contract.get_instance_address(0);
+    let mut state = test_state(chain_info, 0, &[(TEST_CONTRACT, 1)]);
+    let test_address = TEST_CONTRACT.get_instance_address(0);
 
     let trivial_external_entry_point = trivial_external_entry_point_with_address(test_address);
     let outer_entry_point_selector = selector_from_name("test_call_contract");
@@ -224,7 +223,7 @@ fn test_call_contract() {
     let expected_execution = CallExecution { retdata: retdata![value], ..Default::default() };
     let expected_inner_call_info = CallInfo {
         call: CallEntryPoint {
-            class_hash: Some(test_contract.get_class_hash()),
+            class_hash: Some(TEST_CONTRACT.get_class_hash()),
             code_address: Some(test_address),
             entry_point_selector: inner_entry_point_selector,
             calldata: inner_calldata,
@@ -245,7 +244,7 @@ fn test_call_contract() {
     let expected_call_info = CallInfo {
         inner_calls: vec![expected_inner_call_info],
         call: CallEntryPoint {
-            class_hash: Some(test_contract.get_class_hash()),
+            class_hash: Some(TEST_CONTRACT.get_class_hash()),
             code_address: Some(test_address),
             entry_point_selector: outer_entry_point_selector,
             calldata,
@@ -268,10 +267,8 @@ fn test_call_contract() {
 fn test_replace_class() {
     // Negative flow.
     let chain_info = &ChainInfo::create_for_testing();
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo0);
-    let mut state = test_state(chain_info, 0, &[(test_contract, 1), (empty_contract, 1)]);
-    let test_address = test_contract.get_instance_address(0);
+    let mut state = test_state(chain_info, 0, &[(TEST_CONTRACT, 1), (EMPTY_CONTRACT, 1)]);
+    let test_address = TEST_CONTRACT.get_instance_address(0);
     // Replace with undeclared class hash.
     let calldata = calldata![stark_felt!(1234_u16)];
     let entry_point_call = CallEntryPoint {
@@ -283,8 +280,8 @@ fn test_replace_class() {
     assert!(error.contains("is not declared"));
 
     // Positive flow.
-    let old_class_hash = test_contract.get_class_hash();
-    let new_class_hash = empty_contract.get_class_hash();
+    let old_class_hash = TEST_CONTRACT.get_class_hash();
+    let new_class_hash = EMPTY_CONTRACT.get_class_hash();
     assert_eq!(state.get_class_hash_at(test_address).unwrap(), old_class_hash);
     let entry_point_call = CallEntryPoint {
         calldata: calldata![new_class_hash.0],
@@ -432,13 +429,12 @@ fn test_block_info_syscalls(
     block_info_member_name: &str,
     calldata: Calldata,
 ) {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(TEST_CONTRACT, 1)]);
     let entry_point_selector = selector_from_name(&format!("test_get_{}", block_info_member_name));
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
         calldata,
-        ..trivial_external_entry_point_new(test_contract)
+        ..trivial_external_entry_point_new(TEST_CONTRACT)
     };
 
     if execution_mode == ExecutionMode::Validate {
@@ -467,8 +463,7 @@ fn test_block_info_syscalls(
 
 #[rstest]
 fn test_tx_info(#[values(false, true)] only_query: bool) {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(TEST_CONTRACT, 1)]);
     let mut version = Felt252::from(1_u8);
     if only_query {
         let simulate_version_base = Pow::pow(Felt252::from(2_u8), QUERY_VERSION_BASE_BIT);
@@ -477,7 +472,7 @@ fn test_tx_info(#[values(false, true)] only_query: bool) {
     let tx_hash = TransactionHash(stark_felt!(1991_u16));
     let max_fee = Fee(0);
     let nonce = Nonce(stark_felt!(3_u16));
-    let sender_address = test_contract.get_instance_address(0);
+    let sender_address = TEST_CONTRACT.get_instance_address(0);
     let expected_tx_info = calldata![
         felt_to_stark_felt(&version), // Transaction version.
         *sender_address.0.key(),      // Account address.
@@ -490,7 +485,7 @@ fn test_tx_info(#[values(false, true)] only_query: bool) {
     let entry_point_call = CallEntryPoint {
         entry_point_selector,
         calldata: expected_tx_info,
-        ..trivial_external_entry_point_new(test_contract)
+        ..trivial_external_entry_point_new(TEST_CONTRACT)
     };
     let tx_info = TransactionInfo::Deprecated(DeprecatedTransactionInfo {
         common_fields: CommonAccountFields {
@@ -570,8 +565,7 @@ fn emit_events(
     keys: &[StarkFelt],
     data: &[StarkFelt],
 ) -> Result<CallInfo, EntryPointExecutionError> {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
+    let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(TEST_CONTRACT, 1)]);
     let calldata = Calldata(
         concat(vec![
             n_emitted_events.to_owned(),
@@ -586,7 +580,7 @@ fn emit_events(
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_emit_events"),
         calldata,
-        ..trivial_external_entry_point_new(test_contract)
+        ..trivial_external_entry_point_new(TEST_CONTRACT)
     };
 
     entry_point_call.execute_directly(&mut state)
