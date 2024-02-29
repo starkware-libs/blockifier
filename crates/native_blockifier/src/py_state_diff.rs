@@ -124,10 +124,18 @@ pub struct PyResourcePrice {
     pub price_in_fri: u128,
 }
 
+#[derive(Default, Debug, FromPyObject)]
+pub struct PyBouncerInfo {
+    pub full_total_weights_with_keccak: HashMap<String, usize>,
+    pub full_total_weights: HashMap<String, usize>,
+    pub lifespan: usize,
+}
+
 #[derive(FromPyObject)]
 pub struct PyBlockInfo {
     pub block_number: u64,
     pub block_timestamp: u64,
+    pub bouncer_info: PyBouncerInfo,
     pub l1_gas_price: PyResourcePrice,
     pub l1_data_gas_price: PyResourcePrice,
     pub sequencer_address: PyFelt,
@@ -140,6 +148,7 @@ impl Default for PyBlockInfo {
         Self {
             block_number: u64::default(),
             block_timestamp: u64::default(),
+            bouncer_info: PyBouncerInfo::default(),
             l1_gas_price: PyResourcePrice {
                 price_in_wei: DEFAULT_ETH_L1_GAS_PRICE,
                 price_in_fri: DEFAULT_STRK_L1_GAS_PRICE,

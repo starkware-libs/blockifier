@@ -56,6 +56,7 @@ impl BouncerWeights {
         builtin_count
     );
 
+    // TODO : This is code for testing - remove before PR
     pub fn tmp_max() -> Self {
         Self {
             gas: 5000000,
@@ -286,6 +287,7 @@ impl<'a> TransactionBouncer<'a> {
         self.parent
     }
 
+    // TODO : This is code for testing - remove before PR
     pub fn compare_bouncer_results(
         &self,
         bouncer_info: &BouncerInfo,

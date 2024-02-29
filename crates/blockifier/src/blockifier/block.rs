@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::num::NonZeroU128;
 
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
@@ -20,11 +21,19 @@ pub mod block_test;
 pub struct BlockInfo {
     pub block_number: BlockNumber,
     pub block_timestamp: BlockTimestamp,
+    pub bouncer_config: BouncerConfig,
 
     // Fee-related.
     pub sequencer_address: ContractAddress,
     pub gas_prices: GasPrices,
     pub use_kzg_da: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct BouncerConfig {
+    pub full_total_weights: HashMap<String, usize>,
+    pub full_total_weights_with_keccak: HashMap<String, usize>,
+    pub lifespan: usize,
 }
 
 #[derive(Clone, Debug)]

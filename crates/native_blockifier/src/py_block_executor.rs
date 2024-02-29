@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use blockifier::blockifier::block::{
-    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
+    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair,
+    BouncerConfig, GasPrices,
 };
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
@@ -359,10 +360,30 @@ pub fn into_block_context_args(
     general_config: &PyGeneralConfig,
     block_info: &PyBlockInfo,
 ) -> NativeBlockifierResult<(BlockInfo, ChainInfo)> {
+    println!("yael bouncer config: {:?}", block_info.bouncer_info);
+    println!(
+        "yael new_bouncer config: {:?}",
+        BouncerConfig {
+            full_total_weights: block_info.bouncer_info.full_total_weights.clone(),
+            full_total_weights_with_keccak: block_info
+                .bouncer_info
+                .full_total_weights_with_keccak
+                .clone(),
+            lifespan: block_info.bouncer_info.lifespan,
+        }
+    );
     let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
     let block_info = BlockInfo {
         block_number: BlockNumber(block_info.block_number),
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
+        bouncer_config: BouncerConfig {
+            full_total_weights: block_info.bouncer_info.full_total_weights.clone(),
+            full_total_weights_with_keccak: block_info
+                .bouncer_info
+                .full_total_weights_with_keccak
+                .clone(),
+            lifespan: block_info.bouncer_info.lifespan,
+        },
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         gas_prices: GasPrices {
             eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {
