@@ -29,9 +29,8 @@ use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    calldata_for_deploy_test, trivial_external_entry_point_new,
-    trivial_external_entry_point_with_address, CairoVersion, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
-    CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    calldata_for_deploy_test, trivial_external_entry_point_new, CairoVersion, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
     CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
@@ -198,7 +197,7 @@ fn test_call_contract() {
     let mut state = test_state(chain_info, 0, &[(test_contract, 1)]);
     let test_address = test_contract.get_instance_address(0);
 
-    let trivial_external_entry_point = trivial_external_entry_point_with_address(test_address);
+    let trivial_external_entry_point = trivial_external_entry_point_new(test_contract);
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
     let (key, value) = (stark_felt!(405_u16), stark_felt!(48_u8));
@@ -221,10 +220,8 @@ fn test_call_contract() {
     let expected_inner_call_info = CallInfo {
         call: CallEntryPoint {
             class_hash: Some(test_contract.get_class_hash()),
-            code_address: Some(test_address),
             entry_point_selector: inner_entry_point_selector,
             calldata: inner_calldata,
-            storage_address: test_address,
             caller_address: test_address,
             ..trivial_external_entry_point
         },
@@ -242,10 +239,8 @@ fn test_call_contract() {
         inner_calls: vec![expected_inner_call_info],
         call: CallEntryPoint {
             class_hash: Some(test_contract.get_class_hash()),
-            code_address: Some(test_address),
             entry_point_selector: outer_entry_point_selector,
             calldata,
-            storage_address: test_address,
             ..trivial_external_entry_point
         },
         execution: expected_execution,
@@ -273,7 +268,7 @@ fn test_replace_class() {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point_with_address(test_address)
+        ..trivial_external_entry_point_new(test_contract)
     };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
@@ -285,7 +280,7 @@ fn test_replace_class() {
     let entry_point_call = CallEntryPoint {
         calldata: calldata![new_class_hash.0],
         entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point_with_address(test_address)
+        ..trivial_external_entry_point_new(test_contract)
     };
     entry_point_call.execute_directly(&mut state).unwrap();
     assert_eq!(state.get_class_hash_at(test_address).unwrap(), new_class_hash);
