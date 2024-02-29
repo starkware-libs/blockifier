@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 use cairo_felt::Felt252;
 use num_traits::{One, Zero};
-use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
@@ -225,6 +225,31 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
         (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
     ])
     .unwrap()
+}
+
+/// Creates the calldata for the Cairo function "test_deploy" in the featured contract TestContract.
+/// The format of the calldata is:
+/// [
+///     class_hash,
+///     contract_address_salt,
+///     constructor_calldata_len,
+///     *constructor_calldata,
+///     deploy_from_zero
+/// ]
+pub fn calldata_for_deploy_test(
+    class_hash: ClassHash,
+    constructor_calldata: &Vec<StarkFelt>,
+    deploy_from_zero_scenario: bool,
+) -> Calldata {
+    let mut calldata = Vec::new();
+    calldata.extend(vec![
+        class_hash.0,                     // Class hash.
+        ContractAddressSalt::default().0, // Contract_address_salt.
+    ]);
+    calldata.push(stark_felt!(u8::try_from(constructor_calldata.len()).unwrap()));
+    calldata.extend(constructor_calldata);
+    calldata.push(stark_felt!(if deploy_from_zero_scenario { 0_u8 } else { 2_u8 }));
+    Calldata(calldata.into())
 }
 
 // Transactions.
