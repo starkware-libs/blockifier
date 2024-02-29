@@ -6,7 +6,8 @@ use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
 
-use crate::blockifier::block::{BlockInfo, BouncerConfig, GasPrices};
+use crate::blockifier::block::{BlockInfo, GasPrices};
+use crate::bouncer::BouncerWeights;
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
@@ -101,7 +102,8 @@ impl BlockInfo {
         Self {
             block_number: BlockNumber(CURRENT_BLOCK_NUMBER),
             block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
-            bouncer_config: BouncerConfig::default(), //TODO(yael) - write some real numbers here.
+            block_max_capacity: BouncerWeights::default(), /* TODO(yael) - write some real
+                                                            * numbers here. */
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             gas_prices: GasPrices {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE.try_into().unwrap(),

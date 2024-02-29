@@ -147,7 +147,7 @@ impl PyValidator {
     ) -> NativeBlockifierResult<(ThinTransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
         let tx: Transaction = py_tx(tx, optional_class_info)?;
-        let (tx_execution_info, bouncer_info) =
+        let (tx_execution_info, bouncer_info, _accumulated_weights) =
             self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 

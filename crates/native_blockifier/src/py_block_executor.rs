@@ -5,6 +5,7 @@ use blockifier::blockifier::block::{
     BouncerConfig, GasPrices,
 };
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
+use blockifier::bouncer::BouncerWeights;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
@@ -146,11 +147,13 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo, HashMap<String, usize>)>
+    {
         let charge_fee = true;
         let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-        let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
+        let (tx_execution_info, bouncer_info, accumulated_weights) =
+            self.tx_executor().execute(tx, charge_fee)?;
         let typed_tx_execution_info = TypedTransactionExecutionInfo {
             info: tx_execution_info.into(),
             tx_type: tx_type.to_string(),
@@ -158,7 +161,7 @@ impl PyBlockExecutor {
         let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        Ok((raw_tx_execution_info, py_bouncer_info))
+        Ok((raw_tx_execution_info, py_bouncer_info, accumulated_weights))
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
@@ -376,14 +379,9 @@ pub fn into_block_context_args(
     let block_info = BlockInfo {
         block_number: BlockNumber(block_info.block_number),
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
-        bouncer_config: BouncerConfig {
-            full_total_weights: block_info.bouncer_info.full_total_weights.clone(),
-            full_total_weights_with_keccak: block_info
-                .bouncer_info
-                .full_total_weights_with_keccak
-                .clone(),
-            lifespan: block_info.bouncer_info.lifespan,
-        },
+        block_max_capacity: BouncerWeights::from(
+            block_info.bouncer_info.full_total_weights.clone(),
+        ),
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         gas_prices: GasPrices {
             eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {

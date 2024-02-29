@@ -8,7 +8,7 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::bouncer::BouncerInfo;
-use crate::bouncer::{Bouncer, BouncerWeights};
+use crate::bouncer::Bouncer;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::actual_cost::ActualCost;
@@ -38,6 +38,7 @@ pub type TransactionExecutorResult<T> = Result<T, TransactionExecutorError>;
 // TODO(Gilad): make this hold TransactionContext instead of BlockContext.
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
+    pub bouncer: Bouncer,
 
     // Maintained for counting purposes.
     pub executed_class_hashes: HashSet<ClassHash>,
@@ -52,14 +53,15 @@ pub struct TransactionExecutor<S: StateReader> {
     // Is `Some` only after transaction has finished executing, and before commit/revert have been
     // called. `None` while a transaction is being executed and in between transactions.
     pub staged_for_commit_state: Option<StagedTransactionalState>,
-    pub bouncer: Bouncer,
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(state: CachedState<S>, block_context: BlockContext) -> Self {
         log::debug!("Initializing Transaction Executor...");
+        let max_block_capacity = block_context.block_info().block_max_capacity;
         let tx_executor = Self {
             block_context,
+            bouncer: Bouncer::new(max_block_capacity, max_block_capacity),
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             // Note: the state might not be empty even at this point; it is the creator's
@@ -67,7 +69,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             state_changes_keys: StateChangesKeys::default(),
             state,
             staged_for_commit_state: None,
-            bouncer: Bouncer::new_block_bouncer(BouncerWeights::tmp_max()),
         };
         log::debug!("Initialized Transaction Executor.");
 
@@ -81,7 +82,8 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: Transaction,
         charge_fee: bool,
-    ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo)> {
+    ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo, HashMap<String, usize>)>
+    {
         // TODO(yael, 25/2/2024): consider moving this logic into calc_message_segment_length(),
         // this requires clone or copy of the tx.
         let l1_handler_payload_size: Option<usize> =
@@ -169,6 +171,8 @@ impl<S: StateReader> TransactionExecutor<S> {
                 } else {
                     transactional_bouncer.abort();
                 }
+
+                let accumulated_weights = self.bouncer.available_capacity.into();
                 //////// New bouncer logic end   ////////
 
                 self.staged_for_commit_state = Some(transactional_state.stage(
@@ -177,7 +181,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     tx_unique_state_changes_keys,
                 ));
 
-                Ok((tx_execution_info, bouncer_info))
+                Ok((tx_execution_info, bouncer_info, accumulated_weights))
             }
             Err(error) => {
                 transactional_state.abort();

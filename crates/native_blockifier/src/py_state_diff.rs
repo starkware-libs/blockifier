@@ -124,7 +124,7 @@ pub struct PyResourcePrice {
     pub price_in_fri: u128,
 }
 
-#[derive(Default, Debug, FromPyObject)]
+#[derive(Clone, Default, Debug, FromPyObject)]
 pub struct PyBouncerInfo {
     pub full_total_weights_with_keccak: HashMap<String, usize>,
     pub full_total_weights: HashMap<String, usize>,

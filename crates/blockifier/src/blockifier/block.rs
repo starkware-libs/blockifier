@@ -7,6 +7,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
+use crate::bouncer::BouncerWeights;
 use crate::context::{BlockContext, ChainInfo};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateResult};
@@ -21,7 +22,7 @@ pub mod block_test;
 pub struct BlockInfo {
     pub block_number: BlockNumber,
     pub block_timestamp: BlockTimestamp,
-    pub bouncer_config: BouncerConfig,
+    pub block_max_capacity: BouncerWeights,
 
     // Fee-related.
     pub sequencer_address: ContractAddress,
