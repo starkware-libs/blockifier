@@ -31,7 +31,6 @@ use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionCont
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -51,13 +50,11 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, test_erc20_account_balance_key,
-    test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
-    ACCOUNT_CONTRACT_CAIRO1_PATH, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    create_calldata, create_trivial_calldata, test_erc20_sequencer_balance_key, CairoVersion,
+    NonceManager, SaltManager, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
     CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
     CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-    TEST_ACCOUNT_CONTRACT_ADDRESS, TEST_ACCOUNT_CONTRACT_CLASS_HASH, TEST_CONTRACT_ADDRESS,
-    TEST_CONTRACT_CAIRO0_PATH, TEST_CONTRACT_CAIRO1_PATH, TEST_SEQUENCER_ADDRESS,
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -70,9 +67,9 @@ use crate::transaction::objects::{
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
-    create_account_tx_test_state, l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT,
-    GET_BLOCK_HASH, GET_BLOCK_NUMBER, GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO,
-    GET_SEQUENCER_ADDRESS, INVALID, VALID,
+    l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH,
+    GET_BLOCK_NUMBER, GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO, GET_SEQUENCER_ADDRESS, INVALID,
+    VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -1870,106 +1867,95 @@ fn max_event_data() -> usize {
     VERSIONED_CONSTANTS.tx_event_limits.max_data_length
 }
 
-#[test_case(
+#[rstest]
+#[case::positive_flow(
     vec![stark_felt!(1_u16); max_event_keys()],
     vec![stark_felt!(2_u16); max_event_data()],
     max_n_emitted_events(),
-    None;
-    "Positive flow")]
-#[test_case(
+    None)]
+#[case::exceeds_max_number_of_events(
     vec![stark_felt!(1_u16)],
     vec![stark_felt!(2_u16)],
     max_n_emitted_events() + 1,
     Some(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
         n_emitted_events: max_n_emitted_events() + 1,
         max_n_emitted_events: max_n_emitted_events(),
-    });
-    "exceeds max number of events")]
-#[test_case(
+    }))]
+#[case::exceeds_max_number_of_keys(
     vec![stark_felt!(3_u16); max_event_keys() + 1],
     vec![stark_felt!(4_u16)],
     1,
     Some(EmitEventError::ExceedsMaxKeysLength{
         keys_length: max_event_keys() + 1,
         max_keys_length: max_event_keys(),
-    });
-    "exceeds max number of keys")]
-#[test_case(
+    }))]
+#[case::exceeds_data_length(
     vec![stark_felt!(5_u16)],
     vec![stark_felt!(6_u16); max_event_data() + 1],
     1,
     Some(EmitEventError::ExceedsMaxDataLength{
         data_length: max_event_data() + 1,
         max_data_length: max_event_data(),
-    });
-    "exceeds data length")]
+    }))]
 fn test_emit_event_exceeds_limit(
-    event_keys: Vec<StarkFelt>,
-    event_data: Vec<StarkFelt>,
-    n_emitted_events: usize,
-    expected_error: Option<EmitEventError>,
+    #[case] event_keys: Vec<StarkFelt>,
+    #[case] event_data: Vec<StarkFelt>,
+    #[case] n_emitted_events: usize,
+    #[case] expected_error: Option<EmitEventError>,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    for cairo_version in [0, 1] {
-        let contract_class: ContractClass = match cairo_version {
-            0 => ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
-            1 => ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
-            _ => panic!("Invalid cairo version"),
-        };
-        let state = &mut create_account_tx_test_state(
-            ContractClassV1::from_file(ACCOUNT_CONTRACT_CAIRO1_PATH).into(),
-            TEST_ACCOUNT_CONTRACT_CLASS_HASH,
-            TEST_ACCOUNT_CONTRACT_ADDRESS,
-            test_erc20_account_balance_key(),
-            BALANCE,
-            contract_class,
-        );
-        let block_context = &BlockContext::create_for_account_testing();
-        let sender_address = ContractAddress(patricia_key!(TEST_ACCOUNT_CONTRACT_ADDRESS));
-        let entry_point_selector = selector_from_name("test_emit_events");
-        let calldata = [
-            vec![stark_felt!(
-                u16::try_from(n_emitted_events).expect("Failed to convert usize to u16.")
-            )]
-            .to_owned(),
-            vec![stark_felt!(
-                u16::try_from(event_keys.len()).expect("Failed to convert usize to u16.")
-            )],
-            event_keys.clone(),
-            vec![stark_felt!(
-                u16::try_from(event_data.len()).expect("Failed to convert usize to u16.")
-            )],
-            event_data.clone(),
-        ]
-        .concat();
-        let execute_calldata = Calldata(
-            [
-                vec![stark_felt!(TEST_CONTRACT_ADDRESS)],
-                vec![entry_point_selector.0],
-                vec![stark_felt!(
-                    u16::try_from(calldata.len()).expect("Failed to convert usize to u16.")
-                )],
-                calldata.clone(),
-            ]
-            .concat()
-            .into(),
-        );
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let block_context = &BlockContext::create_for_account_testing();
+    let state = &mut test_state(
+        &block_context.chain_info,
+        BALANCE,
+        &[(test_contract, 1), (account_contract, 1)],
+    );
 
-        let account_tx = account_invoke_tx(invoke_tx_args! {
-            max_fee: Fee(MAX_FEE),
-            sender_address,
-            calldata: execute_calldata,
-            version: TransactionVersion::ONE,
-            nonce: Nonce(stark_felt!(0_u8)),
-        });
-        let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
-        match &expected_error {
-            Some(expected_error) => {
-                let error_string = execution_info.revert_error.unwrap();
-                assert!(error_string.contains(&format!("{}", expected_error)));
-            }
-            None => {
-                assert!(!execution_info.is_reverted());
-            }
+    let calldata = [
+        vec![stark_felt!(
+            u16::try_from(n_emitted_events).expect("Failed to convert usize to u16.")
+        )]
+        .to_owned(),
+        vec![stark_felt!(
+            u16::try_from(event_keys.len()).expect("Failed to convert usize to u16.")
+        )],
+        event_keys.clone(),
+        vec![stark_felt!(
+            u16::try_from(event_data.len()).expect("Failed to convert usize to u16.")
+        )],
+        event_data.clone(),
+    ]
+    .concat();
+    let execute_calldata = Calldata(
+        [
+            vec![StarkFelt::from(test_contract.get_instance_address(0))],
+            vec![selector_from_name("test_emit_events").0],
+            vec![stark_felt!(
+                u16::try_from(calldata.len()).expect("Failed to convert usize to u16.")
+            )],
+            calldata.clone(),
+        ]
+        .concat()
+        .into(),
+    );
+
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        max_fee: Fee(MAX_FEE),
+        sender_address: account_contract.get_instance_address(0),
+        calldata: execute_calldata,
+        version: TransactionVersion::ONE,
+        nonce: Nonce(stark_felt!(0_u8)),
+    });
+    let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
+    match &expected_error {
+        Some(expected_error) => {
+            let error_string = execution_info.revert_error.unwrap();
+            assert!(error_string.contains(&format!("{}", expected_error)));
+        }
+        None => {
+            assert!(!execution_info.is_reverted());
         }
     }
 }
