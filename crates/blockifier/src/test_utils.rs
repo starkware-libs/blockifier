@@ -181,7 +181,11 @@ pub fn get_raw_contract_class(contract_path: &str) -> String {
 pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractClass {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
     let contract = fs::read_to_string(path).unwrap();
-    let mut raw_contract_class: serde_json::Value = serde_json::from_str(&contract).unwrap();
+    get_deprecated_contract_class_from_str(&contract)
+}
+
+pub fn get_deprecated_contract_class_from_str(contract: &str) -> DeprecatedContractClass {
+    let mut raw_contract_class: serde_json::Value = serde_json::from_str(contract).unwrap();
 
     // ABI is not required for execution.
     raw_contract_class
@@ -194,10 +198,6 @@ pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractC
 
 pub fn get_test_contract_class() -> ContractClass {
     ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into()
-}
-
-pub fn trivial_external_entry_point() -> CallEntryPoint {
-    trivial_external_entry_point_with_address(contract_address!(TEST_CONTRACT_ADDRESS))
 }
 
 pub fn trivial_external_entry_point_new(contract: FeatureContract) -> CallEntryPoint {

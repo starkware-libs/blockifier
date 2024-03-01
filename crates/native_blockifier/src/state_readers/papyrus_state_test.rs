@@ -4,18 +4,17 @@ use blockifier::execution::entry_point::CallEntryPoint;
 use blockifier::retdata;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::state_api::StateReader;
+use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{
-    get_deprecated_contract_class, trivial_external_entry_point, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH,
+    get_deprecated_contract_class_from_str, trivial_external_entry_point_new, CairoVersion,
 };
 use indexmap::IndexMap;
 use papyrus_storage::state::StateStorageWriter;
 use starknet_api::block::BlockNumber;
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkFelt;
 use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
 use crate::state_readers::papyrus_state::PapyrusReader;
 
@@ -23,14 +22,16 @@ use crate::state_readers::papyrus_state::PapyrusReader;
 fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let ((storage_reader, mut storage_writer), _) = papyrus_storage::test_utils::get_test_storage();
 
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let test_class_hash = test_contract.get_class_hash();
     // Initialize Storage: add test contract and class.
     let deployed_contracts =
-        IndexMap::from([(contract_address!(TEST_CONTRACT_ADDRESS), class_hash!(TEST_CLASS_HASH))]);
+        IndexMap::from([(test_contract.get_instance_address(0), test_class_hash)]);
     let state_diff = StateDiff { deployed_contracts, ..Default::default() };
 
-    let test_contract = get_deprecated_contract_class(TEST_CONTRACT_CAIRO0_PATH);
-    let deprecated_declared_classes =
-        IndexMap::from([(class_hash!(TEST_CLASS_HASH), test_contract)]);
+    let contract_class =
+        get_deprecated_contract_class_from_str(test_contract.get_raw_class().as_str());
+    let deprecated_declared_classes = IndexMap::from([(test_class_hash, contract_class)]);
     storage_writer
         .begin_rw_txn()?
         .append_state_diff(BlockNumber::default(), state_diff, deprecated_declared_classes)?
@@ -48,7 +49,7 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("test_storage_read_write"),
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
