@@ -13,9 +13,7 @@ use crate::state::cached_state::*;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{
-    get_test_contract_class, CairoVersion, TEST_CLASS_HASH, TEST_EMPTY_CONTRACT_CLASS_HASH,
-};
+use crate::test_utils::CairoVersion;
 
 const CONTRACT_ADDRESS: &str = "0x100";
 
@@ -146,7 +144,7 @@ fn get_contract_class() {
     let state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 0)]);
     assert_eq!(
         state.get_compiled_contract_class(test_contract.get_class_hash()).unwrap(),
-        get_test_contract_class()
+        test_contract.get_class()
     );
 
     // Negative flow.
@@ -191,8 +189,9 @@ fn cannot_set_class_hash_to_uninitialized_contract() {
 fn cached_state_state_diff_conversion() {
     // This will not appear in the diff, since this mapping is immutable for the current version we
     // are aligned with.
-    let test_class_hash = class_hash!(TEST_CLASS_HASH);
-    let class_hash_to_class = HashMap::from([(test_class_hash, get_test_contract_class())]);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let test_class_hash = test_contract.get_class_hash();
+    let class_hash_to_class = HashMap::from([(test_class_hash, test_contract.get_class())]);
 
     let nonce_initial_values = HashMap::new();
 
@@ -201,9 +200,9 @@ fn cached_state_state_diff_conversion() {
     // (so should not appear in the diff).
     // contract_address2 to keys whose value changes to a different value (so should appear in the
     // diff).
-    let contract_address0 = contract_address!("0x100");
-    let contract_address1 = contract_address!("0x200");
-    let contract_address2 = contract_address!("0x300");
+    let contract_address0 = test_contract.get_instance_address(0);
+    let contract_address1 = test_contract.get_instance_address(1);
+    let contract_address2 = test_contract.get_instance_address(2);
 
     // key_x will not be changed.
     // key_y will be changed, but only with contract_address2 the value ends up being different, so
@@ -235,7 +234,7 @@ fn cached_state_state_diff_conversion() {
     );
 
     // Declare a new class.
-    let class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
+    let class_hash = FeatureContract::Empty(CairoVersion::Cairo0).get_class_hash(); // Some unused class hash.
     let compiled_class_hash = CompiledClassHash(stark_felt!(1_u8));
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
@@ -386,8 +385,9 @@ fn global_contract_cache_is_used() {
     // Initialize the global cache with a single class, and initialize an empty state with this
     // cache.
     let global_cache = GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST);
-    let class_hash = class_hash!(TEST_CLASS_HASH);
-    let contract_class = get_test_contract_class();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let class_hash = test_contract.get_class_hash();
+    let contract_class = test_contract.get_class();
     global_cache.lock().cache_set(class_hash, contract_class.clone());
     assert_eq!(global_cache.lock().cache_size(), 1);
     let state = CachedState::new(DictStateReader::default(), global_cache.clone());

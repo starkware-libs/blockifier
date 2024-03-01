@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
 use blockifier::state::state_api::State;
-use blockifier::test_utils::{get_test_contract_class, TEST_CLASS_HASH};
+use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::test_utils::CairoVersion;
 use cached::Cached;
 use pretty_assertions::assert_eq;
-use starknet_api::class_hash;
-use starknet_api::core::ClassHash;
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkFelt;
 
 use crate::py_block_executor::{PyBlockExecutor, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
@@ -24,8 +23,9 @@ fn global_contract_cache_update() {
         .setup_block_execution(PyBlockInfo::default(), sentinel_block_number_and_hash)
         .unwrap();
 
-    let class_hash = class_hash!(TEST_CLASS_HASH);
-    let contract_class = get_test_contract_class();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let class_hash = test_contract.get_class_hash();
+    let contract_class = test_contract.get_class();
     block_executor
         .tx_executor()
         .state
