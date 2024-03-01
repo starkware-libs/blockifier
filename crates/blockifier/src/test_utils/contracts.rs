@@ -1,4 +1,5 @@
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
@@ -140,6 +141,21 @@ impl FeatureContract {
             CairoVersion::Cairo0 => ContractClassV0::from_file(&self.get_compiled_path()).into(),
             CairoVersion::Cairo1 => ContractClassV1::from_file(&self.get_compiled_path()).into(),
         }
+    }
+
+    // TODO(Arni, 1/1/2025): Remove this function, and use the get_class function instead.
+    pub fn get_deprecated_contract_class(&self) -> DeprecatedContractClass {
+        let mut raw_contract_class: serde_json::Value =
+            serde_json::from_str(&self.get_raw_class()).unwrap();
+
+        // ABI is not required for execution.
+        raw_contract_class
+            .as_object_mut()
+            .expect("A compiled contract must be a JSON object.")
+            .remove("abi");
+
+        serde_json::from_value(raw_contract_class)
+            .expect("DeprecatedContractClass is not supported for this contract.")
     }
 
     pub fn get_raw_class(&self) -> String {
