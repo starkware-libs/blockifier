@@ -1,20 +1,17 @@
-use std::collections::HashMap;
-
 use rstest::fixture;
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::StorageKey;
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, InvokeTransactionV0, InvokeTransactionV1,
     InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping, TransactionHash,
     TransactionSignature, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 use strum::IntoEnumIterator;
 
-use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
-use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
-use crate::execution::contract_class::{ClassInfo, ContractClass, ContractClassV0};
+use crate::abi::abi_utils::get_fee_token_var_address;
+use crate::context::{BlockContext, ChainInfo};
+use crate::execution::contract_class::{ClassInfo, ContractClass};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::contracts::FeatureContract;
@@ -24,11 +21,8 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
-    create_calldata, test_erc20_faulty_account_balance_key, CairoVersion, NonceManager, BALANCE,
-    ERC20_CONTRACT_PATH, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_CONTRACT_CAIRO0_PATH, TEST_ERC20_CONTRACT_CLASS_HASH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS, TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH,
-    TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
+    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -130,67 +124,6 @@ pub fn create_test_init_data(chain_info: &ChainInfo, cairo_version: CairoVersion
         contract_address: test_contract.get_instance_address(0),
         nonce_manager: NonceManager::default(),
     }
-}
-
-pub fn create_account_tx_test_state(
-    account_class: ContractClass,
-    account_class_hash: &str,
-    account_address: &str,
-    erc20_account_balance_key: StorageKey,
-    initial_account_balance: u128,
-    test_contract_class: ContractClass,
-) -> CachedState<DictStateReader> {
-    let test_contract_class_hash = class_hash!(TEST_CLASS_HASH);
-    let test_account_class_hash = class_hash!(account_class_hash);
-    let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
-    let class_hash_to_class = HashMap::from([
-        (test_account_class_hash, account_class),
-        (test_contract_class_hash, test_contract_class),
-        (test_erc20_class_hash, ContractClassV0::from_file(ERC20_CONTRACT_PATH).into()),
-    ]);
-    let test_contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
-    // A random address that is unlikely to equal the result of the calculation of a contract
-    // address.
-    let test_account_address = contract_address!(account_address);
-    let FeeTokenAddresses {
-        eth_fee_token_address: test_eth_token_address,
-        strk_fee_token_address: test_strk_token_address,
-    } = ChainInfo::create_for_testing().fee_token_addresses;
-    let address_to_class_hash = HashMap::from([
-        (test_contract_address, test_contract_class_hash),
-        (test_account_address, test_account_class_hash),
-        (test_strk_token_address, test_erc20_class_hash),
-        (test_eth_token_address, test_erc20_class_hash),
-    ]);
-    let minter_var_address = get_storage_var_address("permitted_minter", &[]);
-
-    let initial_balance_felt = stark_felt!(initial_account_balance);
-    let storage_view = HashMap::from([
-        ((test_strk_token_address, erc20_account_balance_key), initial_balance_felt),
-        ((test_eth_token_address, erc20_account_balance_key), initial_balance_felt),
-        // Give the account mint permission.
-        ((test_strk_token_address, minter_var_address), *test_account_address.0.key()),
-        ((test_eth_token_address, minter_var_address), *test_account_address.0.key()),
-    ]);
-    CachedState::from(DictStateReader {
-        address_to_class_hash,
-        class_hash_to_class,
-        storage_view,
-        ..Default::default()
-    })
-}
-
-pub fn create_state_with_falliable_validation_account() -> CachedState<DictStateReader> {
-    let account_balance = BALANCE;
-    create_account_tx_test_state(
-        ContractClassV0::from_file(TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH).into(),
-        TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH,
-        TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS,
-        test_erc20_faulty_account_balance_key(),
-        account_balance * 2,
-        // TODO(Noa,01/12/2023): Use `once_cell::sync::Lazy` to create the contract class.
-        ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into(),
-    )
 }
 
 pub struct FaultyAccountTxCreatorArgs {
