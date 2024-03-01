@@ -326,7 +326,7 @@ fn test_deploy(
     #[case] constructor_exists: bool,
     #[case] supply_constructor_calldata: bool,
     #[case] available_for_deployment: bool,
-    #[case] deploy_from_zero_scenario: bool,
+    #[case] valid_deploy_from_zero: bool,
     #[case] expected_error: Option<String>,
 ) {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -349,7 +349,7 @@ fn test_deploy(
     };
 
     let calldata =
-        calldata_for_deploy_test(class_hash, &constructor_calldata, deploy_from_zero_scenario);
+        calldata_for_deploy_test(class_hash, &constructor_calldata, valid_deploy_from_zero);
 
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),

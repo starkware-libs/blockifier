@@ -8,8 +8,9 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 use starknet_api::core::{
-    calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey,
+    calculate_contract_address, ChainId, ContractAddress, EthAddress, Nonce, PatriciaKey,
 };
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -19,7 +20,7 @@ use starknet_api::transaction::{
     L2ToL1Payload, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip,
     TransactionHash, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, patricia_key, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -36,14 +37,13 @@ use crate::execution::syscalls::hint_processor::{
     EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
 use crate::state::state_api::{State, StateReader};
-use crate::test_utils::cached_state::create_deploy_test_state;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, trivial_external_entry_point, trivial_external_entry_point_new, CairoVersion,
-    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
-    CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_CLASS_HASH,
-    TEST_CONTRACT_ADDRESS, TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_SEQUENCER_ADDRESS,
+    calldata_for_deploy_test, create_calldata, trivial_external_entry_point,
+    trivial_external_entry_point_new, CairoVersion, BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER,
+    CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::constants::QUERY_VERSION_BASE_BIT;
 use crate::transaction::objects::{
@@ -801,82 +801,68 @@ fn test_send_message_to_l1() {
     );
 }
 
-#[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-    calldata![
-    stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
-    ContractAddressSalt::default().0,            // Contract_address_salt.
-    stark_felt!(0_u8),                           // Calldata length.
-    stark_felt!(0_u8)                            // deploy_from_zero.
-    ],
-    calldata![],
-    None ;
-    "No constructor: Positive flow")]
-#[test_case(
-    class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_EMPTY_CONTRACT_CLASS_HASH), // Class hash.
-        ContractAddressSalt::default().0,            // Contract_address_salt.
-        stark_felt!(2_u8),                           // Calldata length.
-        stark_felt!(2_u8),                           // Calldata: address.
-        stark_felt!(1_u8),                           // Calldata: value.
-        stark_felt!(0_u8)                            // deploy_from_zero.
-    ],
-    calldata![
-        stark_felt!(2_u8),                           // Calldata: arg1.
-        stark_felt!(1_u8)                            // Calldata: arg2.
-    ],
+#[rstest]
+#[case::no_constructor(
+    false, false, true, None
+    // No constructor, trivial calldata, address available; Positive flow.
+)]
+#[case::no_constructor_nonempty_calldata(
+    false, true, true,
     Some(
-    "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.");
-    "No constructor: Negative flow: nonempty calldata")]
-#[test_case(
-    class_hash!(TEST_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_CLASS_HASH),     // Class hash.
-        ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2_u8),                // Calldata length.
-        stark_felt!(1_u8),                // Calldata: arg1.
-        stark_felt!(1_u8),                // Calldata: arg2.
-        stark_felt!(0_u8)                 // deploy_from_zero.
-    ],
-    calldata![
-        stark_felt!(1_u8),                // Calldata: arg1.
-        stark_felt!(1_u8)                 // Calldata: arg2.
-    ],
-    None;
-    "With constructor: Positive flow")]
-#[test_case(
-    class_hash!(TEST_CLASS_HASH),
-    calldata![
-        stark_felt!(TEST_CLASS_HASH),     // Class hash.
-        ContractAddressSalt::default().0, // Contract_address_salt.
-        stark_felt!(2_u8),                // Calldata length.
-        stark_felt!(3_u8),                // Calldata: arg1.
-        stark_felt!(3_u8),                // Calldata: arg2.
-        stark_felt!(0_u8)                 // deploy_from_zero.
-    ],
-    calldata![
-        stark_felt!(3_u8),                // Calldata: arg1.
-        stark_felt!(3_u8)                 // Calldata: arg2.
-    ],
-    Some("is unavailable for deployment.");
-    "With constructor: Negative flow: deploy to the same address")]
+        "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no constructor.".to_string()
+    )
+    // No constructor, nontrivial calldata, address available; Negative flow.
+)]
+#[case::with_constructor(
+    true, true, true, None
+    // With constructor, nontrivial calldata, address available; Positive flow.
+)]
+#[case::deploy_to_unavailable_address(
+    true, true, false,
+    Some("is unavailable for deployment.".to_string())
+    // With constructor, nontrivial calldata, address unavailable; Negative flow.
+)]
 fn test_deploy(
-    class_hash: ClassHash,
-    calldata: Calldata,
-    constructor_calldata: Calldata,
-    expected_error: Option<&str>,
+    #[case] constructor_exists: bool,
+    #[case] supply_constructor_calldata: bool,
+    #[case] available_for_deployment: bool,
+    #[case] expected_error: Option<String>,
 ) {
-    let mut state = create_deploy_test_state();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
+    let mut state =
+        test_state(&ChainInfo::create_for_testing(), 0, &[(empty_contract, 0), (test_contract, 1)]);
+
+    let class_hash = if constructor_exists {
+        test_contract.get_class_hash()
+    } else {
+        empty_contract.get_class_hash()
+    };
+    let constructor_calldata = if supply_constructor_calldata {
+        vec![
+            stark_felt!(1_u8), // Calldata: address.
+            stark_felt!(1_u8), // Calldata: value.
+        ]
+    } else {
+        vec![]
+    };
+
+    let calldata = calldata_for_deploy_test(class_hash, &constructor_calldata, true);
+
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,
-        ..trivial_external_entry_point()
+        ..trivial_external_entry_point_new(test_contract)
     };
+
+    if !available_for_deployment {
+        // Deploy an instance of the contract for the scenario: deploy_to_unavailable_address.
+        entry_point_call.clone().execute_directly(&mut state).unwrap();
+    }
 
     if let Some(expected_error) = expected_error {
         let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
-        assert!(error.contains(expected_error));
+        assert!(error.contains(expected_error.as_str()));
         return;
     }
 
@@ -884,17 +870,17 @@ fn test_deploy(
     let contract_address = calculate_contract_address(
         ContractAddressSalt::default(),
         class_hash,
-        &constructor_calldata,
-        contract_address!(TEST_CONTRACT_ADDRESS),
+        &Calldata(constructor_calldata.clone().into()),
+        test_contract.get_instance_address(0),
     )
     .unwrap();
     let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];
     assert_eq!(deploy_call.call.storage_address, contract_address);
     let mut retdata = retdata![];
-    let gas_consumed = if constructor_calldata.0.is_empty() {
+    let gas_consumed = if constructor_calldata.is_empty() {
         0
     } else {
-        retdata.0.push(constructor_calldata.0[0]);
+        retdata.0.push(constructor_calldata[0]);
         16640
     };
     assert_eq!(
