@@ -22,7 +22,6 @@ use starknet_api::transaction::{
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::test_utils::contracts::FeatureContract;
@@ -175,10 +174,6 @@ pub fn pad_address_to_64(address: &str) -> String {
 pub fn get_raw_contract_class(contract_path: &str) -> String {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
     fs::read_to_string(path).unwrap()
-}
-
-pub fn get_test_contract_class() -> ContractClass {
-    ContractClassV0::from_file(TEST_CONTRACT_CAIRO0_PATH).into()
 }
 
 pub fn trivial_external_entry_point_new(contract: FeatureContract) -> CallEntryPoint {
