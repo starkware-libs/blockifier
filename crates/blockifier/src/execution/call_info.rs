@@ -48,6 +48,7 @@ impl MessageL1CostInfo {
         for call_info in call_infos {
             l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths()?);
         }
+
         let message_segment_length =
             get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
 
