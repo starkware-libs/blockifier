@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use blockifier::blockifier::bouncer::BouncerInfo;
+use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::execution::entry_point::CallType;
 use blockifier::transaction::objects::TransactionExecutionInfo;
@@ -27,15 +28,37 @@ pub struct PyTransactionExecutionInfo {
     pub revert_error: Option<String>,
 }
 
-impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
-    // TODO(Gilad, 1/4/2023): Check that everything can't fail, recursively.
-    fn from(info: TransactionExecutionInfo) -> Self {
+// impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
+//     // TODO(Gilad, 1/4/2023): Check that everything can't fail, recursively.
+//     fn from(info: TransactionExecutionInfo) -> Self {
+//         Self {
+//             validate_call_info: info.validate_call_info.map(PyCallInfo::from),
+//             execute_call_info: info.execute_call_info.map(PyCallInfo::from),
+//             fee_transfer_call_info: info.fee_transfer_call_info.map(PyCallInfo::from),
+//             actual_fee: info.actual_fee.0,
+//             actual_resources: info.actual_resources.0,
+//             revert_error: info.revert_error,
+//         }
+//     }
+// }
+
+impl PyTransactionExecutionInfo {
+    pub fn from_block_context_and_tx_execution_info(
+        block_context: &BlockContext,
+        info: TransactionExecutionInfo,
+    ) -> Self {
         Self {
             validate_call_info: info.validate_call_info.map(PyCallInfo::from),
             execute_call_info: info.execute_call_info.map(PyCallInfo::from),
             fee_transfer_call_info: info.fee_transfer_call_info.map(PyCallInfo::from),
             actual_fee: info.actual_fee.0,
-            actual_resources: info.actual_resources.0,
+            actual_resources: info
+                .actual_resources
+                .to_resources_mapping(
+                    block_context.versioned_constants(),
+                    block_context.block_info().use_kzg_da,
+                )
+                .0,
             revert_error: info.revert_error,
         }
     }
