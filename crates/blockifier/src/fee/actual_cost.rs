@@ -5,17 +5,16 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
-use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ClassInfo;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
-    GasVector, HasRelatedFeeType, ResourcesMapping, StarknetResources, TransactionExecutionResult,
+    GasVector, HasRelatedFeeType, StarknetResources, TransactionExecutionResult,
+    TransactionResources,
 };
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transaction_utils::calculate_tx_resources;
 
 #[cfg(test)]
 #[path = "actual_cost_test.rs"]
@@ -27,7 +26,7 @@ pub mod test;
 pub struct ActualCost {
     pub actual_fee: Fee,
     pub da_gas: GasVector,
-    pub actual_resources: ResourcesMapping,
+    pub actual_resources: TransactionResources,
 }
 
 impl ActualCost {
@@ -52,7 +51,7 @@ impl ActualCost {
 pub struct ActualCostBuilder<'a> {
     pub tx_context: Arc<TransactionContext>,
     pub tx_type: TransactionType,
-    starknet_resources: StarknetResources,
+    tx_resources: TransactionResources,
     validate_call_info: Option<&'a CallInfo>,
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
@@ -69,14 +68,17 @@ impl<'a> ActualCostBuilder<'a> {
         signature_length: usize,
     ) -> TransactionExecutionResult<Self> {
         Ok(Self {
-            starknet_resources: StarknetResources::new(
-                calldata_length,
-                signature_length,
-                None,
-                StateChangesCount::default(),
-                None,
-                iter::empty(),
-            )?,
+            tx_resources: TransactionResources {
+                starknet_resources: StarknetResources::new(
+                    calldata_length,
+                    signature_length,
+                    None,
+                    StateChangesCount::default(),
+                    None,
+                    iter::empty(),
+                )?,
+                ..Default::default()
+            },
             sender_address: Some(tx_context.tx_info.sender_address()),
             tx_context,
             tx_type,
@@ -99,7 +101,7 @@ impl<'a> ActualCostBuilder<'a> {
     pub fn build(
         self,
         execution_resources: &ExecutionResources,
-    ) -> TransactionExecutionResult<(ActualCost, ResourcesMapping)> {
+    ) -> TransactionExecutionResult<(ActualCost, TransactionResources)> {
         self.calculate_actual_fee_and_resources(execution_resources)
     }
 
@@ -116,7 +118,7 @@ impl<'a> ActualCostBuilder<'a> {
     }
 
     pub fn with_class_info(mut self, class_info: ClassInfo) -> Self {
-        self.starknet_resources.set_code_size(Some(&class_info));
+        self.tx_resources.starknet_resources.set_code_size(Some(&class_info));
         self
     }
 
@@ -130,7 +132,7 @@ impl<'a> ActualCostBuilder<'a> {
     }
 
     pub fn with_l1_payload_size(mut self, l1_payload_size: usize) -> Self {
-        self.starknet_resources.l1_handler_payload_size = Some(l1_payload_size);
+        self.tx_resources.starknet_resources.l1_handler_payload_size = Some(l1_payload_size);
         self
     }
 
@@ -149,48 +151,70 @@ impl<'a> ActualCostBuilder<'a> {
     fn calculate_actual_fee_and_resources(
         mut self,
         execution_resources: &ExecutionResources,
-    ) -> TransactionExecutionResult<(ActualCost, ResourcesMapping)> {
+    ) -> TransactionExecutionResult<(ActualCost, TransactionResources)> {
         let use_kzg_da = self.use_kzg_da();
-        self.starknet_resources.state_changes_count = self.state_changes.count_for_fee_charge(
-            self.sender_address,
-            self.tx_context
-                .block_context
-                .chain_info
-                .fee_token_address(&self.tx_context.tx_info.fee_type()),
-        );
-        // TODO(Dafna, 1/6/2024): Compute the DA size and pass it instead of state_changes_count.
-        let da_gas = self.starknet_resources.get_state_changes_cost(use_kzg_da);
+
+        // State changes.
+        self.tx_resources.starknet_resources.state_changes_count =
+            self.state_changes.count_for_fee_charge(
+                self.sender_address,
+                self.tx_context
+                    .block_context
+                    .chain_info
+                    .fee_token_address(&self.tx_context.tx_info.fee_type()),
+            );
+
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
 
         // Set the events and messages resources from the transaction's call infos.
-        self.starknet_resources.set_events_and_messages_resources(non_optional_call_infos)?;
+        self.tx_resources
+            .starknet_resources
+            .set_events_and_messages_resources(non_optional_call_infos)?;
 
-        let mut actual_resources = calculate_tx_resources(
-            &self.tx_context.block_context.versioned_constants,
-            execution_resources,
-            self.tx_type,
-            &self.starknet_resources,
-            use_kzg_da,
-        )?;
+        // Add additional Cairo resources needed for the OS to run the transaction.
+        self.tx_resources.vm_resources = execution_resources
+            + &self
+                .tx_context
+                .block_context
+                .versioned_constants
+                .get_additional_os_tx_resources(
+                    self.tx_type,
+                    &self.tx_resources.starknet_resources,
+                    use_kzg_da,
+                )?
+                .filter_unused_builtins();
+
+        // TODO(Dafna, 1/6/2024): Compute the DA size and pass it instead of state_changes_count.
+        let da_gas = self.tx_resources.starknet_resources.get_state_changes_cost(use_kzg_da);
+
+        // TODO(Nimrod, 1/5/2024): Instead of storing two instances of TransactionResources, keep
+        // only one (without reverted step addition), and also store the reverted steps as a field
+        // in TransactionResources.
+        // TransactionResources should implement the conversions to gas (i.e.
+        // tx_info.calculate_tx_fee   should move to TransactionResources), and it should
+        // also be an object that can be converted   to BouncerInfo (which should ignore the
+        // reverted steps).
 
         // Bouncer resources should not include reverted steps; should include the rest, though.
-        let bouncer_resources = actual_resources.clone();
+        let bouncer_resources = self.tx_resources.clone();
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
-        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
-            self.n_reverted_steps;
+        self.tx_resources.vm_resources.n_steps += self.n_reverted_steps;
 
         let tx_info = &self.tx_context.tx_info;
         let actual_fee = if tx_info.enforce_fee()?
-        // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
-            || self.tx_type == TransactionType::L1Handler
+                // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
+                || self.tx_type == TransactionType::L1Handler
         {
-            tx_info.calculate_tx_fee(&actual_resources, &self.tx_context.block_context)?
+            tx_info.calculate_tx_fee(&self.tx_resources, &self.tx_context.block_context)?
         } else {
             Fee(0)
         };
 
-        Ok((ActualCost { actual_fee, da_gas, actual_resources }, bouncer_resources))
+        Ok((
+            ActualCost { actual_fee, da_gas, actual_resources: self.tx_resources },
+            bouncer_resources,
+        ))
     }
 }

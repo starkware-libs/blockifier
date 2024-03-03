@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
@@ -11,7 +10,8 @@ use crate::context::{BlockContext, TransactionContext};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
-    FeeType, GasVector, HasRelatedFeeType, ResourcesMapping, TransactionFeeResult, TransactionInfo,
+    ExecutionResourcesTraits, FeeType, GasVector, HasRelatedFeeType, ResourcesMapping,
+    TransactionFeeResult, TransactionInfo, TransactionResources,
 };
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -38,16 +38,6 @@ pub fn extract_l1_blob_gas_usage(resources: &ResourcesMapping) -> (usize, Resour
     (l1_blob_gas_usage, ResourcesMapping(vm_resource_usage))
 }
 
-pub fn extract_n_steps(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
-    let mut vm_resource_usage = resources.0.clone();
-    // The "segment arena" builtin is not part of SHARP (not in any proof layout).
-    // Each instance requires approximately 10 steps in the OS.
-    // TODO(Noa, 01/07/23): Verify the removal of the segment_arena builtin.
-    let n_steps = vm_resource_usage.remove(constants::N_STEPS_RESOURCE).unwrap_or_default()
-        + 10 * vm_resource_usage.remove(SEGMENT_ARENA_BUILTIN_NAME).unwrap_or_default();
-    (n_steps, ResourcesMapping(vm_resource_usage))
-}
-
 /// Calculates the L1 gas consumed when submitting the underlying Cairo program to SHARP.
 /// I.e., returns the heaviest Cairo resource weight (in terms of L1 gas), as the size of
 /// a proof is determined similarly - by the (normalized) largest segment.
@@ -56,12 +46,13 @@ pub fn calculate_l1_gas_by_vm_usage(
     vm_resource_usage: &ExecutionResources,
 ) -> TransactionFeeResult<GasVector> {
     let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
-    let vm_resource_names =
+    let vm_builtin_names =
         HashSet::<&String>::from_iter(vm_resource_usage.builtin_instance_counter.keys());
-    if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
+    if !vm_builtin_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
     };
-    let n_steps_gas_usage = u128_from_usize(vm_resource_usage.n_steps)
+    let total_n_steps = vm_resource_usage.total_n_steps();
+    let n_steps_gas_usage = u128_from_usize(total_n_steps)
         * vm_resource_fee_costs
             .get(constants::N_STEPS_RESOURCE)
             .cloned()
@@ -70,7 +61,7 @@ pub fn calculate_l1_gas_by_vm_usage(
             .to_integer();
 
     // Convert Cairo usage to L1 gas usage.
-    let vm_l1_gas_usage = vm_resource_fee_costs
+    let vm_builtin_gas_usage = vm_resource_fee_costs
         .iter()
         .map(|(key, resource_val)| {
             ((*resource_val)
@@ -86,26 +77,24 @@ pub fn calculate_l1_gas_by_vm_usage(
         })
         .fold(n_steps_gas_usage, u128::max);
 
-    Ok(GasVector::from_l1_gas(vm_l1_gas_usage))
+    Ok(GasVector::from_l1_gas(vm_builtin_gas_usage))
 }
 
 /// Computes and returns the total L1 gas consumption.
 /// We add the l1_gas_usage (which may include, for example, the direct cost of L2-to-L1 messages)
 /// to the gas consumed by Cairo VM resource.
+#[cfg(test)]
 pub fn calculate_tx_gas_vector(
+    // TODO(Nimrod, 1/4/2024): Remove this function. It's used only for testing.
     resources: &ResourcesMapping,
     versioned_constants: &VersionedConstants,
 ) -> TransactionFeeResult<GasVector> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let (l1_blob_gas_usage, vm_resources) = extract_l1_blob_gas_usage(&vm_resources);
-    let (n_steps, vm_resources) = extract_n_steps(&vm_resources);
-    // Memory holes are always zero at this point, it's counted as n_steps when `resources` were
-    // created.
-    // TODO(Nimrod, 25/3/2024): Change function's input type to `ExecutionResources`.
-    let execution_resources =
-        ExecutionResources { n_steps, n_memory_holes: 0, builtin_instance_counter: vm_resources.0 };
-    let vm_usage_gas_vector =
-        calculate_l1_gas_by_vm_usage(versioned_constants, &execution_resources)?;
+    let vm_usage_gas_vector = calculate_l1_gas_by_vm_usage(
+        versioned_constants,
+        &ExecutionResources { builtin_instance_counter: vm_resources.0, ..Default::default() },
+    )?;
 
     Ok(GasVector {
         l1_gas: u128_from_usize(l1_gas_usage),
@@ -125,13 +114,14 @@ pub fn get_fee_by_gas_vector(
     )
 }
 
-/// Calculates the fee that should be charged, given execution resources.
+/// Calculates the fee that should be charged, given transaction resources.
 pub fn calculate_tx_fee(
-    resources: &ResourcesMapping,
+    tx_resources: &TransactionResources,
     block_context: &BlockContext,
     fee_type: &FeeType,
 ) -> TransactionFeeResult<Fee> {
-    let gas_vector = calculate_tx_gas_vector(resources, &block_context.versioned_constants)?;
+    let gas_vector = tx_resources
+        .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)?;
     Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
 }
 

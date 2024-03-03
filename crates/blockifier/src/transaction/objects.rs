@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use cairo_felt::Felt252;
+use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use num_traits::Pow;
 use serde::Serialize;
 use starknet_api::core::{ContractAddress, Nonce};
@@ -11,19 +13,22 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
+use crate::abi::constants::{BLOB_GAS_USAGE, L1_GAS_USAGE, N_STEPS_RESOURCE};
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
 use crate::execution::contract_class::ClassInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
-use crate::fee::fee_utils::calculate_tx_fee;
-use crate::fee::gas_usage::{get_da_gas_cost, get_messages_gas_usage};
+use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, calculate_tx_fee};
+use crate::fee::gas_usage::{
+    get_da_gas_cost, get_messages_gas_usage, get_onchain_data_segment_length,
+};
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::constants;
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
-use crate::utils::u128_from_usize;
+use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
@@ -393,6 +398,10 @@ impl StarknetResources {
         GasVector::from_l1_gas(l1_gas)
     }
 
+    pub fn get_onchain_data_segment_length(&self) -> usize {
+        get_onchain_data_segment_length(&self.state_changes_count)
+    }
+
     /// Private and static method that calculates the code size from ClassInfo.
     fn calculate_code_size(class_info: Option<&ClassInfo>) -> usize {
         if let Some(class_info) = class_info {
@@ -404,6 +413,76 @@ impl StarknetResources {
         } else {
             0
         }
+    }
+}
+#[derive(Default, Clone, Debug)]
+pub struct TransactionResources {
+    pub starknet_resources: StarknetResources,
+    pub vm_resources: ExecutionResources,
+    pub n_reverted_steps: usize,
+}
+
+impl TransactionResources {
+    /// Computes and returns the total L1 gas consumption.
+    /// We add the l1_gas_usage (which may include, for example, the direct cost of L2-to-L1
+    /// messages) to the gas consumed by Cairo VM resource.
+    pub fn to_gas_vector(
+        &self,
+        versioned_constants: &VersionedConstants,
+        use_kzg_da: bool,
+    ) -> TransactionFeeResult<GasVector> {
+        Ok(self.starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
+            + calculate_l1_gas_by_vm_usage(versioned_constants, &self.vm_resources)?)
+    }
+
+    pub fn to_resources_mapping(
+        &self,
+        versioned_constants: &VersionedConstants,
+        use_kzg_da: bool,
+    ) -> ResourcesMapping {
+        let GasVector { l1_gas, l1_data_gas } =
+            self.starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
+        let mut resources = self.vm_resources.to_resources_mapping();
+        resources.0.extend(HashMap::from([
+            (
+                L1_GAS_USAGE.to_string(),
+                usize_from_u128(l1_gas)
+                    .expect("This conversion should not fail as the value is a converted usize."),
+            ),
+            (
+                BLOB_GAS_USAGE.to_string(),
+                usize_from_u128(l1_data_gas)
+                    .expect("This conversion should not fail as the value is a converted usize."),
+            ),
+        ]));
+        resources
+    }
+}
+
+pub trait ExecutionResourcesTraits {
+    fn total_n_steps(&self) -> usize;
+    fn to_resources_mapping(&self) -> ResourcesMapping;
+}
+
+impl ExecutionResourcesTraits for ExecutionResources {
+    fn total_n_steps(&self) -> usize {
+        // The "segment arena" builtin is not part of SHARP (not in any proof layout).
+        // Each instance requires approximately 10 steps in the OS.
+        // TODO(Noa, 01/07/23): Verify the removal of the segment_arena builtin.
+        self.n_steps
+            + self.n_memory_holes
+            + 10 * self
+                .builtin_instance_counter
+                .get(SEGMENT_ARENA_BUILTIN_NAME)
+                .cloned()
+                .unwrap_or_default()
+    }
+    // TODO(Nimrod, 1/5/2024): Delete this function when it's no longer in use.
+    fn to_resources_mapping(&self) -> ResourcesMapping {
+        let mut map = HashMap::from([(N_STEPS_RESOURCE.to_string(), self.total_n_steps())]);
+        map.extend(self.builtin_instance_counter.clone());
+
+        ResourcesMapping(map)
     }
 }
 
@@ -422,10 +501,10 @@ pub trait HasRelatedFeeType {
 
     fn calculate_tx_fee(
         &self,
-        resources: &ResourcesMapping,
+        tx_resources: &TransactionResources,
         block_context: &BlockContext,
     ) -> TransactionExecutionResult<Fee> {
-        Ok(calculate_tx_fee(resources, block_context, &self.fee_type())?)
+        Ok(calculate_tx_fee(tx_resources, block_context, &self.fee_type())?)
     }
 }
 

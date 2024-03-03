@@ -28,6 +28,7 @@ use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::SyscallSelector;
 use crate::test_utils::contracts::FeatureContract;
+use crate::transaction::objects::StarknetResources;
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::{const_max, u128_from_usize};
 use crate::versioned_constants::VersionedConstants;
