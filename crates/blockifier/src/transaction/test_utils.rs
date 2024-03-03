@@ -9,9 +9,11 @@ use starknet_api::transaction::{
 use starknet_api::{calldata, stark_felt};
 use strum::IntoEnumIterator;
 
+use super::objects::{ResourcesMapping, TransactionFeeResult};
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::context::{BlockContext, ChainInfo};
 use crate::execution::contract_class::{ClassInfo, ContractClass};
+use crate::fee::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::contracts::FeatureContract;
@@ -263,4 +265,15 @@ pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassI
         ContractClass::V1(_) => 100,
     };
     ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
+}
+
+/// Calculates the fee that should be charged, given execution resources.
+pub fn calculate_tx_fee_test_version(
+    // TODO(Nimrod, 1/4/2024): Remove this function. It's used only for testing.
+    resources: &ResourcesMapping,
+    block_context: &BlockContext,
+    fee_type: &FeeType,
+) -> TransactionFeeResult<Fee> {
+    let gas_vector = calculate_tx_gas_vector(resources, &block_context.versioned_constants)?;
+    Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
 }
