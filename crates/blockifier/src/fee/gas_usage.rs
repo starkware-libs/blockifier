@@ -17,16 +17,6 @@ use crate::versioned_constants::{ResourceCost, VersionedConstants};
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
-pub fn get_tx_events_gas_cost<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
-    versioned_constants: &VersionedConstants,
-) -> GasVector {
-    let l1_gas = call_infos
-        .map(|call_info| get_events_gas_cost(&call_info.execution.events, versioned_constants))
-        .sum();
-    GasVector::from_l1_gas(l1_gas)
-}
-
 pub fn get_events_gas_cost(
     events: &[OrderedEvent],
     versioned_constants: &VersionedConstants,

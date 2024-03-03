@@ -10,7 +10,7 @@ use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::usize_from_u128;
 use crate::versioned_constants::VersionedConstants;
@@ -21,14 +21,14 @@ use crate::versioned_constants::VersionedConstants;
 pub fn calculate_tx_resources(
     versioned_constants: &VersionedConstants,
     execution_resources: &ExecutionResources,
-    gas_vector: GasVector,
     tx_type: TransactionType,
     starknet_resources: &StarknetResources,
     use_kzg_da: bool,
 ) -> TransactionExecutionResult<ResourcesMapping> {
-    let l1_gas_usage = usize_from_u128(gas_vector.l1_gas)
+    let starknet_gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
+    let l1_gas_usage = usize_from_u128(starknet_gas_vector.l1_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
-    let l1_blob_gas_usage = usize_from_u128(gas_vector.l1_data_gas)
+    let l1_blob_gas_usage = usize_from_u128(starknet_gas_vector.l1_data_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
     let data_segment_length =

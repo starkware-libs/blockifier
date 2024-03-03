@@ -262,6 +262,8 @@ pub struct StarknetResources {
     pub l1_handler_payload_size: Option<usize>,
     signature_length: usize,
     code_size: usize,
+    message_segment_length: usize,
+    events_cost: u128,
 }
 
 impl StarknetResources {
@@ -354,6 +356,11 @@ impl StarknetResources {
     pub fn get_state_changes_cost(&self, use_kzg_da: bool) -> GasVector {
         // TODO(Nimrod, 29/3/2024): delete `get_da_gas_cost` and move it's logic here.
         get_da_gas_cost(&self.state_changes_count, use_kzg_da)
+    }
+
+    /// Returns the gas cost of the transaction's emmited events.
+    pub fn get_events_cost(&self) -> GasVector {
+        GasVector::from_l1_gas(self.events_cost)
     }
 
     /// Private and static method that calculates the code size from ClassInfo
