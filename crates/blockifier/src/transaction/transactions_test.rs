@@ -427,6 +427,8 @@ fn test_invoke_tx(
             n_modified_contracts: 1,
             ..StateChangesCount::default()
         },
+        None,
+        std::iter::empty(),
     );
     let sender_address = invoke_tx.sender_address();
 
@@ -1136,9 +1138,14 @@ fn test_declare_tx(
     let class_hash = empty_contract.get_class_hash();
     let class_info = calculate_class_info_for_testing(empty_contract.get_class());
     let sender_address = account.get_instance_address(0);
-    let mut starknet_resources =
-        StarknetResources::new(0, 0, None, declare_expected_state_changes_count(tx_version));
-    starknet_resources.set_code_size(Some(&class_info));
+    let starknet_resources = StarknetResources::new(
+        0,
+        0,
+        Some(&class_info),
+        declare_expected_state_changes_count(tx_version),
+        None,
+        std::iter::empty(),
+    );
 
     let account_tx = declare_tx(
         declare_tx_args! {

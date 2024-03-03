@@ -2,14 +2,13 @@ use std::collections::HashMap;
 
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
-use crate::execution::call_info::{CallInfo, MessageL1CostInfo, OrderedEvent};
+use crate::execution::call_info::{CallInfo, OrderedEvent};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
-    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
-    TransactionPreValidationResult,
+    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionPreValidationResult,
 };
 use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::{ResourceCost, VersionedConstants};
@@ -50,7 +49,7 @@ pub fn get_events_gas_cost(
 
 // Returns an estimation of the gas usage of the Starknet contract when processing L1<>L2 messages
 // on L1.
-pub fn get_starknet_gas_usage(
+pub fn get_messages_gas_usage(
     message_segment_length: usize,
     l2_to_l1_payload_lengths: &[usize],
     l1_handler_payload_size: Option<usize>,
