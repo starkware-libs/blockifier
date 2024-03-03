@@ -2,14 +2,13 @@ use std::collections::HashMap;
 
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
-use crate::execution::call_info::{CallInfo, MessageL1CostInfo, OrderedEvent};
+use crate::execution::call_info::{CallInfo, OrderedEvent};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{
-    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
-    TransactionPreValidationResult,
+    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionPreValidationResult,
 };
 use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::{ResourceCost, VersionedConstants};
@@ -50,7 +49,7 @@ pub fn get_events_gas_cost(
 
 // Returns an estimation of the gas usage of the Starknet contract when processing L1<>L2 messages
 // on L1.
-pub fn get_starknet_gas_usage(
+pub fn get_messages_gas_usage(
     message_segment_length: usize,
     l2_to_l1_payload_lengths: &[usize],
     l1_handler_payload_size: Option<usize>,
@@ -72,27 +71,6 @@ pub fn get_starknet_gas_usage(
         ),
     ) + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
         + get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths)
-}
-
-/// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
-/// Starknet and SHARP contracts.
-pub fn get_messages_gas_cost<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
-    l1_handler_payload_size: Option<usize>,
-) -> TransactionExecutionResult<GasVector> {
-    let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =
-        MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
-
-    let starknet_gas_usage = get_starknet_gas_usage(
-        message_segment_length,
-        &l2_to_l1_payload_lengths,
-        l1_handler_payload_size,
-    );
-    let sharp_gas_usage = GasVector::from_l1_gas(u128_from_usize(
-        message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
-    ));
-
-    Ok(starknet_gas_usage + sharp_gas_usage)
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
