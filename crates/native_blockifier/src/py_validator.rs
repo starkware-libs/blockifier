@@ -151,7 +151,13 @@ impl PyValidator {
             self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        Ok((tx_execution_info.into(), py_bouncer_info))
+        Ok((
+            ThinTransactionExecutionInfo::from_tx_execution_info(
+                &self.tx_executor.block_context,
+                tx_execution_info,
+            ),
+            py_bouncer_info,
+        ))
     }
 
     fn perform_pre_validation_stage(
