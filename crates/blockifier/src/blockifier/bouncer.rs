@@ -8,6 +8,7 @@ use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecut
 use crate::utils::usize_from_u128;
 
 #[derive(Clone, Default)]
+#[cfg_attr(test, derive(Eq, PartialEq, Debug))]
 pub struct BouncerInfo {
     pub state_diff_size: usize, // The number of felts needed to store the state diff.
     pub gas_weight: usize,
