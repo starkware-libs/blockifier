@@ -15,8 +15,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, TransactionSignature,
+    TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -1693,24 +1693,6 @@ fn test_only_query_flag(#[case] only_query: bool) {
     assert!(!tx_execution_info.is_reverted())
 }
 
-fn l1_handler_tx(
-    calldata: &Calldata,
-    l1_fee: Fee,
-    contract_address: ContractAddress,
-) -> L1HandlerTransaction {
-    L1HandlerTransaction {
-        tx: starknet_api::transaction::L1HandlerTransaction {
-            version: TransactionVersion::ZERO,
-            nonce: Nonce::default(),
-            contract_address,
-            entry_point_selector: selector_from_name("l1_handler_set_value"),
-            calldata: calldata.clone(),
-        },
-        tx_hash: TransactionHash::default(),
-        paid_fee_on_l1: l1_fee,
-    }
-}
-
 #[rstest]
 fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let cairo_version = CairoVersion::Cairo1;
@@ -1724,7 +1706,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let key = StarkFelt::from_u128(0x876);
     let value = StarkFelt::from_u128(0x44);
     let calldata = calldata![from_address, key, value];
-    let tx = l1_handler_tx(&calldata, Fee(1), contract_address);
+    let tx = L1HandlerTransaction::create_for_testing(&calldata, Fee(1), contract_address);
     let payload_size = tx.payload_size();
 
     let actual_execution_info = tx.execute(state, block_context, true, true).unwrap();
@@ -1813,7 +1795,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     );
 
     // Negative flow: not enough fee paid on L1.
-    let tx_no_fee = l1_handler_tx(&calldata, Fee(0), contract_address);
+    let tx_no_fee = L1HandlerTransaction::create_for_testing(&calldata, Fee(0), contract_address);
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
     let expected_actual_fee =
