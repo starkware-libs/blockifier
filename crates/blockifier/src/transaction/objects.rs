@@ -12,7 +12,7 @@ use starknet_api::transaction::{
 use strum_macros::EnumIter;
 
 use crate::context::BlockContext;
-use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo};
+use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
 use crate::execution::contract_class::ClassInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
@@ -262,8 +262,8 @@ pub struct StarknetResources {
     pub l1_handler_payload_size: Option<usize>,
     signature_length: usize,
     code_size: usize,
-    message_segment_length: usize,
-    events_cost: u128,
+    total_event_keys: u128,
+    total_event_data_size: u128,
 }
 
 impl StarknetResources {
@@ -273,8 +273,10 @@ impl StarknetResources {
         class_info: Option<&ClassInfo>,
         state_changes_count: StateChangesCount,
         l1_handler_payload_size: Option<usize>,
-        call_infos: impl Iterator<Item = &'a CallInfo>,
+        call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
     ) -> TransactionExecutionResult<Self> {
+        let (total_event_keys, total_event_data_size) =
+            StarknetResources::calculate_events_resources(call_infos.clone());
         Ok(Self {
             calldata_length,
             signature_length,
@@ -282,6 +284,8 @@ impl StarknetResources {
             state_changes_count,
             l1_handler_payload_size,
             message_cost_info: MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?,
+            total_event_keys,
+            total_event_data_size,
         })
     }
 
@@ -295,6 +299,7 @@ impl StarknetResources {
             + self.get_code_cost(versioned_constants)
             + self.get_state_changes_cost(use_kzg_da)
             + self.get_messages_cost()
+            + self.get_events_cost(versioned_constants)
     }
 
     /// Sets the code_size field from a ClassInfo from (Sierra, Casm and ABI). Each code felt costs
@@ -359,11 +364,18 @@ impl StarknetResources {
     }
 
     /// Returns the gas cost of the transaction's emmited events.
-    pub fn get_events_cost(&self) -> GasVector {
-        GasVector::from_l1_gas(self.events_cost)
+    pub fn get_events_cost(&self, versioned_constants: &VersionedConstants) -> GasVector {
+        let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
+        let (event_key_factor, data_word_cost) =
+            (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.gas_per_data_felt);
+        let l1_gas: u128 = (data_word_cost
+            * (event_key_factor * self.total_event_keys + self.total_event_data_size))
+            .to_integer();
+
+        GasVector::from_l1_gas(l1_gas)
     }
 
-    /// Private and static method that calculates the code size from ClassInfo
+    /// Private and static method that calculates the code size from ClassInfo.
     fn calculate_code_size(class_info: Option<&ClassInfo>) -> usize {
         if let Some(class_info) = class_info {
             (class_info.bytecode_length()
@@ -374,6 +386,28 @@ impl StarknetResources {
         } else {
             0
         }
+    }
+
+    /// Private and static method that calculates the total_event_data_size and total_event_keys for
+    /// from call_infos of a transaction.
+    fn calculate_events_resources<'a>(
+        call_infos: impl Iterator<Item = &'a CallInfo>,
+    ) -> (u128, u128) {
+        let tuple_add = |(a, b): (u128, u128), (c, d): (u128, u128)| (a + c, b + d);
+        call_infos
+            .map(|call_info| {
+                call_info
+                    .execution
+                    .events
+                    .iter()
+                    .map(|OrderedEvent { event, .. }| {
+                        // TODO(barak: 18/03/2024): Once we start charging per byte change to
+                        // num_bytes_keys and num_bytes_data.
+                        (u128_from_usize(event.keys.len()), u128_from_usize(event.data.0.len()))
+                    })
+                    .fold((0, 0), tuple_add)
+            })
+            .fold((0, 0), tuple_add)
     }
 }
 
