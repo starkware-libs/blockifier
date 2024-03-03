@@ -383,7 +383,7 @@ impl AccountTransaction {
         }
 
         let (actual_cost, bouncer_resources) = self
-            .to_actual_cost_builder(tx_context.clone())
+            .to_actual_cost_builder(tx_context.clone())?
             .with_validate_call_info(&validate_call_info)
             .with_execute_call_info(&execute_call_info)
             .try_add_state_changes(state)?
@@ -432,7 +432,7 @@ impl AccountTransaction {
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
         let actual_cost_builder_with_validation_changes = self
-            .to_actual_cost_builder(tx_context.clone())
+            .to_actual_cost_builder(tx_context.clone())?
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(state)?;
 
@@ -554,17 +554,17 @@ impl AccountTransaction {
     pub fn to_actual_cost_builder(
         &self,
         tx_context: Arc<TransactionContext>,
-    ) -> ActualCostBuilder<'_> {
+    ) -> TransactionExecutionResult<ActualCostBuilder<'_>> {
         let mut actual_cost_builder = ActualCostBuilder::new(
             tx_context,
             self.tx_type(),
             self.calldata_length(),
             self.signature_length(),
-        );
+        )?;
         if let Self::Declare(tx) = self {
             actual_cost_builder = actual_cost_builder.with_class_info(tx.class_info.clone());
         }
-        actual_cost_builder
+        Ok(actual_cost_builder)
     }
 }
 
