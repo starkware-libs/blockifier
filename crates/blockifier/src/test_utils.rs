@@ -27,7 +27,9 @@ use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::SyscallSelector;
+use crate::state::cached_state::StateChangesCount;
 use crate::test_utils::contracts::FeatureContract;
+use crate::transaction::objects::StarknetResources;
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::{const_max, u128_from_usize};
 use crate::versioned_constants::VersionedConstants;
@@ -296,7 +298,10 @@ pub fn get_syscall_resources(syscall_selector: SyscallSelector) -> ExecutionReso
 
 pub fn get_tx_resources(tx_type: TransactionType) -> ExecutionResources {
     let versioned_constants = VersionedConstants::create_for_testing();
-    versioned_constants.get_additional_os_tx_resources(tx_type, 1, 0, false).unwrap()
+    let starknet_resources =
+        StarknetResources::new(1, 0, None, StateChangesCount::default(), None, std::iter::empty());
+
+    versioned_constants.get_additional_os_tx_resources(tx_type, &starknet_resources, false).unwrap()
 }
 
 /// Creates the calldata for the Cairo function "test_deploy" in the featured contract TestContract.
