@@ -11,7 +11,7 @@ use crate::blockifier::bouncer::BouncerInfo;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::actual_cost::ActualCost;
-use crate::fee::gas_usage::{get_onchain_data_segment_length, get_starknet_gas_usage};
+use crate::fee::gas_usage::{get_messages_gas_usage, get_onchain_data_segment_length};
 use crate::state::cached_state::{
     CachedState, CommitmentStateDiff, StagedTransactionalState, StateChangesKeys, StorageEntry,
     TransactionalState,
@@ -109,7 +109,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =
                     MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
 
-                let starknet_gas_usage = get_starknet_gas_usage(
+                let starknet_gas_usage = get_messages_gas_usage(
                     message_segment_length,
                     &l2_to_l1_payload_lengths,
                     l1_handler_payload_size,
@@ -187,7 +187,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         )?;
 
         let (actual_cost, _bouncer_resources) = account_tx
-            .to_actual_cost_builder(tx_context)
+            .to_actual_cost_builder(tx_context)?
             .with_validate_call_info(&validate_call_info)
             .try_add_state_changes(&mut self.state)?
             .build(&execution_resources)?;
