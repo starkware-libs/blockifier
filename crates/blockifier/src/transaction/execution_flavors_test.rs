@@ -599,8 +599,8 @@ fn test_simulate_validate_charge_fee_post_execution(
 
     // Second scenario: balance too low.
     // Execute a transfer, and make sure we get the expected result.
-    let (success_actual_gas, actual_fee) = gas_and_fee(8560, validate, &fee_type);
-    let (fail_actual_gas, fail_actual_cost) = gas_and_fee(5810, validate, &fee_type);
+    let (success_actual_gas, actual_fee) = gas_and_fee(8558, validate, &fee_type);
+    let (fail_actual_gas, fail_actual_cost) = gas_and_fee(5806, validate, &fee_type);
     assert!(stark_felt!(actual_fee) < current_balance);
     let transfer_amount = stark_felt_to_felt(current_balance) - Felt252::from(actual_fee.0 / 2);
     let recipient = stark_felt!(7_u8);

@@ -40,7 +40,7 @@ pub fn fund_account(
 pub fn test_state(
     chain_info: &ChainInfo,
     initial_balances: u128,
-    contract_instances: &[(FeatureContract, u8)],
+    contract_instances: &[(FeatureContract, u16)],
 ) -> CachedState<DictStateReader> {
     let mut class_hash_to_class = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
