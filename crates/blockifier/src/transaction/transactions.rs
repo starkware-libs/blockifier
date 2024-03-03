@@ -463,6 +463,22 @@ impl L1HandlerTransaction {
         // The calldata includes the "from" field, which is not a part of the payload.
         self.tx.calldata.0.len() - 1
     }
+
+    pub fn create_for_testing(
+        calldata: &Calldata,
+        l1_fee: Fee,
+        contract_address: ContractAddress,
+    ) -> Self {
+        let tx = starknet_api::transaction::L1HandlerTransaction {
+            version: TransactionVersion::ZERO,
+            nonce: Nonce::default(),
+            contract_address,
+            entry_point_selector: selector_from_name("l1_handler_set_value"),
+            calldata: calldata.clone(),
+        };
+        let tx_hash = TransactionHash::default();
+        Self { tx, tx_hash, paid_fee_on_l1: l1_fee }
+    }
 }
 
 impl HasRelatedFeeType for L1HandlerTransaction {
