@@ -60,8 +60,7 @@ pub fn calculate_l1_gas_by_vm_usage(
         })
         .fold(0, u128::max);
 
-    // TODO(Dori, 1/5/2024): Check this conversion.
-    Ok(GasVector { l1_gas: vm_l1_gas_usage, l1_data_gas: 0 })
+    Ok(GasVector::from_l1_gas(vm_l1_gas_usage))
 }
 
 /// Computes and returns the total L1 gas consumption.

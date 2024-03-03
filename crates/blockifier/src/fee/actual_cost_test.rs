@@ -53,7 +53,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         use_kzg_da,
     )
     .unwrap();
-    assert_eq!(empty_tx_gas_usage_vector, GasVector { l1_gas: 0, l1_data_gas: 0 });
+    assert_eq!(empty_tx_gas_usage_vector, GasVector::default());
 
     // Declare.
     for cairo_version in [CairoVersion::Cairo0, CairoVersion::Cairo1] {
@@ -147,11 +147,8 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         + usize_from_u128(calldata_and_signature_gas_cost.to_integer()).unwrap();
     let manual_sharp_gas_usage =
         message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD;
-    let manual_gas_computation = GasVector {
-        l1_gas: u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage),
-        l1_data_gas: 0,
-    };
-
+    let manual_gas_computation =
+        GasVector::from_l1_gas(u128_from_usize(manual_starknet_gas_usage + manual_sharp_gas_usage));
     assert_eq!(l1_handler_gas_usage_vector, manual_gas_computation);
 
     // Any transaction with L2-to-L1 messages.

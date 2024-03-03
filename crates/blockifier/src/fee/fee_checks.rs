@@ -74,10 +74,7 @@ impl FeeCheckReport {
                 match &tx_context.tx_info {
                     TransactionInfo::Current(info) => get_fee_by_gas_vector(
                         &tx_context.block_context.block_info,
-                        GasVector {
-                            l1_gas: info.l1_resource_bounds()?.max_amount.into(),
-                            l1_data_gas: 0,
-                        },
+                        GasVector::from_l1_gas(info.l1_resource_bounds()?.max_amount.into()),
                         &FeeType::Strk,
                     ),
                     TransactionInfo::Deprecated(context) => context.max_fee,
