@@ -141,7 +141,10 @@ impl<S: StateReader> TransactionExecutor<S> {
 
                 // Finalize counting logic.
                 let bouncer_info = BouncerInfo::calculate(
-                    &tx_execution_info.bouncer_resources,
+                    &tx_execution_info.bouncer_resources.to_resources_mapping(
+                        &self.block_context.versioned_constants,
+                        self.block_context.block_info.use_kzg_da,
+                    ),
                     starknet_gas_usage,
                     additional_os_resources,
                     message_cost_info.message_segment_length,

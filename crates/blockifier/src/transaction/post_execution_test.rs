@@ -9,7 +9,6 @@ use starknet_crypto::FieldElement;
 
 use crate::context::{BlockContext, ChainInfo};
 use crate::fee::fee_checks::FeeCheckError;
-use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::invoke_tx_args;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
@@ -254,14 +253,13 @@ fn test_revert_on_resource_overuse(
     assert_eq!(execution_info_measure.revert_error, None);
     let actual_fee = execution_info_measure.actual_fee;
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
-    let actual_gas_usage: u64 = calculate_tx_gas_vector(
-        &execution_info_measure.actual_resources,
-        &block_context.versioned_constants,
-    )
-    .unwrap()
-    .l1_gas
-    .try_into()
-    .expect("Failed to convert u128 to u64.");
+    let actual_gas_usage: u64 = execution_info_measure
+        .actual_resources
+        .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
+        .unwrap()
+        .l1_gas
+        .try_into()
+        .expect("Failed to convert u128 to u64.");
 
     // Run the same function, with a different written value (to keep cost high), with the actual
     // resources used as upper bounds. Make sure execution does not revert.
