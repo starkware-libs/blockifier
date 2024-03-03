@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use cached::{Cached, SizedCache};
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
+use serde::Serialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -797,7 +798,7 @@ impl StateChanges {
 }
 
 /// Holds the number of state changes.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct StateChangesCount {
     pub n_storage_updates: usize,
     pub n_class_hash_updates: usize,

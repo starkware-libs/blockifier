@@ -7,6 +7,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
 
+use super::objects::TransactionResources;
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
@@ -24,8 +25,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
-    TransactionInfo, TransactionInfoCreator, TransactionPreValidationResult,
+    HasRelatedFeeType, TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
+    TransactionInfoCreator, TransactionPreValidationResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::update_remaining_gas;
@@ -612,9 +613,15 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             fee_transfer_call_info,
             actual_fee: final_fee,
             da_gas: final_da_gas,
-            actual_resources: final_resources,
+            actual_resources: final_resources.to_resources_mapping(
+                &block_context.versioned_constants,
+                block_context.block_info.use_kzg_da,
+            ),
             revert_error,
-            bouncer_resources,
+            bouncer_resources: bouncer_resources.to_resources_mapping(
+                &block_context.versioned_constants,
+                block_context.block_info.use_kzg_da,
+            ),
         };
         Ok(tx_execution_info)
     }
@@ -636,7 +643,7 @@ struct ValidateExecuteCallInfo {
     execute_call_info: Option<CallInfo>,
     revert_error: Option<String>,
     final_cost: ActualCost,
-    bouncer_resources: ResourcesMapping,
+    bouncer_resources: TransactionResources,
 }
 
 impl ValidateExecuteCallInfo {
@@ -644,7 +651,7 @@ impl ValidateExecuteCallInfo {
         validate_call_info: Option<CallInfo>,
         execute_call_info: Option<CallInfo>,
         final_cost: ActualCost,
-        bouncer_resources: ResourcesMapping,
+        bouncer_resources: TransactionResources,
     ) -> Self {
         Self {
             validate_call_info,
@@ -659,7 +666,7 @@ impl ValidateExecuteCallInfo {
         validate_call_info: Option<CallInfo>,
         revert_error: String,
         final_cost: ActualCost,
-        bouncer_resources: ResourcesMapping,
+        bouncer_resources: TransactionResources,
     ) -> Self {
         Self {
             validate_call_info,

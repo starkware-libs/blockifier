@@ -11,7 +11,7 @@ use crate::context::{BlockContext, ChainInfo};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::SyscallSelector;
-use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_gas_vector, get_fee_by_gas_vector};
+use crate::fee::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
 use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
@@ -27,7 +27,9 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{FeeType, GasVector, TransactionExecutionInfo};
-use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds, INVALID};
+use crate::transaction::test_utils::{
+    account_invoke_tx, calculate_tx_fee_test_version, l1_resource_bounds, INVALID,
+};
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::ExecutableTransaction;
 const VALIDATE_GAS_OVERHEAD: u64 = 21;
@@ -121,7 +123,8 @@ fn check_gas_and_fee(
     // Future compatibility: resources other than the L1 gas usage may affect the fee (currently,
     // `calculate_tx_fee` is simply the result of `calculate_tx_gas_usage_vector` times gas price).
     assert_eq!(
-        calculate_tx_fee(&tx_execution_info.actual_resources, block_context, fee_type).unwrap(),
+        calculate_tx_fee_test_version(&tx_execution_info.actual_resources, block_context, fee_type)
+            .unwrap(),
         expected_cost_of_resources
     );
 }
