@@ -141,7 +141,7 @@ pub fn verify_can_pay_committed_bounds(
         TransactionInfo::Deprecated(context) => context.max_fee,
     };
     let (balance_low, balance_high, can_pay) =
-        get_balance_and_if_covers_fee(state, tx_context, committed_fee)?;
+        get_balance_and_if_covers_fee(state, tx_context, committed_fee)?; // check if can be concurrent for same account
     if can_pay {
         Ok(())
     } else {

@@ -210,12 +210,12 @@ impl PostExecutionReport {
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
         let cost_with_bounds_result =
-            FeeCheckReport::check_actual_cost_within_bounds(tx_context, actual_cost);
+            FeeCheckReport::check_actual_cost_within_bounds(tx_context, actual_cost); // concurrent
 
         // Next, verify the actual cost is covered by the account balance, which may have changed
         // after execution. If the above check passes, the pre-execution balance covers the actual
         // cost for sure.
-        let can_pay_fee_result = FeeCheckReport::check_can_pay_fee(state, tx_context, actual_cost);
+        let can_pay_fee_result = FeeCheckReport::check_can_pay_fee(state, tx_context, actual_cost); // concurrent
 
         for fee_check_result in [cost_with_bounds_result, can_pay_fee_result] {
             match fee_check_result {

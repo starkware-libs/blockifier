@@ -164,10 +164,11 @@ impl AccountTransaction {
         strict_nonce_check: bool,
     ) -> TransactionPreValidationResult<()> {
         let tx_info = &tx_context.tx_info;
-        Self::handle_nonce(state, tx_info, strict_nonce_check)?;
+        Self::handle_nonce(state, tx_info, strict_nonce_check)?; // maybe out cause sequential
+        // if not of Account transaction, then where?
 
         if charge_fee && tx_info.enforce_fee()? {
-            self.check_fee_bounds(tx_context)?;
+            self.check_fee_bounds(tx_context)?; // concurrent
 
             verify_can_pay_committed_bounds(state, tx_context)?;
         }
@@ -447,6 +448,8 @@ impl AccountTransaction {
             remaining_gas,
         );
 
+        // refactor for readability
+
         // Pre-compute cost in case of revert.
         let execution_steps_consumed =
             n_allotted_execution_steps - execution_context.n_remaining_steps();
@@ -468,7 +471,7 @@ impl AccountTransaction {
                     .build(&execution_resources)?;
 
                 // Post-execution checks.
-                let post_execution_report = PostExecutionReport::new(
+                let post_execution_report = PostExecutionReport::new(  // concurrent
                     &mut execution_state,
                     &tx_context,
                     &actual_cost,
@@ -481,7 +484,7 @@ impl AccountTransaction {
                         // revert case, compute resources by adding consumed execution steps to
                         // validation resources).
                         execution_state.abort();
-                        Ok(ValidateExecuteCallInfo::new_reverted(
+                        Ok(ValidateExecuteCallInfo::new_reverted( //
                             validate_call_info,
                             post_execution_error.to_string(),
                             ActualCost {
@@ -541,7 +544,7 @@ impl AccountTransaction {
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         if self.is_non_revertible(&tx_context.tx_info) {
-            return self.run_non_revertible(state, tx_context, remaining_gas, validate, charge_fee);
+            return self.run_non_revertible(state, tx_context, remaining_gas, validate, charge_fee); // concurrent
         }
 
         self.run_revertible(state, tx_context, remaining_gas, validate, charge_fee)
@@ -573,7 +576,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx_context = Arc::new(block_context.to_tx_context(&self));
-        self.verify_tx_version(tx_context.tx_info.version())?;
+        self.verify_tx_version(tx_context.tx_info.version())?; // concurrent
 
         // Nonce and fee check should be done before running user code.
         let strict_nonce_check = true;
@@ -591,7 +594,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     da_gas: final_da_gas,
                     actual_resources: final_resources,
                 },
-        } = self.run_or_revert(
+        } = self.run_or_revert( // concurrent
             state,
             &mut remaining_gas,
             tx_context.clone(),
@@ -599,7 +602,7 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             charge_fee,
         )?;
 
-        let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?;
+        let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?; // sequential. find a smart solution. 
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
