@@ -9,7 +9,6 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use rstest::rstest;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::abi::constants;
 use crate::context::BlockContext;
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_checks::{FeeCheckError, FeeCheckReportFields, PostExecutionReport};
@@ -19,7 +18,7 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::errors::TransactionFeeError;
-use crate::transaction::objects::{GasVector, ResourcesMapping};
+use crate::transaction::objects::GasVector;
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -90,12 +89,13 @@ fn test_discounted_gas_overdraft(
         resource_bounds: l1_resource_bounds(gas_bound, gas_price * 10),
         version: TransactionVersion::THREE
     });
+
     let actual_cost = ActualCost {
         actual_fee: Fee(7),
-        actual_resources: ResourcesMapping(HashMap::from([
-            (constants::L1_GAS_USAGE.to_string(), l1_gas_used),
-            (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),
-        ])),
+        actual_gas_cost: GasVector {
+            l1_gas: u128_from_usize(l1_gas_used),
+            l1_data_gas: u128_from_usize(l1_data_gas_used),
+        },
         ..Default::default()
     };
     let charge_fee = true;

@@ -52,15 +52,21 @@ pub(crate) struct ThinTransactionExecutionInfo {
     pub revert_error: Option<String>,
 }
 
-impl From<TransactionExecutionInfo> for ThinTransactionExecutionInfo {
-    fn from(tx_execution_info: TransactionExecutionInfo) -> Self {
+impl ThinTransactionExecutionInfo {
+    pub fn from_tx_execution_info(
+        block_context: &BlockContext,
+        tx_execution_info: TransactionExecutionInfo,
+    ) -> Self {
         Self {
             validate_call_info: tx_execution_info.validate_call_info,
             execute_call_info: tx_execution_info.execute_call_info,
             fee_transfer_call_info: tx_execution_info.fee_transfer_call_info,
             actual_fee: tx_execution_info.actual_fee,
             da_gas: tx_execution_info.da_gas,
-            actual_resources: tx_execution_info.actual_resources,
+            actual_resources: tx_execution_info.actual_resources.to_resources_mapping(
+                block_context.versioned_constants(),
+                block_context.block_info().use_kzg_da,
+            ),
             revert_error: tx_execution_info.revert_error,
         }
     }
@@ -151,8 +157,13 @@ impl PyBlockExecutor {
         let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
         let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
-        let typed_tx_execution_info =
-            TypedTransactionExecutionInfo { info: tx_execution_info.into(), tx_type };
+        let typed_tx_execution_info = TypedTransactionExecutionInfo {
+            info: ThinTransactionExecutionInfo::from_tx_execution_info(
+                &self.tx_executor().block_context,
+                tx_execution_info,
+            ),
+            tx_type,
+        };
         let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
@@ -171,8 +182,13 @@ impl PyBlockExecutor {
             let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
             let tx: Transaction = py_tx(tx, optional_py_class_info)?;
             let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
-            let typed_tx_execution_info =
-                TypedTransactionExecutionInfo { info: tx_execution_info.into(), tx_type };
+            let typed_tx_execution_info = TypedTransactionExecutionInfo {
+                info: ThinTransactionExecutionInfo::from_tx_execution_info(
+                    &self.tx_executor().block_context,
+                    tx_execution_info,
+                ),
+                tx_type,
+            };
             let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
             let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
