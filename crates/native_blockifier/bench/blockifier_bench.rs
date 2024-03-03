@@ -15,11 +15,11 @@ use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::initial_test_state::test_state;
 use blockifier::test_utils::invoke::invoke_tx;
-use blockifier::test_utils::{CairoVersion, BALANCE, MAX_FEE};
+use blockifier::test_utils::{CairoVersion, NonceManager, BALANCE, MAX_FEE};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use criterion::{criterion_group, criterion_main, Criterion};
-use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 use starknet_api::{calldata, stark_felt};
@@ -34,14 +34,14 @@ pub fn transfers_benchmark(c: &mut Criterion) {
     let accounts = (0..N_ACCOUNTS)
         .map(|instance_id| account_contract.get_instance_address(instance_id))
         .collect::<Vec<_>>();
-    let mut nonces = vec![0_u64; N_ACCOUNTS.into()];
+    let nonce_manager = &mut NonceManager::default();
 
     let mut sender_account = 0;
     // Create a benchmark group called "transfers", which iterates over the accounts round-robin
     // and performs transfers.
     c.bench_function("transfers", |benchmark| {
         benchmark.iter(|| {
-            do_transfer(sender_account, &accounts, &mut nonces, block_context, &mut state);
+            do_transfer(sender_account, &accounts, nonce_manager, block_context, &mut state);
             sender_account = (sender_account + 1) % accounts.len();
         })
     });
@@ -50,7 +50,7 @@ pub fn transfers_benchmark(c: &mut Criterion) {
 fn do_transfer(
     sender_account: usize,
     accounts: &[ContractAddress],
-    nonces: &mut [u64],
+    nonce_manager: &mut NonceManager,
     block_context: &BlockContext,
     state: &mut CachedState<DictStateReader>,
 ) {
@@ -58,8 +58,7 @@ fn do_transfer(
     let recipient_account = (sender_account + 1) % n_accounts;
     let sender_address = accounts[sender_account];
     let recipient_account_address = accounts[recipient_account];
-    let nonce = nonces[sender_account];
-    nonces[sender_account] += 1;
+    let nonce = nonce_manager.next(sender_address);
 
     let entry_point_selector =
         selector_from_name(blockifier::transaction::constants::TRANSFER_ENTRY_POINT_NAME);
@@ -81,7 +80,7 @@ fn do_transfer(
         sender_address,
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(nonce)),
+        nonce,
     });
     let account_tx = AccountTransaction::Invoke(tx);
     let charge_fee = false;
