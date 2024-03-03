@@ -406,6 +406,7 @@ dependencies = [
  "itertools 0.10.5",
  "keccak",
  "log",
+ "more-asserts",
  "num-bigint",
  "num-integer",
  "num-rational",
@@ -2106,6 +2107,12 @@ checksum = "e7810e0be55b428ada41041c41f32c9f1a42817901b4ccf45fa3d4b6561e74c7"
 dependencies = [
  "adler",
 ]
+
+[[package]]
+name = "more-asserts"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fafa6961cabd9c63bcd77a45d7e3b7f3b552b70417831fb0f56db717e72407e"
 
 [[package]]
 name = "native_blockifier"

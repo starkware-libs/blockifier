@@ -19,6 +19,7 @@ use crate::execution::errors::PostExecutionError;
 use crate::execution::execution_utils::poseidon_hash_many_cost;
 use crate::execution::syscalls::SyscallSelector;
 use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::objects::StarknetResources;
 use crate::transaction::transaction_types::TransactionType;
 
 #[cfg(test)]
@@ -113,14 +114,13 @@ impl VersionedConstants {
     pub fn get_additional_os_tx_resources(
         &self,
         tx_type: TransactionType,
-        calldata_length: usize,
-        data_segment_length: usize,
+        starknet_resources: &StarknetResources,
         use_kzg_da: bool,
     ) -> Result<ExecutionResources, TransactionExecutionError> {
         self.os_resources.get_additional_os_tx_resources(
             tx_type,
-            calldata_length,
-            data_segment_length,
+            starknet_resources.calldata_length,
+            starknet_resources.get_onchain_data_segment_length(),
             use_kzg_da,
         )
     }
