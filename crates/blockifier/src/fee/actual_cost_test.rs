@@ -278,6 +278,8 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
 // Test that we exclude the fee token contract modification and adds the account’s balance change
 // in the state changes.
 // TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
+// TODO(Nimrod, 1/5/2024): Test regression w.r.t. all resources (including VM). (Only starknet
+// resources are taken into account).
 #[rstest]
 fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let account_cairo_version = CairoVersion::Cairo0;
@@ -317,13 +319,12 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
     );
 
-    let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
-
-    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
-    assert_eq!(u128_from_usize(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
     assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()),
-        l1_blob_gas_usage
+        starknet_resources.to_gas_vector(versioned_constants, use_kzg_da),
+        tx_execution_info
+            .actual_resources
+            .starknet_resources
+            .to_gas_vector(versioned_constants, use_kzg_da)
     );
 
     // A tx that changes the account and some other balance in execute.
@@ -369,11 +370,11 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
     );
 
-    let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
-    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
-    assert_eq!(u128_from_usize(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
     assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()),
-        l1_blob_gas_usage
+        starknet_resources.to_gas_vector(versioned_constants, use_kzg_da),
+        tx_execution_info
+            .actual_resources
+            .starknet_resources
+            .to_gas_vector(versioned_constants, use_kzg_da)
     );
 }
