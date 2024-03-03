@@ -6,15 +6,30 @@ use starknet_api::{class_hash, contract_address, patricia_key};
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::test_utils::{get_raw_contract_class, CairoVersion};
 
+// This file contains featured contracts, used for tests. Use the function 'test_state' in
+// initial_test_state.rs to initialize a state with these contracts.
+//
+// Use the mock class hashes and addresses to interact with the contracts in tests.
+// The structure of such mock address / class hash is as follows:
+// +-+-+-----------+---------------+---------------+---------------+
+// |v|a| reserved  | 8 bits: class | 16 bits : address             |
+// +-+-+-----------+---------------+---------------+---------------+
+// v: 1 bit. 0 for Cairo0, 1 for Cairo1. bit 31.
+// a: 1 bit. 0 for class hash, 1 for address. bit 30.
+// reserved: Must be 0. bit 29-24.
+// class: 8 bits. The class hash of the contract. bit 23-16. allows up to 256 unique contracts.
+// address: 16 bits. The instance ID of the contract. bit 15-0. allows up to 65536 instances of each
+// contract.
+
 // Bit to set on class hashes and addresses of feature contracts to indicate the Cairo1 variant.
 const CAIRO1_BIT: u32 = 1 << 31;
 
 // Bit to set on a class hash to convert it to the respective address.
 const ADDRESS_BIT: u32 = 1 << 30;
 
-// Mock class hashes of the feature contract. Keep the bottom 8 bits of each class hash unset, to
-// allow up to 256 deployed instances of each contract.
-const CLASS_HASH_BASE: u32 = 1 << 8;
+// Mock class hashes of the feature contract. Keep the bottom 16 bits of each class hash unset, to
+// allow up to 65536 deployed instances of each contract.
+const CLASS_HASH_BASE: u32 = 1 << 16;
 const ACCOUNT_LONG_VALIDATE_BASE: u32 = CLASS_HASH_BASE;
 const ACCOUNT_WITHOUT_VALIDATIONS_BASE: u32 = 2 * CLASS_HASH_BASE;
 const EMPTY_CONTRACT_BASE: u32 = 3 * CLASS_HASH_BASE;
@@ -131,7 +146,7 @@ impl FeatureContract {
     }
 
     /// Returns the address of the instance with the given instance ID.
-    pub fn get_instance_address(&self, instance_id: u8) -> ContractAddress {
+    pub fn get_instance_address(&self, instance_id: u16) -> ContractAddress {
         let instance_id_as_u32: u32 = instance_id.into();
         contract_address!(self.get_integer_base() + instance_id_as_u32 + ADDRESS_BIT)
     }
