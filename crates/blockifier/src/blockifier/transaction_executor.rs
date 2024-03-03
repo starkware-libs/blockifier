@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::vec::IntoIter;
 
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
@@ -11,7 +10,7 @@ use crate::blockifier::bouncer::BouncerInfo;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::actual_cost::ActualCost;
-use crate::fee::gas_usage::{get_onchain_data_segment_length, get_starknet_gas_usage};
+use crate::fee::gas_usage::{get_messages_gas_usage, get_onchain_data_segment_length};
 use crate::state::cached_state::{
     CachedState, CommitmentStateDiff, StagedTransactionalState, StateChangesKeys, StorageEntry,
     TransactionalState,
@@ -100,16 +99,14 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let tx_execution_summary = tx_execution_info.summarize();
 
                 // Count message to L1 resources.
-                let call_infos: IntoIter<&CallInfo> =
-                    [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
-                        .iter()
-                        .filter_map(|&call_info| call_info.as_ref())
-                        .collect::<Vec<&CallInfo>>()
-                        .into_iter();
+                let call_infos = &[
+                    &tx_execution_info.validate_call_info.as_ref(),
+                    &tx_execution_info.execute_call_info.as_ref(),
+                ];
                 let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =
                     MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
 
-                let starknet_gas_usage = get_starknet_gas_usage(
+                let starknet_gas_usage = get_messages_gas_usage(
                     message_segment_length,
                     &l2_to_l1_payload_lengths,
                     l1_handler_payload_size,
