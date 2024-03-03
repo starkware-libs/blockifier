@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::panic::catch_unwind;
 
 use assert_matches::assert_matches;
 use cairo_vm::vm::runners::builtin_runner::{
@@ -9,7 +10,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use rstest::rstest;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::abi::constants;
+use crate::abi::constants::N_STEPS_RESOURCE;
 use crate::context::BlockContext;
 use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_checks::{FeeCheckError, FeeCheckReportFields, PostExecutionReport};
@@ -18,8 +19,7 @@ use crate::invoke_tx_args;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, BALANCE};
-use crate::transaction::errors::TransactionFeeError;
-use crate::transaction::objects::{GasVector, ResourcesMapping};
+use crate::transaction::objects::GasVector;
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -46,7 +46,7 @@ fn test_simple_calculate_l1_gas_by_vm_usage() {
     // Positive flow.
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_vm_usage =
-        (*versioned_constants.vm_resource_fee_cost().get(constants::N_STEPS_RESOURCE).unwrap()
+        (*versioned_constants.vm_resource_fee_cost().get(N_STEPS_RESOURCE).unwrap()
             * u128_from_usize(vm_resource_usage.n_steps))
         .ceil()
         .to_integer();
@@ -71,9 +71,11 @@ fn test_simple_calculate_l1_gas_by_vm_usage() {
     invalid_vm_resource_usage
         .builtin_instance_counter
         .insert(String::from("bad_resource_name"), 17);
-    let error =
-        calculate_l1_gas_by_vm_usage(&versioned_constants, &invalid_vm_resource_usage).unwrap_err();
-    assert_matches!(error, TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
+
+    let should_panic = catch_unwind(|| {
+        calculate_l1_gas_by_vm_usage(&versioned_constants, &invalid_vm_resource_usage)
+    });
+    assert!(should_panic.is_err());
 }
 
 #[test]
@@ -84,7 +86,7 @@ fn test_float_calculate_l1_gas_by_vm_usage() {
     // Positive flow.
     // Verify calculation - in our case, n_steps is the heaviest resource.
     let l1_gas_by_vm_usage =
-        ((*versioned_constants.vm_resource_fee_cost().get(constants::N_STEPS_RESOURCE).unwrap())
+        ((*versioned_constants.vm_resource_fee_cost().get(N_STEPS_RESOURCE).unwrap())
             * u128_from_usize(vm_resource_usage.n_steps))
         .ceil()
         .to_integer();
@@ -137,12 +139,13 @@ fn test_discounted_gas_overdraft(
         resource_bounds: l1_resource_bounds(gas_bound, gas_price * 10),
         version: TransactionVersion::THREE
     });
+
     let actual_cost = ActualCost {
         actual_fee: Fee(7),
-        actual_resources: ResourcesMapping(HashMap::from([
-            (constants::L1_GAS_USAGE.to_string(), l1_gas_used),
-            (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),
-        ])),
+        actual_gas_cost: GasVector {
+            l1_gas: u128_from_usize(l1_gas_used),
+            l1_data_gas: u128_from_usize(l1_data_gas_used),
+        },
         ..Default::default()
     };
     let charge_fee = true;
