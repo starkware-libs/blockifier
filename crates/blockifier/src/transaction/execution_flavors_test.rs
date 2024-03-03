@@ -88,7 +88,7 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
         gas,
         get_fee_by_gas_vector(
             &BlockContext::create_for_account_testing().block_info,
-            GasVector { l1_gas: gas.into(), l1_data_gas: 0 },
+            GasVector::from_l1_gas(gas.into()),
             fee_type,
         ),
     )
@@ -489,7 +489,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     let block_limit_gas = invoke_tx_max_n_steps_as_u64 + 1652;
     let block_limit_fee = get_fee_by_gas_vector(
         &block_context.block_info,
-        GasVector { l1_gas: block_limit_gas.into(), l1_data_gas: 0 },
+        GasVector::from_l1_gas(block_limit_gas.into()),
         &fee_type,
     );
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {

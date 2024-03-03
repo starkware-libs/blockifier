@@ -58,11 +58,10 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
         ..Default::default()
     };
     let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
-    let expected = GasVector {
+    let expected = GasVector::from_l1_gas(
         // 4 keys and 6 data words overall.
-        l1_gas: (data_word_cost * (event_key_factor * 4_u128 + 6_u128)).to_integer(),
-        l1_data_gas: 0,
-    };
+        (data_word_cost * (event_key_factor * 4_u128 + 6_u128)).to_integer(),
+    );
     let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
     assert_eq!(expected, gas_vector);
     assert_ne!(GasVector::default(), gas_vector)
@@ -108,7 +107,7 @@ fn test_get_da_gas_cost_basic(#[case] state_changes_count: StateChangesCount) {
 
     let computed_gas_vector = get_da_gas_cost(&state_changes_count, true);
     assert_eq!(
-        GasVector { l1_gas: 0, l1_data_gas: u128_from_usize(manual_blob_gas_usage) },
+        GasVector::from_l1_data_gas(u128_from_usize(manual_blob_gas_usage)),
         computed_gas_vector
     );
 }

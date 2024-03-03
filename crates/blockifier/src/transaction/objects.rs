@@ -141,6 +141,14 @@ pub struct GasVector {
 }
 
 impl GasVector {
+    pub fn from_l1_gas(l1_gas: u128) -> Self {
+        Self { l1_gas, l1_data_gas: 0 }
+    }
+
+    pub fn from_l1_data_gas(l1_data_gas: u128) -> Self {
+        Self { l1_gas: 0, l1_data_gas }
+    }
+
     /// Computes the cost (in fee token units) of the gas vector (saturating on overflow).
     pub fn saturated_cost(&self, gas_price: u128, blob_gas_price: u128) -> Fee {
         let l1_gas_cost = self.l1_gas.checked_mul(gas_price).unwrap_or_else(|| {
@@ -298,17 +306,16 @@ impl StarknetResources {
         let l1_gas = (versioned_constants.l2_resource_gas_costs.gas_per_data_felt
             * total_data_size)
             .to_integer();
-        GasVector { l1_gas, l1_data_gas: 0 }
+        GasVector::from_l1_gas(l1_gas)
     }
 
     // Returns the gas cost of declared class codes.
     pub fn get_code_cost(&self, versioned_constants: &VersionedConstants) -> GasVector {
-        GasVector {
-            l1_gas: (versioned_constants.l2_resource_gas_costs.gas_per_code_byte
+        GasVector::from_l1_gas(
+            (versioned_constants.l2_resource_gas_costs.gas_per_code_byte
                 * u128_from_usize(self.code_size))
             .to_integer(),
-            l1_data_gas: 0,
-        }
+        )
     }
 
     // Returns the gas cost of the transaction's state changes.

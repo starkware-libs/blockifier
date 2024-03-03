@@ -25,7 +25,7 @@ pub fn get_tx_events_gas_cost<'a>(
     let l1_gas = call_infos
         .map(|call_info| get_events_gas_cost(&call_info.execution.events, versioned_constants))
         .sum();
-    GasVector { l1_gas, l1_data_gas: 0 }
+    GasVector::from_l1_gas(l1_gas)
 }
 
 pub fn get_events_gas_cost(
@@ -58,9 +58,9 @@ pub fn get_starknet_gas_usage(
     let n_l2_to_l1_messages = l2_to_l1_payload_lengths.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
 
-    GasVector {
+    GasVector::from_l1_gas(
         // Starknet's updateState gets the message segment as an argument.
-        l1_gas: u128_from_usize(
+        u128_from_usize(
             message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
             // Starknet's updateState increases a (storage) counter for each L2-to-L1 message.
             + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
@@ -70,8 +70,7 @@ pub fn get_starknet_gas_usage(
             // transaction execution).
             + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE,
         ),
-        l1_data_gas: 0,
-    } + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
+    ) + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
         + get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths)
 }
 
@@ -89,12 +88,9 @@ pub fn get_messages_gas_cost<'a>(
         &l2_to_l1_payload_lengths,
         l1_handler_payload_size,
     );
-    let sharp_gas_usage = GasVector {
-        l1_gas: u128_from_usize(
-            message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
-        ),
-        l1_data_gas: 0,
-    };
+    let sharp_gas_usage = GasVector::from_l1_gas(u128_from_usize(
+        message_segment_length * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
+    ));
 
     Ok(starknet_gas_usage + sharp_gas_usage)
 }
@@ -191,7 +187,7 @@ pub fn get_consumed_message_to_l2_emissions_cost(
 ) -> GasVector {
     match l1_handler_payload_size {
         // The corresponding transaction is not an L1 handler.,
-        None => GasVector { l1_gas: 0, l1_data_gas: 0 },
+        None => GasVector::default(),
         Some(l1_handler_payload_size) => {
             get_event_emission_cost(
                 constants::CONSUMED_MSG_TO_L2_N_TOPICS,
@@ -217,14 +213,11 @@ pub fn get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths: &[usize]) 
 }
 
 fn get_event_emission_cost(n_topics: usize, data_length: usize) -> GasVector {
-    GasVector {
-        l1_gas: u128_from_usize(
-            eth_gas_constants::GAS_PER_LOG
-                + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
-                + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD,
-        ),
-        l1_data_gas: 0,
-    }
+    GasVector::from_l1_gas(u128_from_usize(
+        eth_gas_constants::GAS_PER_LOG
+            + (n_topics + constants::N_DEFAULT_TOPICS) * eth_gas_constants::GAS_PER_LOG_TOPIC
+            + data_length * eth_gas_constants::GAS_PER_LOG_DATA_WORD,
+    ))
 }
 
 /// Return an estimated lower bound for the L1 gas on an account transaction.

@@ -1760,11 +1760,11 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     // Build the expected resource mapping.
     let expected_gas = match use_kzg_da {
         true => GasVector { l1_gas: 16023, l1_data_gas: 128 },
-        false => GasVector { l1_gas: 17675, l1_data_gas: 0 },
+        false => GasVector::from_l1_gas(17675),
     };
     let expected_da_gas = match use_kzg_da {
-        true => GasVector { l1_gas: 0, l1_data_gas: 128 },
-        false => GasVector { l1_gas: 1652, l1_data_gas: 0 },
+        true => GasVector::from_l1_data_gas(128),
+        false => GasVector::from_l1_gas(1652),
     };
 
     let state_changes_count = StateChangesCount {
