@@ -48,6 +48,7 @@ impl MessageL1CostInfo {
         for call_info in call_infos {
             l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths()?);
         }
+
         let message_segment_length =
             get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
 
@@ -231,7 +232,7 @@ impl CallInfo {
         ExecutionSummary { executed_class_hashes, visited_storage_entries, n_events }
     }
 }
-
+#[derive(Clone)]
 pub struct CallInfoIter<'a> {
     call_infos: Vec<&'a CallInfo>,
 }
