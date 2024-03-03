@@ -59,9 +59,11 @@ impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(state: CachedState<S>, block_context: BlockContext) -> Self {
         log::debug!("Initializing Transaction Executor...");
         let max_block_capacity = block_context.block_info().block_max_capacity;
+        let max_block_capacity_with_keccak =
+            block_context.block_info().block_max_capacity_with_keccak;
         let tx_executor = Self {
             block_context,
-            bouncer: Bouncer::new(max_block_capacity, max_block_capacity),
+            bouncer: Bouncer::new_block_bouncer(max_block_capacity, max_block_capacity_with_keccak),
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             // Note: the state might not be empty even at this point; it is the creator's
@@ -82,8 +84,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: Transaction,
         charge_fee: bool,
-    ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo, HashMap<String, usize>)>
-    {
+    ) -> TransactionExecutorResult<(
+        TransactionExecutionInfo,
+        BouncerInfo,
+        HashMap<String, usize>,
+        i32,
+    )> {
         // TODO(yael, 25/2/2024): consider moving this logic into calc_message_segment_length(),
         // this requires clone or copy of the tx.
         let l1_handler_payload_size: Option<usize> =
@@ -160,6 +166,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 );
                 println!("yael Bouncer res: {:?}", res);
 
+                let mut result = 0;
                 if res.is_ok() {
                     transactional_bouncer.compare_bouncer_results(
                         &bouncer_info,
@@ -169,6 +176,23 @@ impl<S: StateReader> TransactionExecutor<S> {
                     );
                     transactional_bouncer.commit();
                 } else {
+                    if matches!(
+                        res.as_ref().unwrap_err(),
+                        TransactionExecutorError::TransactionExecutionError(
+                            TransactionExecutionError::BlockFull
+                        )
+                    ) {
+                        result = 1;
+                    } else if matches!(
+                        res.as_ref().unwrap_err(),
+                        TransactionExecutorError::TransactionExecutionError(
+                            TransactionExecutionError::TxTooLarge
+                        )
+                    ) {
+                        result = 2;
+                    } else {
+                        panic!("Unexpected error: {:?}", res.unwrap_err());
+                    }
                     transactional_bouncer.abort();
                 }
 
@@ -181,7 +205,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     tx_unique_state_changes_keys,
                 ));
 
-                Ok((tx_execution_info, bouncer_info, accumulated_weights))
+                Ok((tx_execution_info, bouncer_info, accumulated_weights, result))
             }
             Err(error) => {
                 transactional_state.abort();

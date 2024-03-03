@@ -148,12 +148,16 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo, HashMap<String, usize>)>
-    {
+    ) -> NativeBlockifierResult<(
+        RawTransactionExecutionInfo,
+        PyBouncerInfo,
+        HashMap<String, usize>,
+        i32,
+    )> {
         let charge_fee = true;
         let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-        let (tx_execution_info, bouncer_info, accumulated_weights) =
+        let (tx_execution_info, bouncer_info, accumulated_weights, result) =
             self.tx_executor().execute(tx, charge_fee)?;
         let typed_tx_execution_info = TypedTransactionExecutionInfo {
             info: tx_execution_info.into(),
@@ -162,7 +166,7 @@ impl PyBlockExecutor {
         let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        Ok((raw_tx_execution_info, py_bouncer_info, accumulated_weights))
+        Ok((raw_tx_execution_info, py_bouncer_info, accumulated_weights, result))
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
@@ -383,6 +387,9 @@ pub fn into_block_context_args(
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
         block_max_capacity: BouncerWeights::from(
             block_info.bouncer_info.full_total_weights.clone(),
+        ),
+        block_max_capacity_with_keccak: BouncerWeights::from(
+            block_info.bouncer_info.full_total_weights_with_keccak.clone(),
         ),
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         gas_prices: GasPrices {

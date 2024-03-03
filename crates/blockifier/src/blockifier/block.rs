@@ -23,6 +23,7 @@ pub struct BlockInfo {
     pub block_number: BlockNumber,
     pub block_timestamp: BlockTimestamp,
     pub block_max_capacity: BouncerWeights,
+    pub block_max_capacity_with_keccak: BouncerWeights,
 
     // Fee-related.
     pub sequencer_address: ContractAddress,

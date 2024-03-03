@@ -104,6 +104,8 @@ impl BlockInfo {
             block_timestamp: BlockTimestamp(CURRENT_BLOCK_TIMESTAMP),
             block_max_capacity: BouncerWeights::default(), /* TODO(yael) - write some real
                                                             * numbers here. */
+            block_max_capacity_with_keccak: BouncerWeights::default(), /* TODO(yael) - write some
+                                                                        * real numbers here. */
             sequencer_address: contract_address!(TEST_SEQUENCER_ADDRESS),
             gas_prices: GasPrices {
                 eth_l1_gas_price: DEFAULT_ETH_L1_GAS_PRICE.try_into().unwrap(),

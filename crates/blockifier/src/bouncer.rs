@@ -183,23 +183,35 @@ pub struct Bouncer {
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
     pub available_capacity: BouncerWeights,
-    // The maximum capacity of the block is contant throughout a block lifecycle.
+    block_contains_keccak: bool,
+    // The maximum capacity of the block is constant throughout a block lifecycle.
     max_capacity: BouncerWeights,
+    max_capacity_with_keccak: BouncerWeights,
 }
 
 impl Bouncer {
-    pub fn new(available_capacity: BouncerWeights, max_block_capacity: BouncerWeights) -> Self {
+    pub fn new(
+        available_capacity: BouncerWeights,
+        max_block_capacity: BouncerWeights,
+        max_block_capacity_with_keccak: BouncerWeights,
+        block_contains_keccak: bool,
+    ) -> Self {
         Bouncer {
             executed_class_hashes: HashSet::new(),
             visited_storage_entries: HashSet::new(),
             state_changes_keys: StateChangesKeys::default(),
             available_capacity,
+            block_contains_keccak,
             max_capacity: max_block_capacity,
+            max_capacity_with_keccak: max_block_capacity_with_keccak,
         }
     }
 
-    pub fn new_block_bouncer(max_block_capacity: BouncerWeights) -> Bouncer {
-        Bouncer::new(max_block_capacity, max_block_capacity)
+    pub fn new_block_bouncer(
+        max_block_capacity: BouncerWeights,
+        max_block_capacity_with_keccak: BouncerWeights,
+    ) -> Bouncer {
+        Bouncer::new(max_block_capacity, max_block_capacity, max_block_capacity_with_keccak, false)
     }
 
     pub fn create_transactional(&mut self) -> TransactionBouncer {
@@ -210,6 +222,7 @@ impl Bouncer {
         self.executed_class_hashes.extend(&other.executed_class_hashes);
         self.visited_storage_entries.extend(&other.visited_storage_entries);
         self.state_changes_keys.extend(&other.state_changes_keys);
+        self.block_contains_keccak = other.block_contains_keccak;
         self.available_capacity = other.available_capacity;
     }
 }
@@ -223,7 +236,12 @@ pub struct TransactionBouncer<'a> {
 
 impl<'a> TransactionBouncer<'a> {
     pub fn new(parent: &'a mut Bouncer) -> TransactionBouncer {
-        let transactional = Bouncer::new(parent.available_capacity, parent.max_capacity);
+        let transactional = Bouncer::new(
+            parent.available_capacity,
+            parent.max_capacity,
+            parent.max_capacity_with_keccak,
+            parent.block_contains_keccak,
+        );
         TransactionBouncer { parent, transactional }
     }
 
@@ -266,6 +284,20 @@ impl<'a> TransactionBouncer<'a> {
             n_events: tx_execution_info.get_number_of_events(),
             builtin_count: tx_builtin_count,
         };
+
+        if tx_weights.builtin_count.keccak > 0 && !self.transactional.block_contains_keccak {
+            let max_capacity_with_keccak_diff = self
+                .parent
+                .max_capacity
+                .checked_sub(self.parent.max_capacity_with_keccak)
+                .expect("max_capacity_with_keccak should be smaller than max_capacity");
+            self.transactional.available_capacity = self
+                .transactional
+                .available_capacity
+                .checked_sub(max_capacity_with_keccak_diff)
+                .ok_or(TransactionExecutionError::BlockFull)?;
+            self.transactional.block_contains_keccak = true;
+        }
 
         // Check if the transaction is too large to fit any block.
         self.parent
