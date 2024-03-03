@@ -62,8 +62,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    FeeType, GasVector, HasRelatedFeeType, ResourcesMapping, StarknetResources,
-    TransactionExecutionInfo, TransactionInfo,
+    FeeType, GasVector, HasRelatedFeeType, StarknetResources, TransactionExecutionInfo,
+    TransactionInfo, TransactionResources,
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
@@ -73,7 +73,6 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
-use crate::utils::usize_from_u128;
 use crate::versioned_constants::VersionedConstants;
 use crate::{
     check_transaction_execution_error_for_custom_hint,
@@ -251,11 +250,11 @@ fn expected_fee_transfer_call_info(
 fn get_expected_cairo_resources(
     versioned_constants: &VersionedConstants,
     tx_type: TransactionType,
-    calldata_length: usize,
+    starknet_resources: &StarknetResources,
     call_infos: Vec<&Option<CallInfo>>,
 ) -> ExecutionResources {
     let mut expected_cairo_resources = versioned_constants
-        .get_additional_os_tx_resources(tx_type, calldata_length, 0, false)
+        .get_additional_os_tx_resources(tx_type, starknet_resources, false)
         .unwrap();
     for call_info in call_infos {
         if let Some(call_info) = &call_info {
@@ -264,23 +263,6 @@ fn get_expected_cairo_resources(
     }
 
     expected_cairo_resources
-}
-
-fn get_actual_resources(
-    cairo_resources: ExecutionResources,
-    gas_vector: GasVector,
-) -> ResourcesMapping {
-    let GasVector { l1_gas, l1_data_gas } = gas_vector;
-    let mut actual_resources = ResourcesMapping(HashMap::from([
-        (abi_constants::L1_GAS_USAGE.to_string(), l1_gas.try_into().unwrap()),
-        (abi_constants::BLOB_GAS_USAGE.to_string(), l1_data_gas.try_into().unwrap()),
-        (
-            abi_constants::N_STEPS_RESOURCE.to_string(),
-            cairo_resources.n_steps + cairo_resources.n_memory_holes,
-        ),
-    ]));
-    actual_resources.0.extend(cairo_resources.builtin_instance_counter);
-    actual_resources
 }
 
 /// Given the fee result of a single account transaction, verifies the final balances of the account
@@ -325,7 +307,7 @@ fn validate_final_balances(
 }
 
 fn add_kzg_da_resources_to_resources_mapping(
-    target: &mut ResourcesMapping,
+    target: &mut ExecutionResources,
     state_changes_count: &StateChangesCount,
     versioned_constants: &VersionedConstants,
     use_kzg_da: bool,
@@ -337,31 +319,33 @@ fn add_kzg_da_resources_to_resources_mapping(
     let data_segment_length = get_onchain_data_segment_length(state_changes_count);
     let os_kzg_da_resources = versioned_constants.os_kzg_da_resources(data_segment_length);
 
-    let mut resources_to_add = os_kzg_da_resources.builtin_instance_counter;
-    resources_to_add
-        .insert(abi_constants::N_STEPS_RESOURCE.to_string(), os_kzg_da_resources.n_steps);
+    target.n_steps += os_kzg_da_resources.n_steps;
 
-    resources_to_add.into_iter().for_each(|(key, value)| {
-        target.0.entry(key.to_string()).and_modify(|v| *v += value).or_insert(value);
+    os_kzg_da_resources.builtin_instance_counter.into_iter().for_each(|(key, value)| {
+        target
+            .builtin_instance_counter
+            .entry(key.to_string())
+            .and_modify(|v| *v += value)
+            .or_insert(value);
     });
 }
 
 // TODO(Yoni, 1/4/2024): merge this with `get_expected_cairo_resources`.
 fn add_kzg_da_resources(
     tx_execution_info: &mut TransactionExecutionInfo,
-    state_changes_count: StateChangesCount,
+    state_changes_count: &StateChangesCount,
     versioned_constants: &VersionedConstants,
     use_kzg_da: bool,
 ) {
     add_kzg_da_resources_to_resources_mapping(
-        &mut tx_execution_info.actual_resources,
-        &state_changes_count,
+        &mut tx_execution_info.actual_resources.vm_resources,
+        state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
     add_kzg_da_resources_to_resources_mapping(
-        &mut tx_execution_info.bouncer_resources,
-        &state_changes_count,
+        &mut tx_execution_info.bouncer_resources.vm_resources,
+        state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
@@ -495,29 +479,30 @@ fn test_invoke_tx(
     );
 
     let da_gas = starknet_resources.get_state_changes_cost(use_kzg_da);
-    let gas_uage_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
 
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
         TransactionType::InvokeFunction,
-        calldata_length,
+        &starknet_resources,
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
-    let actual_resources = get_actual_resources(expected_cairo_resources, gas_uage_vector);
+    let state_changes_count = starknet_resources.state_changes_count;
+    let expected_actual_resources =
+        TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         da_gas,
-        actual_resources: actual_resources.clone(),
+        actual_resources: expected_actual_resources.clone(),
         revert_error: None,
-        bouncer_resources: actual_resources,
+        bouncer_resources: expected_actual_resources,
     };
 
     add_kzg_da_resources(
         &mut expected_execution_info,
-        starknet_resources.state_changes_count,
+        &state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
@@ -1185,15 +1170,15 @@ fn test_declare_tx(
     );
 
     let da_gas = starknet_resources.get_state_changes_cost(use_kzg_da);
-    let gas_usage_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
         TransactionType::Declare,
-        0,
+        &starknet_resources,
         vec![&expected_validate_call_info],
     );
-
-    let actual_resources = get_actual_resources(expected_cairo_resources, gas_usage_vector);
+    let state_changes_count = starknet_resources.state_changes_count;
+    let expected_actual_resources =
+        TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
@@ -1201,13 +1186,13 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: actual_resources.clone(),
-        bouncer_resources: actual_resources,
+        actual_resources: expected_actual_resources.clone(),
+        bouncer_resources: expected_actual_resources,
     };
 
     add_kzg_da_resources(
         &mut expected_execution_info,
-        starknet_resources.state_changes_count,
+        &state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
@@ -1310,13 +1295,15 @@ fn test_deploy_account_tx(
 
     // Build expected fee transfer call info.
     let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
+        calculate_tx_fee(&actual_execution_info.actual_resources.clone(), block_context, fee_type)
+            .unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         tx_context,
         deployed_account_address,
         expected_actual_fee,
         FeatureContract::ERC20.get_class_hash(),
     );
+    let starknet_resources = actual_execution_info.actual_resources.starknet_resources.clone();
 
     let state_changes_count = StateChangesCount {
         n_storage_updates: 1,
@@ -1328,11 +1315,12 @@ fn test_deploy_account_tx(
     let expected_cairo_resources = get_expected_cairo_resources(
         &block_context.versioned_constants,
         TransactionType::DeployAccount,
-        constructor_calldata.0.len(),
+        &starknet_resources,
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
 
-    let actual_resources = get_actual_resources(expected_cairo_resources, da_gas);
+    let actual_resources =
+        TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -1346,7 +1334,7 @@ fn test_deploy_account_tx(
 
     add_kzg_da_resources(
         &mut expected_execution_info,
-        state_changes_count,
+        &state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
@@ -1745,6 +1733,8 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     };
 
     // Build the expected resource mapping.
+    // TODO(Nimrod, 1/5/2024): Change these hard coded values to match to the transaction resources
+    // (currently matches only starknet resources).
     let expected_gas = match use_kzg_da {
         true => GasVector { l1_gas: 16023, l1_data_gas: 128 },
         false => GasVector::from_l1_gas(17675),
@@ -1760,32 +1750,39 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         ..StateChangesCount::default()
     };
 
-    let mut expected_resource_mapping = ResourcesMapping(HashMap::from([
-        (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
-        (
-            abi_constants::N_STEPS_RESOURCE.to_string(),
-            get_tx_resources(TransactionType::L1Handler).n_steps + 246,
-        ),
-        (
-            RANGE_CHECK_BUILTIN_NAME.to_string(),
-            get_tx_resources(TransactionType::L1Handler).builtin_instance_counter
-                [&RANGE_CHECK_BUILTIN_NAME.to_string()]
-                + 6,
-        ),
-        (abi_constants::L1_GAS_USAGE.to_string(), usize_from_u128(expected_gas.l1_gas).unwrap()),
-        (
-            abi_constants::BLOB_GAS_USAGE.to_string(),
-            usize_from_u128(expected_gas.l1_data_gas).unwrap(),
-        ),
-    ]));
+    let mut expected_execution_resources = ExecutionResources {
+        builtin_instance_counter: HashMap::from([
+            (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
+            (
+                RANGE_CHECK_BUILTIN_NAME.to_string(),
+                get_tx_resources(TransactionType::L1Handler).builtin_instance_counter
+                    [&RANGE_CHECK_BUILTIN_NAME.to_string()]
+                    + 6,
+            ),
+        ]),
+        n_steps: get_tx_resources(TransactionType::L1Handler).n_steps + 245,
+        n_memory_holes: 1,
+    };
 
     add_kzg_da_resources_to_resources_mapping(
-        &mut expected_resource_mapping,
+        &mut expected_execution_resources,
         &state_changes_count,
         versioned_constants,
         use_kzg_da,
     );
 
+    // Copy StarknetResources from actual resources and assert gas usage calculation is correct.
+    let expected_tx_resources = TransactionResources {
+        starknet_resources: actual_execution_info.actual_resources.starknet_resources.clone(),
+        vm_resources: expected_execution_resources,
+    };
+    assert_eq!(
+        expected_gas,
+        actual_execution_info
+            .actual_resources
+            .starknet_resources
+            .to_gas_vector(versioned_constants, use_kzg_da)
+    );
     // Build the expected execution info.
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: None,
@@ -1793,9 +1790,9 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
         da_gas: expected_da_gas,
-        actual_resources: expected_resource_mapping.clone(),
+        actual_resources: expected_tx_resources.clone(),
         revert_error: None,
-        bouncer_resources: expected_resource_mapping,
+        bouncer_resources: expected_tx_resources,
     };
 
     // Check the actual returned execution info.

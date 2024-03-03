@@ -4,9 +4,7 @@ use thiserror::Error;
 
 use crate::context::TransactionContext;
 use crate::fee::actual_cost::ActualCost;
-use crate::fee::fee_utils::{
-    calculate_tx_gas_vector, get_balance_and_if_covers_fee, get_fee_by_gas_vector,
-};
+use crate::fee::fee_utils::{get_balance_and_if_covers_fee, get_fee_by_gas_vector};
 use crate::fee::gas_usage::compute_discounted_gas_from_gas_vector;
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
@@ -90,8 +88,8 @@ impl FeeCheckReport {
         tx_context: &TransactionContext,
         actual_cost: &ActualCost,
     ) -> TransactionExecutionResult<()> {
-        let ActualCost { actual_fee, actual_resources, .. } = actual_cost;
-        let TransactionContext { tx_info, block_context } = tx_context;
+        let ActualCost { actual_fee, actual_gas_cost, .. } = actual_cost;
+        let TransactionContext { tx_info, .. } = tx_context;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
@@ -104,10 +102,8 @@ impl FeeCheckReport {
                 // TODO(Dori, 1/7/2024): When data gas limit is added (and enforced) in resource
                 //   bounds, check it here as well (separately, with a different error variant if
                 //   limit exceeded).
-                let total_discounted_gas_used = compute_discounted_gas_from_gas_vector(
-                    &calculate_tx_gas_vector(actual_resources, &block_context.versioned_constants)?,
-                    tx_context,
-                );
+                let total_discounted_gas_used =
+                    compute_discounted_gas_from_gas_vector(actual_gas_cost, tx_context);
 
                 if total_discounted_gas_used > max_l1_gas {
                     return Err(FeeCheckError::MaxL1GasAmountExceeded {
