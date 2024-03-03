@@ -9,7 +9,6 @@ use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ClassInfo;
-use crate::fee::gas_usage::get_tx_events_gas_cost;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -164,15 +163,8 @@ impl<'a> ActualCostBuilder<'a> {
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
 
-        self.starknet_resources.set_messages_resources(non_optional_call_infos.clone())?;
-        self.starknet_resources.set_events_resources(
-            non_optional_call_infos,
-            &self.tx_context.block_context.versioned_constants,
-            non_optional_call_infos,
-            &self.starknet_resources,
-            use_kzg_da,
-        )?;
-        );
+        // Set the events and messages resources from the transaction's call infos.
+        self.starknet_resources.set_events_and_messages_resources(non_optional_call_infos)?;
 
         let mut actual_resources = calculate_tx_resources(
             &self.tx_context.block_context.versioned_constants,

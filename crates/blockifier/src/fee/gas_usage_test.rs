@@ -6,9 +6,9 @@ use starknet_api::transaction::{EventContent, EventData, EventKey};
 use crate::abi::constants;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};
 use crate::fee::eth_gas_constants;
-use crate::fee::gas_usage::{get_da_gas_cost, get_message_segment_length, get_tx_events_gas_cost};
+use crate::fee::gas_usage::{get_da_gas_cost, get_message_segment_length};
 use crate::state::cached_state::StateChangesCount;
-use crate::transaction::objects::GasVector;
+use crate::transaction::objects::{GasVector, StarknetResources};
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::{ResourceCost, VersionedConstants};
 #[fixture]
@@ -17,16 +17,23 @@ fn versioned_constants() -> &'static VersionedConstants {
 }
 
 #[rstest]
-fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
+fn test_get_event_gas_cost(
+    versioned_constants: &VersionedConstants,
+    #[values(false, true)] use_kzg_da: bool,
+) {
     let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
     let (event_key_factor, data_word_cost) =
         (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.gas_per_data_felt);
-
-    let call_info_1 = &CallInfo::default();
-    let call_info_2 = &CallInfo::default();
-    let call_info_3 = &CallInfo::default();
+    let call_info_1 = Some(CallInfo::default());
+    let call_info_2 = Some(CallInfo::default());
+    let call_info_3 = Some(CallInfo::default());
     let call_infos = call_info_1.iter().chain(call_info_2.iter()).chain(call_info_3.iter());
-    assert_eq!(GasVector::default(), get_tx_events_gas_cost(call_infos, versioned_constants));
+    let starknet_resources =
+        StarknetResources::new(0, 0, None, StateChangesCount::default(), None, call_infos).unwrap();
+    assert_eq!(
+        GasVector::default(),
+        starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
+    );
 
     let create_event = |keys_size: usize, data_size: usize| OrderedEvent {
         order: 0,
@@ -35,34 +42,36 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
             data: EventData(vec![StarkFelt::ZERO; data_size]),
         },
     };
-    let call_info_1 = &CallInfo {
+    let call_info_1 = Some(CallInfo {
         execution: CallExecution {
             events: vec![create_event(1, 2), create_event(1, 2)],
             ..Default::default()
         },
         ..Default::default()
-    };
-    let call_info_2 = &CallInfo {
+    });
+    let call_info_2 = Some(CallInfo {
         execution: CallExecution {
             events: vec![create_event(1, 0), create_event(0, 1)],
             ..Default::default()
         },
         ..Default::default()
-    };
-    let call_info_3 = &CallInfo {
+    });
+    let call_info_3 = Some(CallInfo {
         execution: CallExecution { events: vec![create_event(0, 1)], ..Default::default() },
         inner_calls: vec![CallInfo {
             execution: CallExecution { events: vec![create_event(1, 0)], ..Default::default() },
             ..Default::default()
         }],
         ..Default::default()
-    };
+    });
     let call_infos = call_info_1.iter().chain(call_info_2.iter()).chain(call_info_3.iter());
     let expected = GasVector::from_l1_gas(
         // 4 keys and 6 data words overall.
         (data_word_cost * (event_key_factor * 4_u128 + 6_u128)).to_integer(),
     );
-    let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
+    let starknet_resources =
+        StarknetResources::new(0, 0, None, StateChangesCount::default(), None, call_infos).unwrap();
+    let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
     assert_eq!(expected, gas_vector);
     assert_ne!(GasVector::default(), gas_vector)
 }

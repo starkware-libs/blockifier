@@ -6,7 +6,6 @@ use starknet_api::transaction::{Fee, L2ToL1Payload, TransactionVersion};
 
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
-use crate::fee::actual_cost::ActualCostBuilder;
 use crate::fee::eth_gas_constants;
 use crate::fee::gas_usage::{
     get_consumed_message_to_l2_emissions_cost, get_log_message_to_l1_emissions_cost,
@@ -45,13 +44,9 @@ fn versioned_constants() -> &'static VersionedConstants {
 fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool) {
     // An empty transaction (a theoretical case for sanity check).
     let versioned_constants = VersionedConstants::default();
-    let empty_tx_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-        &versioned_constants,
-        std::iter::empty(),
-        &StarknetResources::default(),
-        use_kzg_da,
-    )
-    .unwrap();
+    let empty_tx_starknet_resources = StarknetResources::default();
+    let empty_tx_gas_usage_vector =
+        empty_tx_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
     assert_eq!(empty_tx_gas_usage_vector, GasVector::default());
 
     // Declare.
@@ -75,13 +70,8 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
             );
         let manual_gas_vector =
             GasVector { l1_gas: code_gas_cost.to_integer(), ..Default::default() };
-        let declare_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-            &versioned_constants,
-            std::iter::empty(),
-            &declare_tx_starknet_resources,
-            use_kzg_da,
-        )
-        .unwrap();
+        let declare_gas_usage_vector =
+            declare_tx_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
         assert_eq!(manual_gas_vector, declare_gas_usage_vector);
     }
 
@@ -97,7 +87,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     // Manual calculation.
     let calldata_length = 0;
     let signature_length = 2;
-    let deploy_tx_starknet_resources = StarknetResources::new(
+    let deploy_account_tx_starknet_resources = StarknetResources::new(
         calldata_length,
         signature_length,
         None,
@@ -111,15 +101,10 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
             * u128_from_usize(calldata_length + signature_length);
     let manual_starknet_gas_usage = calldata_and_signature_gas_cost.to_integer();
     let manual_gas_vector = GasVector { l1_gas: manual_starknet_gas_usage, ..Default::default() }
-        + deploy_tx_starknet_resources.get_state_changes_cost(use_kzg_da);
+        + deploy_account_tx_starknet_resources.get_state_changes_cost(use_kzg_da);
 
-    let deploy_account_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-        &versioned_constants,
-        std::iter::empty(),
-        &deploy_tx_starknet_resources,
-        use_kzg_da,
-    )
-    .unwrap();
+    let deploy_account_gas_usage_vector =
+        deploy_account_tx_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
     assert_eq!(manual_gas_vector, deploy_account_gas_usage_vector);
 
     // L1 handler.
@@ -134,13 +119,8 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
         std::iter::empty(),
     )
     .unwrap();
-    let l1_handler_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-        &versioned_constants,
-        std::iter::empty(),
-        &l1_handler_tx_starknet_resources,
-        use_kzg_da,
-    )
-    .unwrap();
+    let l1_handler_gas_usage_vector =
+        l1_handler_tx_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&[], Some(l1_handler_payload_size));
@@ -204,13 +184,8 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     )
     .unwrap();
 
-    let l2_to_l1_messages_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-        &versioned_constants,
-        call_infos_iter.clone(),
-        &l2_to_l1_starknet_resources,
-        use_kzg_da,
-    )
-    .unwrap();
+    let l2_to_l1_messages_gas_usage_vector =
+        l2_to_l1_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
 
     // Manual calculation.
     let message_segment_length = get_message_segment_length(&l2_to_l1_payload_lengths, None);
@@ -251,13 +226,9 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
         std::iter::empty(),
     )
     .unwrap();
-    let storage_writings_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-        &versioned_constants,
-        std::iter::empty(),
-        &storage_writes_starknet_resources,
-        use_kzg_da,
-    )
-    .unwrap();
+
+    let storage_writings_gas_usage_vector =
+        storage_writes_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
 
     // Manual calculation.
     let manual_gas_computation =
@@ -283,13 +254,8 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     )
     .unwrap();
 
-    let gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-        &versioned_constants,
-        call_infos_iter,
-        &combined_cases_starknet_resources,
-        use_kzg_da,
-    )
-    .unwrap();
+    let gas_usage_vector =
+        combined_cases_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
 
     // Manual calculation.
     let fee_balance_discount = match use_kzg_da {
@@ -358,13 +324,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     )
     .unwrap();
 
-    let gas_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-        versioned_constants,
-        std::iter::empty(),
-        &starknet_resources,
-        use_kzg_da,
-    )
-    .unwrap();
+    let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
+
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(u128_from_usize(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
     assert_eq!(
@@ -415,13 +376,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
     )
     .unwrap();
-    let gas_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
-        versioned_constants,
-        std::iter::empty(),
-        &starknet_resources,
-        use_kzg_da,
-    )
-    .unwrap();
+
+    let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
     assert_eq!(u128_from_usize(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
     assert_eq!(
