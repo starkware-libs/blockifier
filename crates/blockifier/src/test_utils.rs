@@ -30,52 +30,16 @@ use crate::versioned_constants::VersionedConstants;
 // TODO(Dori, 1/2/2024): Remove these constants once all tests use the `contracts` and
 //   `initial_test_state` modules for testing.
 // Addresses.
-pub const TEST_CONTRACT_ADDRESS: &str = "0x100";
-pub const TEST_CONTRACT_ADDRESS_2: &str = "0x200";
-pub const SECURITY_TEST_CONTRACT_ADDRESS: &str = "0x300";
-pub const LEGACY_TEST_CONTRACT_ADDRESS: &str = "0x400";
-pub const TEST_ACCOUNT_CONTRACT_ADDRESS: &str = "0x101";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS: &str = "0x102";
 pub const TEST_SEQUENCER_ADDRESS: &str = "0x1000";
 pub const TEST_ERC20_CONTRACT_ADDRESS: &str = "0x1001";
 pub const TEST_ERC20_CONTRACT_ADDRESS2: &str = "0x1002";
 
 // Class hashes.
-pub const TEST_CLASS_HASH: &str = "0x110";
-pub const TEST_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x111";
-pub const TEST_EMPTY_CONTRACT_CLASS_HASH: &str = "0x112";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_CLASS_HASH: &str = "0x113";
-pub const SECURITY_TEST_CLASS_HASH: &str = "0x114";
-pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO0: &str = "0x115";
-pub const TEST_GRINDY_ACCOUNT_CONTRACT_CLASS_HASH_CAIRO1: &str = "0x116";
-pub const LEGACY_TEST_CLASS_HASH: &str = "0x117";
 // TODO(Adi, 15/01/2023): Remove and compute the class hash corresponding to the ERC20 contract in
 // starkgate once we use the real ERC20 contract.
 pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 
 // Paths.
-pub const ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/account_with_dummy_validate.casm.json";
-pub const ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/account_with_dummy_validate_compiled.json";
-pub const GRINDY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/account_with_long_validate_compiled.json";
-pub const GRINDY_ACCOUNT_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/account_with_long_validate.casm.json";
-pub const TEST_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/test_contract_compiled.json";
-pub const TEST_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/test_contract.casm.json";
-pub const LEGACY_TEST_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/legacy_test_contract.casm.json";
-pub const SECURITY_TEST_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/security_tests_contract_compiled.json";
-pub const TEST_EMPTY_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/empty_contract_compiled.json";
-pub const TEST_EMPTY_CONTRACT_CAIRO1_PATH: &str =
-    "./feature_contracts/cairo1/compiled/empty_contract.casm.json";
-pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
-    "./feature_contracts/cairo0/compiled/account_faulty_compiled.json";
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 
@@ -94,12 +58,6 @@ impl Default for CairoVersion {
 // Storage keys.
 pub fn test_erc20_sequencer_balance_key() -> StorageKey {
     get_fee_token_var_address(contract_address!(TEST_SEQUENCER_ADDRESS))
-}
-pub fn test_erc20_account_balance_key() -> StorageKey {
-    get_fee_token_var_address(contract_address!(TEST_ACCOUNT_CONTRACT_ADDRESS))
-}
-pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
-    get_fee_token_var_address(contract_address!(TEST_FAULTY_ACCOUNT_CONTRACT_ADDRESS))
 }
 
 // The max_fee / resource bounds used for txs in this test.
