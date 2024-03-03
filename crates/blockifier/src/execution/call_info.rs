@@ -33,7 +33,7 @@ pub struct OrderedEvent {
     pub event: EventContent,
 }
 
-#[derive(Debug, Default, Eq, PartialEq, Clone)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Serialize)]
 pub struct MessageL1CostInfo {
     pub l2_to_l1_payload_lengths: Vec<usize>,
     pub message_segment_length: usize,

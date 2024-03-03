@@ -20,7 +20,7 @@ use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::TransactionExecutionInfo;
+use crate::transaction::objects::{ExecutionResourcesTraits, TransactionExecutionInfo};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 
@@ -141,7 +141,7 @@ impl<S: StateReader> TransactionExecutor<S> {
 
                 // Finalize counting logic.
                 let bouncer_info = BouncerInfo::calculate(
-                    &tx_execution_info.bouncer_resources,
+                    &tx_execution_info.bouncer_resources.vm_resources.to_resources_mapping(),
                     starknet_gas_usage,
                     additional_os_resources,
                     message_cost_info.message_segment_length,

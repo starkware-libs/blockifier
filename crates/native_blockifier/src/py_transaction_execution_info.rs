@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use blockifier::blockifier::bouncer::BouncerInfo;
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::execution::entry_point::CallType;
-use blockifier::transaction::objects::TransactionExecutionInfo;
+use blockifier::transaction::objects::{ExecutionResourcesTraits, TransactionExecutionInfo};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use pyo3::prelude::*;
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -35,7 +35,7 @@ impl From<TransactionExecutionInfo> for PyTransactionExecutionInfo {
             execute_call_info: info.execute_call_info.map(PyCallInfo::from),
             fee_transfer_call_info: info.fee_transfer_call_info.map(PyCallInfo::from),
             actual_fee: info.actual_fee.0,
-            actual_resources: info.actual_resources.0,
+            actual_resources: info.actual_resources.vm_resources.to_resources_mapping().0,
             revert_error: info.revert_error,
         }
     }

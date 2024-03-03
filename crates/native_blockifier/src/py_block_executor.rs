@@ -8,7 +8,9 @@ use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::State;
-use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionInfo};
+use blockifier::transaction::objects::{
+    ExecutionResourcesTraits, GasVector, ResourcesMapping, TransactionExecutionInfo,
+};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
@@ -60,7 +62,10 @@ impl From<TransactionExecutionInfo> for ThinTransactionExecutionInfo {
             fee_transfer_call_info: tx_execution_info.fee_transfer_call_info,
             actual_fee: tx_execution_info.actual_fee,
             da_gas: tx_execution_info.da_gas,
-            actual_resources: tx_execution_info.actual_resources,
+            actual_resources: tx_execution_info
+                .actual_resources
+                .vm_resources
+                .to_resources_mapping(),
             revert_error: tx_execution_info.revert_error,
         }
     }
