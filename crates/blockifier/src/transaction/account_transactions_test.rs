@@ -20,15 +20,13 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
-use crate::abi::constants as abi_constants;
-use crate::abi::constants::N_STEPS_RESOURCE;
 use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::SyscallSelector;
-use crate::fee::fee_utils::{calculate_tx_gas_vector, get_fee_by_gas_vector};
+use crate::fee::fee_utils::get_fee_by_gas_vector;
 use crate::fee::gas_usage::estimate_minimal_gas_vector;
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::state_api::{State, StateReader};
@@ -483,14 +481,23 @@ fn test_revert_invoke(
 
     // Check that the bouncer resources have less cairo steps, and are identical to actual resources
     // apart from that.
-    let mut bouncer_resources = tx_execution_info.bouncer_resources.clone();
-    let mut actual_resources = tx_execution_info.actual_resources.clone();
-    let bouncer_steps = bouncer_resources.0.remove(N_STEPS_RESOURCE).unwrap();
-    let actual_steps = actual_resources.0.remove(N_STEPS_RESOURCE).unwrap();
+    let bouncer_resources = tx_execution_info.bouncer_resources.clone();
+    let actual_resources = tx_execution_info.actual_resources.clone();
+    let bouncer_steps = bouncer_resources.vm_resources.n_steps;
+    let actual_steps = actual_resources.vm_resources.n_steps;
     if bouncer_steps >= actual_steps {
         panic!("Expected {} < {}.", bouncer_steps, actual_steps);
     }
-    assert_eq!(bouncer_resources.0, actual_resources.0);
+    // Bouncer resources and actual resources should be identical apart from n_steps.
+    assert_eq!(bouncer_resources.starknet_resources, actual_resources.starknet_resources);
+    assert_eq!(
+        bouncer_resources.vm_resources.builtin_instance_counter,
+        actual_resources.vm_resources.builtin_instance_counter
+    );
+    assert_eq!(
+        bouncer_resources.vm_resources.n_memory_holes,
+        actual_resources.vm_resources.n_memory_holes
+    );
 
     // Check that execution state changes were reverted.
     assert_eq!(
@@ -644,7 +651,7 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_0 = result.actual_resources.n_steps();
+    let n_steps_0 = result.actual_resources.vm_resources.n_steps;
     let actual_fee_0 = result.actual_fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
@@ -660,7 +667,7 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_1 = result.actual_resources.n_steps();
+    let n_steps_1 = result.actual_resources.vm_resources.n_steps;
     let actual_fee_1 = result.actual_fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
@@ -687,7 +694,7 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_fail = result.actual_resources.n_steps();
+    let n_steps_fail = result.actual_resources.vm_resources.n_steps;
     let actual_fee_fail: u128 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -708,7 +715,7 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_fail_next = result.actual_resources.n_steps();
+    let n_steps_fail_next = result.actual_resources.vm_resources.n_steps;
     let actual_fee_fail_next: u128 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -749,7 +756,7 @@ fn test_n_reverted_steps(
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
     let mut actual_resources_0 = result.actual_resources.clone();
-    let n_steps_0 = result.actual_resources.n_steps();
+    let n_steps_0 = result.actual_resources.vm_resources.n_steps;
     let actual_fee_0 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 1 iterations. This call should fail.
@@ -766,7 +773,7 @@ fn test_n_reverted_steps(
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
     let actual_resources_1 = result.actual_resources;
-    let n_steps_1 = actual_resources_1.n_steps();
+    let n_steps_1 = actual_resources_1.vm_resources.n_steps;
     let actual_fee_1 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 2 iterations. This call should fail.
@@ -780,7 +787,7 @@ fn test_n_reverted_steps(
         },
     )
     .unwrap();
-    let n_steps_2 = result.actual_resources.n_steps();
+    let n_steps_2 = result.actual_resources.vm_resources.n_steps;
     let actual_fee_2 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -797,11 +804,9 @@ fn test_n_reverted_steps(
 
     // Make sure the resources in block of invocation 0 and 1 are the same, except for the number
     // of cairo steps.
-    actual_resources_0
-        .0
-        .insert(abi_constants::N_STEPS_RESOURCE.to_string(), n_steps_0 + single_call_steps_delta);
+    actual_resources_0.vm_resources.n_steps = n_steps_0 + single_call_steps_delta;
     assert_eq!(actual_resources_0, actual_resources_1);
-    actual_resources_0.0.insert(abi_constants::N_STEPS_RESOURCE.to_string(), n_steps_0);
+    actual_resources_0.vm_resources.n_steps = n_steps_0;
 
     // Invoke the `recursive_fail` function with 100 iterations. This call should fail.
     let result = run_invoke_tx(
@@ -814,7 +819,7 @@ fn test_n_reverted_steps(
         },
     )
     .unwrap();
-    let n_steps_100 = result.actual_resources.n_steps();
+    let n_steps_100 = result.actual_resources.vm_resources.n_steps;
     let actual_fee_100 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -862,12 +867,11 @@ fn test_max_fee_to_max_steps_conversion(
     let execution_context1 = EntryPointExecutionContext::new_invoke(tx_context1, true).unwrap();
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
-    let n_steps1 = tx_execution_info1.actual_resources.n_steps();
-    let gas_used_vector1 = calculate_tx_gas_vector(
-        &tx_execution_info1.actual_resources,
-        &block_context.versioned_constants,
-    )
-    .unwrap();
+    let n_steps1 = tx_execution_info1.actual_resources.vm_resources.n_steps;
+    let gas_used_vector1 = tx_execution_info1
+        .actual_resources
+        .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
+        .unwrap();
 
     // Second invocation of `with_arg` gets twice the pre-calculated actual fee as max_fee.
     let account_tx2 = account_invoke_tx(invoke_tx_args! {
@@ -882,12 +886,11 @@ fn test_max_fee_to_max_steps_conversion(
     let execution_context2 = EntryPointExecutionContext::new_invoke(tx_context2, true).unwrap();
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
-    let n_steps2 = tx_execution_info2.actual_resources.n_steps();
-    let gas_used_vector2 = calculate_tx_gas_vector(
-        &tx_execution_info2.actual_resources,
-        &block_context.versioned_constants,
-    )
-    .unwrap();
+    let n_steps2 = tx_execution_info2.actual_resources.vm_resources.n_steps;
+    let gas_used_vector2 = tx_execution_info2
+        .actual_resources
+        .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
+        .unwrap();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
     assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());

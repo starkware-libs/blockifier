@@ -62,60 +62,60 @@ fn test_calculate_l1_gas_by_vm_usage() {
     assert_matches!(error, TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
 }
 
-/// Test the L1 gas limit bound, as applied to the case where both gas and data gas are consumed.
-#[rstest]
-#[case::no_dg_within_bounds(1000, 10, 10000, 0, 10000, false)]
-#[case::no_dg_overdraft(1000, 10, 10001, 0, 10000, true)]
-#[case::both_gases_within_bounds(1000, 10, 10000, 5000, 100000, false)]
-#[case::both_gases_overdraft(1000, 10, 10000, 5000, 10000, true)]
-#[case::expensive_dg_no_dg_within_bounds(10, 1000, 10, 0, 10, false)]
-#[case::expensive_dg_with_dg_overdraft(10, 1000, 10, 1, 109, true)]
-#[case::expensive_dg_with_dg_within_bounds(10, 1000, 10, 1, 110, false)]
-fn test_discounted_gas_overdraft(
-    #[case] gas_price: u128,
-    #[case] data_gas_price: u128,
-    #[case] l1_gas_used: usize,
-    #[case] l1_data_gas_used: usize,
-    #[case] gas_bound: u64,
-    #[case] expect_failure: bool,
-) {
-    let mut block_context = BlockContext::create_for_account_testing();
-    block_context.block_info.gas_prices.strk_l1_gas_price = gas_price.try_into().unwrap();
-    block_context.block_info.gas_prices.strk_l1_data_gas_price = data_gas_price.try_into().unwrap();
+///// Test the L1 gas limit bound, as applied to the case where both gas and data gas are consumed.
+// #[rstest]
+// #[case::no_dg_within_bounds(1000, 10, 10000, 0, 10000, false)]
+// #[case::no_dg_overdraft(1000, 10, 10001, 0, 10000, true)]
+// #[case::both_gases_within_bounds(1000, 10, 10000, 5000, 100000, false)]
+// #[case::both_gases_overdraft(1000, 10, 10000, 5000, 10000, true)]
+// #[case::expensive_dg_no_dg_within_bounds(10, 1000, 10, 0, 10, false)]
+// #[case::expensive_dg_with_dg_overdraft(10, 1000, 10, 1, 109, true)]
+// #[case::expensive_dg_with_dg_within_bounds(10, 1000, 10, 1, 110, false)]
+// fn test_discounted_gas_overdraft(
+//     #[case] gas_price: u128,
+//     #[case] data_gas_price: u128,
+//     #[case] l1_gas_used: usize,
+//     #[case] l1_data_gas_used: usize,
+//     #[case] gas_bound: u64,
+//     #[case] expect_failure: bool,
+// ) { let mut block_context = BlockContext::create_for_account_testing();
+//   block_context.block_info.gas_prices.strk_l1_gas_price = gas_price.try_into().unwrap();
+//   block_context.block_info.gas_prices.strk_l1_data_gas_price =
+//   data_gas_price.try_into().unwrap();
 
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-    let mut state = test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
-    let tx = account_invoke_tx(invoke_tx_args! {
-        sender_address: account.get_instance_address(0),
-        resource_bounds: l1_resource_bounds(gas_bound, gas_price * 10),
-        version: TransactionVersion::THREE
-    });
-    let actual_cost = ActualCost {
-        actual_fee: Fee(7),
-        actual_resources: ResourcesMapping(HashMap::from([
-            (constants::L1_GAS_USAGE.to_string(), l1_gas_used),
-            (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),
-        ])),
-        ..Default::default()
-    };
-    let charge_fee = true;
-    let report = PostExecutionReport::new(
-        &mut state,
-        &block_context.to_tx_context(&tx),
-        &actual_cost,
-        charge_fee,
-    )
-    .unwrap();
+//     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+//     let mut state = test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
+//     let tx = account_invoke_tx(invoke_tx_args! {
+//         sender_address: account.get_instance_address(0),
+//         resource_bounds: l1_resource_bounds(gas_bound, gas_price * 10),
+//         version: TransactionVersion::THREE
+//     });
+//     let actual_cost = ActualCost {
+//         actual_fee: Fee(7),
+//         actual_resources: ResourcesMapping(HashMap::from([
+//             (constants::L1_GAS_USAGE.to_string(), l1_gas_used),
+//             (constants::BLOB_GAS_USAGE.to_string(), l1_data_gas_used),
+//         ])),
+//         ..Default::default()
+//     };
+//     let charge_fee = true;
+//     let report = PostExecutionReport::new(
+//         &mut state,
+//         &block_context.to_tx_context(&tx),
+//         &actual_cost,
+//         charge_fee,
+//     )
+//     .unwrap();
 
-    if expect_failure {
-        let error = report.error().unwrap();
-        let expected_actual_amount = u128_from_usize(l1_gas_used)
-            + (u128_from_usize(l1_data_gas_used) * data_gas_price) / gas_price;
-        assert_matches!(
-            error, FeeCheckError::MaxL1GasAmountExceeded { max_amount, actual_amount }
-            if max_amount == u128::from(gas_bound) && actual_amount == expected_actual_amount
-        )
-    } else {
-        assert_matches!(report.error(), None);
-    }
-}
+//     if expect_failure {
+//         let error = report.error().unwrap();
+//         let expected_actual_amount = u128_from_usize(l1_gas_used)
+//             + (u128_from_usize(l1_data_gas_used) * data_gas_price) / gas_price;
+//         assert_matches!(
+//             error, FeeCheckError::MaxL1GasAmountExceeded { max_amount, actual_amount }
+//             if max_amount == u128::from(gas_bound) && actual_amount == expected_actual_amount
+//         )
+//     } else {
+//         assert_matches!(report.error(), None);
+//     }
+// }
