@@ -17,7 +17,7 @@ use crate::execution::contract_class::ClassInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::fee::gas_usage::{get_da_gas_cost, get_messages_gas_usage};
+use crate::fee::gas_usage::{get_da_gas_cost, get_events_gas_cost, get_messages_gas_usage};
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::constants;
 use crate::transaction::errors::{
@@ -262,7 +262,6 @@ pub struct StarknetResources {
     pub l1_handler_payload_size: Option<usize>,
     signature_length: usize,
     code_size: usize,
-    message_segment_length: usize,
     events_cost: u128,
 }
 
@@ -282,6 +281,7 @@ impl StarknetResources {
             state_changes_count,
             l1_handler_payload_size,
             message_cost_info: MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?,
+            events_cost: 0,
         })
     }
 
@@ -313,6 +313,18 @@ impl StarknetResources {
             MessageL1CostInfo::calculate(call_infos, self.l1_handler_payload_size)?;
 
         Ok(())
+    }
+
+    /// Sets the events_cost field according to the versioned_constants and call_infos of a
+    /// transaction.
+    pub fn set_events_resources<'a>(
+        &mut self,
+        call_infos: impl Iterator<Item = &'a CallInfo>,
+        versioned_constants: &VersionedConstants,
+    ) {
+        self.events_cost = call_infos
+            .map(|call_info| get_events_gas_cost(&call_info.execution.events, versioned_constants))
+            .sum();
     }
 
     // Returns the gas cost for transaction calldata and transaction signature. Each felt costs a
