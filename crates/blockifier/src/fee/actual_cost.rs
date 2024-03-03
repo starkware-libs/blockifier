@@ -8,7 +8,7 @@ use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ClassInfo;
-use crate::fee::gas_usage::{get_messages_gas_cost, get_tx_events_gas_cost};
+use crate::fee::gas_usage::get_tx_events_gas_cost;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -58,7 +58,6 @@ pub struct ActualCostBuilder<'a> {
     execute_call_info: Option<&'a CallInfo>,
     state_changes: StateChanges,
     sender_address: Option<ContractAddress>,
-    l1_payload_size: Option<usize>,
     n_reverted_steps: usize,
 }
 
@@ -76,6 +75,8 @@ impl<'a> ActualCostBuilder<'a> {
                 signature_length,
                 None,
                 StateChangesCount::default(),
+                None,
+                std::iter::empty(),
             ),
             sender_address: Some(tx_context.tx_info.sender_address()),
             tx_context,
@@ -83,7 +84,6 @@ impl<'a> ActualCostBuilder<'a> {
             validate_call_info: None,
             execute_call_info: None,
             state_changes: StateChanges::default(),
-            l1_payload_size: None,
             n_reverted_steps: 0,
         }
     }
@@ -131,7 +131,7 @@ impl<'a> ActualCostBuilder<'a> {
     }
 
     pub fn with_l1_payload_size(mut self, l1_payload_size: usize) -> Self {
-        self.l1_payload_size = Some(l1_payload_size);
+        self.starknet_resources.l1_handler_payload_size = Some(l1_payload_size);
         self
     }
 
@@ -163,13 +163,14 @@ impl<'a> ActualCostBuilder<'a> {
         let da_gas = self.starknet_resources.get_state_changes_cost(use_kzg_da);
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
+
+        self.starknet_resources.set_message_resources(non_optional_call_infos.clone())?;
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability.
         let gas_usage_vector = Self::calculate_tx_gas_usage_vector(
             &self.tx_context.block_context.versioned_constants,
             non_optional_call_infos,
             &self.starknet_resources,
-            self.l1_payload_size,
             use_kzg_da,
         )?;
 
@@ -213,11 +214,9 @@ impl<'a> ActualCostBuilder<'a> {
         versioned_constants: &VersionedConstants,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
         starknet_resources: &StarknetResources,
-        l1_handler_payload_size: Option<usize>,
         use_kzg_da: bool,
     ) -> TransactionExecutionResult<GasVector> {
-        Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
-            + starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
+        Ok(starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
             + get_tx_events_gas_cost(call_infos, versioned_constants))
     }
 }
