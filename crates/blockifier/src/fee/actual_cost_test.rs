@@ -317,13 +317,12 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
     );
 
-    let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
-
-    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
-    assert_eq!(u128_from_usize(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
     assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()),
-        l1_blob_gas_usage
+        starknet_resources.to_gas_vector(versioned_constants, use_kzg_da),
+        tx_execution_info
+            .actual_resources
+            .starknet_resources
+            .to_gas_vector(versioned_constants, use_kzg_da)
     );
 
     // A tx that changes the account and some other balance in execute.
@@ -369,11 +368,11 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         std::iter::empty(),
     );
 
-    let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
-    let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
-    assert_eq!(u128_from_usize(tx_execution_info.actual_resources.gas_usage()), l1_gas_usage);
     assert_eq!(
-        u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()),
-        l1_blob_gas_usage
+        starknet_resources.to_gas_vector(versioned_constants, use_kzg_da),
+        tx_execution_info
+            .actual_resources
+            .starknet_resources
+            .to_gas_vector(versioned_constants, use_kzg_da)
     );
 }
