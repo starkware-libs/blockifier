@@ -497,8 +497,7 @@ fn test_invoke_tx(
     );
 
     let da_gas = starknet_resources.get_state_changes_cost(use_kzg_da);
-    let calldata_and_signature_gas =
-        starknet_resources.get_calldata_and_signature_cost(versioned_constants);
+    let gas_uage_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
 
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
@@ -506,8 +505,7 @@ fn test_invoke_tx(
         calldata_length,
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
-    let actual_resources =
-        get_actual_resources(expected_cairo_resources, da_gas + calldata_and_signature_gas);
+    let actual_resources = get_actual_resources(expected_cairo_resources, gas_uage_vector);
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -1190,7 +1188,7 @@ fn test_declare_tx(
     );
 
     let da_gas = starknet_resources.get_state_changes_cost(use_kzg_da);
-    let code_gas = starknet_resources.get_code_cost(versioned_constants);
+    let gas_usage_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
     let expected_cairo_resources = get_expected_cairo_resources(
         versioned_constants,
         TransactionType::Declare,
@@ -1198,7 +1196,7 @@ fn test_declare_tx(
         vec![&expected_validate_call_info],
     );
 
-    let actual_resources = get_actual_resources(expected_cairo_resources, code_gas + da_gas);
+    let actual_resources = get_actual_resources(expected_cairo_resources, gas_usage_vector);
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,

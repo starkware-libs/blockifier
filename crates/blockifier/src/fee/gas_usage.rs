@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
-use crate::execution::call_info::{CallInfo, MessageL1CostInfo, OrderedEvent};
+use crate::execution::call_info::MessageL1CostInfo;
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::state::cached_state::StateChangesCount;
@@ -11,41 +11,10 @@ use crate::transaction::objects::{
     GasVector, HasRelatedFeeType, ResourcesMapping, TransactionPreValidationResult,
 };
 use crate::utils::{u128_from_usize, usize_from_u128};
-use crate::versioned_constants::{ResourceCost, VersionedConstants};
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
 pub mod test;
-
-pub fn get_tx_events_gas_cost<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
-    versioned_constants: &VersionedConstants,
-) -> GasVector {
-    let l1_gas = call_infos
-        .map(|call_info| get_events_gas_cost(&call_info.execution.events, versioned_constants))
-        .sum();
-    GasVector::from_l1_gas(l1_gas)
-}
-
-pub fn get_events_gas_cost(
-    events: &[OrderedEvent],
-    versioned_constants: &VersionedConstants,
-) -> u128 {
-    let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
-    let (event_key_factor, data_word_cost) =
-        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.gas_per_data_felt);
-    events
-        .iter()
-        .map(|OrderedEvent { event, .. }| {
-            // TODO(barak: 18/03/2024): Once we start charging per byte change to num_bytes_keys and
-            // num_bytes_data.
-            let keys_size = u128_from_usize(event.keys.len());
-            let data_size = u128_from_usize(event.data.0.len());
-            data_word_cost * (event_key_factor * keys_size + data_size)
-        })
-        .sum::<ResourceCost>()
-        .to_integer()
-}
 
 // Returns an estimation of the gas usage of the Starknet contract when processing L1<>L2 messages
 // on L1.

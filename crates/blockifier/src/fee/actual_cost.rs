@@ -9,7 +9,6 @@ use crate::abi::constants as abi_constants;
 use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ClassInfo;
-use crate::fee::gas_usage::get_tx_events_gas_cost;
 use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
@@ -17,7 +16,6 @@ use crate::transaction::objects::{
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::calculate_tx_resources;
-use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "actual_cost_test.rs"]
@@ -165,20 +163,12 @@ impl<'a> ActualCostBuilder<'a> {
         let non_optional_call_infos =
             self.validate_call_info.into_iter().chain(self.execute_call_info);
 
-        self.starknet_resources.set_messages_resources(non_optional_call_infos.clone())?;
-        // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
-        // availability.
-        let gas_usage_vector = Self::calculate_tx_gas_usage_vector(
-            &self.tx_context.block_context.versioned_constants,
-            non_optional_call_infos,
-            &self.starknet_resources,
-            use_kzg_da,
-        )?;
+        // Set the events and messages resources from the transaction's call infos.
+        self.starknet_resources.set_events_and_messages_resources(non_optional_call_infos)?;
 
         let mut actual_resources = calculate_tx_resources(
             &self.tx_context.block_context.versioned_constants,
             execution_resources,
-            gas_usage_vector,
             self.tx_type,
             &self.starknet_resources,
             use_kzg_da,
@@ -202,20 +192,5 @@ impl<'a> ActualCostBuilder<'a> {
         };
 
         Ok((ActualCost { actual_fee, da_gas, actual_resources }, bouncer_resources))
-    }
-
-    /// Returns the gas usage of a transaction, specifically:
-    /// * L1 gas, used by Starknet's state update and the Verifier, e.g., a message from L2 to L1 is
-    ///   followed by a storage write operation on L1.
-    /// * L1 data gas, for publishing data availability.
-    /// * L2 resources cost, e.g., for storing transaction calldata.
-    fn calculate_tx_gas_usage_vector(
-        versioned_constants: &VersionedConstants,
-        call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
-        starknet_resources: &StarknetResources,
-        use_kzg_da: bool,
-    ) -> TransactionExecutionResult<GasVector> {
-        Ok(starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
-            + get_tx_events_gas_cost(call_infos, versioned_constants))
     }
 }
