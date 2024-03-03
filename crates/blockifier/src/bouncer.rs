@@ -286,24 +286,16 @@ impl<'a> TransactionBouncer<'a> {
         };
 
         if tx_weights.builtin_count.keccak > 0 && !self.transactional.block_contains_keccak {
-            let max_capacity_with_keccak_diff = self
-                .parent
-                .max_capacity
-                .checked_sub(self.parent.max_capacity_with_keccak)
-                .expect("max_capacity_with_keccak should be smaller than max_capacity");
-            self.transactional.available_capacity = self
-                .transactional
-                .available_capacity
-                .checked_sub(max_capacity_with_keccak_diff)
-                .ok_or(TransactionExecutionError::BlockFull)?;
-            self.transactional.block_contains_keccak = true;
+            self.update_available_capacity_with_keccak()?;
         }
 
         // Check if the transaction is too large to fit any block.
-        self.parent
-            .max_capacity
-            .checked_sub(tx_weights)
-            .ok_or(TransactionExecutionError::TxTooLarge)?;
+        let mut max_capacity = self.parent.max_capacity;
+        if self.transactional.block_contains_keccak {
+            max_capacity = self.parent.max_capacity_with_keccak;
+        }
+
+        max_capacity.checked_sub(tx_weights).ok_or(TransactionExecutionError::TxTooLarge)?;
 
         // Check if the transaction can fit the current block available capacity.
         self.transactional.available_capacity = self
@@ -311,6 +303,31 @@ impl<'a> TransactionBouncer<'a> {
             .available_capacity
             .checked_sub(tx_weights)
             .ok_or(TransactionExecutionError::BlockFull)?;
+        Ok(())
+    }
+
+    fn update_available_capacity_with_keccak(&mut self) -> TransactionExecutorResult<()> {
+        // First zero the keccak capacity to be able to subtract the max_capacity_with_keccak from
+        // max_capacity (that is without keccak).
+        let mut max_capacity_with_keccak_tmp = self.parent.max_capacity_with_keccak;
+        max_capacity_with_keccak_tmp.builtin_count.keccak = 0;
+        // compute the diff between the max_capacity and the max_capacity_with_keccak.
+        let max_capacity_with_keccak_diff = self
+            .parent
+            .max_capacity
+            .checked_sub(max_capacity_with_keccak_tmp)
+            .expect("max_capacity_with_keccak should be smaller than max_capacity");
+        // Subtract the diff from the available capacity.
+        self.transactional.available_capacity = self
+            .transactional
+            .available_capacity
+            .checked_sub(max_capacity_with_keccak_diff)
+            .ok_or(TransactionExecutionError::BlockFull)?;
+        // Add back the keccack capacity the we zeroed at the beggining.
+        self.transactional.available_capacity.builtin_count.keccak =
+            self.parent.max_capacity_with_keccak.builtin_count.keccak;
+        // Mark this block as contains keccak.
+        self.transactional.block_contains_keccak = true;
         Ok(())
     }
 
@@ -480,16 +497,41 @@ impl<'a> TransactionBouncer<'a> {
                 - self.transactional.available_capacity.builtin_count.ec_op,
             "yael error in ec_op"
         );
-        assert_eq!(
-            *bouncer_info
-                .execution_resources
-                .builtin_instance_counter
-                .get(BuiltinName::keccak.name())
-                .unwrap(),
-            self.parent.available_capacity.builtin_count.keccak
-                - self.transactional.available_capacity.builtin_count.keccak,
-            "yael error in keccak"
-        );
+        if self.parent.block_contains_keccak && self.transactional.block_contains_keccak {
+            assert_eq!(
+                *bouncer_info
+                    .execution_resources
+                    .builtin_instance_counter
+                    .get(BuiltinName::keccak.name())
+                    .unwrap(),
+                self.parent.available_capacity.builtin_count.keccak
+                    - self.transactional.available_capacity.builtin_count.keccak,
+                "yael error in keccak"
+            );
+        } else if !self.parent.block_contains_keccak && self.transactional.block_contains_keccak {
+            let diff = self.parent.max_capacity_with_keccak.builtin_count.keccak
+                - self.transactional.max_capacity.builtin_count.keccak;
+            assert_eq!(
+                *bouncer_info
+                    .execution_resources
+                    .builtin_instance_counter
+                    .get(BuiltinName::keccak.name())
+                    .unwrap(),
+                self.parent.available_capacity.builtin_count.keccak + diff
+                    - self.transactional.available_capacity.builtin_count.keccak,
+                "yael error in keccak"
+            );
+        } else {
+            assert_eq!(
+                *bouncer_info
+                    .execution_resources
+                    .builtin_instance_counter
+                    .get(BuiltinName::keccak.name())
+                    .unwrap(),
+                0
+            );
+            assert_eq!(self.transactional.available_capacity.builtin_count.keccak, 0)
+        }
         assert_eq!(
             *bouncer_info
                 .execution_resources
