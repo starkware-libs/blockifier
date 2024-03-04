@@ -50,7 +50,7 @@ pub struct VersionedConstants {
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
-    os_constants: Arc<OSConstants>,
+    pub os_constants: Arc<OSConstants>,
 
     // Resources.
     os_resources: Arc<OsResources>,
@@ -377,10 +377,55 @@ impl<'de> Deserialize<'de> for OsResources {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(try_from = "OsConstantsRawJson")]
 pub struct OSConstants {
+    pub gas_costs_struct: GasCosts,
     validate_rounding_consts: ValidateRoundingConsts,
 
     // Invariant: fixed keys.
     gas_costs: IndexMap<String, u64>,
+}
+
+// List of all gas cost constants that *must* be present in the JSON file, all other consts are
+// ignored. See documentation in core/os/constants.cairo.
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct GasCosts {
+    pub step_gas_cost: u64,
+    pub range_check_gas_cost: u64,
+    pub memory_hole_gas_cost: u64,
+    // An estimation of the initial gas for a transaction to run with. This solution is
+    // temporary and this value will become a field of the transaction.
+    pub initial_gas_cost: u64,
+    // ** Compiler gas costs **
+    pub entry_point_initial_budget: u64,
+    // The initial gas budget for a system call (this value is hard-coded by the compiler).
+    // This needs to be high enough to cover OS costs in the case of failure due to out of gas.
+    pub syscall_base_gas_cost: u64,
+    // ** OS gas costs **
+    pub entry_point_gas_cost: u64,
+    pub fee_transfer_gas_cost: u64,
+    pub transaction_gas_cost: u64,
+    // ** Required gas for each syscall **
+    pub call_contract_gas_cost: u64,
+    pub deploy_gas_cost: u64,
+    pub get_block_hash_gas_cost: u64,
+    pub get_execution_info_gas_cost: u64,
+    pub library_call_gas_cost: u64,
+    pub replace_class_gas_cost: u64,
+    pub storage_read_gas_cost: u64,
+    pub storage_write_gas_cost: u64,
+    pub emit_event_gas_cost: u64,
+    pub send_message_to_l1_gas_cost: u64,
+    pub secp256k1_add_gas_cost: u64,
+    pub secp256k1_get_point_from_x_gas_cost: u64,
+    pub secp256k1_get_xy_gas_cost: u64,
+    pub secp256k1_mul_gas_cost: u64,
+    pub secp256k1_new_gas_cost: u64,
+    pub secp256r1_add_gas_cost: u64,
+    pub secp256r1_get_point_from_x_gas_cost: u64,
+    pub secp256r1_get_xy_gas_cost: u64,
+    pub secp256r1_mul_gas_cost: u64,
+    pub secp256r1_new_gas_cost: u64,
+    pub keccak_gas_cost: u64,
+    pub keccak_round_cost_gas_cost: u64,
 }
 
 impl OSConstants {
@@ -447,9 +492,11 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
-        let gas_costs = raw_json_data.get_gas_costs()?;
+        let gas_costs = raw_json_data.parse_gas_costs()?;
+        let json_value = serde_json::to_value(&gas_costs).unwrap();
+        let gas_costs_struct: GasCosts = serde_json::from_value(json_value).unwrap();
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
-        let os_constants = OSConstants { gas_costs, validate_rounding_consts };
+        let os_constants = OSConstants { gas_costs, gas_costs_struct, validate_rounding_consts };
 
         // Skip validation in testing: to test validation run validate manually.
         #[cfg(not(test))]
@@ -470,7 +517,7 @@ struct OsConstantsRawJson {
 }
 
 impl OsConstantsRawJson {
-    fn get_gas_costs(&self) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
+    fn parse_gas_costs(&self) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
         let mut gas_costs = IndexMap::new();
         let gas_cost_whitelist: IndexSet<_> =
             OSConstants::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
