@@ -141,19 +141,19 @@ impl From<BuiltinCount> for HashMapWrapper {
     }
 }
 
-impl From<&ResourcesMapping> for BuiltinCount {
-    fn from(resource_mapping: &ResourcesMapping) -> Self {
-        Self {
-            bitwise: resource_mapping.get_builtin_count(BuiltinName::bitwise.name()),
-            ecdsa: resource_mapping.get_builtin_count(BuiltinName::ecdsa.name()),
-            ec_op: resource_mapping.get_builtin_count(BuiltinName::ec_op.name()),
-            keccak: resource_mapping.get_builtin_count(BuiltinName::keccak.name()),
-            pedersen: resource_mapping.get_builtin_count(BuiltinName::pedersen.name()),
-            poseidon: resource_mapping.get_builtin_count(BuiltinName::poseidon.name()),
-            range_check: resource_mapping.get_builtin_count(BuiltinName::range_check.name()),
-        }
-    }
-}
+// impl From<&ResourcesMapping> for BuiltinCount {
+//     fn from(resource_mapping: &ResourcesMapping) -> Self {
+//         Self {
+//             bitwise: resource_mapping.get_builtin_count(BuiltinName::bitwise.name()),
+//             ecdsa: resource_mapping.get_builtin_count(BuiltinName::ecdsa.name()),
+//             ec_op: resource_mapping.get_builtin_count(BuiltinName::ec_op.name()),
+//             keccak: resource_mapping.get_builtin_count(BuiltinName::keccak.name()),
+//             pedersen: resource_mapping.get_builtin_count(BuiltinName::pedersen.name()),
+//             poseidon: resource_mapping.get_builtin_count(BuiltinName::poseidon.name()),
+//             range_check: resource_mapping.get_builtin_count(BuiltinName::range_check.name()),
+//         }
+//     }
+// }
 
 impl BuiltinCount {
     impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
@@ -366,21 +366,24 @@ impl<'a> TransactionBouncer<'a> {
         println!("yael additional_os_resources {:?}", additional_os_resources);
 
         let additional_builtin_count =
-            BuiltinCount::from(&ResourcesMapping(additional_os_resources.builtin_instance_counter));
+            BuiltinCount::from(additional_os_resources.builtin_instance_counter);
 
         println!("yael additional_builtin_count {:?}", additional_builtin_count);
+
+        // The n_steps counter also includes the count of memory holes.
+        let mut execution_info_resources = execution_info_resources.0.clone();
+        let n_steps = additional_os_resources.n_steps
+            + execution_info_resources
+                .remove(constants::N_STEPS_RESOURCE)
+                .expect("n_steps is missing from execution_info_resources")
+            + additional_os_resources.n_memory_holes
+            + execution_info_resources.remove("n_memory_holes").unwrap_or(0); // TODO: Add a constant for "n_memory_holes".
 
         // Sum all the builtin resources.
         let execution_info_builtin_count = BuiltinCount::from(execution_info_resources);
         println!("yael execution_info_builtin_count {:?}", execution_info_builtin_count);
         let builtin_count = execution_info_builtin_count + additional_builtin_count;
         println!("yael builtin_count {:?}", builtin_count);
-
-        // The n_steps counter also includes the count of memory holes.
-        let n_steps = additional_os_resources.n_steps
-            + execution_info_resources.get_builtin_count(constants::N_STEPS_RESOURCE)
-            + additional_os_resources.n_memory_holes
-            + execution_info_resources.get_builtin_count("n_memory_holes"); // TODO: Add a constant for "n_memory_holes".
 
         Ok((n_steps, builtin_count))
     }
