@@ -77,7 +77,24 @@ fn test_default_values() {
         "vm_resource_fee_cost": {},
         "max_recursion_depth": 2
     }"#;
-    let versioned_constants: VersionedConstants = serde_json::from_str(json_data).unwrap();
+    let mut json_value: Value =
+        serde_json::from_str(json_data).expect("The input data must be a vaild json.");
+    let default_versioned_constants: Value = serde_json::from_str(DEFAULT_CONSTANTS_JSON)
+        .expect("The default versioned constants must be a valid json.");
+    let mut os_constants: Value = default_versioned_constants
+        .get("os_constants")
+        .expect("The default versioned constants should contain os_constants.")
+        .clone();
+
+    if let Some(obj) = os_constants.as_object_mut() {
+        obj.remove("validate_rounding_consts");
+    }
+
+    if let Value::Object(ref mut obj) = json_value {
+        obj.insert("os_constants".to_string(), os_constants);
+    }
+
+    let versioned_constants: VersionedConstants = serde_json::from_value(json_value).unwrap();
 
     assert_eq!(versioned_constants.get_validate_block_number_rounding(), 1);
     assert_eq!(versioned_constants.get_validate_timestamp_rounding(), 1);
