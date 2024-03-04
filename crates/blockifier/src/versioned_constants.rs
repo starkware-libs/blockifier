@@ -396,8 +396,6 @@ impl<'de> Deserialize<'de> for OsResources {
 // Below, serde first deserializes the json into a regular IndexMap wrapped by the newtype
 // `OsConstantsRawJson`, then calls the `try_from` of the newtype, which handles the
 // conversion into actual values.
-// Assumption: if the json has a value that contains the expression "FOO * 2", then the key `FOO`
-// must appear before this value in the JSON.
 // TODO: consider encoding the * and + operations inside the json file, instead of hardcoded below
 // in the `try_from`.
 #[derive(Debug, Default, Deserialize)]
@@ -405,9 +403,6 @@ impl<'de> Deserialize<'de> for OsResources {
 pub struct OSConstants {
     pub gas_costs: GasCosts,
     validate_rounding_consts: ValidateRoundingConsts,
-
-    // Invariant: fixed keys.
-    gas_costs_map: IndexMap<String, u64>,
 }
 
 /// Gas cost constants. For more documentation see in core/os/constants.cairo.
@@ -494,21 +489,6 @@ impl OSConstants {
         "keccak_gas_cost",
         "keccak_round_cost_gas_cost",
     ];
-
-    pub fn validate(&self) -> Result<(), OsConstantsSerdeError> {
-        // Check that all the allowed gas consts set is contained inside the parsed consts,
-        // that is, all consts in the list appeared as keys in the json file.
-        for key in Self::ALLOWED_GAS_COST_NAMES {
-            if !self.gas_costs_map.contains_key(key) {
-                return Err(OsConstantsSerdeError::ValidationError(format!(
-                    "Starknet os constants is missing the following key: {}",
-                    key
-                )));
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl TryFrom<OsConstantsRawJson> for OSConstants {
@@ -520,18 +500,14 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
         let gas_costs: GasCosts =
             serde_json::to_value(&gas_costs_map).and_then(serde_json::from_value)?;
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
-        let os_constants = OSConstants { gas_costs, validate_rounding_consts, gas_costs_map };
-
-        // Skip validation in testing: to test validation run validate manually.
-        #[cfg(not(test))]
-        os_constants.validate()?;
+        let os_constants = OSConstants { gas_costs, validate_rounding_consts };
 
         Ok(os_constants)
     }
 }
 
 // Intermediate representation of the JSON file in order to make the deserialization easier, using a
-// regular the try_from.
+// regular try_from.
 #[derive(Debug, Deserialize)]
 struct OsConstantsRawJson {
     #[serde(flatten)]
@@ -556,8 +532,7 @@ impl OsConstantsRawJson {
         Ok(gas_costs)
     }
 
-    /// Adds the key its corrisponding value to the gas_costs dict. Adds the key's dependencies
-    /// recursivly first.
+    /// Recursively adds a key to gas costs, calculating its value after processing any nested keys.
     // Invariant: there is no circular dependency between key definitions.
     fn recursive_add_to_gas_costs(
         &self,
