@@ -1816,8 +1816,14 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let tx_no_fee = l1_handler_tx(&calldata, Fee(0), contract_address);
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
-    let expected_actual_fee =
-        if use_kzg_da { Fee(1744900000000000) } else { Fee(1742800000000000) };
+    let calculated_fee =
+        calculate_tx_fee(&expected_execution_info.actual_resources, block_context, &FeeType::Eth)
+            .unwrap();
+    let expected_actual_fee = if use_kzg_da {
+        Fee(calculated_fee.0 - 48800128000000)
+    } else {
+        Fee(calculated_fee.0 - 165200000000000)
+    };
     assert_matches!(
         error,
         TransactionExecutionError::TransactionFeeError(
