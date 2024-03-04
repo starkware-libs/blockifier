@@ -16,7 +16,7 @@ use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{match_execute_directly, EntryPointExecutionError};
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::contracts::FeatureContract;
@@ -681,8 +681,11 @@ Execution failed. Failure reason: 0x6661696c ('fail').
     };
 
     match entry_point_call.execute_directly(&mut state).unwrap_err() {
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source: _ } => {
-            assert_eq!(trace, expected_trace)
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source } => {
+            assert_eq!(trace, expected_trace);
+            // Temporarily here. Will be removed once the new stack trace is integrated..
+            let new_stack_trace: String = match_execute_directly(&source, *test_contract_address.0.key());
+            assert_eq!(new_stack_trace, expected_trace)
         }
         other_error => panic!("Unexpected error type: {other_error:?}"),
     }
@@ -766,8 +769,15 @@ Execution failed. Failure reason: {expected_error}.
         }
     };
 
-    let actual_trace = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
-    assert_eq!(actual_trace, expected_trace);
+    match entry_point_call.execute_directly(&mut state).unwrap_err() {
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source } => {
+            assert_eq!(trace, expected_trace);
+            // Temporarily here. Will be removed once the new stack trace is integrated..
+            let new_stack_trace: String = match_execute_directly(&source, *test_contract_address.0.key());
+            assert_eq!(new_stack_trace, expected_trace)
+        }
+        other_error => panic!("Unexpected error type: {other_error:?}"),
+    }
 }
 
 #[rstest]
@@ -875,6 +885,13 @@ Execution failed. Failure reason: {expected_error}.
         }
     };
 
-    let actual_trace = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
-    assert_eq!(actual_trace, expected_trace);
+    match entry_point_call.execute_directly(&mut state).unwrap_err() {
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source } => {
+            assert_eq!(trace, expected_trace);
+            // Temporarily here. Will be removed once the new stack trace is integrated..
+            let new_stack_trace: String = match_execute_directly(&source, *test_contract_address.0.key());
+            assert_eq!(new_stack_trace, expected_trace)
+        }
+        other_error => panic!("Unexpected error type: {other_error:?}"),
+    }
 }

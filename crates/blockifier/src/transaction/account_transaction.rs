@@ -702,7 +702,7 @@ impl ValidatableTransaction for AccountTransaction {
 
         let validate_call_info = validate_call
             .execute(state, resources, &mut context)
-            .map_err(TransactionExecutionError::ValidateTransactionError)?;
+            .map_err(|error| TransactionExecutionError::ValidateTransactionError{ error,  storage_address: *storage_address.0.key() })?;
 
         // Validate return data.
         let class_hash = state.get_class_hash_at(storage_address)?;

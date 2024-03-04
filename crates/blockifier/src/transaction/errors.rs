@@ -5,7 +5,7 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{match_transaction_execution_error, EntryPointExecutionError};
 use crate::fee::fee_checks::FeeCheckError;
 use crate::state::errors::StateError;
 
@@ -56,12 +56,13 @@ pub enum TransactionExecutionError {
          version {cairo_version:?}."
     )]
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
-    #[error("Contract constructor execution has failed: {0}")]
-    ContractConstructorExecutionFailed(#[source] EntryPointExecutionError),
+    // TODO: add `match_transaction_execution_error` if needed.
+    #[error("Contract constructor execution has failed: {error}")]
+    ContractConstructorExecutionFailed{ error: EntryPointExecutionError, storage_address: StarkFelt },
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
-    #[error("Transaction execution has failed: {0}")]
-    ExecutionError(#[source] EntryPointExecutionError),
+    #[error("Transaction execution has failed: {}", match_transaction_execution_error(self))]
+    ExecutionError{ error: EntryPointExecutionError, storage_address: StarkFelt },
     #[error(transparent)]
     FeeCheckError(#[from] FeeCheckError),
     #[error(
@@ -88,8 +89,9 @@ pub enum TransactionExecutionError {
     UnexpectedHoles { object: String, order: usize },
     #[error(transparent)]
     TryFromIntError(#[from] std::num::TryFromIntError),
-    #[error("Transaction validation has failed: {0}")]
-    ValidateTransactionError(#[source] EntryPointExecutionError),
+    // TODO: add `match_transaction_execution_error` if needed.
+    #[error("Transaction validation has failed: {error}")]
+    ValidateTransactionError{ error: EntryPointExecutionError, storage_address: StarkFelt },
     #[error(
         "Invalid segment structure: PC {0} was visited, but the beginning of the segment {1} was \
          not."
