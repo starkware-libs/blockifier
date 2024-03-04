@@ -3,6 +3,7 @@ use pretty_assertions::assert_eq;
 use super::*;
 
 // TODO: Test Starknet OS validation.
+// TODO: Add an unallowed field scenario for GasCost parsing.
 
 #[test]
 fn test_successful_gas_constants_parsing() {
@@ -16,10 +17,11 @@ fn test_successful_gas_constants_parsing() {
             "entry_point_initial_budget": 4,
             "step_gas_cost": 5
         },
+        "error_out_of_gas": "An additional field in GasCosts::ADDITIONAL_ALLOWED_NAMES, ignored.",
         "validate_block_number_rounding": 111,
         "validate_timestamp_rounding": 222,
-        "ignore the gas string": "GAS!",
-        "I look like a gas cost but my name is all wrong": 0
+        "l2_gas_index": "An additional field in GasCosts::ADDITIONAL_ALLOWED_NAMES, to ignore.",
+        "nop_entry_point_offset": "Another additional field in GasCosts::ADDITIONAL_ALLOWED_NAMES."
     }"#;
     let os_constants: Arc<OSConstants> =
         Arc::new(OSConstants::create_for_testing_from_subset(json_data));
