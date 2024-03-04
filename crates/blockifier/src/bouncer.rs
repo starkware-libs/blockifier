@@ -51,7 +51,15 @@ pub struct BouncerWeights {
 impl From<HashMapWrapper> for BouncerWeights {
     fn from(mut raw_data: HashMapWrapper) -> Self {
         Self {
-            gas: raw_data.remove("gas_weight").unwrap_or(0),
+            gas: {
+                // The gas key is either "gas_weight" or "l1_gas_usage".
+                println!("yael raw data {:?}", raw_data);
+                let x = raw_data
+                    .remove(constants::L1_GAS_USAGE)
+                    .unwrap_or(raw_data.remove("gas_weight").unwrap_or(0));
+                println!("yael raw data {:?}", raw_data);
+                x
+            },
             n_steps: raw_data.remove(constants::N_STEPS_RESOURCE).unwrap_or(0),
             message_segment_length: raw_data.remove(constants::MESSAGE_SEGMENT_LENGTH).unwrap_or(0),
             state_diff_size: raw_data.remove(constants::STATE_DIFF_SIZE).unwrap_or(0),
@@ -370,18 +378,27 @@ impl<'a> TransactionBouncer<'a> {
 
         println!("yael additional_builtin_count {:?}", additional_builtin_count);
 
-        // The n_steps counter also includes the count of memory holes.
+        // We clone the execution_info_resources and then remove item by item and make sure that
+        // eventually the list is empty and we didn't forget to handle any of the items.
         let mut execution_info_resources = execution_info_resources.0.clone();
+
+        // The n_steps counter includes the counter of memory holes.
         let n_steps = additional_os_resources.n_steps
             + execution_info_resources
                 .remove(constants::N_STEPS_RESOURCE)
                 .expect("n_steps is missing from execution_info_resources")
             + additional_os_resources.n_memory_holes
             + execution_info_resources.remove("n_memory_holes").unwrap_or(0); // TODO: Add a constant for "n_memory_holes".
+        println!("yael n_steps {:?}", n_steps);
+
+        // The blob gas is not being limited by the bouncer, thus we don't use it here.
+        // This parameter is derived from the state diff size which is limited to one blob.
+        execution_info_resources.remove("l1_blob_gas_usage");
 
         // Sum all the builtin resources.
+        println!("yael execution_info_resources {:?}", execution_info_resources);
         let execution_info_builtin_count = BuiltinCount::from(execution_info_resources);
-        println!("yael execution_info_builtin_count {:?}", execution_info_builtin_count);
+        println!("yael {:?}", execution_info_builtin_count);
         let builtin_count = execution_info_builtin_count + additional_builtin_count;
         println!("yael builtin_count {:?}", builtin_count);
 
