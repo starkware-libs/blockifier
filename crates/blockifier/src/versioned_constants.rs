@@ -74,31 +74,11 @@ impl VersionedConstants {
     /// Returns the initial gas of any transaction to run with.
     pub fn tx_initial_gas(&self) -> u64 {
         let os_consts = &self.os_constants;
-        os_consts.gas_costs["initial_gas_cost"] - os_consts.gas_costs["transaction_gas_cost"]
+        os_consts.gas_costs.initial_gas_cost - os_consts.gas_costs.transaction_gas_cost
     }
 
     pub fn vm_resource_fee_cost(&self) -> &HashMap<String, ResourceCost> {
         &self.vm_resource_fee_cost
-    }
-
-    pub fn gas_cost(&self, name: &str) -> u64 {
-        match self.os_constants.gas_costs.get(name) {
-            Some(&cost) => cost,
-            None if OSConstants::ALLOWED_GAS_COST_NAMES.contains(&name) => {
-                panic!(
-                    "{} is present in `OSConstants::GAS_COSTS` but not in `self`; was validation \
-                     skipped?",
-                    name
-                )
-            }
-            None => {
-                panic!(
-                    "Only gas costs listed in `{0:?}` should be requested, got: {1}",
-                    OSConstants::ALLOWED_GAS_COST_NAMES,
-                    name,
-                )
-            }
-        }
     }
 
     pub fn os_resources_for_tx_type(
@@ -424,11 +404,11 @@ impl<'de> Deserialize<'de> for OsResources {
 #[derive(Debug, Default, Deserialize)]
 #[serde(try_from = "OsConstantsRawJson")]
 pub struct OSConstants {
-    pub gas_costs_struct: GasCosts,
+    pub gas_costs: GasCosts,
     validate_rounding_consts: ValidateRoundingConsts,
 
     // Invariant: fixed keys.
-    gas_costs: IndexMap<String, u64>,
+    gas_costs_map: IndexMap<String, u64>,
 }
 
 /// Gas cost constants. For more documentation see in core/os/constants.cairo.
@@ -520,7 +500,7 @@ impl OSConstants {
         // Check that all the allowed gas consts set is contained inside the parsed consts,
         // that is, all consts in the list appeared as keys in the json file.
         for key in Self::ALLOWED_GAS_COST_NAMES {
-            if !self.gas_costs.contains_key(key) {
+            if !self.gas_costs_map.contains_key(key) {
                 return Err(OsConstantsSerdeError::ValidationError(format!(
                     "Starknet os constants is missing the following key: {}",
                     key
@@ -537,12 +517,11 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
         // TODO(Ori, 15/03/2024): Move these two lines to an implementation of TryFrom for GasCosts.
-        let gas_costs = raw_json_data.parse_gas_costs()?;
-        let gas_costs_struct: GasCosts = serde_json::to_value(&gas_costs)
-            .and_then(serde_json::from_value)
-            .expect("Can not convert json Value to GasCosts");
+        let gas_costs_map = raw_json_data.parse_gas_costs()?;
+        let gas_costs: GasCosts =
+            serde_json::to_value(&gas_costs_map).and_then(serde_json::from_value)?;
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
-        let os_constants = OSConstants { gas_costs, gas_costs_struct, validate_rounding_consts };
+        let os_constants = OSConstants { gas_costs, validate_rounding_consts, gas_costs_map };
 
         // Skip validation in testing: to test validation run validate manually.
         #[cfg(not(test))]
@@ -665,6 +644,10 @@ pub enum OsConstantsSerdeError {
          into u64"
     )]
     OutOfRangeFactor { key: String, value: Value },
+    #[error(
+        "Failed to convert OSConstantsRawJson to serde_json::Value and then to GasCosts : {0}"
+    )]
+    ParseError(#[from] serde_json::Error),
     #[error("Unhandled value type: {0}")]
     UnhandledValueType(Value),
     #[error("Validation failed: {0}")]
