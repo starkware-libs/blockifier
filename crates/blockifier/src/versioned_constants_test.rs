@@ -24,14 +24,14 @@ fn test_successful_parsing() {
     let os_constants: Arc<OSConstants> = Arc::new(OSConstants::create_from_subset(json_data));
     let versioned_constants = VersionedConstants { os_constants, ..Default::default() };
 
-    assert_eq!(versioned_constants.gas_cost("step_gas_cost"), 2);
-    assert_eq!(versioned_constants.gas_cost("entry_point_initial_budget"), 2 * 3); // step_gas_cost * 3.
+    assert_eq!(versioned_constants.os_constants.gas_costs.step_gas_cost, 2);
+    assert_eq!(versioned_constants.os_constants.gas_costs.entry_point_initial_budget, 2 * 3); // step_gas_cost * 3.
 
     // entry_point_intial_budget * 4 + step_gas_cost * 5.
-    assert_eq!(versioned_constants.gas_cost("entry_point_gas_cost"), 6 * 4 + 2 * 5);
+    assert_eq!(versioned_constants.os_constants.gas_costs.entry_point_gas_cost, 6 * 4 + 2 * 5);
 
     assert_eq!(
-        versioned_constants.os_constants.gas_costs.len(),
+        versioned_constants.os_constants.gas_costs_map.len(),
         OSConstants::ALLOWED_GAS_COST_NAMES.len()
     );
 }
