@@ -207,8 +207,6 @@ impl<'a> ActualCostBuilder<'a> {
     ///   followed by a storage write operation on L1.
     /// * L1 data gas, for publishing data availability.
     /// * L2 resources cost, e.g., for storing transaction calldata.
-    // TODO(Avi, 01/03/2024): Resolve the clippy error cleanly.
-    #[allow(clippy::too_many_arguments)]
     fn calculate_tx_gas_usage_vector(
         versioned_constants: &VersionedConstants,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
