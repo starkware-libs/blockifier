@@ -32,9 +32,7 @@ fn test_successful_parsing() {
             "step_gas_cost": 5
         },
         "validate_block_number_rounding": 111,
-        "validate_timestamp_rounding": 222,
-        "ignore the gas string": "GAS!",
-        "I look like a gas cost but my name is all wrong": 0
+        "validate_timestamp_rounding": 222
     }"#;
     let os_constants: Arc<OSConstants> = fill_and_load_os_constants(json_data).unwrap();
     let versioned_constants = VersionedConstants { os_constants, ..Default::default() };
