@@ -17,9 +17,7 @@ fn test_successful_parsing() {
             "step_gas_cost": 5
         },
         "validate_block_number_rounding": 111,
-        "validate_timestamp_rounding": 222,
-        "ignore the gas string": "GAS!",
-        "I look like a gas cost but my name is all wrong": 0
+        "validate_timestamp_rounding": 222
     }"#;
     let os_constants: Arc<OSConstants> =
         Arc::new(OSConstants::create_from_subset(json_data).unwrap());

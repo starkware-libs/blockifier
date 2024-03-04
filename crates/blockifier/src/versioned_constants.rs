@@ -409,45 +409,32 @@ pub struct GasCosts {
 impl OSConstants {
     // List of all gas cost constants that *must* be present in the JSON file, all other consts are
     // ignored. See documentation in core/os/constants.cairo.
-    const ALLOWED_GAS_COST_NAMES: [&'static str; 31] = [
-        "step_gas_cost",
-        "range_check_gas_cost",
-        "memory_hole_gas_cost",
-        // An estimation of the initial gas for a transaction to run with. This solution is
-        // temporary and this value will become a field of the transaction.
-        "initial_gas_cost",
-        // ** Compiler gas costs **
-        "entry_point_initial_budget",
-        // The initial gas budget for a system call (this value is hard-coded by the compiler).
-        // This needs to be high enough to cover OS costs in the case of failure due to out of gas.
-        "syscall_base_gas_cost",
-        // ** OS gas costs **
-        "entry_point_gas_cost",
-        "fee_transfer_gas_cost",
-        "transaction_gas_cost",
-        // ** Required gas for each syscall **
-        "call_contract_gas_cost",
-        "deploy_gas_cost",
-        "get_block_hash_gas_cost",
-        "get_execution_info_gas_cost",
-        "library_call_gas_cost",
-        "replace_class_gas_cost",
-        "storage_read_gas_cost",
-        "storage_write_gas_cost",
-        "emit_event_gas_cost",
-        "send_message_to_l1_gas_cost",
-        "secp256k1_add_gas_cost",
-        "secp256k1_get_point_from_x_gas_cost",
-        "secp256k1_get_xy_gas_cost",
-        "secp256k1_mul_gas_cost",
-        "secp256k1_new_gas_cost",
-        "secp256r1_add_gas_cost",
-        "secp256r1_get_point_from_x_gas_cost",
-        "secp256r1_get_xy_gas_cost",
-        "secp256r1_mul_gas_cost",
-        "secp256r1_new_gas_cost",
-        "keccak_gas_cost",
-        "keccak_round_cost_gas_cost",
+    const ALLOWED_GAS_COST_ADDITIONAL_NAMES: [&'static str; 25] = [
+        "block_hash_contract_address",
+        "constructor_entry_point_selector",
+        "default_entry_point_selector",
+        "entry_point_type_constructor",
+        "entry_point_type_external",
+        "entry_point_type_l1_handler",
+        "error_block_number_out_of_range",
+        "error_invalid_input_len",
+        "error_invalid_argument",
+        "error_out_of_gas",
+        "execute_entry_point_selector",
+        "l1_gas",
+        "l1_gas_index",
+        "l1_handler_version",
+        "l2_gas",
+        "l2_gas_index",
+        "nop_entry_point_offset",
+        "sierra_array_len_bound",
+        "stored_block_hash_buffer",
+        "transfer_entry_point_selector",
+        "validate_declare_entry_point_selector",
+        "validate_deploy_entry_point_selector",
+        "validate_entry_point_selector",
+        "validate_rounding_consts",
+        "validated",
     ];
 
     #[cfg(test)]
@@ -496,9 +483,9 @@ impl OsConstantsRawJson {
     fn parse_gas_costs(&self) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
         let mut gas_costs = IndexMap::new();
         let gas_cost_whitelist: IndexSet<_> =
-            OSConstants::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
+            OSConstants::ALLOWED_GAS_COST_ADDITIONAL_NAMES.iter().copied().collect();
         for (key, value) in &self.raw_json_file_as_dict {
-            if !gas_cost_whitelist.contains(key.as_str()) {
+            if gas_cost_whitelist.contains(key.as_str()) {
                 // Ignore non-whitelist consts.
                 continue;
             }
