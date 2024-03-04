@@ -50,8 +50,7 @@ fn test_successful_parsing() {
     );
 }
 
-#[test]
-fn test_default_values() {
+fn get_json_value_without_dafaults() -> serde_json::Value {
     let json_data = r#"
     {
         "invoke_tx_max_n_steps": 2,
@@ -88,7 +87,24 @@ fn test_default_values() {
         "vm_resource_fee_cost": {},
         "max_recursion_depth": 2
     }"#;
-    let versioned_constants: VersionedConstants = serde_json::from_str(json_data).unwrap();
+    let mut json_data_without_dafualts: Value = serde_json::from_str(json_data).unwrap();
+    let default_versioned_constants: Value = serde_json::from_str(DEFAULT_CONSTANTS_JSON).unwrap();
+    let mut os_constants: Value = default_versioned_constants.get("os_constants").unwrap().clone();
+    os_constants.as_object_mut().unwrap().remove("validate_rounding_consts");
+    json_data_without_dafualts
+        .as_object_mut()
+        .unwrap()
+        .insert("os_constants".to_string(), os_constants);
+
+    json_data_without_dafualts
+}
+
+#[test]
+fn test_default_values() {
+    let json_data_without_dafualts = get_json_value_without_dafaults();
+
+    let versioned_constants: VersionedConstants =
+        serde_json::from_value(json_data_without_dafualts).unwrap();
 
     assert_eq!(versioned_constants.get_validate_block_number_rounding(), 1);
     assert_eq!(versioned_constants.get_validate_timestamp_rounding(), 1);
