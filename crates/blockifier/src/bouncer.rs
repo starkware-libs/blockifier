@@ -51,15 +51,11 @@ pub struct BouncerWeights {
 impl From<HashMapWrapper> for BouncerWeights {
     fn from(mut raw_data: HashMapWrapper) -> Self {
         Self {
-            gas: raw_data.remove("gas_weight").expect("gas weight is missing"),
-            n_steps: raw_data.remove(constants::N_STEPS_RESOURCE).expect("n_steps is missing"),
-            message_segment_length: raw_data
-                .remove(constants::MESSAGE_SEGMENT_LENGTH)
-                .expect("msg segment length is missing"),
-            state_diff_size: raw_data
-                .remove(constants::STATE_DIFF_SIZE)
-                .expect("state diff size is missing"),
-            n_events: raw_data.remove(constants::N_EVENTS).expect("n_events is missing"),
+            gas: raw_data.remove("gas_weight").unwrap_or(0),
+            n_steps: raw_data.remove(constants::N_STEPS_RESOURCE).unwrap_or(0),
+            message_segment_length: raw_data.remove(constants::MESSAGE_SEGMENT_LENGTH).unwrap_or(0),
+            state_diff_size: raw_data.remove(constants::STATE_DIFF_SIZE).unwrap_or(0),
+            n_events: raw_data.remove(constants::N_EVENTS).unwrap_or(0),
             builtin_count: BuiltinCount::from(raw_data),
         }
     }
@@ -114,15 +110,13 @@ pub struct BuiltinCount {
 impl From<HashMapWrapper> for BuiltinCount {
     fn from(mut raw_data: HashMapWrapper) -> Self {
         let builtin_count = Self {
-            bitwise: raw_data.remove(BuiltinName::bitwise.name()).expect("bitwise is missing"),
-            ecdsa: raw_data.remove(BuiltinName::ecdsa.name()).expect("ecdsa is missing"),
-            ec_op: raw_data.remove(BuiltinName::ec_op.name()).expect("ec_op is missing"),
+            bitwise: raw_data.remove(BuiltinName::bitwise.name()).unwrap_or(0),
+            ecdsa: raw_data.remove(BuiltinName::ecdsa.name()).unwrap_or(0),
+            ec_op: raw_data.remove(BuiltinName::ec_op.name()).unwrap_or(0),
             keccak: raw_data.remove(BuiltinName::keccak.name()).unwrap_or(0),
-            pedersen: raw_data.remove(BuiltinName::pedersen.name()).expect("pedersen is missing"),
-            poseidon: raw_data.remove(BuiltinName::poseidon.name()).expect("poseidon is missing"),
-            range_check: raw_data
-                .remove(BuiltinName::range_check.name())
-                .expect("range_check is missing"),
+            pedersen: raw_data.remove(BuiltinName::pedersen.name()).unwrap_or(0),
+            poseidon: raw_data.remove(BuiltinName::poseidon.name()).unwrap_or(0),
+            range_check: raw_data.remove(BuiltinName::range_check.name()).unwrap_or(0),
         };
         assert!(
             raw_data.is_empty(),
