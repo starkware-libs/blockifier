@@ -16,10 +16,11 @@ fn test_successful_parsing() {
             "entry_point_initial_budget": 4,
             "step_gas_cost": 5
         },
+        "error_out_of_gas": "An additional field in the whitelist, this will be ignored.",
         "validate_block_number_rounding": 111,
         "validate_timestamp_rounding": 222,
-        "ignore the gas string": "GAS!",
-        "I look like a gas cost but my name is all wrong": 0
+        "l2_gas_index": "This will be ignored as well",
+        "nop_entry_point_offset": "Ignored"
     }"#;
     let os_constants: Arc<OSConstants> =
         Arc::new(OSConstants::create_from_subset(json_data).unwrap());
