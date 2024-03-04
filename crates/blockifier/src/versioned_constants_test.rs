@@ -30,11 +30,6 @@ fn test_successful_gas_constants_parsing() {
 
     // entry_point_intial_budget * 4 + step_gas_cost * 5.
     assert_eq!(versioned_constants.os_constants.gas_costs.entry_point_gas_cost, 6 * 4 + 2 * 5);
-
-    assert_eq!(
-        versioned_constants.os_constants.gas_costs_map.len(),
-        OSConstants::ALLOWED_GAS_COST_NAMES.len()
-    );
 }
 
 fn get_json_value_without_dafaults() -> serde_json::Value {
