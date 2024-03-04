@@ -62,17 +62,9 @@ impl<S: StateReader> CachedState<S> {
     /// root); the state updates correspond to them.
     pub fn get_actual_state_changes(&mut self) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
-        let storage_changes = self.cache.borrow().get_storage_updates();
-        self.get_actual_state_changes_given_storage_updates(storage_changes)
-    }
-
-    fn get_actual_state_changes_given_storage_updates(
-        &mut self,
-        storage_updates: HashMap<StorageEntry, StarkFelt>,
-    ) -> StateResult<StateChanges> {
         let cache = self.cache.borrow();
         Ok(StateChanges {
-            storage_updates,
+            storage_updates: cache.get_storage_updates(),
             nonce_updates: cache.get_nonce_updates(),
             // Class hash updates (deployed contracts + replace_class syscall).
             class_hash_updates: cache.get_class_hash_updates(),
@@ -491,19 +483,6 @@ impl StateCache {
         subtract_mappings(&self.storage_writes, &self.storage_initial_values)
     }
 
-    fn get_storage_updates_execute(
-        &self,
-        validation_cached_state: &StateCache,
-    ) -> HashMap<StorageEntry, StarkFelt> {
-        let mut storage_writes = validation_cached_state.storage_writes.clone();
-        // Extend the storage writes from validation with the storage writes of execution to get the
-        // total storage writes.
-        storage_writes.extend(&self.storage_writes);
-        // Remove storage writes that are identical to the initial value (no change).
-        // only.
-        subtract_mappings(&storage_writes, &validation_cached_state.storage_initial_values)
-    }
-
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
         subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
     }
@@ -629,11 +608,32 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         }
     }
 
-    pub fn get_actual_state_changes_execute(&mut self) -> StateResult<StateChanges> {
+    pub fn get_actual_revertible_state_changes(&mut self) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
-        let storage_changes =
-            self.cache.borrow().get_storage_updates_execute(&self.state.0.cache.borrow());
-        self.get_actual_state_changes_given_storage_updates(storage_changes)
+        let cache = self.cache.borrow();
+        let base_cache = self.state.0.cache.borrow();
+
+        let mut storage_writes = base_cache.storage_writes.clone();
+        storage_writes.extend(&cache.storage_writes);
+        let mut class_hash_writes = base_cache.class_hash_writes.clone();
+        class_hash_writes.extend(&cache.class_hash_writes);
+        let mut compiled_class_hash_writes = base_cache.compiled_class_hash_writes.clone();
+        compiled_class_hash_writes.extend(&cache.compiled_class_hash_writes);
+        let mut nonce_writes = base_cache.nonce_writes.clone();
+        nonce_writes.extend(&cache.nonce_writes);
+
+        Ok(StateChanges {
+            storage_updates: subtract_mappings(&storage_writes, &base_cache.storage_initial_values),
+            nonce_updates: subtract_mappings(&nonce_writes, &base_cache.nonce_initial_values),
+            class_hash_updates: subtract_mappings(
+                &class_hash_writes,
+                &base_cache.class_hash_initial_values,
+            ),
+            compiled_class_hash_updates: subtract_mappings(
+                &compiled_class_hash_writes,
+                &base_cache.compiled_class_hash_initial_values,
+            ),
+        })
     }
 
     /// Commits changes in the child (wrapping) state to its parent.

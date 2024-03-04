@@ -137,11 +137,7 @@ impl<'a> ActualCostBuilder<'a> {
         mut self,
         state: &mut TransactionalState<'a, impl StateReader>,
     ) -> StateResult<Self> {
-        let new_state_changes = state.get_actual_state_changes_execute()?;
-        // Restore the storage updates to those before validation.
-        // TODO(Aner, 22/2/2024): Add test writing to storage in validate, verify user is charged.
-        self.state_changes.storage_updates = HashMap::default();
-        self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
+        self.state_changes = state.get_actual_revertible_state_changes()?;
         Ok(self)
     }
 
