@@ -151,7 +151,10 @@ pub fn trivial_external_entry_point_with_address(
     CallEntryPoint {
         code_address: Some(contract_address),
         storage_address: contract_address,
-        initial_gas: VersionedConstants::create_for_testing().gas_cost("initial_gas_cost"),
+        initial_gas: VersionedConstants::create_for_testing()
+            .os_constants
+            .gas_costs
+            .initial_gas_cost,
         ..Default::default()
     }
 }

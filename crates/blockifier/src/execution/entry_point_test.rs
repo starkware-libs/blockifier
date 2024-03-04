@@ -208,7 +208,7 @@ fn run_security_test(
         entry_point_selector: selector_from_name(entry_point_name),
         calldata,
         storage_address: security_contract.get_instance_address(0),
-        initial_gas: versioned_constants.gas_cost("initial_gas_cost"),
+        initial_gas: versioned_constants.os_constants.gas_costs.initial_gas_cost,
         ..Default::default()
     };
     let error = match entry_point_call.execute_directly(state) {
