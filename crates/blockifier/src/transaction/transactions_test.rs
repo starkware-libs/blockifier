@@ -195,7 +195,7 @@ fn expected_fee_transfer_call_info(
         storage_address,
         caller_address: account_address,
         call_type: CallType::Call,
-        initial_gas: block_context.versioned_constants.gas_cost("initial_gas_cost"),
+        initial_gas: block_context.versioned_constants.os_constants.gas_costs.initial_gas_cost,
     };
     let expected_fee_sender_address = *account_address.0.key();
     let expected_fee_transfer_event = OrderedEvent {
@@ -340,7 +340,7 @@ fn add_kzg_da_resources_to_resources_mapping(
         },
         validate_gas_consumed: 0,
         execute_gas_consumed: 0,
-        inner_call_initial_gas: versioned_constants_for_account_testing().gas_cost("initial_gas_cost"),
+        inner_call_initial_gas: versioned_constants_for_account_testing().os_constants.gas_costs.initial_gas_cost,
     },
     CairoVersion::Cairo0)]
 #[case::with_cairo1_account(

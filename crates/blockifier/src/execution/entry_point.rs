@@ -21,7 +21,7 @@ use crate::state::state_api::State;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionResult, TransactionInfo};
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::{u128_from_usize, usize_from_u128};
-use crate::versioned_constants::VersionedConstants;
+use crate::versioned_constants::{GasCosts, VersionedConstants};
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -280,8 +280,8 @@ impl EntryPointExecutionContext {
         &self.tx_context.block_context.versioned_constants
     }
 
-    pub fn get_gas_cost(&self, name: &str) -> u64 {
-        self.versioned_constants().gas_cost(name)
+    pub fn gas_costs(&self) -> &GasCosts {
+        &self.versioned_constants().os_constants.gas_costs
     }
 }
 
