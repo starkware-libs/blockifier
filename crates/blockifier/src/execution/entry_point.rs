@@ -324,9 +324,6 @@ impl EntryPointExecutionContext {
         &self.tx_context.block_context.versioned_constants
     }
 
-    pub fn get_gas_cost(&self, name: &str) -> u64 {
-        self.versioned_constants().gas_cost(name)
-    }
 }
 
 pub fn execute_constructor_entry_point(

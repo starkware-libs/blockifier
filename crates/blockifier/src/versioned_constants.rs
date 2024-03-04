@@ -71,31 +71,11 @@ impl VersionedConstants {
     /// Returns the initial gas of any transaction to run with.
     pub fn tx_initial_gas(&self) -> u64 {
         let os_consts = &self.os_constants;
-        os_consts.gas_costs["initial_gas_cost"] - os_consts.gas_costs["transaction_gas_cost"]
+        os_consts.gas_costs.initial_gas_cost - os_consts.gas_costs.transaction_gas_cost
     }
 
     pub fn vm_resource_fee_cost(&self) -> &HashMap<String, ResourceCost> {
         &self.vm_resource_fee_cost
-    }
-
-    pub fn gas_cost(&self, name: &str) -> u64 {
-        match self.os_constants.gas_costs.get(name) {
-            Some(&cost) => cost,
-            None if OSConstants::ALLOWED_GAS_COST_NAMES.contains(&name) => {
-                panic!(
-                    "{} is present in `OSConstants::GAS_COSTS` but not in `self`; was validation \
-                     skipped?",
-                    name
-                )
-            }
-            None => {
-                panic!(
-                    "Only gas costs listed in `{0:?}` should be requested, got: {1}",
-                    OSConstants::ALLOWED_GAS_COST_NAMES,
-                    name,
-                )
-            }
-        }
     }
 
     pub fn os_resources_for_tx_type(
@@ -377,11 +357,11 @@ impl<'de> Deserialize<'de> for OsResources {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(try_from = "OsConstantsRawJson")]
 pub struct OSConstants {
-    pub gas_costs_struct: GasCosts,
+    pub gas_costs: GasCosts,
     validate_rounding_consts: ValidateRoundingConsts,
 
     // Invariant: fixed keys.
-    gas_costs: IndexMap<String, u64>,
+    gas_costs_map: IndexMap<String, u64>,
 }
 
 // List of all gas cost constants that *must* be present in the JSON file, all other consts are
@@ -476,7 +456,7 @@ impl OSConstants {
         // Check that all the allowed gas consts set is contained inside the parsed consts,
         // that is, all consts in the list appeared as keys in the json file.
         for key in Self::ALLOWED_GAS_COST_NAMES {
-            if !self.gas_costs.contains_key(key) {
+            if !self.gas_costs_map.contains_key(key) {
                 return Err(OsConstantsSerdeError::ValidationError(format!(
                     "Starknet os constants is missing the following key: {}",
                     key
@@ -486,17 +466,18 @@ impl OSConstants {
 
         Ok(())
     }
+
 }
 
 impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
-        let gas_costs = raw_json_data.parse_gas_costs()?;
-        let json_value = serde_json::to_value(&gas_costs).unwrap();
-        let gas_costs_struct: GasCosts = serde_json::from_value(json_value).unwrap();
+        let gas_costs_map = raw_json_data.parse_gas_costs()?;
+        let json_value = serde_json::to_value(&gas_costs_map).unwrap();
+        let gas_costs: GasCosts = serde_json::from_value(json_value).unwrap();
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
-        let os_constants = OSConstants { gas_costs, gas_costs_struct, validate_rounding_consts };
+        let os_constants = OSConstants { gas_costs, validate_rounding_consts, gas_costs_map };
 
         // Skip validation in testing: to test validation run validate manually.
         #[cfg(not(test))]

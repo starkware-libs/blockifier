@@ -39,14 +39,14 @@ fn test_successful_parsing() {
     let os_constants: Arc<OSConstants> = fill_and_load_os_constants(json_data).unwrap();
     let versioned_constants = VersionedConstants { os_constants, ..Default::default() };
 
-    assert_eq!(versioned_constants.gas_cost("step_gas_cost"), 2);
-    assert_eq!(versioned_constants.gas_cost("entry_point_initial_budget"), 2 * 3); // step_gas_cost * 3.
+    assert_eq!(versioned_constants.os_constants.gas_costs.step_gas_cost, 2);
+    assert_eq!(versioned_constants.os_constants.gas_costs.entry_point_initial_budget, 2 * 3); // step_gas_cost * 3.
 
     // entry_point_intial_budget * 4 + step_gas_cost * 5.
-    assert_eq!(versioned_constants.gas_cost("entry_point_gas_cost"), 6 * 4 + 2 * 5);
+    assert_eq!(versioned_constants.os_constants.gas_costs.entry_point_gas_cost, 6 * 4 + 2 * 5);
 
     // Only the 31 values in the whitelist should be present, the rest are ignored.
-    assert_eq!(versioned_constants.os_constants.gas_costs.len(), 31);
+    assert_eq!(versioned_constants.os_constants.gas_costs_map.len(), 31);
 }
 
 #[test]
