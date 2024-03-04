@@ -359,9 +359,6 @@ impl<'de> Deserialize<'de> for OsResources {
 pub struct OSConstants {
     pub gas_costs: GasCosts,
     validate_rounding_consts: ValidateRoundingConsts,
-
-    // Invariant: fixed keys.
-    gas_costs_map: IndexMap<String, u64>,
 }
 
 // List of all gas cost constants that *must* be present in the JSON file, all other consts are
@@ -451,21 +448,6 @@ impl OSConstants {
         "keccak_gas_cost",
         "keccak_round_cost_gas_cost",
     ];
-
-    pub fn validate(&self) -> Result<(), OsConstantsSerdeError> {
-        // Check that all the allowed gas consts set is contained inside the parsed consts,
-        // that is, all consts in the list appeared as keys in the json file.
-        for key in Self::ALLOWED_GAS_COST_NAMES {
-            if !self.gas_costs_map.contains_key(key) {
-                return Err(OsConstantsSerdeError::ValidationError(format!(
-                    "Starknet os constants is missing the following key: {}",
-                    key
-                )));
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl TryFrom<OsConstantsRawJson> for OSConstants {
@@ -476,11 +458,7 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
         let gas_costs: GasCosts =
             serde_json::to_value(&gas_costs_map).and_then(serde_json::from_value).unwrap();
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
-        let os_constants = OSConstants { gas_costs, validate_rounding_consts, gas_costs_map };
-
-        // Skip validation in testing: to test validation run validate manually.
-        #[cfg(not(test))]
-        os_constants.validate()?;
+        let os_constants = OSConstants { gas_costs, validate_rounding_consts };
 
         Ok(os_constants)
     }
