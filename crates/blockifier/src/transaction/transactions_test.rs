@@ -1378,9 +1378,10 @@ fn test_deploy_account_tx(
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         error,
-        TransactionExecutionError::ContractConstructorExecutionFailed(
-            EntryPointExecutionError::StateError(StateError::UnavailableContractAddress(_))
-        )
+        TransactionExecutionError::ContractConstructorExecutionFailed {
+            error: EntryPointExecutionError::StateError(StateError::UnavailableContractAddress(_)),
+            ..
+        }
     );
 }
 
@@ -1409,9 +1410,9 @@ fn test_fail_deploy_account_undeclared_class_hash() {
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         error,
-        TransactionExecutionError::ContractConstructorExecutionFailed(
-            EntryPointExecutionError::StateError(StateError::UndeclaredClassHash(class_hash))
-        )
+        TransactionExecutionError::ContractConstructorExecutionFailed{
+            error: EntryPointExecutionError::StateError(StateError::UndeclaredClassHash(class_hash)), ..
+        }
         if class_hash == undeclared_hash
     );
 }

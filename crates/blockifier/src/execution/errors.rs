@@ -1,17 +1,22 @@
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
 use cairo_vm::vm::errors::trace_errors::TraceError;
 use cairo_vm::vm::errors::vm_errors::{VirtualMachineError, HINT_ERROR_STR};
+use cairo_vm::vm::errors::vm_exception::VmException;
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use thiserror::Error;
 
+use super::deprecated_syscalls::hint_processor::DeprecatedSyscallExecutionError;
+use super::syscalls::hint_processor::SyscallExecutionError;
 use crate::execution::execution_utils::format_panic_data;
 use crate::state::errors::StateError;
+use crate::transaction::errors::TransactionExecutionError;
 
 // TODO(AlonH, 21/12/2022): Implement Display for all types that appear in errors.
 
@@ -151,4 +156,195 @@ pub enum ContractClassError {
         contract_class_version: u8,
         sierra_program_length: usize,
     },
+}
+
+// A set of functions used to extract error trace from a recursive error object.
+
+/// Extracts the error trace from a `TransactionExecutionError`. This is a top level function.
+pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) -> String {
+    let mut error_stack: Vec<String> = Vec::new();
+
+    match error {
+        TransactionExecutionError::ExecutionError { error, storage_address }
+        | TransactionExecutionError::ValidateTransactionError { error, storage_address }
+        | TransactionExecutionError::ContractConstructorExecutionFailed {
+            error,
+            storage_address,
+        } => {
+            error_stack
+                .push(format!("Error in the called contract ({}):", *storage_address.0.key()));
+            extract_entry_point_execution_error_into_stack_trace(&mut error_stack, error);
+        }
+        _ => {
+            error_stack.push(error.to_string());
+        }
+    }
+
+    error_stack.join("\n")
+}
+
+#[cfg(test)]
+pub(crate) fn gen_error_stack_trace_for_testing(
+    error: &CairoRunError,
+    storage_address: StarkFelt,
+) -> String {
+    let mut error_stack: Vec<String> = Vec::new();
+    error_stack.push(format!("Error in the called contract ({}):", storage_address));
+    extract_cairo_run_error_into_stack_trace(&mut error_stack, error);
+
+    // TODO(Zuphit): Temp hack to match existing regression. This is to be deleted shortly.
+    if error_stack.last().unwrap_or(&String::new()).starts_with("Execution failed. Failure reason:")
+    {
+        let last_wrapping_hint_error_index = error_stack
+            .iter()
+            .rposition(|s| s.starts_with("Got an exception while executing a hint."));
+        if last_wrapping_hint_error_index.is_some() {
+            let index = last_wrapping_hint_error_index.unwrap();
+            // replace error stack at index with the cairo 1 error that appears at the end of the
+            // stack.
+            error_stack[index] =
+                format!("{HINT_ERROR_STR}{}", error_stack.last().unwrap().trim_end());
+        }
+    }
+
+    error_stack.join("\n")
+}
+
+fn extract_cairo_run_error_into_stack_trace(error_stack: &mut Vec<String>, error: &CairoRunError) {
+    if let CairoRunError::VmException(vm_exception) = error {
+        return extract_vm_exception_into_stack_trace(error_stack, vm_exception);
+    }
+    error_stack.push(error.to_string());
+}
+
+fn extract_vm_exception_into_stack_trace(
+    error_stack: &mut Vec<String>,
+    vm_exception: &VmException,
+) {
+    let vm_exception_preamble = format!("Error at pc=0:{}:", vm_exception.pc);
+    error_stack.push(vm_exception_preamble);
+
+    // TODO(Zuphit): This match is temporary, to match existing regression. To be deleted shortly.
+    match &vm_exception.inner_exc {
+        VirtualMachineError::Hint(_) => {
+            error_stack.push("Got an exception while executing a hint.".to_string());
+        }
+        VirtualMachineError::Other(_) => {}
+        _ => {
+            error_stack.push(vm_exception.inner_exc.to_string());
+        }
+    }
+
+    if let Some(traceback) = &vm_exception.traceback {
+        error_stack.push(traceback.to_string());
+    }
+    extract_virtual_machine_error_into_stack_trace(error_stack, &vm_exception.inner_exc)
+}
+
+fn extract_virtual_machine_error_into_stack_trace(
+    error_stack: &mut Vec<String>,
+    vm_error: &VirtualMachineError,
+) {
+    match vm_error {
+        VirtualMachineError::Hint(ref boxed_hint_error) => {
+            if let HintError::Internal(internal_vm_error) = &boxed_hint_error.1 {
+                return extract_virtual_machine_error_into_stack_trace(
+                    error_stack,
+                    internal_vm_error,
+                );
+            }
+            error_stack.push(boxed_hint_error.1.to_string());
+        }
+        VirtualMachineError::Other(anyhow_error) => {
+            let syscall_exec_err = anyhow_error.downcast_ref::<SyscallExecutionError>();
+            if let Some(downcast_anyhow) = syscall_exec_err {
+                extract_syscall_execution_error_into_stack_trace(error_stack, downcast_anyhow)
+            } else {
+                let deprecated_syscall_exec_err =
+                    anyhow_error.downcast_ref::<DeprecatedSyscallExecutionError>();
+                if let Some(downcast_anyhow) = deprecated_syscall_exec_err {
+                    extract_deprecated_syscall_execution_error_into_stack_trace(
+                        error_stack,
+                        downcast_anyhow,
+                    )
+                }
+            }
+        }
+        _ => {
+            // TODO(Zuphit): This default push should be reinstated shortly.
+            // error_stack.push(format!("{}\n", vm_error.to_string()));
+        }
+    }
+}
+
+fn extract_syscall_execution_error_into_stack_trace(
+    error_stack: &mut Vec<String>,
+    syscall_error: &SyscallExecutionError,
+) {
+    match syscall_error {
+        SyscallExecutionError::CallContractExecutionError { storage_address, error } => {
+            let call_contract_preamble =
+                format!("Error in the called contract ({}):", storage_address.0.key());
+            error_stack.push(call_contract_preamble);
+            extract_syscall_execution_error_into_stack_trace(error_stack, error)
+        }
+        SyscallExecutionError::LibraryCallExecutionError { storage_address, error, .. } => {
+            // TODO(Zuphit): Change to this, or a similar string that includes the class hash.
+            // let libcall_preamble = format!("Error in the called contract (hash: {} storage:
+            // {}):", class_hash, storage_address.0.key());
+            let libcall_preamble =
+                format!("Error in the called contract ({}):", storage_address.0.key());
+            error_stack.push(libcall_preamble);
+            extract_syscall_execution_error_into_stack_trace(error_stack, error);
+        }
+        SyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
+            extract_entry_point_execution_error_into_stack_trace(error_stack, entry_point_error)
+        }
+        _ => {
+            error_stack.push(syscall_error.to_string());
+        }
+    }
+}
+
+fn extract_deprecated_syscall_execution_error_into_stack_trace(
+    error_stack: &mut Vec<String>,
+    syscall_error: &DeprecatedSyscallExecutionError,
+) {
+    match syscall_error {
+        DeprecatedSyscallExecutionError::CallContractExecutionError { storage_address, error } => {
+            let call_contract_preamble =
+                format!("Error in the called contract ({}):", storage_address.0.key());
+            error_stack.push(call_contract_preamble);
+            extract_deprecated_syscall_execution_error_into_stack_trace(error_stack, error)
+        }
+        DeprecatedSyscallExecutionError::LibraryCallExecutionError {
+            storage_address,
+            error,
+            ..
+        } => {
+            // TODO(Zuphit): Change to this, or a similar string that includes the class hash.
+            // let libcall_preamble = format!("Error in the called contract (hash: {} storage:
+            // {}):", class_hash, storage_address.0.key());
+            let libcall_preamble =
+                format!("Error in the called contract ({}):", storage_address.0.key());
+            error_stack.push(libcall_preamble);
+            extract_deprecated_syscall_execution_error_into_stack_trace(error_stack, error)
+        }
+        DeprecatedSyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
+            extract_entry_point_execution_error_into_stack_trace(error_stack, entry_point_error)
+        }
+        _ => error_stack.push(syscall_error.to_string()),
+    }
+}
+
+fn extract_entry_point_execution_error_into_stack_trace(
+    error_stack: &mut Vec<String>,
+    entry_point_error: &EntryPointExecutionError,
+) {
+    match entry_point_error {
+        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { source, .. } => {
+            extract_cairo_run_error_into_stack_trace(error_stack, source)
+        }
+        _ => error_stack.push(format!("{}\n", entry_point_error)),
+    }
 }
