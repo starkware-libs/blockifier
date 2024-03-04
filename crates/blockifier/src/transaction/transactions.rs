@@ -304,8 +304,12 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             self.constructor_calldata(),
             *remaining_gas,
         );
-        let call_info = deployment_result
-            .map_err(TransactionExecutionError::ContractConstructorExecutionFailed)?;
+        let call_info = deployment_result.map_err(|error| {
+            TransactionExecutionError::ContractConstructorExecutionFailed {
+                error,
+                storage_address: *self.contract_address.0.key(),
+            }
+        })?;
         update_remaining_gas(remaining_gas, &call_info);
 
         Ok(Some(call_info))
@@ -403,9 +407,12 @@ impl<S: State> Executable<S> for InvokeTransaction {
             initial_gas: *remaining_gas,
         };
 
-        let call_info = execute_call
-            .execute(state, resources, context)
-            .map_err(TransactionExecutionError::ExecutionError)?;
+        let call_info = execute_call.execute(state, resources, context).map_err(|error| {
+            TransactionExecutionError::ExecutionError {
+                error,
+                storage_address: *storage_address.0.key(),
+            }
+        })?;
         update_remaining_gas(remaining_gas, &call_info);
 
         Ok(Some(call_info))
@@ -497,10 +504,12 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             initial_gas: *remaining_gas,
         };
 
-        execute_call
-            .execute(state, resources, context)
-            .map(Some)
-            .map_err(TransactionExecutionError::ExecutionError)
+        execute_call.execute(state, resources, context).map(Some).map_err(|error| {
+            TransactionExecutionError::ExecutionError {
+                error,
+                storage_address: *storage_address.0.key(),
+            }
+        })
     }
 }
 

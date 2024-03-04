@@ -357,9 +357,9 @@ fn test_simulate_validate_charge_fee_fail_validate(
     } else {
         assert_matches!(
             result.unwrap_err(),
-            TransactionExecutionError::ValidateTransactionError(
-                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }
-            )
+            TransactionExecutionError::ValidateTransactionError{
+                error: EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }, ..
+            }
             if trace.contains("An ASSERT_EQ instruction failed: 1 != 0.")
         );
     }
