@@ -128,6 +128,20 @@ fn l1_handler(contract_address: ContractAddress) -> Transaction {
         n_events: 0,
     }
 )]
+#[case::declare_tx(TransactionType::Declare, TransactionVersion::TWO, BouncerInfo {
+    state_diff_size: 4,
+    gas_weight: 0,
+    message_segment_length: 0,
+    execution_resources: cairo_vm::vm::runners::cairo_runner::ExecutionResources {
+        n_steps: 4595,
+        n_memory_holes: 0,
+        builtin_instance_counter: build_expected_builtin_instance_counter(HashMap::from([
+            (HASH_BUILTIN_NAME.to_string(), 234),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
+        ])),
+    },
+    n_events: 0,
+})]
 #[case::deploy_account_tx(
     TransactionType::DeployAccount, TransactionVersion::THREE, BouncerInfo {
         state_diff_size: 3,
@@ -144,8 +158,41 @@ fn l1_handler(contract_address: ContractAddress) -> Transaction {
         n_events: 0,
     }
 )]
+#[case::deploy_account_tx(
+    TransactionType::DeployAccount, TransactionVersion::ONE, BouncerInfo {
+        state_diff_size: 3,
+        gas_weight: 0,
+        message_segment_length: 0,
+        execution_resources: cairo_vm::vm::runners::cairo_runner::ExecutionResources {
+            n_steps: 5549,
+            n_memory_holes: 0,
+            builtin_instance_counter: build_expected_builtin_instance_counter(HashMap::from([
+                (HASH_BUILTIN_NAME.to_string(), 241),
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 83),
+            ])),
+        },
+        n_events: 0,
+    }
+)]
 #[case::invoke_function(
     TransactionType::InvokeFunction, TransactionVersion::THREE, BouncerInfo {
+        state_diff_size: 2,
+        gas_weight: 0,
+        message_segment_length: 0,
+        execution_resources: cairo_vm::vm::runners::cairo_runner::ExecutionResources {
+            n_steps: 91483,
+            n_memory_holes: 0,
+            builtin_instance_counter: build_expected_builtin_instance_counter(HashMap::from([
+                (HASH_BUILTIN_NAME.to_string(), 237),
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 104),
+                (POSEIDON_BUILTIN_NAME.to_string(), 7716),
+            ])),
+        },
+        n_events: 0,
+    }
+)]
+#[case::invoke_function(
+    TransactionType::InvokeFunction, TransactionVersion::ONE, BouncerInfo {
         state_diff_size: 2,
         gas_weight: 0,
         message_segment_length: 0,
@@ -180,7 +227,6 @@ fn l1_handler(contract_address: ContractAddress) -> Transaction {
         n_events: 0,
     }
 )]
-
 fn test_tx_executor(
     block_context: BlockContext,
     #[case] tx_type: TransactionType,
