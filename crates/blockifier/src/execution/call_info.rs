@@ -3,6 +3,7 @@ use std::iter::Sum;
 use std::ops::Add;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, ContractAddress, EthAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -40,14 +41,19 @@ pub struct MessageL1CostInfo {
 }
 
 impl MessageL1CostInfo {
-    pub fn calculate<'a>(
-        call_infos: impl Iterator<Item = &'a CallInfo>,
+    pub fn calculate(
+        call_infos: &[&Option<&CallInfo>],
         l1_handler_payload_size: Option<usize>,
     ) -> TransactionExecutionResult<Self> {
-        let mut l2_to_l1_payload_lengths = Vec::new();
-        for call_info in call_infos {
-            l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths()?);
-        }
+        let l2_to_l1_payload_lengths: Vec<usize> = (call_infos
+            .iter()
+            .filter_map(|call_info| {
+                call_info.map(|info| info.get_sorted_l2_to_l1_payload_lengths())
+            })
+            .try_collect::<Vec<usize>, Vec<Vec<usize>>, TransactionExecutionError>()?)
+        .into_iter()
+        .flatten()
+        .collect();
 
         let message_segment_length =
             get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);

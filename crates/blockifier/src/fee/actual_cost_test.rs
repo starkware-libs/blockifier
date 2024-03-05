@@ -47,7 +47,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     let versioned_constants = VersionedConstants::default();
     let empty_tx_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
         &versioned_constants,
-        std::iter::empty(),
+        &Vec::default(),
         &StarknetResources::default(),
         None,
         use_kzg_da,
@@ -71,7 +71,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
             GasVector { l1_gas: code_gas_cost.to_integer(), ..Default::default() };
         let declare_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
             &versioned_constants,
-            std::iter::empty(),
+            &Vec::default(),
             &declare_tx_starknet_resources,
             None,
             use_kzg_da,
@@ -107,7 +107,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     let deploy_account_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
         &versioned_constants,
-        std::iter::empty(),
+        &Vec::default(),
         &deploy_tx_starknet_resources,
         None,
         use_kzg_da,
@@ -126,7 +126,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     );
     let l1_handler_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
         &versioned_constants,
-        std::iter::empty(),
+        &Vec::default(),
         &l1_handler_tx_starknet_resources,
         Some(l1_handler_payload_size),
         use_kzg_da,
@@ -153,33 +153,18 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
 
     // Any transaction with L2-to-L1 messages.
 
-    let mut call_infos = Vec::new();
-
-    for i in 0..4 {
-        let payload_vec = vec![stark_felt!(0_u16); i];
-
-        let call_info = CallInfo {
-            execution: CallExecution {
-                l2_to_l1_messages: vec![OrderedL2ToL1Message {
-                    message: MessageToL1 {
-                        payload: L2ToL1Payload(payload_vec),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                }],
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-
-        call_infos.push(call_info);
-    }
+    let call_info_0 = create_callinfo(0);
+    let call_info_1 = create_callinfo(1);
+    let call_info_2 = create_callinfo(2);
+    let call_info_3 = create_callinfo(3);
+    let call_infos =
+        &[&Some(&call_info_0), &Some(&call_info_1), &Some(&call_info_2), &Some(&call_info_3)];
 
     // l2_to_l1_payload_lengths is [0, 1, 2, 3]
-    let call_infos_iter = call_infos.iter();
-    let l2_to_l1_payload_lengths: Vec<usize> = call_infos_iter
+    let l2_to_l1_payload_lengths: Vec<usize> = call_infos
+        .iter()
         .clone()
-        .flat_map(|call_info| call_info.get_sorted_l2_to_l1_payload_lengths().unwrap())
+        .flat_map(|call_info| call_info.unwrap().get_sorted_l2_to_l1_payload_lengths().unwrap())
         .collect();
 
     let l2_to_l1_state_changes_count = StateChangesCount {
@@ -192,7 +177,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         StarknetResources::new(0, 0, None, l2_to_l1_state_changes_count);
     let l2_to_l1_messages_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
         &versioned_constants,
-        call_infos_iter.clone(),
+        call_infos,
         &l2_to_l1_starknet_resources,
         None,
         use_kzg_da,
@@ -233,7 +218,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
         StarknetResources::new(0, 0, None, storage_writes_state_changes_count);
     let storage_writings_gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
         &versioned_constants,
-        std::iter::empty(),
+        &Vec::default(),
         &storage_writes_starknet_resources,
         None,
         use_kzg_da,
@@ -262,7 +247,7 @@ fn test_calculate_tx_gas_usage_basic(#[values(false, true)] use_kzg_da: bool) {
     );
     let gas_usage_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
         &versioned_constants,
-        call_infos_iter,
+        call_infos,
         &combined_cases_starknet_resources,
         Some(l1_handler_payload_size),
         use_kzg_da,
@@ -331,7 +316,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
 
     let gas_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
         versioned_constants,
-        std::iter::empty(),
+        &Vec::default(),
         &starknet_resources,
         None,
         use_kzg_da,
@@ -382,7 +367,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         StarknetResources::new(calldata_length, signature_length, None, state_changes_count);
     let gas_vector = ActualCostBuilder::calculate_tx_gas_usage_vector(
         versioned_constants,
-        std::iter::empty(),
+        &Vec::default(),
         &starknet_resources,
         None,
         use_kzg_da,
@@ -394,4 +379,18 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         u128_from_usize(tx_execution_info.actual_resources.blob_gas_usage()),
         l1_blob_gas_usage
     );
+}
+
+pub fn create_callinfo(i: usize) -> CallInfo {
+    let payload_vec = vec![stark_felt!(0_u16); i];
+    CallInfo {
+        execution: CallExecution {
+            l2_to_l1_messages: vec![OrderedL2ToL1Message {
+                message: MessageToL1 { payload: L2ToL1Payload(payload_vec), ..Default::default() },
+                ..Default::default()
+            }],
+            ..Default::default()
+        },
+        ..Default::default()
+    }
 }
