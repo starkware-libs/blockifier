@@ -61,6 +61,23 @@ pub struct VersionedConstants {
     vm_resource_fee_cost: Arc<HashMap<String, ResourceCost>>,
 }
 
+impl TryFrom<&str> for VersionedConstants {
+    type Error = VersionedConstantsError;
+
+    fn try_from(version: &str) -> Result<Self, Self::Error> {
+        let resource_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+        let comparator = semver::Comparator::parse(version)?;
+        if comparator.matches(&semver::Version::parse("0.13.0")?) {
+            resource_path.join("versioned_constants_13_0.json")
+        } else if comparator.matches(&semver::Version::parse("0.13.1")?) {
+            resource_path.join("versioned_constants.json")
+        } else {
+            return Err(VersionedConstantsError::InvalidVersion(comparator.to_string()));
+        };
+        Ok(serde_json::from_reader(std::fs::File::open(resource_path)?)?)
+    }
+}
+
 impl VersionedConstants {
     /// Get the constants that shipped with the current version of the Blockifier.
     /// To use custom constants, initialize the struct from a file using `try_from`.
@@ -556,10 +573,14 @@ impl OsConstantsRawJson {
 
 #[derive(Debug, Error)]
 pub enum VersionedConstantsError {
+    #[error("Version {0} was not found.")]
+    InvalidVersion(String),
     #[error(transparent)]
     IoError(#[from] io::Error),
     #[error("JSON file cannot be serialized into VersionedConstants: {0}")]
     ParseError(#[from] serde_json::Error),
+    #[error(transparent)]
+    VersionParsingError(#[from] semver::Error),
 }
 
 #[derive(Debug, Error)]
