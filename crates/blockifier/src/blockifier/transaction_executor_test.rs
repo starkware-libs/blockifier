@@ -14,8 +14,7 @@ use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::TransactionExecutor;
 use crate::context::BlockContext;
 use crate::test_utils::contracts::FeatureContract;
-use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{CairoVersion, BALANCE};
+use crate::test_utils::CairoVersion;
 use crate::transaction::test_utils::block_context;
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
@@ -72,10 +71,8 @@ fn test_tx_executor(
 ) {
     // Setup context.
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
-    let state = test_state(&block_context.chain_info, BALANCE, &[(test_contract, 1)]);
-
-    // Create the tx executor.
-    let mut tx_executor = TransactionExecutor::new(state, block_context);
+    let mut tx_executor =
+        TransactionExecutor::create_for_testing(block_context, &[(test_contract, 1)]);
 
     // Create the tested tx.
     let tx = match tx_type {

@@ -18,6 +18,10 @@ use crate::state::cached_state::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
+use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::dict_state_reader::DictStateReader;
+use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::BALANCE;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionInfo;
@@ -56,6 +60,16 @@ pub struct TransactionExecutor<S: StateReader> {
     // Is `Some` only after transaction has finished executing, and before commit/revert have been
     // called. `None` while a transaction is being executed and in between transactions.
     pub staged_for_commit_state: Option<StagedTransactionalState>,
+}
+
+impl TransactionExecutor<DictStateReader> {
+    pub fn create_for_testing(
+        block_context: BlockContext,
+        contract_instances: &[(FeatureContract, u16)],
+    ) -> Self {
+        let state = test_state(&block_context.chain_info, BALANCE, contract_instances);
+        Self::new(state, block_context)
+    }
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
