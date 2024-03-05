@@ -64,14 +64,7 @@ impl<S: StateReader> CachedState<S> {
         self.update_initial_values_of_write_only_access()?;
         let cache = self.cache.borrow();
 
-        Ok(StateChanges {
-            storage_updates: cache.get_storage_updates(),
-            nonce_updates: cache.get_nonce_updates(),
-            // Class hash updates (deployed contracts + replace_class syscall).
-            class_hash_updates: cache.get_class_hash_updates(),
-            // Compiled class hash updates (declare Cairo 1 contract).
-            compiled_class_hash_updates: cache.get_compiled_class_hash_updates(),
-        })
+        Ok(cache.subtract_initial_state(&cache))
     }
 
     /// Drains contract-class cache collected during execution and updates the global cache.
