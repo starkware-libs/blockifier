@@ -408,6 +408,21 @@ impl StateCache {
         // compiled_class_hash_initial_values);
     }
 
+    fn subtract_initial_state(&self, other: &StateCache) -> StateChanges {
+        StateChanges {
+            storage_updates: subtract_mappings(&self.storage_writes, &other.storage_initial_values),
+            nonce_updates: subtract_mappings(&self.nonce_writes, &other.nonce_initial_values),
+            class_hash_updates: subtract_mappings(
+                &self.class_hash_writes,
+                &other.class_hash_initial_values,
+            ),
+            compiled_class_hash_updates: subtract_mappings(
+                &self.compiled_class_hash_writes,
+                &other.compiled_class_hash_initial_values,
+            ),
+        }
+    }
+
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -634,21 +649,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 
         cache.merge_caches(&base_cache);
 
-        Ok(StateChanges {
-            storage_updates: subtract_mappings(
-                &cache.storage_writes,
-                &base_cache.storage_initial_values,
-            ),
-            nonce_updates: subtract_mappings(&cache.nonce_writes, &base_cache.nonce_initial_values),
-            class_hash_updates: subtract_mappings(
-                &cache.class_hash_writes,
-                &base_cache.class_hash_initial_values,
-            ),
-            compiled_class_hash_updates: subtract_mappings(
-                &cache.compiled_class_hash_writes,
-                &base_cache.compiled_class_hash_initial_values,
-            ),
-        })
+        Ok(cache.subtract_initial_state(&base_cache))
     }
 
     /// Commits changes in the child (wrapping) state to its parent.
