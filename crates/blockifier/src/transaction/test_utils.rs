@@ -42,12 +42,12 @@ pub const GET_BLOCK_TIMESTAMP: u64 = 6;
 pub const GET_SEQUENCER_ADDRESS: u64 = 7;
 
 // Corresponding constants to the ones in account_writing_validation.
-pub const NO_WRITE: u64 = 0;
-pub const WRITE_SINGLE_VALUE: u64 = 1;
-pub const WRITE_EXECUTE_ONLY: u64 = 2;
-pub const WRITE_VALIDATE_EXECUTE: u64 = 3;
-pub const WRITE_VALIDATE_ONLY: u64 = 4;
-pub const WRITE_VALIDATE_FAIL_EXECUTE: u64 = 5;
+pub const NO_WRITE: u8 = 0;
+pub const WRITE_SINGLE_VALUE: u8 = 1;
+pub const WRITE_EXECUTE_ONLY: u8 = 2;
+pub const WRITE_VALIDATE_EXECUTE: u8 = 3;
+pub const WRITE_VALIDATE_ONLY: u8 = 4;
+pub const WRITE_VALIDATE_FAIL_EXECUTE: u8 = 5;
 
 macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
@@ -83,6 +83,14 @@ pub fn max_resource_bounds() -> ResourceBoundsMapping {
 #[fixture]
 pub fn block_context() -> BlockContext {
     BlockContext::create_for_account_testing()
+}
+
+/// Struct containing the data for a scenario with writing validation.
+pub struct WritingValidationScenarioInfo {
+    pub scenario: u8,
+    pub key: u8,
+    pub first_value: u8,
+    pub second_value: u8,
 }
 
 /// Struct containing the data usually needed to initialize a test.
