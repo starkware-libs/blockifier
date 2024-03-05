@@ -14,16 +14,19 @@ use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::TransactionExecutor;
 use crate::context::BlockContext;
-use crate::deploy_account_tx_args;
 use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::test_utils::{block_context, l1_resource_bounds};
+use crate::transaction::test_utils::{
+    block_context, calculate_class_info_for_testing, l1_resource_bounds,
+};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::L1HandlerTransaction;
+use crate::{declare_tx_args, deploy_account_tx_args};
 
 // Utils.
 
@@ -44,6 +47,22 @@ fn build_expected_builtin_instance_counter(
     ]);
     expected_builtin_instance_counter.extend(builtin_instance_counter);
     expected_builtin_instance_counter
+}
+
+fn declare(
+    account_address: ContractAddress,
+    declared_contract: FeatureContract,
+    version: TransactionVersion,
+) -> Transaction {
+    Transaction::AccountTransaction(declare_tx(
+        declare_tx_args! {
+            sender_address: account_address,
+            class_hash: declared_contract.get_class_hash(),
+            version,
+            resource_bounds: l1_resource_bounds(0, DEFAULT_STRK_L1_GAS_PRICE),
+        },
+        calculate_class_info_for_testing(declared_contract.get_class()),
+    ))
 }
 
 fn deploy_account(class_hash: ClassHash, version: TransactionVersion) -> Transaction {
@@ -71,6 +90,22 @@ fn l1_handler(contract_address: ContractAddress) -> Transaction {
 }
 
 #[rstest]
+#[case::declare_tx(
+    TransactionType::Declare, TransactionVersion::THREE, BouncerInfo {
+        state_diff_size: 4,
+        gas_weight: 0,
+        message_segment_length: 0,
+        execution_resources: cairo_vm::vm::runners::cairo_runner::ExecutionResources {
+            n_steps: 4595,
+            n_memory_holes: 0,
+            builtin_instance_counter: build_expected_builtin_instance_counter(HashMap::from([
+                (HASH_BUILTIN_NAME.to_string(), 234),
+                (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
+            ])),
+        },
+        n_events: 0,
+    }
+)]
 #[case::deploy_account_tx(
     TransactionType::DeployAccount, TransactionVersion::THREE, BouncerInfo {
         state_diff_size: 3,
@@ -117,6 +152,7 @@ fn test_tx_executor(
     // Setup context.
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let empty = FeatureContract::Empty(CairoVersion::Cairo1); // Some unused contract.
     let state = test_state(&block_context.chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
 
     // Create the tx executor.
@@ -124,7 +160,7 @@ fn test_tx_executor(
 
     // Create the tested tx.
     let tx = match tx_type {
-        TransactionType::Declare => todo!(),
+        TransactionType::Declare => declare(account.get_instance_address(0), empty, version),
         TransactionType::DeployAccount => deploy_account(account.get_class_hash(), version),
         TransactionType::InvokeFunction => todo!(),
         TransactionType::L1Handler => l1_handler(test_contract.get_instance_address(0)),
