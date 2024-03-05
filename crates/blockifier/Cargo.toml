@@ -39,6 +39,7 @@ num-rational.workspace = true
 once_cell.workspace = true
 phf.workspace = true
 rstest = { workspace = true, optional = true }
+semver = "1.0.22"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 sha3.workspace = true
