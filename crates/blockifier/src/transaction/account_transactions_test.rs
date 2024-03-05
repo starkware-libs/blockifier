@@ -48,8 +48,8 @@ use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
     create_account_tx_for_validate_test, create_test_init_data, deploy_and_fund_account,
     l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs,
-    TestInitData, INVALID, WRITE_EXECUTE_ONLY, WRITE_VALIDATE_EXECUTE, WRITE_VALIDATE_FAIL_EXECUTE,
-    WRITE_VALIDATE_ONLY,
+    TestInitData, INVALID, WRITE_EXECUTE_ONLY, WRITE_SINGLE_VALUE, WRITE_VALIDATE_EXECUTE,
+    WRITE_VALIDATE_FAIL_EXECUTE, WRITE_VALIDATE_ONLY,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -1242,6 +1242,76 @@ fn test_count_actual_storage_changes_with_storage_writes_in_validation(
 
     assert_eq!(expected_da_gas_usage, actual_da_gas_usage);
     assert_eq!(execution_info.is_reverted(), expected_revert);
+}
+
+/// Test for counting actual storage changes, when writing and reseting (undo) to a non-zero storage
+/// cell.
+#[rstest]
+// Scenario: Validation writes to (non-zero) storage, execution resets same storage (undo),
+// execution passes. Expected: No storage changes, da_gas as if no writes happened.
+#[case::validate_execute_reset_non_zero(WRITE_VALIDATE_EXECUTE)]
+// Scenarios: Validation or execution modifies (a non-zero) storage, then resets same storage
+// (undo), execution passes.
+// Expected: No storage changes, da_gas as if no writes happened.
+#[case::validate_reset_non_zero(WRITE_VALIDATE_ONLY)]
+#[case::execute_reset_non_zero(WRITE_EXECUTE_ONLY)]
+fn test_count_actual_storage_changes_reset_non_zero_storage(
+    block_context: BlockContext,
+    #[case] scenario: u64, // scenario_info: Vec<StarkFelt>,
+    #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
+    // Create initial state.
+    let chain_info = &block_context.chain_info;
+    let account_contract = FeatureContract::AccountWritingValidation(cairo_version);
+    let mut state = test_state(chain_info, BALANCE, &[(account_contract, 1)]);
+    let account_address = account_contract.get_instance_address(0);
+    let nonce_manager = &mut NonceManager::default();
+    let execute_calldata = create_trivial_calldata(account_address);
+
+    let storage_address = 15_u8;
+    // non-zero initial value
+    let start_val = 1_u8;
+
+    // write initial value to cell.
+    let fake_signature = TransactionSignature(vec![
+        WRITE_SINGLE_VALUE.into(),
+        storage_address.into(),
+        start_val.into(),
+    ]);
+    let invoke_args = invoke_tx_args! {
+        signature: fake_signature,
+        sender_address: account_address,
+        calldata: execute_calldata,
+        version,
+        nonce: nonce_manager.next(account_address),
+    };
+
+    let execution_info_result = run_invoke_tx(&mut state, &block_context, invoke_args.clone());
+    assert!(execution_info_result.is_ok());
+
+    // increase value in cell, then reset back.
+    let fake_signature = TransactionSignature(vec![
+        scenario.into(),
+        storage_address.into(),
+        (start_val + 1).into(),
+        storage_address.into(),
+        start_val.into(),
+    ]);
+    let invoke_args = invoke_tx_args! {
+        signature: fake_signature,
+        nonce: nonce_manager.next(account_address),
+        ..invoke_args
+    };
+
+    let execution_info = run_invoke_tx(&mut state, &block_context, invoke_args).unwrap();
+    let actual_da_gas_usage = execution_info.da_gas;
+
+    // Expected: No storage changes, da_gas as if no writes happened.
+    let expected_da_gas_usage = GasVector { l1_gas: 1652, l1_data_gas: 0 };
+
+    assert_eq!(expected_da_gas_usage, actual_da_gas_usage);
+    assert_eq!(execution_info.is_reverted(), false);
 }
 
 /// Test for counting actual storage changes, with storage writes in validation.
