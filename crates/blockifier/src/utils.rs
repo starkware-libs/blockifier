@@ -6,6 +6,20 @@ use crate::transaction::errors::NumericConversionError;
 #[path = "utils_test.rs"]
 pub mod test;
 
+/// Adds all key-value pairs from `rhs` to `lhs`. If a key already exists in `lhs`, its value will
+/// not be modified.
+pub fn add_missing_keys<K, V>(lhs: &mut HashMap<K, V>, rhs: &HashMap<K, V>)
+where
+    K: Clone + Eq + std::hash::Hash,
+    V: Clone + PartialEq,
+{
+    for (k, v) in rhs.iter() {
+        if !lhs.contains_key(k) {
+            lhs.insert(k.clone(), v.clone());
+        }
+    }
+}
+
 /// Returns a `HashMap` containing key-value pairs from `a` that are not included in `b` (if
 /// a key appears in `b` with a different value, it will be part of the output).
 /// Usage: Get updated items from a mapping.

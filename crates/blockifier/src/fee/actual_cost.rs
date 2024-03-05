@@ -9,7 +9,9 @@ use crate::context::TransactionContext;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ClassInfo;
 use crate::fee::gas_usage::{get_messages_gas_cost, get_tx_events_gas_cost};
-use crate::state::cached_state::{CachedState, StateChanges, StateChangesCount};
+use crate::state::cached_state::{
+    CachedState, StateChanges, StateChangesCount, TransactionalState,
+};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{
     GasVector, HasRelatedFeeType, ResourcesMapping, StarknetResources, TransactionExecutionResult,
@@ -127,6 +129,17 @@ impl<'a> ActualCostBuilder<'a> {
     ) -> StateResult<Self> {
         let new_state_changes = state.get_actual_state_changes()?;
         self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
+        Ok(self)
+    }
+
+    /// Computes the actual state changes after the execution part of a revertible transaction.
+    /// State changes are computed compared to the inital state before the validation part of
+    /// the transaction.
+    pub fn try_add_revertible_state_changes<S: StateReader>(
+        mut self,
+        state: &mut TransactionalState<'_, S>,
+    ) -> StateResult<Self> {
+        self.state_changes = state.get_actual_revertible_state_changes()?;
         Ok(self)
     }
 
