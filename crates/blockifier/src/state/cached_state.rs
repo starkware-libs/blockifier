@@ -13,7 +13,7 @@ use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::utils::subtract_mappings;
+use crate::utils::{add_missing_keys, subtract_mappings};
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
@@ -63,7 +63,6 @@ impl<S: StateReader> CachedState<S> {
     pub fn get_actual_state_changes(&mut self) -> StateResult<StateChanges> {
         self.update_initial_values_of_write_only_access()?;
         let cache = self.cache.borrow();
-
         Ok(StateChanges {
             storage_updates: cache.get_storage_updates(),
             nonce_updates: cache.get_nonce_updates(),
@@ -607,6 +606,36 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             tx_unique_state_changes_keys,
             visited_pcs,
         }
+    }
+
+    pub fn get_actual_revertible_state_changes(&mut self) -> StateResult<StateChanges> {
+        self.update_initial_values_of_write_only_access()?;
+        let mut cache = self.cache.borrow_mut();
+        let base_cache = self.state.0.cache.borrow();
+
+        add_missing_keys(&mut cache.storage_writes, &base_cache.storage_writes);
+        let mut class_hash_writes = base_cache.class_hash_writes.clone();
+        class_hash_writes.extend(&cache.class_hash_writes);
+        let mut compiled_class_hash_writes = base_cache.compiled_class_hash_writes.clone();
+        compiled_class_hash_writes.extend(&cache.compiled_class_hash_writes);
+        let mut nonce_writes = base_cache.nonce_writes.clone();
+        nonce_writes.extend(&cache.nonce_writes);
+
+        Ok(StateChanges {
+            storage_updates: subtract_mappings(
+                &cache.storage_writes,
+                &base_cache.storage_initial_values,
+            ),
+            nonce_updates: subtract_mappings(&nonce_writes, &base_cache.nonce_initial_values),
+            class_hash_updates: subtract_mappings(
+                &class_hash_writes,
+                &base_cache.class_hash_initial_values,
+            ),
+            compiled_class_hash_updates: subtract_mappings(
+                &compiled_class_hash_writes,
+                &base_cache.compiled_class_hash_initial_values,
+            ),
+        })
     }
 
     /// Commits changes in the child (wrapping) state to its parent.
