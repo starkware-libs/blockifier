@@ -98,15 +98,14 @@ impl BouncerWeights {
         builtin_count
     );
 
-    // TODO : This is code for testing - remove before PR
-    pub fn tmp_max() -> Self {
+    pub fn create_for_testing(with_keccak: bool) -> Self {
         Self {
-            gas: 5000000,
-            n_steps: 20000000,
+            gas: 2500000,
+            n_steps: 2500000,
             message_segment_length: 3750,
             state_diff_size: 20000,
             n_events: 10000,
-            builtin_count: BuiltinCount::tmp_max(),
+            builtin_count: BuiltinCount::create_for_testing(with_keccak),
         }
     }
 }
@@ -173,12 +172,14 @@ impl From<BuiltinCount> for HashMapWrapper {
 impl BuiltinCount {
     impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
 
-    pub fn tmp_max() -> Self {
+    pub fn create_for_testing(with_keccak: bool) -> Self {
         Self {
             bitwise: 39062,
             ecdsa: 1220,
             ec_op: 2441,
-            keccak: 0,
+            keccak: {
+                if with_keccak { 0 } else { 1220 }
+            },
             pedersen: 78125,
             poseidon: 78125,
             range_check: 156250,

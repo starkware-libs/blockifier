@@ -129,7 +129,6 @@ pub struct PyResourcePrice {
 pub struct PyBouncerInfo {
     pub full_total_weights_with_keccak: HashMap<String, usize>,
     pub full_total_weights: HashMap<String, usize>,
-    pub lifespan: usize,
 }
 
 impl Default for PyBouncerInfo {
@@ -137,7 +136,6 @@ impl Default for PyBouncerInfo {
         Self {
             full_total_weights_with_keccak: BouncerWeights::default().into(),
             full_total_weights: BouncerWeights::default().into(),
-            lifespan: usize::default(),
         }
     }
 }

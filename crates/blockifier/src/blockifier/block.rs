@@ -35,7 +35,6 @@ pub struct BlockInfo {
 pub struct BouncerConfig {
     pub full_total_weights: HashMap<String, usize>,
     pub full_total_weights_with_keccak: HashMap<String, usize>,
-    pub lifespan: usize,
 }
 
 #[derive(Clone, Debug)]

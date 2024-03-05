@@ -377,7 +377,6 @@ pub fn into_block_context_args(
                 .bouncer_info
                 .full_total_weights_with_keccak
                 .clone(),
-            lifespan: block_info.bouncer_info.lifespan,
         }
     );
     println!("yael beginning of into block context args2");
