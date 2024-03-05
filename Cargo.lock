@@ -386,7 +386,7 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.5.0-rc.4"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -2108,7 +2108,7 @@ dependencies = [
 
 [[package]]
 name = "native_blockifier"
-version = "0.5.0-rc.4"
+version = "0.5.0"
 dependencies = [
  "blockifier",
  "cached",
@@ -2269,9 +2269,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_config"
-version = "0.3.0-rc.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88353baa773823a8de0beab22fcd122afd7dc8a2e4df0d5ba0d4f1acaa7cb9d1"
+checksum = "56f71a47a327032490c0da1066d984cc67833669cf9a80fabb012bb2d491a761"
 dependencies = [
  "clap 4.4.13",
  "itertools 0.10.5",
@@ -2284,9 +2284,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_proc_macros"
-version = "0.3.0-rc.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "900efa45376c1c034f3187d2ae60cba513301874266b6bb4700077e9cd4f62a1"
+checksum = "0796680a898b4115f963f2274c716bfa0cab7fb1e46c6df46d175458469b2370"
 dependencies = [
  "quote",
  "syn 2.0.46",
@@ -2294,9 +2294,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_storage"
-version = "0.3.0-rc.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32adea1d9716d21e13cf20d0499f471edb1654769ceb3a8712e3a8e9f218b9b5"
+checksum = "158e46cc1a5705ffd601253aea6a49c1ff64a9ceefdbebee0aeee60c3d1dff41"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
