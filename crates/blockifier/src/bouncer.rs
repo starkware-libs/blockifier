@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use cairo_vm::serde::deserialize_program::BuiltinName;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use derive_more::Add;
 use serde::Deserialize;
 use starknet_api::core::ClassHash;
@@ -15,7 +16,7 @@ use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
+use crate::transaction::objects::TransactionExecutionInfo;
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -37,7 +38,7 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
-#[derive(Clone, Copy, Debug, Default, derive_more::Sub, Deserialize, PartialEq)]
+#[derive(Add, Clone, Copy, Debug, Default, derive_more::Sub, Deserialize, PartialEq)]
 /// Represents the execution resources counted throughout block creation.
 pub struct BouncerWeights {
     gas: usize,
@@ -52,15 +53,13 @@ impl From<HashMapWrapper> for BouncerWeights {
     fn from(mut raw_data: HashMapWrapper) -> Self {
         Self {
             gas: {
-                // The gas key is either "gas_weight" or "l1_gas_usage".
                 println!("yael raw data {:?}", raw_data);
-                let x = raw_data
-                    .remove(constants::L1_GAS_USAGE)
-                    .unwrap_or(raw_data.remove("gas_weight").unwrap_or(0));
+                let x = raw_data.remove(constants::L1_GAS_USAGE).unwrap_or(0);
                 println!("yael raw data {:?}", raw_data);
                 x
             },
-            n_steps: raw_data.remove(constants::N_STEPS_RESOURCE).unwrap_or(0),
+            n_steps: raw_data.remove(constants::N_STEPS_RESOURCE).unwrap_or(0)
+                + raw_data.remove(constants::N_MEMORY_HOLES).unwrap_or(0),
             message_segment_length: raw_data.remove(constants::MESSAGE_SEGMENT_LENGTH).unwrap_or(0),
             state_diff_size: raw_data.remove(constants::STATE_DIFF_SIZE).unwrap_or(0),
             n_events: raw_data.remove(constants::N_EVENTS).unwrap_or(0),
@@ -68,16 +67,24 @@ impl From<HashMapWrapper> for BouncerWeights {
         }
     }
 }
+
 impl From<BouncerWeights> for HashMapWrapper {
     fn from(val: BouncerWeights) -> Self {
         let mut map = HashMapWrapper::new();
-        map.insert("gas_weight".to_string(), val.gas);
+        map.insert(constants::L1_GAS_USAGE.to_string(), val.gas);
         map.insert(constants::N_STEPS_RESOURCE.to_string(), val.n_steps);
         map.insert(constants::MESSAGE_SEGMENT_LENGTH.to_string(), val.message_segment_length);
         map.insert(constants::STATE_DIFF_SIZE.to_string(), val.state_diff_size);
         map.insert(constants::N_EVENTS.to_string(), val.n_events);
         map.extend::<HashMap<String, usize>>(val.builtin_count.into());
         map
+    }
+}
+impl From<ExecutionResources> for BouncerWeights {
+    fn from(val: ExecutionResources) -> Self {
+        let mut weights = BouncerWeights::from(val.builtin_instance_counter);
+        weights.n_steps = val.n_steps + val.n_memory_holes;
+        weights
     }
 }
 
@@ -269,25 +276,9 @@ impl<'a> TransactionBouncer<'a> {
         tx_execution_info: &TransactionExecutionInfo,
         l1_handler_payload_size: Option<usize>,
     ) -> TransactionExecutorResult<()> {
-        let (tx_n_steps, tx_builtin_count) =
-            self.calc_n_steps_and_builtin_count(&tx_execution_info.actual_resources, state)?;
-        // Note: this counting does not take into account state changes that happen in the block
-        // level. E.g., the felt that encodes the number of modified contracts in a block.
-        let tx_state_diff_size =
-            get_onchain_data_segment_length(self.transactional.state_changes_keys.count());
-        let message_segment_length =
-            calc_message_segment_length(tx_execution_info, l1_handler_payload_size)?;
+        let tx_weights = self.get_tx_weights(state, tx_execution_info, l1_handler_payload_size)?;
 
-        let tx_weights = BouncerWeights {
-            gas: tx_execution_info.actual_resources.get_builtin_count(constants::L1_GAS_USAGE),
-            n_steps: tx_n_steps,
-            message_segment_length,
-            state_diff_size: tx_state_diff_size,
-            n_events: tx_execution_info.get_number_of_events(),
-            builtin_count: tx_builtin_count,
-        };
-
-        if tx_weights.builtin_count.keccak > 0 && !self.transactional.block_contains_keccak {
+        if !self.transactional.block_contains_keccak && tx_weights.builtin_count.keccak > 0 {
             self.update_available_capacity_with_keccak()?;
         }
 
@@ -296,7 +287,6 @@ impl<'a> TransactionBouncer<'a> {
         if self.transactional.block_contains_keccak {
             max_capacity = self.parent.max_capacity_with_keccak;
         }
-
         max_capacity.checked_sub(tx_weights).ok_or(TransactionExecutionError::TxTooLarge)?;
 
         // Check if the transaction can fit the current block available capacity.
@@ -306,6 +296,33 @@ impl<'a> TransactionBouncer<'a> {
             .checked_sub(tx_weights)
             .ok_or(TransactionExecutionError::BlockFull)?;
         Ok(())
+    }
+
+    fn get_tx_weights<S: StateReader>(
+        &mut self,
+        state: &mut TransactionalState<'_, S>,
+        tx_execution_info: &TransactionExecutionInfo,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutorResult<BouncerWeights> {
+        let mut additional_os_resources = get_casm_hash_calculation_resources(
+            state,
+            &self.parent.executed_class_hashes,
+            &self.transactional.executed_class_hashes,
+        )?;
+        additional_os_resources += &get_particia_update_resources(
+            &self.parent.visited_storage_entries,
+            &self.transactional.visited_storage_entries,
+        )?;
+        let tx_execution_info_weights = Self::get_tx_execution_info_resources_weights(
+            tx_execution_info,
+            l1_handler_payload_size,
+        )?;
+
+        let mut tx_weights =
+            BouncerWeights::from(additional_os_resources) + tx_execution_info_weights;
+        tx_weights.state_diff_size =
+            get_onchain_data_segment_length(self.transactional.state_changes_keys.count());
+        Ok(tx_weights)
     }
 
     fn update_available_capacity_with_keccak(&mut self) -> TransactionExecutorResult<()> {
@@ -325,7 +342,7 @@ impl<'a> TransactionBouncer<'a> {
             .available_capacity
             .checked_sub(max_capacity_with_keccak_diff)
             .ok_or(TransactionExecutionError::BlockFull)?;
-        // Add back the keccack capacity the we zeroed at the beggining.
+        // Add back the keccack capacity that was reset at the beggining.
         self.transactional.available_capacity.builtin_count.keccak =
             self.parent.max_capacity_with_keccak.builtin_count.keccak;
         // Mark this block as contains keccak.
@@ -355,55 +372,72 @@ impl<'a> TransactionBouncer<'a> {
         Ok(())
     }
 
-    fn calc_n_steps_and_builtin_count<S: StateReader>(
-        &self,
-        execution_info_resources: &ResourcesMapping,
-        state: &TransactionalState<'_, S>,
-    ) -> TransactionExecutorResult<(usize, BuiltinCount)> {
-        // Count the additional OS resources that are not present in the transaction exection info.
-        let mut additional_os_resources = get_casm_hash_calculation_resources(
-            state,
-            &self.parent.executed_class_hashes,
-            &self.transactional.executed_class_hashes,
-        )?;
-        additional_os_resources += &get_particia_update_resources(
-            &self.parent.visited_storage_entries,
-            &self.transactional.visited_storage_entries,
-        )?;
-
-        println!("yael additional_os_resources {:?}", additional_os_resources);
-
-        let additional_builtin_count =
-            BuiltinCount::from(additional_os_resources.builtin_instance_counter);
-
-        println!("yael additional_builtin_count {:?}", additional_builtin_count);
-
-        // We clone the execution_info_resources and then remove item by item and make sure that
-        // eventually the list is empty and we didn't forget to handle any of the items.
-        let mut execution_info_resources = execution_info_resources.0.clone();
-
-        // The n_steps counter includes the counter of memory holes.
-        let n_steps = additional_os_resources.n_steps
-            + execution_info_resources
-                .remove(constants::N_STEPS_RESOURCE)
-                .expect("n_steps is missing from execution_info_resources")
-            + additional_os_resources.n_memory_holes
-            + execution_info_resources.remove("n_memory_holes").unwrap_or(0); // TODO: Add a constant for "n_memory_holes".
-        println!("yael n_steps {:?}", n_steps);
+    fn get_tx_execution_info_resources_weights(
+        tx_execution_info: &TransactionExecutionInfo,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutorResult<BouncerWeights> {
+        let mut execution_info_resources = tx_execution_info.actual_resources.0.clone();
 
         // The blob gas is not being limited by the bouncer, thus we don't use it here.
-        // This parameter is derived from the state diff size which is limited to one blob.
+        // The gas is determined by the state diff size, which is limited by the bouncer.
         execution_info_resources.remove("l1_blob_gas_usage");
 
-        // Sum all the builtin resources.
-        println!("yael execution_info_resources {:?}", execution_info_resources);
-        let execution_info_builtin_count = BuiltinCount::from(execution_info_resources);
-        println!("yael {:?}", execution_info_builtin_count);
-        let builtin_count = execution_info_builtin_count + additional_builtin_count;
-        println!("yael builtin_count {:?}", builtin_count);
-
-        Ok((n_steps, builtin_count))
+        let mut weights = BouncerWeights::from(execution_info_resources);
+        weights.message_segment_length =
+            calc_message_segment_length(tx_execution_info, l1_handler_payload_size)?;
+        weights.n_events = tx_execution_info.get_number_of_events();
+        Ok(weights)
     }
+
+    // fn calc_n_steps_and_builtin_count<S: StateReader>(
+    //     &self,
+    //     execution_info_resources: &ResourcesMapping,
+    //     state: &TransactionalState<'_, S>,
+    // ) -> TransactionExecutorResult<(usize, BuiltinCount)> {
+    //     // Count the additional OS resources that are not present in the transaction exection
+    // info.     let mut additional_os_resources = get_casm_hash_calculation_resources(
+    //         state,
+    //         &self.parent.executed_class_hashes,
+    //         &self.transactional.executed_class_hashes,
+    //     )?;
+    //     additional_os_resources += &get_particia_update_resources(
+    //         &self.parent.visited_storage_entries,
+    //         &self.transactional.visited_storage_entries,
+    //     )?;
+
+    //     println!("yael additional_os_resources {:?}", additional_os_resources);
+
+    //     let additional_builtin_count =
+    //         BuiltinCount::from(additional_os_resources.builtin_instance_counter);
+
+    //     println!("yael additional_builtin_count {:?}", additional_builtin_count);
+
+    //     // We clone the execution_info_resources and then remove item by item and make sure that
+    //     // eventually the list is empty and we didn't forget to handle any of the items.
+    //     let mut execution_info_resources = execution_info_resources.0.clone();
+
+    //     // The n_steps counter includes the counter of memory holes.
+    //     let n_steps = additional_os_resources.n_steps
+    //         + execution_info_resources
+    //             .remove(constants::N_STEPS_RESOURCE)
+    //             .expect("n_steps is missing from execution_info_resources")
+    //         + additional_os_resources.n_memory_holes
+    //         + execution_info_resources.remove(constants::N_MEMORY_HOLES).unwrap_or(0);
+    //     println!("yael n_steps {:?}", n_steps);
+
+    //     // The blob gas is not being limited by the bouncer, thus we don't use it here.
+    //     // This parameter is derived from the state diff size which is limited to one blob.
+    //     execution_info_resources.remove("l1_blob_gas_usage");
+
+    //     // Sum all the builtin resources.
+    //     println!("yael execution_info_resources {:?}", execution_info_resources);
+    //     let execution_info_builtin_count = BuiltinCount::from(execution_info_resources);
+    //     println!("yael {:?}", execution_info_builtin_count);
+    //     let builtin_count = execution_info_builtin_count + additional_builtin_count;
+    //     println!("yael builtin_count {:?}", builtin_count);
+
+    //     Ok((n_steps, builtin_count))
+    // }
 
     pub fn commit(&'a mut self) -> &'a Bouncer {
         self.parent.merge(&mut self.transactional);

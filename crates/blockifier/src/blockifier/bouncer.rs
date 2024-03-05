@@ -25,8 +25,8 @@ impl BouncerInfo {
     ) -> TransactionExecutionResult<Self> {
         let gas_weight = *tx_actual_resources
             .0
-            .get("l1_gas_usage")
-            .expect("Invalid Transaction Execution Info. Field l1_gas_usage was not found.");
+            .get(constants::L1_GAS_USAGE)
+            .expect("Invalid Transaction Execution Info. Field gas_weight was not found.");
 
         // TODO(Ayelet, 04/02/2024): Consider defining a constant list.
         let builtin_ordered_list = [
@@ -51,7 +51,7 @@ impl BouncerInfo {
                 .unwrap_or_default(),
             n_memory_holes: tx_actual_resources
                 .0
-                .get("n_memory_holes")
+                .get(constants::N_MEMORY_HOLES)
                 .copied()
                 .unwrap_or_default(),
             builtin_instance_counter,

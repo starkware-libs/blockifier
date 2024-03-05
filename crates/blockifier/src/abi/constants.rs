@@ -29,12 +29,13 @@ pub const CONSUMED_MSG_TO_L2_ENCODED_DATA_SIZE: usize =
     (L1_TO_L2_MSG_HEADER_SIZE + 1) - CONSUMED_MSG_TO_L2_N_TOPICS;
 
 // Transaction resource names.
-pub const L1_GAS_USAGE: &str = "l1_gas_usage";
+pub const L1_GAS_USAGE: &str = "gas_weight";
 pub const BLOB_GAS_USAGE: &str = "l1_blob_gas_usage";
 pub const N_STEPS_RESOURCE: &str = "n_steps";
 pub const MESSAGE_SEGMENT_LENGTH: &str = "message_segment_length";
 pub const STATE_DIFF_SIZE: &str = "state_diff_size";
 pub const N_EVENTS: &str = "n_events";
+pub const N_MEMORY_HOLES: &str = "n_memory_holes";
 
 // Casm hash calculation-related constants.
 pub const CAIRO0_ENTRY_POINT_STRUCT_SIZE: usize = 2;

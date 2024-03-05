@@ -22,7 +22,7 @@ pub fn extract_l1_gas_and_vm_usage(resources: &ResourcesMapping) -> (usize, Reso
     let mut vm_resource_usage = resources.0.clone();
     let l1_gas_usage = vm_resource_usage
         .remove(constants::L1_GAS_USAGE)
-        .expect("`ResourcesMapping` does not have the key `l1_gas_usage`.");
+        .expect("`ResourcesMapping` does not have the key `gas_weight`.");
 
     (l1_gas_usage, ResourcesMapping(vm_resource_usage))
 }
