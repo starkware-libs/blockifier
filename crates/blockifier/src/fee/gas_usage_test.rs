@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use pretty_assertions::assert_eq;
 use rstest::{fixture, rstest};
 use starknet_api::hash::StarkFelt;
@@ -25,8 +26,8 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
     let call_info_1 = &CallInfo::default();
     let call_info_2 = &CallInfo::default();
     let call_info_3 = &CallInfo::default();
-    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
-    assert_eq!(GasVector::default(), get_tx_events_gas_cost(call_infos, versioned_constants));
+    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3).collect_vec();
+    assert_eq!(GasVector::default(), get_tx_events_gas_cost(&call_infos, versioned_constants));
 
     let create_event = |keys_size: usize, data_size: usize| OrderedEvent {
         order: 0,
@@ -57,12 +58,12 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
         }],
         ..Default::default()
     };
-    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3).collect_vec();
     let expected = GasVector::from_l1_gas(
         // 4 keys and 6 data words overall.
         (data_word_cost * (event_key_factor * 4_u128 + 6_u128)).to_integer(),
     );
-    let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
+    let gas_vector = get_tx_events_gas_cost(&call_infos, versioned_constants);
     assert_eq!(expected, gas_vector);
     assert_ne!(GasVector::default(), gas_vector)
 }

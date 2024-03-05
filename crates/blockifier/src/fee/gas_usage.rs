@@ -18,12 +18,13 @@ use crate::versioned_constants::{ResourceCost, VersionedConstants};
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
-pub fn get_tx_events_gas_cost<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
+pub fn get_tx_events_gas_cost(
+    call_infos: &[&CallInfo],
     versioned_constants: &VersionedConstants,
 ) -> GasVector {
-    let l1_gas = call_infos
-        .map(|call_info| get_events_gas_cost(&call_info.execution.events, versioned_constants))
+    let l1_gas: u128 = call_infos
+        .iter()
+        .map(|call_info| (get_events_gas_cost(&call_info.execution.events, versioned_constants)))
         .sum();
     GasVector::from_l1_gas(l1_gas)
 }
@@ -76,8 +77,8 @@ pub fn get_starknet_gas_usage(
 
 /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for both
 /// Starknet and SHARP contracts.
-pub fn get_messages_gas_cost<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
+pub fn get_messages_gas_cost(
+    call_infos: &[&CallInfo],
     l1_handler_payload_size: Option<usize>,
 ) -> TransactionExecutionResult<GasVector> {
     let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =

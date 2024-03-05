@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use itertools::Itertools;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::Fee;
 
@@ -161,13 +162,14 @@ impl<'a> ActualCostBuilder<'a> {
         );
         // TODO(Dafna, 1/6/2024): Compute the DA size and pass it instead of state_changes_count.
         let da_gas = self.starknet_resources.get_state_changes_cost(use_kzg_da);
-        let non_optional_call_infos =
-            self.validate_call_info.into_iter().chain(self.execute_call_info);
+        let non_optional_call_infos: Vec<&'a CallInfo> =
+            self.validate_call_info.into_iter().chain(self.execute_call_info).collect_vec();
+
         // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
         // availability.
         let gas_usage_vector = Self::calculate_tx_gas_usage_vector(
             &self.tx_context.block_context.versioned_constants,
-            non_optional_call_infos,
+            &non_optional_call_infos,
             &self.starknet_resources,
             self.l1_payload_size,
             use_kzg_da,
@@ -209,12 +211,12 @@ impl<'a> ActualCostBuilder<'a> {
     /// * L2 resources cost, e.g., for storing transaction calldata.
     fn calculate_tx_gas_usage_vector(
         versioned_constants: &VersionedConstants,
-        call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
+        call_infos: &[&CallInfo],
         starknet_resources: &StarknetResources,
         l1_handler_payload_size: Option<usize>,
         use_kzg_da: bool,
     ) -> TransactionExecutionResult<GasVector> {
-        Ok(get_messages_gas_cost(call_infos.clone(), l1_handler_payload_size)?
+        Ok(get_messages_gas_cost(call_infos, l1_handler_payload_size)?
             + starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
             + get_tx_events_gas_cost(call_infos, versioned_constants))
     }
