@@ -173,3 +173,36 @@ fn test_invalid_number() {
          cannot be cast into u64",
     );
 }
+
+#[test]
+fn test_versioned_constants_try_from_version() {
+    let versioned_constants_json = DEFAULT_CONSTANTS_JSON;
+    let versioned_constants_from_json: VersionedConstants =
+        serde_json::from_str(versioned_constants_json).unwrap();
+    let versioned_constants_from_version = VersionedConstants::try_from("0.13.1").unwrap();
+    assert_eq!(
+        versioned_constants_from_json.tx_event_limits,
+        versioned_constants_from_version.tx_event_limits
+    );
+    assert_eq!(
+        versioned_constants_from_json.invoke_tx_max_n_steps,
+        versioned_constants_from_version.invoke_tx_max_n_steps
+    );
+    assert_eq!(
+        versioned_constants_from_json.l2_resource_gas_costs,
+        versioned_constants_from_version.l2_resource_gas_costs
+    );
+    assert_eq!(
+        versioned_constants_from_json.max_recursion_depth,
+        versioned_constants_from_version.max_recursion_depth
+    );
+    assert_eq!(
+        versioned_constants_from_json.validate_max_n_steps,
+        versioned_constants_from_version.validate_max_n_steps
+    );
+    // TODO(barak, 18/03/2024): Add os_constants and os_resources comparison.
+    assert_eq!(
+        versioned_constants_from_json.vm_resource_fee_cost,
+        versioned_constants_from_version.vm_resource_fee_cost
+    );
+}
