@@ -186,6 +186,24 @@ impl TryFrom<&Path> for VersionedConstants {
     }
 }
 
+pub enum Version {
+    V0_13_0,
+    V0_13_1,
+}
+
+impl TryFrom<Version> for VersionedConstants {
+    type Error = VersionedConstantsError;
+
+    fn try_from(version: Version) -> Result<Self, Self::Error> {
+        let resources_dir_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+        let versioned_constants_path = match version {
+            Version::V0_13_0 => resources_dir_path.join("versioned_constants_13_0.json"),
+            Version::V0_13_1 => resources_dir_path.join("versioned_constants.json"),
+        };
+        Ok(serde_json::from_reader(std::fs::File::open(versioned_constants_path)?)?)
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 pub struct L2ResourceGasCosts {
     // TODO(barak, 18/03/2024): Once we start charging per byte change to milligas_per_data_byte,
