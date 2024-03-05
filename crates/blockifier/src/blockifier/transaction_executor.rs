@@ -58,12 +58,10 @@ pub struct TransactionExecutor<S: StateReader> {
 impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(state: CachedState<S>, block_context: BlockContext) -> Self {
         log::debug!("Initializing Transaction Executor...");
-        let max_block_capacity = block_context.block_info().block_max_capacity;
-        let max_block_capacity_with_keccak =
-            block_context.block_info().block_max_capacity_with_keccak;
+        let bouncer_config = block_context.block_info().bouncer_config;
         let tx_executor = Self {
             block_context,
-            bouncer: Bouncer::new_block_bouncer(max_block_capacity, max_block_capacity_with_keccak),
+            bouncer: Bouncer::new_block_bouncer(bouncer_config),
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             // Note: the state might not be empty even at this point; it is the creator's
@@ -160,6 +158,7 @@ impl<S: StateReader> TransactionExecutor<S> {
 
                 //////// New bouncer logic start ////////
                 let res = transactional_bouncer.update(
+                    &self.block_context.block_info().bouncer_config,
                     &mut transactional_state,
                     &tx_execution_info,
                     l1_handler_payload_size,
@@ -170,6 +169,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 if res.is_ok() {
                     transactional_bouncer.compare_bouncer_results(
                         &bouncer_info,
+                        &self.block_context.block_info().bouncer_config,
                         &tx_executed_class_hashes,
                         &tx_visited_storage_entries,
                         &tx_unique_state_changes_keys,

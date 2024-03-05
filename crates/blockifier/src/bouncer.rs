@@ -7,6 +7,7 @@ use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
 use crate::abi::constants;
+use crate::blockifier::block::BouncerConfig;
 use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::{
     calc_message_segment_length, get_casm_hash_calculation_resources,
@@ -193,35 +194,22 @@ pub struct Bouncer {
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
     pub available_capacity: BouncerWeights,
-    block_contains_keccak: bool,
-    // The maximum capacity of the block is constant throughout a block lifecycle.
-    max_capacity: BouncerWeights,
-    max_capacity_with_keccak: BouncerWeights,
+    pub block_contains_keccak: bool,
 }
 
 impl Bouncer {
-    pub fn new(
-        available_capacity: BouncerWeights,
-        max_block_capacity: BouncerWeights,
-        max_block_capacity_with_keccak: BouncerWeights,
-        block_contains_keccak: bool,
-    ) -> Self {
+    pub fn new(available_capacity: BouncerWeights, block_contains_keccak: bool) -> Self {
         Bouncer {
             executed_class_hashes: HashSet::new(),
             visited_storage_entries: HashSet::new(),
             state_changes_keys: StateChangesKeys::default(),
             available_capacity,
             block_contains_keccak,
-            max_capacity: max_block_capacity,
-            max_capacity_with_keccak: max_block_capacity_with_keccak,
         }
     }
 
-    pub fn new_block_bouncer(
-        max_block_capacity: BouncerWeights,
-        max_block_capacity_with_keccak: BouncerWeights,
-    ) -> Bouncer {
-        Bouncer::new(max_block_capacity, max_block_capacity, max_block_capacity_with_keccak, false)
+    pub fn new_block_bouncer(bouncer_config: BouncerConfig) -> Bouncer {
+        Bouncer::new(bouncer_config.block_max_capacity, false)
     }
 
     pub fn create_transactional(&mut self) -> TransactionBouncer {
@@ -246,33 +234,26 @@ pub struct TransactionBouncer<'a> {
 
 impl<'a> TransactionBouncer<'a> {
     pub fn new(parent: &'a mut Bouncer) -> TransactionBouncer {
-        let transactional = Bouncer::new(
-            parent.available_capacity,
-            parent.max_capacity,
-            parent.max_capacity_with_keccak,
-            parent.block_contains_keccak,
-        );
+        let transactional = Bouncer::new(parent.available_capacity, parent.block_contains_keccak);
         TransactionBouncer { parent, transactional }
     }
 
     pub fn update<S: StateReader>(
         &mut self,
+        bouncer_config: &BouncerConfig,
         state: &mut TransactionalState<'_, S>,
         tx_execution_info: &TransactionExecutionInfo,
         l1_handler_payload_size: Option<usize>,
     ) -> TransactionExecutorResult<()> {
-        self.update_used_state_entries_sets(tx_execution_info, state)?;
-        self.update_capacity(state, tx_execution_info, l1_handler_payload_size)?;
-
-        // TODO what about timestamps (we need to close the block in case that there is a
-        // transaction that is older than the max_lifespan), should this logic be in the bouncer or
-        // outside?
+        self.update_used_state_entries_sets(state, tx_execution_info)?;
+        self.update_capacity(bouncer_config, state, tx_execution_info, l1_handler_payload_size)?;
 
         Ok(())
     }
 
     fn update_capacity<S: StateReader>(
         &mut self,
+        bouncer_config: &BouncerConfig,
         state: &mut TransactionalState<'_, S>,
         tx_execution_info: &TransactionExecutionInfo,
         l1_handler_payload_size: Option<usize>,
@@ -280,13 +261,13 @@ impl<'a> TransactionBouncer<'a> {
         let tx_weights = self.get_tx_weights(state, tx_execution_info, l1_handler_payload_size)?;
 
         if !self.transactional.block_contains_keccak && tx_weights.builtin_count.keccak > 0 {
-            self.update_available_capacity_with_keccak()?;
+            self.update_available_capacity_with_keccak(bouncer_config)?;
         }
 
         // Check if the transaction is too large to fit any block.
-        let mut max_capacity = self.parent.max_capacity;
+        let mut max_capacity = bouncer_config.block_max_capacity;
         if self.transactional.block_contains_keccak {
-            max_capacity = self.parent.max_capacity_with_keccak;
+            max_capacity = bouncer_config.block_max_capacity_with_keccak;
         }
         max_capacity.checked_sub(tx_weights).ok_or(TransactionExecutionError::TxTooLarge)?;
 
@@ -326,15 +307,17 @@ impl<'a> TransactionBouncer<'a> {
         Ok(tx_weights)
     }
 
-    fn update_available_capacity_with_keccak(&mut self) -> TransactionExecutorResult<()> {
+    fn update_available_capacity_with_keccak(
+        &mut self,
+        bouncer_config: &BouncerConfig,
+    ) -> TransactionExecutorResult<()> {
         // First zero the keccak capacity to be able to subtract the max_capacity_with_keccak from
         // max_capacity (that is without keccak).
-        let mut max_capacity_with_keccak_tmp = self.parent.max_capacity_with_keccak;
+        let mut max_capacity_with_keccak_tmp = bouncer_config.block_max_capacity_with_keccak;
         max_capacity_with_keccak_tmp.builtin_count.keccak = 0;
         // compute the diff between the max_capacity and the max_capacity_with_keccak.
-        let max_capacity_with_keccak_diff = self
-            .parent
-            .max_capacity
+        let max_capacity_with_keccak_diff = bouncer_config
+            .block_max_capacity
             .checked_sub(max_capacity_with_keccak_tmp)
             .expect("max_capacity_with_keccak should be smaller than max_capacity");
         // Subtract the diff from the available capacity.
@@ -345,7 +328,7 @@ impl<'a> TransactionBouncer<'a> {
             .ok_or(TransactionExecutionError::BlockFull)?;
         // Add back the keccack capacity that was reset at the beggining.
         self.transactional.available_capacity.builtin_count.keccak =
-            self.parent.max_capacity_with_keccak.builtin_count.keccak;
+            bouncer_config.block_max_capacity_with_keccak.builtin_count.keccak;
         // Mark this block as contains keccak.
         self.transactional.block_contains_keccak = true;
         Ok(())
@@ -353,8 +336,8 @@ impl<'a> TransactionBouncer<'a> {
 
     fn update_used_state_entries_sets<S: StateReader>(
         &mut self,
-        tx_execution_info: &TransactionExecutionInfo,
         state: &mut TransactionalState<'_, S>,
+        tx_execution_info: &TransactionExecutionInfo,
     ) -> TransactionExecutorResult<()> {
         // Count the marginal contribution to the executed_class_hashes
         self.transactional
@@ -453,6 +436,7 @@ impl<'a> TransactionBouncer<'a> {
     pub fn compare_bouncer_results(
         &self,
         bouncer_info: &BouncerInfo,
+        bouncer_config: &BouncerConfig,
         tx_executed_class_hashes: &HashSet<ClassHash>,
         tx_visited_storage_entries: &HashSet<StorageEntry>,
         tx_unique_state_changes_keys: &StateChangesKeys,
@@ -558,8 +542,8 @@ impl<'a> TransactionBouncer<'a> {
                 "yael error in keccak"
             );
         } else if !self.parent.block_contains_keccak && self.transactional.block_contains_keccak {
-            let diff = self.parent.max_capacity_with_keccak.builtin_count.keccak
-                - self.transactional.max_capacity.builtin_count.keccak;
+            let diff = bouncer_config.block_max_capacity_with_keccak.builtin_count.keccak
+                - bouncer_config.block_max_capacity.builtin_count.keccak;
             assert_eq!(
                 *bouncer_info
                     .execution_resources

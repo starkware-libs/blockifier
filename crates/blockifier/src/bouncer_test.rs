@@ -1,5 +1,6 @@
 use std::ops::Sub;
 
+use crate::blockifier::block::BouncerConfig;
 use crate::bouncer::{Bouncer, BouncerWeights, BuiltinCount};
 
 #[test]
@@ -99,7 +100,12 @@ fn test_tansactional_bouncer() {
         },
     };
 
-    let mut bouncer = Bouncer::new_block_bouncer(max_bouncer_weights, max_bouncer_weights);
+    let bouncer_config = BouncerConfig {
+        block_max_capacity: max_bouncer_weights,
+        block_max_capacity_with_keccak: max_bouncer_weights,
+    };
+
+    let mut bouncer = Bouncer::new_block_bouncer(bouncer_config);
     let mut transactional_bouncer = bouncer.create_transactional();
     transactional_bouncer.transactional.available_capacity =
         transactional_bouncer.transactional.available_capacity.checked_sub(tx_weights).unwrap();

@@ -368,15 +368,16 @@ pub fn into_block_context_args(
     general_config: &PyGeneralConfig,
     block_info: &PyBlockInfo,
 ) -> NativeBlockifierResult<(BlockInfo, ChainInfo)> {
-    println!("yael bouncer config: {:?}", block_info.bouncer_info);
+    println!("yael bouncer config: {:?}", block_info.bouncer_config);
     println!(
         "yael new_bouncer config: {:?}",
         BouncerConfig {
-            full_total_weights: block_info.bouncer_info.full_total_weights.clone(),
-            full_total_weights_with_keccak: block_info
-                .bouncer_info
+            block_max_capacity: block_info.bouncer_config.full_total_weights.clone().into(),
+            block_max_capacity_with_keccak: block_info
+                .bouncer_config
                 .full_total_weights_with_keccak
-                .clone(),
+                .clone()
+                .into(),
         }
     );
     println!("yael beginning of into block context args2");
@@ -384,12 +385,14 @@ pub fn into_block_context_args(
     let block_info = BlockInfo {
         block_number: BlockNumber(block_info.block_number),
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
-        block_max_capacity: BouncerWeights::from(
-            block_info.bouncer_info.full_total_weights.clone(),
-        ),
-        block_max_capacity_with_keccak: BouncerWeights::from(
-            block_info.bouncer_info.full_total_weights_with_keccak.clone(),
-        ),
+        bouncer_config: BouncerConfig {
+            block_max_capacity: BouncerWeights::from(
+                block_info.bouncer_config.full_total_weights.clone(),
+            ),
+            block_max_capacity_with_keccak: BouncerWeights::from(
+                block_info.bouncer_config.full_total_weights_with_keccak.clone(),
+            ),
+        },
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         gas_prices: GasPrices {
             eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {

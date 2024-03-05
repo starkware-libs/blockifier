@@ -16,7 +16,7 @@ use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::{
     into_block_context_args, PyGeneralConfig, ThinTransactionExecutionInfo,
 };
-use crate::py_state_diff::{PyBlockInfo, PyBouncerInfo};
+use crate::py_state_diff::{PyBlockInfo, PyBouncerConfig};
 use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo as PyBouncerInfoOld;
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
@@ -48,7 +48,7 @@ impl PyValidator {
         let state_reader = PyStateReader::new(state_reader_proxy);
         let state = CachedState::new(state_reader, global_contract_cache);
 
-        next_block_info.bouncer_info = PyBouncerInfo::default();
+        next_block_info.bouncer_config = PyBouncerConfig::default();
         let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
         // TODO(Yael 24/01/24): calc block_context using pre_process_block
         let block_context =
