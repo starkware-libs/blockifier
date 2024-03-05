@@ -173,3 +173,32 @@ fn test_invalid_number() {
          cannot be cast into u64",
     );
 }
+
+#[test]
+fn test_versioned_constants_try_from_version() {
+    let path = include_str!("../resources/versioned_constants.json");
+    let versioned_constants_from_path: VersionedConstants = serde_json::from_str(path).unwrap();
+    let versioned_constants = VersionedConstants::try_from(Version::V0_13_1).unwrap();
+    assert_eq!(versioned_constants_from_path.tx_event_limits, versioned_constants.tx_event_limits);
+    assert_eq!(
+        versioned_constants_from_path.invoke_tx_max_n_steps,
+        versioned_constants.invoke_tx_max_n_steps
+    );
+    assert_eq!(
+        versioned_constants_from_path.l2_resource_gas_costs,
+        versioned_constants.l2_resource_gas_costs
+    );
+    assert_eq!(
+        versioned_constants_from_path.max_recursion_depth,
+        versioned_constants.max_recursion_depth
+    );
+    assert_eq!(
+        versioned_constants_from_path.validate_max_n_steps,
+        versioned_constants.validate_max_n_steps
+    );
+    // TODO(barak, 18/03/2024): Add os_constants and os_resources comparison.
+    assert_eq!(
+        versioned_constants_from_path.vm_resource_fee_cost,
+        versioned_constants.vm_resource_fee_cost
+    );
+}
