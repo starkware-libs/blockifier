@@ -32,7 +32,6 @@ mod Account {
     #[storage]
     struct Storage {}
 
-
     #[external(v0)]
     fn __validate_declare__(self: @ContractState, class_hash: felt252) -> felt252 {
         starknet::VALIDATED
@@ -64,7 +63,7 @@ mod Account {
         contract_address: ContractAddress,
         selector: felt252,
         calldata: Array<felt252>
-    ) -> felt252 {
+    ) {
         execute(ref self)
     }
 
@@ -89,6 +88,7 @@ mod Account {
             return starknet::VALIDATED;
         }
         if (scenario == WRITE_VALIDATE_EXECUTE || scenario == WRITE_VALIDATE_FAIL_EXECUTE) {
+            //Write to storage.
             write(*signature[1_u32], *signature[2_u32]);
             return starknet::VALIDATED;
         }
@@ -96,36 +96,25 @@ mod Account {
         starknet::VALIDATED
     }
 
-    fn execute(ref self: ContractState) -> felt252 {
+    fn execute(ref self: ContractState) {
         let tx_info = starknet::get_tx_info().unbox();
         let signature = tx_info.signature;
         let scenario = *signature[0_u32];
 
-        if (scenario == NO_WRITES || scenario == WRITE_VALIDATE_ONLY) {
-            return starknet::VALIDATED;
-        }
-        if (scenario == WRITE_SINGLE_VALUE) {
+        if (scenario == NO_WRITES || scenario == WRITE_VALIDATE_ONLY) {}
+        if (scenario == WRITE_SINGLE_VALUE || scenario == WRITE_EXECUTE_ONLY) {
+            //Write to storage.
             write(*signature[1_u32], *signature[2_u32]);
-            return starknet::VALIDATED;
         }
-        if (scenario == WRITE_EXECUTE_ONLY) {
-            //First write to storage.
-            write(*signature[1_u32], *signature[2_u32]);
+        if (scenario == WRITE_EXECUTE_ONLY
+            || scenario == WRITE_VALIDATE_EXECUTE
+            || scenario == WRITE_VALIDATE_FAIL_EXECUTE) {
             //Second write to storage.
             write(*signature[3_u32], *signature[4_u32]);
-            return starknet::VALIDATED;
-        }
-        if (scenario == WRITE_VALIDATE_EXECUTE) {
-            write(*signature[3_u32], *signature[4_u32]);
-            return starknet::VALIDATED;
         }
         if (scenario == WRITE_VALIDATE_FAIL_EXECUTE) {
-            write(*signature[3_u32], *signature[4_u32]);
             assert(0 == 1, 'Invalid scenario');
-            return 'INVALID';
         }
-        // Unknown scenario.
-        starknet::VALIDATED
     }
 
     fn write(index: felt252, value: felt252) {
