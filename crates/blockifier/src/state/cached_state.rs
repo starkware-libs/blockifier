@@ -395,6 +395,19 @@ pub struct StateCache {
 }
 
 impl StateCache {
+    fn merge_caches(&mut self, other: &StateCache) {
+        add_missing_keys(&mut self.storage_writes, &other.storage_writes);
+        add_missing_keys(&mut self.nonce_writes, &other.nonce_writes);
+        add_missing_keys(&mut self.class_hash_writes, &other.class_hash_writes);
+        add_missing_keys(&mut self.compiled_class_hash_writes, &other.compiled_class_hash_writes);
+
+        // self.nonce_initial_values.extend(&other.nonce_initial_values);
+        // self.class_hash_initial_values.extend(&other.class_hash_initial_values);
+        // self.storage_initial_values.extend(&other.storage_initial_values);
+        // self.compiled_class_hash_initial_values.extend(&other.
+        // compiled_class_hash_initial_values);
+    }
+
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -619,13 +632,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         let mut cache = self.cache.borrow_mut();
         let base_cache = self.state.0.cache.borrow();
 
-        add_missing_keys(&mut cache.storage_writes, &base_cache.storage_writes);
-        add_missing_keys(&mut cache.nonce_writes, &base_cache.nonce_writes);
-        add_missing_keys(&mut cache.class_hash_writes, &base_cache.class_hash_writes);
-        add_missing_keys(
-            &mut cache.compiled_class_hash_writes,
-            &base_cache.compiled_class_hash_writes,
-        );
+        cache.merge_caches(&base_cache);
 
         Ok(StateChanges {
             storage_updates: subtract_mappings(
