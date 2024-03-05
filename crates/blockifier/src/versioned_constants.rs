@@ -8,6 +8,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use indexmap::{IndexMap, IndexSet};
 use num_rational::Ratio;
 use once_cell::sync::Lazy;
+use semver;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Number, Value};
@@ -59,6 +60,23 @@ pub struct VersionedConstants {
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
     vm_resource_fee_cost: Arc<HashMap<String, ResourceCost>>,
+}
+
+impl TryFrom<&str> for VersionedConstants {
+    type Error = VersionedConstantsError;
+
+    fn try_from(version: &str) -> Result<Self, Self::Error> {
+        let resource_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+        let comparator = semver::Comparator::parse(version)?;
+        if comparator.matches(&semver::Version::parse("0.13.0")?) {
+            resource_path.join("versioned_constants_13_0.json")
+        } else if comparator.matches(&semver::Version::parse("0.13.1")?) {
+            resource_path.join("versioned_constants.json")
+        } else {
+            return Err(VersionedConstantsError::InvalidVersion(comparator.to_string()));
+        };
+        Ok(serde_json::from_reader(std::fs::File::open(resource_path)?)?)
+    }
 }
 
 impl VersionedConstants {
@@ -556,10 +574,14 @@ impl OsConstantsRawJson {
 
 #[derive(Debug, Error)]
 pub enum VersionedConstantsError {
+    #[error("Version {0} was not found.")]
+    InvalidVersion(String),
     #[error(transparent)]
     IoError(#[from] io::Error),
     #[error("JSON file cannot be serialized into VersionedConstants: {0}")]
     ParseError(#[from] serde_json::Error),
+    #[error(transparent)]
+    VersionParsingError(#[from] semver::Error),
 }
 
 #[derive(Debug, Error)]
