@@ -9,6 +9,7 @@ use rstest::rstest;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionHash, TransactionVersion};
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::blockifier::bouncer::BouncerInfo;
@@ -21,12 +22,12 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::test_utils::{
-    block_context, calculate_class_info_for_testing, l1_resource_bounds,
+    account_invoke_tx, block_context, calculate_class_info_for_testing, l1_resource_bounds,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::L1HandlerTransaction;
-use crate::{declare_tx_args, deploy_account_tx_args};
+use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 
 // Utils.
 
@@ -65,6 +66,26 @@ fn declare_tx_for_test(
         },
         calculate_class_info_for_testing(declared_contract.get_class()),
     ))
+}
+
+fn invoke_function_tx_for_test(
+    account_address: ContractAddress,
+    contract_address: ContractAddress,
+    version: TransactionVersion,
+) -> Transaction {
+    let zero_bounds = true;
+    Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
+        max_fee: Fee(u128::from(!zero_bounds)),
+        sender_address: account_address,
+        calldata: calldata![
+            contract_address.into(), // Contract address.
+            selector_from_name("assert_eq").0,    // EP selector.
+            stark_felt!(2_u8),         // Calldata length.
+            stark_felt!(3_u8),          // Calldata: x.
+            stark_felt!(3_u8)          // Calldata: y.
+        ],
+        version,
+    }))
 }
 
 fn deploy_account_tx_for_test(class_hash: ClassHash, version: TransactionVersion) -> Transaction {
@@ -113,6 +134,21 @@ fn l1_handler_for_test(
         builtin_instance_counter: build_expected_builtin_instance_counter(HashMap::from([
             (HASH_BUILTIN_NAME.to_string(), 234),
             (RANGE_CHECK_BUILTIN_NAME.to_string(), 63),
+        ])),
+    },
+    n_events: 0,
+})]
+#[case::invoke_function(TransactionType::InvokeFunction, TransactionVersion::THREE, BouncerInfo {
+    state_diff_size: 2,
+    gas_weight: 0,
+    message_segment_length: 0,
+    execution_resources: cairo_vm::vm::runners::cairo_runner::ExecutionResources {
+        n_steps: 91483,
+        n_memory_holes: 0,
+        builtin_instance_counter: build_expected_builtin_instance_counter(HashMap::from([
+            (HASH_BUILTIN_NAME.to_string(), 237),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 104),
+            (POSEIDON_BUILTIN_NAME.to_string(), 7716),
         ])),
     },
     n_events: 0,
@@ -174,7 +210,11 @@ fn test_tx_executor(
         TransactionType::DeployAccount => {
             deploy_account_tx_for_test(account.get_class_hash(), version)
         }
-        TransactionType::InvokeFunction => todo!(),
+        TransactionType::InvokeFunction => invoke_function_tx_for_test(
+            account.get_instance_address(0),
+            test_contract.get_instance_address(0),
+            version,
+        ),
         TransactionType::L1Handler => {
             l1_handler_for_test(test_contract.get_instance_address(0), version)
         }
