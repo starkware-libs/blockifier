@@ -34,3 +34,13 @@ pub fn usize_from_u128(val: u128) -> Result<usize, NumericConversionError> {
 pub fn u128_from_usize(val: usize) -> u128 {
     val.try_into().expect("Conversion from usize to u128 should not fail.")
 }
+
+/// Update the `base` json's values with the values of the `update` json.
+pub fn update_json_value(base: &mut serde_json::Value, update: serde_json::Value) {
+    match (base, update) {
+        (serde_json::Value::Object(base_map), serde_json::Value::Object(update_map)) => {
+            base_map.extend(update_map);
+        }
+        _ => panic!("Both base and update should be of type serde_json::Value::Object."),
+    }
+}
