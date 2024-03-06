@@ -5,18 +5,16 @@ use crate::test_utils::update_json_value;
 
 // TODO: Test Starknet OS validation.
 
-fn fill_and_load_os_constants(json_data: &str) -> Result<Arc<OSConstants>, OsConstantsSerdeError> {
-    let json_value: Value =
-        serde_json::from_str(json_data).expect("The input data must be a vaild json.");
-    let default_versioned_constants: Value = serde_json::from_str(DEFAULT_CONSTANTS_JSON)
-        .expect("The default versioned constants must be a valid json.");
-    let mut os_constants: Value = default_versioned_constants
-        .get("os_constants")
-        .expect("The default versioned constants should contain os_constants.")
-        .clone();
-    update_json_value(&mut os_constants, &json_value);
-    let os_constants: Arc<OSConstants> = serde_json::from_value(os_constants).unwrap();
-    Ok(os_constants)
+impl OSConstants {
+    fn create_for_testing(subset_of_os_constants: &str) -> OSConstants {
+        let subset_of_os_constants: Value =
+            serde_json::from_str(subset_of_os_constants).unwrap();
+        let default_versioned_constants: Value = serde_json::from_str(DEFAULT_CONSTANTS_JSON).unwrap();
+        let mut os_constants: Value = default_versioned_constants.get("os_constants").unwrap().clone();
+        update_json_value(&mut os_constants, subset_of_os_constants);
+        let os_constants: OSConstants = serde_json::from_value(os_constants).unwrap();
+        os_constants
+    }
 }
 
 #[test]
@@ -36,7 +34,7 @@ fn test_successful_parsing() {
         "ignore the gas string": "GAS!",
         "I look like a gas cost but my name is all wrong": 0
     }"#;
-    let os_constants: Arc<OSConstants> = fill_and_load_os_constants(json_data).unwrap();
+    let os_constants: Arc<OSConstants> = Arc::new(OSConstants::create_for_testing(json_data));
     let versioned_constants = VersionedConstants { os_constants, ..Default::default() };
 
     assert_eq!(versioned_constants.gas_cost("step_gas_cost"), 2);
@@ -45,8 +43,7 @@ fn test_successful_parsing() {
     // entry_point_intial_budget * 4 + step_gas_cost * 5.
     assert_eq!(versioned_constants.gas_cost("entry_point_gas_cost"), 6 * 4 + 2 * 5);
 
-    // Only the 31 values in the whitelist should be present, the rest are ignored.
-    assert_eq!(versioned_constants.os_constants.gas_costs.len(), 31);
+    assert_eq!(versioned_constants.os_constants.gas_costs.len(), OSConstants::ALLOWED_GAS_COST_NAMES.len());
 }
 
 #[test]
