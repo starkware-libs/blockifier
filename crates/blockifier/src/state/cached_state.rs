@@ -13,7 +13,7 @@ use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
-use crate::utils::subtract_mappings;
+use crate::utils::{add_missing_keys, subtract_mappings};
 
 #[cfg(test)]
 #[path = "cached_state_test.rs"]
@@ -395,6 +395,37 @@ pub struct StateCache {
 }
 
 impl StateCache {
+    fn add_missing_keys(&mut self, validation_cache: &StateCache) {
+        add_missing_keys(&mut self.storage_writes, &validation_cache.storage_writes);
+        add_missing_keys(&mut self.nonce_writes, &validation_cache.nonce_writes);
+        add_missing_keys(&mut self.class_hash_writes, &validation_cache.class_hash_writes);
+        add_missing_keys(
+            &mut self.compiled_class_hash_writes,
+            &validation_cache.compiled_class_hash_writes,
+        );
+    }
+
+    fn filter_unchanged_values(&self, initial_state: &StateCache) -> StateChanges {
+        StateChanges {
+            storage_updates: subtract_mappings(
+                &self.storage_writes,
+                &initial_state.storage_initial_values,
+            ),
+            nonce_updates: subtract_mappings(
+                &self.nonce_writes,
+                &initial_state.nonce_initial_values,
+            ),
+            class_hash_updates: subtract_mappings(
+                &self.class_hash_writes,
+                &initial_state.class_hash_initial_values,
+            ),
+            compiled_class_hash_updates: subtract_mappings(
+                &self.compiled_class_hash_writes,
+                &initial_state.compiled_class_hash_initial_values,
+            ),
+        }
+    }
+
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -607,6 +638,21 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
             tx_unique_state_changes_keys,
             visited_pcs,
         }
+    }
+
+    /// Returns the storage changes done through this state, for a revertible transaction. The
+    /// changes are computed compared to the inital state before the validation part of the
+    /// transaction.
+    /// For each contract instance (address) we have several attributes: (class hash, nonce, storage
+    /// root, etc.); the state updates correspond to them.
+    pub fn get_actual_revertible_state_changes(&mut self) -> StateResult<StateChanges> {
+        self.update_initial_values_of_write_only_access()?;
+        let mut cache = self.cache.borrow_mut();
+        let base_cache = self.state.0.cache.borrow();
+
+        cache.add_missing_keys(&base_cache);
+
+        Ok(cache.filter_unchanged_values(&base_cache))
     }
 
     /// Commits changes in the child (wrapping) state to its parent.
