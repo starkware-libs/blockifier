@@ -1821,11 +1821,23 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         value,
     );
     // Negative flow: not enough fee paid on L1.
+
+    // set the storage back to 0, so the fee will also include the storage write.
+    // TODO(Meshi, 15/6/2024): change the l1_handler_set_value cairo function to
+    // always uptade the storage instad.
+    state
+        .set_storage_at(
+            contract_address,
+            StorageKey::try_from(key).unwrap(),
+            StarkFelt::from_u128(0),
+        )
+        .unwrap();
     let tx_no_fee = l1_handler_tx(&calldata, Fee(0), contract_address);
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
     let expected_actual_fee =
-        if use_kzg_da { Fee(1744900000000000) } else { Fee(1742800000000000) };
+        calculate_tx_fee(&expected_execution_info.actual_resources, block_context, &FeeType::Eth)
+            .unwrap();
     assert_matches!(
         error,
         TransactionExecutionError::TransactionFeeError(
