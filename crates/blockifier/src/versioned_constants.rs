@@ -20,6 +20,7 @@ use crate::execution::execution_utils::poseidon_hash_many_cost;
 use crate::execution::syscalls::SyscallSelector;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils;
 
 #[cfg(test)]
 #[path = "versioned_constants_test.rs"]
@@ -446,6 +447,22 @@ impl OSConstants {
 
         Ok(())
     }
+
+    #[cfg(test)]
+    fn create_from_subset(
+        subset_of_os_constants: &str,
+    ) -> Result<OSConstants, VersionedConstantsError> {
+        use crate::utils::update_json_value;
+
+        let subset_of_os_constants: Value = serde_json::from_str(subset_of_os_constants)?;
+        let mut os_constants: Value = serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON)?
+            .get("os_constants")
+            .ok_or_else(|| VersionedConstantsError::MissingOSConstants)?
+            .clone();
+        update_json_value(&mut os_constants, subset_of_os_constants)?;
+        let os_constants: OSConstants = serde_json::from_value(os_constants)?;
+        Ok(os_constants)
+    }
 }
 
 impl TryFrom<OsConstantsRawJson> for OSConstants {
@@ -558,8 +575,12 @@ impl OsConstantsRawJson {
 pub enum VersionedConstantsError {
     #[error(transparent)]
     IoError(#[from] io::Error),
+    #[error("VersionedConstants must include OSConstants")]
+    MissingOSConstants,
     #[error("JSON file cannot be serialized into VersionedConstants: {0}")]
     ParseError(#[from] serde_json::Error),
+    #[error(transparent)]
+    InvalidJSONValue(#[from] utils::UtilsError),
 }
 
 #[derive(Debug, Error)]
