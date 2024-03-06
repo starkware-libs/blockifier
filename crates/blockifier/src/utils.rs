@@ -1,10 +1,18 @@
 use std::collections::HashMap;
 
+use thiserror::Error;
+
 use crate::transaction::errors::NumericConversionError;
 
 #[cfg(test)]
 #[path = "utils_test.rs"]
 pub mod test;
+
+#[derive(Debug, Error)]
+pub enum UtilsError {
+    #[error("Input should be of type serde_json::Value::Object")]
+    InvalidJSONValue,
+}
 
 /// Returns a `HashMap` containing key-value pairs from `a` that are not included in `b` (if
 /// a key appears in `b` with a different value, it will be part of the output).

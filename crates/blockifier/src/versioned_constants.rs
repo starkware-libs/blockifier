@@ -21,12 +21,14 @@ use crate::execution::syscalls::SyscallSelector;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::StarknetResources;
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::UtilsError;
 
 #[cfg(test)]
 #[path = "versioned_constants_test.rs"]
 pub mod test;
 
-const DEFAULT_CONSTANTS_JSON: &str = include_str!("../resources/versioned_constants.json");
+pub(crate) const DEFAULT_CONSTANTS_JSON: &str =
+    include_str!("../resources/versioned_constants.json");
 static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
     serde_json::from_str(DEFAULT_CONSTANTS_JSON)
         .expect("Versioned constants JSON file is malformed")
@@ -605,6 +607,8 @@ pub enum VersionedConstantsError {
     IoError(#[from] io::Error),
     #[error("JSON file cannot be serialized into VersionedConstants: {0}")]
     ParseError(#[from] serde_json::Error),
+    #[error(transparent)]
+    UtilsError(#[from] UtilsError),
 }
 
 #[derive(Debug, Error)]
