@@ -395,30 +395,33 @@ pub struct StateCache {
 }
 
 impl StateCache {
-    fn merge_caches(&mut self, other: &StateCache) {
-        add_missing_keys(&mut self.storage_writes, &other.storage_writes);
-        add_missing_keys(&mut self.nonce_writes, &other.nonce_writes);
-        add_missing_keys(&mut self.class_hash_writes, &other.class_hash_writes);
-        add_missing_keys(&mut self.compiled_class_hash_writes, &other.compiled_class_hash_writes);
-
-        // self.nonce_initial_values.extend(&other.nonce_initial_values);
-        // self.class_hash_initial_values.extend(&other.class_hash_initial_values);
-        // self.storage_initial_values.extend(&other.storage_initial_values);
-        // self.compiled_class_hash_initial_values.extend(&other.
-        // compiled_class_hash_initial_values);
+    fn add_missing_keys(&mut self, validation_cache: &StateCache) {
+        add_missing_keys(&mut self.storage_writes, &validation_cache.storage_writes);
+        add_missing_keys(&mut self.nonce_writes, &validation_cache.nonce_writes);
+        add_missing_keys(&mut self.class_hash_writes, &validation_cache.class_hash_writes);
+        add_missing_keys(
+            &mut self.compiled_class_hash_writes,
+            &validation_cache.compiled_class_hash_writes,
+        );
     }
 
-    fn subtract_initial_state(&self, other: &StateCache) -> StateChanges {
+    fn filter_unchanged_values(&self, initial_state: &StateCache) -> StateChanges {
         StateChanges {
-            storage_updates: subtract_mappings(&self.storage_writes, &other.storage_initial_values),
-            nonce_updates: subtract_mappings(&self.nonce_writes, &other.nonce_initial_values),
+            storage_updates: subtract_mappings(
+                &self.storage_writes,
+                &initial_state.storage_initial_values,
+            ),
+            nonce_updates: subtract_mappings(
+                &self.nonce_writes,
+                &initial_state.nonce_initial_values,
+            ),
             class_hash_updates: subtract_mappings(
                 &self.class_hash_writes,
-                &other.class_hash_initial_values,
+                &initial_state.class_hash_initial_values,
             ),
             compiled_class_hash_updates: subtract_mappings(
                 &self.compiled_class_hash_writes,
-                &other.compiled_class_hash_initial_values,
+                &initial_state.compiled_class_hash_initial_values,
             ),
         }
     }
@@ -647,9 +650,9 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         let mut cache = self.cache.borrow_mut();
         let base_cache = self.state.0.cache.borrow();
 
-        cache.merge_caches(&base_cache);
+        cache.add_missing_keys(&base_cache);
 
-        Ok(cache.subtract_initial_state(&base_cache))
+        Ok(cache.filter_unchanged_values(&base_cache))
     }
 
     /// Commits changes in the child (wrapping) state to its parent.
