@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use serde_json::Value;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
 
+use super::update_json_value;
 use crate::blockifier::block::{BlockInfo, GasPrices};
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
@@ -21,7 +23,7 @@ use crate::test_utils::{
     TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::objects::{DeprecatedTransactionInfo, TransactionInfo};
-use crate::versioned_constants::VersionedConstants;
+use crate::versioned_constants::{OSConstants, VersionedConstants, DEFAULT_CONSTANTS_JSON};
 
 impl CallEntryPoint {
     /// Executes the call directly, without account context. Limits the number of steps by resource
@@ -81,6 +83,20 @@ impl CallEntryPoint {
 impl VersionedConstants {
     pub fn create_for_testing() -> Self {
         Self::latest_constants().clone()
+    }
+}
+
+impl OSConstants {
+    pub fn create_for_testing_from_subset(subset_of_os_constants: &str) -> Self {
+        let subset_of_os_constants: Value = serde_json::from_str(subset_of_os_constants).unwrap();
+        let mut os_constants: Value = serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON)
+            .unwrap()
+            .get("os_constants")
+            .unwrap()
+            .clone();
+        update_json_value(&mut os_constants, subset_of_os_constants);
+        let os_constants: OSConstants = serde_json::from_value(os_constants).unwrap();
+        os_constants
     }
 }
 
