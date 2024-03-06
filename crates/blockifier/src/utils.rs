@@ -1,10 +1,18 @@
 use std::collections::HashMap;
 
+use thiserror::Error;
+
 use crate::transaction::errors::NumericConversionError;
 
 #[cfg(test)]
 #[path = "utils_test.rs"]
 pub mod test;
+
+#[derive(Debug, Error)]
+pub enum UtilsError {
+    #[error("Input should be of type serde_json::Value::Object")]
+    InvalidJSONValue,
+}
 
 /// Returns a `HashMap` containing key-value pairs from `a` that are not included in `b` (if
 /// a key appears in `b` with a different value, it will be part of the output).
@@ -33,4 +41,17 @@ pub fn usize_from_u128(val: u128) -> Result<usize, NumericConversionError> {
 /// of address space.
 pub fn u128_from_usize(val: usize) -> u128 {
     val.try_into().expect("Conversion from usize to u128 should not fail.")
+}
+
+pub fn update_json_value(
+    base: &mut serde_json::Value,
+    update: serde_json::Value,
+) -> Result<(), UtilsError> {
+    match (base, update) {
+        (serde_json::Value::Object(base_map), serde_json::Value::Object(update_map)) => {
+            base_map.extend(update_map);
+            Ok(())
+        }
+        _ => Err(UtilsError::InvalidJSONValue),
+    }
 }
