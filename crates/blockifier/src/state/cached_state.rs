@@ -400,12 +400,6 @@ impl StateCache {
         add_missing_keys(&mut self.nonce_writes, &other.nonce_writes);
         add_missing_keys(&mut self.class_hash_writes, &other.class_hash_writes);
         add_missing_keys(&mut self.compiled_class_hash_writes, &other.compiled_class_hash_writes);
-
-        // self.nonce_initial_values.extend(&other.nonce_initial_values);
-        // self.class_hash_initial_values.extend(&other.class_hash_initial_values);
-        // self.storage_initial_values.extend(&other.storage_initial_values);
-        // self.compiled_class_hash_initial_values.extend(&other.
-        // compiled_class_hash_initial_values);
     }
 
     fn subtract_initial_state(&self, other: &StateCache) -> StateChanges {

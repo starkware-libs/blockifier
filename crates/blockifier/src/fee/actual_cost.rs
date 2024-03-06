@@ -134,7 +134,8 @@ impl<'a> ActualCostBuilder<'a> {
 
     /// Computes the actual state changes after the execution part of a revertible transaction.
     /// State changes are computed compared to the inital state before the validation part of
-    /// the transaction.
+    /// the transaction. Assumes the internal state's cache (the cache of the underlying state
+    /// in the transactional state) contains the initial values before the validate phase.
     pub fn try_add_revertible_state_changes<S: StateReader>(
         mut self,
         state: &mut TransactionalState<'_, S>,
