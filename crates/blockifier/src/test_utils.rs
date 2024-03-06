@@ -359,12 +359,10 @@ pub fn u64_from_usize(val: usize) -> u64 {
     val.try_into().unwrap()
 }
 
-pub fn update_json_value(base: &mut serde_json::Value, update: &serde_json::Value) {
+pub fn update_json_value(base: &mut serde_json::Value, update: serde_json::Value) {
     if let (serde_json::Value::Object(base_map), serde_json::Value::Object(update_map)) =
         (base, update)
     {
-        for (key, update_value) in update_map {
-            base_map.insert(key.clone(), update_value.clone());
-        }
+        base_map.extend(update_map);
     }
 }
