@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
-use crate::execution::call_info::{CallInfo, OrderedEvent};
+use crate::execution::call_info::{CallInfo, MessageL1CostInfo, OrderedEvent};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_gas_vector;
 use crate::state::cached_state::StateChangesCount;
@@ -50,17 +50,16 @@ pub fn get_events_gas_cost(
 // Returns an estimation of the gas usage of the Starknet contract when processing L1<>L2 messages
 // on L1.
 pub fn get_messages_gas_usage(
-    message_segment_length: usize,
-    l2_to_l1_payload_lengths: &[usize],
+    message_cost_info: &MessageL1CostInfo,
     l1_handler_payload_size: Option<usize>,
 ) -> GasVector {
-    let n_l2_to_l1_messages = l2_to_l1_payload_lengths.len();
+    let n_l2_to_l1_messages = message_cost_info.l2_to_l1_payload_lengths.len();
     let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
 
     GasVector::from_l1_gas(
         // Starknet's updateState gets the message segment as an argument.
         u128_from_usize(
-            message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
+            message_cost_info.message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
             // Starknet's updateState increases a (storage) counter for each L2-to-L1 message.
             + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
             // Starknet's updateState decreases a (storage) counter for each L1-to-L2 consumed
@@ -70,7 +69,7 @@ pub fn get_messages_gas_usage(
             + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE,
         ),
     ) + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
-        + get_log_message_to_l1_emissions_cost(l2_to_l1_payload_lengths)
+        + get_log_message_to_l1_emissions_cost(&message_cost_info.l2_to_l1_payload_lengths)
 }
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
