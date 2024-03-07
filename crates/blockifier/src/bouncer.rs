@@ -11,6 +11,7 @@ use crate::execution::call_info::ExecutionSummary;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionResources;
 
 #[cfg(test)]
@@ -33,8 +34,22 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BouncerConfig {
+    pub block_max_capacity: BouncerWeights,
+    pub block_max_capacity_with_keccak: BouncerWeights,
+}
+
 #[derive(
-    Clone, Copy, Debug, Default, derive_more::Add, derive_more::Sub, Deserialize, PartialEq,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    derive_more::Add,
+    derive_more::AddAssign,
+    derive_more::Sub,
+    Deserialize,
+    PartialEq,
 )]
 /// Represents the execution resources counted throughout block creation.
 pub struct BouncerWeights {
@@ -55,10 +70,22 @@ impl BouncerWeights {
         n_steps,
         state_diff_size
     );
+
+    pub fn has_room(&self, other: Self) -> bool {
+        self.checked_sub(other).is_some()
+    }
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, derive_more::Add, derive_more::Sub, Deserialize, PartialEq,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    derive_more::Add,
+    derive_more::AddAssign,
+    derive_more::Sub,
+    Deserialize,
+    PartialEq,
 )]
 pub struct BuiltinCount {
     bitwise: usize,
@@ -76,16 +103,16 @@ impl BuiltinCount {
 
 impl From<HashMapWrapper> for BuiltinCount {
     fn from(mut data: HashMapWrapper) -> Self {
+        // TODO(yael 24/3/24): replace the unwrap_or_default with expect, once the
+        // ExecutionResources contains all the builtins.
         let builtin_count = Self {
-            bitwise: data.remove(BuiltinName::bitwise.name()).expect("bitwise must be present"),
-            ecdsa: data.remove(BuiltinName::ecdsa.name()).expect("ecdsa must be present"),
-            ec_op: data.remove(BuiltinName::ec_op.name()).expect("ec_op must be present"),
-            keccak: data.remove(BuiltinName::keccak.name()).expect("keccak must be present"),
-            pedersen: data.remove(BuiltinName::pedersen.name()).expect("pedersen must be present"),
-            poseidon: data.remove(BuiltinName::poseidon.name()).expect("poseidon must be present"),
-            range_check: data
-                .remove(BuiltinName::range_check.name())
-                .expect("range_check must be present"),
+            bitwise: data.remove(BuiltinName::bitwise.name()).unwrap_or_default(),
+            ecdsa: data.remove(BuiltinName::ecdsa.name()).unwrap_or_default(),
+            ec_op: data.remove(BuiltinName::ec_op.name()).unwrap_or_default(),
+            keccak: data.remove(BuiltinName::keccak.name()).unwrap_or_default(),
+            pedersen: data.remove(BuiltinName::pedersen.name()).unwrap_or_default(),
+            poseidon: data.remove(BuiltinName::poseidon.name()).unwrap_or_default(),
+            range_check: data.remove(BuiltinName::range_check.name()).unwrap_or_default(),
         };
         assert!(
             data.is_empty(),
@@ -96,69 +123,85 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Bouncer {
+    // Additional info; maintained and used to calculate the residual contribution of a transaction
+    // to the accumulated weights.
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
-    // The capacity is calculated based of the values of the other Bouncer fields.
-    capacity: BouncerWeights,
+    pub bouncer_config: BouncerConfig,
+
+    accumulated_weights: BouncerWeights,
 }
 
 impl Bouncer {
-    pub fn new(capacity: BouncerWeights) -> Self {
-        Bouncer {
-            executed_class_hashes: HashSet::new(),
-            state_changes_keys: StateChangesKeys::default(),
-            visited_storage_entries: HashSet::new(),
-            capacity,
+    pub fn new(bouncer_config: BouncerConfig) -> Self {
+        Bouncer { bouncer_config, ..Default::default() }
+    }
+
+    fn _update(
+        &mut self,
+        tx_weights: BouncerWeights,
+        tx_execution_summary: &ExecutionSummary,
+        state_changes_keys: &StateChangesKeys,
+    ) {
+        self.accumulated_weights += tx_weights;
+        self.visited_storage_entries.extend(&tx_execution_summary.visited_storage_entries);
+        self.executed_class_hashes.extend(&tx_execution_summary.executed_class_hashes);
+        self.state_changes_keys.extend(state_changes_keys);
+    }
+
+    /// Updates the bouncer with a new transaction.
+    pub fn try_update<S: StateReader>(
+        &mut self,
+        state: &mut TransactionalState<'_, S>,
+        tx_execution_summary: &ExecutionSummary,
+        tx_resources: &TransactionResources,
+    ) -> TransactionExecutorResult<()> {
+        let state_changes_keys = self.get_state_changes_keys(state)?;
+        let tx_weights =
+            self.get_tx_weights(state, tx_execution_summary, tx_resources, &state_changes_keys)?;
+
+        let mut max_capacity = self.bouncer_config.block_max_capacity;
+        if self.accumulated_weights.builtin_count.keccak > 0 || tx_weights.builtin_count.keccak > 0
+        {
+            max_capacity = self.bouncer_config.block_max_capacity_with_keccak;
         }
+
+        // Check if the transaction is too large to fit any block.
+        if !max_capacity.has_room(tx_weights) {
+            Err(TransactionExecutionError::TransactionTooLarge)?
+        }
+
+        // Check if the transaction can fit the current block available capacity.
+        if !max_capacity.has_room(self.accumulated_weights + tx_weights) {
+            Err(TransactionExecutionError::BlockFull)?
+        }
+
+        self._update(tx_weights, tx_execution_summary, &state_changes_keys);
+
+        Ok(())
     }
-
-    pub fn create_transactional(self) -> TransactionalBouncer {
-        TransactionalBouncer::new(self)
-    }
-
-    pub fn merge(&mut self, other: Bouncer) {
-        self.executed_class_hashes.extend(other.executed_class_hashes);
-        self.state_changes_keys.extend(&other.state_changes_keys);
-        self.visited_storage_entries.extend(other.visited_storage_entries);
-        self.capacity = other.capacity;
-    }
-}
-
-#[derive(Clone)]
-pub struct TransactionalBouncer {
-    // The bouncer can be modified only through the merge method.
-    bouncer: Bouncer,
-    // The transactional bouncer can be modified only through the update method.
-    transactional: Bouncer,
-}
-
-impl TransactionalBouncer {
-    pub fn new(parent: Bouncer) -> TransactionalBouncer {
-        let capacity = parent.capacity;
-        TransactionalBouncer { bouncer: parent, transactional: Bouncer::new(capacity) }
-    }
-
-    // TODO update function (in the next PRs)
 
     pub fn get_tx_weights<S: StateReader>(
         &mut self,
         state: &mut TransactionalState<'_, S>,
+        tx_execution_summary: &ExecutionSummary,
         tx_resources: &TransactionResources,
+        state_changes_keys: &StateChangesKeys,
     ) -> TransactionExecutorResult<BouncerWeights> {
         let (message_segment_length, gas_usage) =
             tx_resources.starknet_resources.calculate_message_l1_resources();
 
         let mut additional_os_resources = get_casm_hash_calculation_resources(
             state,
-            &self.bouncer.executed_class_hashes,
-            &self.transactional.executed_class_hashes,
+            &self.executed_class_hashes,
+            &tx_execution_summary.executed_class_hashes,
         )?;
         additional_os_resources += &get_particia_update_resources(
-            &self.bouncer.visited_storage_entries,
-            &self.transactional.visited_storage_entries,
+            &self.visited_storage_entries,
+            &tx_execution_summary.visited_storage_entries,
         )?;
 
         let vm_resources = &additional_os_resources + &tx_resources.vm_resources;
@@ -169,35 +212,15 @@ impl TransactionalBouncer {
             n_events: tx_resources.starknet_resources.n_events,
             n_steps: vm_resources.n_steps + vm_resources.n_memory_holes,
             builtin_count: BuiltinCount::from(vm_resources.builtin_instance_counter.clone()),
-            state_diff_size: get_onchain_data_segment_length(
-                &self.transactional.state_changes_keys.count(),
-            ),
+            state_diff_size: get_onchain_data_segment_length(&state_changes_keys.count()),
         })
     }
 
-    pub fn update_auxiliary_info<S: StateReader>(
-        &mut self,
-        tx_execution_summary: &ExecutionSummary,
+    pub fn get_state_changes_keys<S: StateReader>(
+        &self,
         state: &mut TransactionalState<'_, S>,
-    ) -> TransactionExecutorResult<()> {
-        self.transactional
-            .executed_class_hashes
-            .extend(&tx_execution_summary.executed_class_hashes);
-        self.transactional
-            .visited_storage_entries
-            .extend(&tx_execution_summary.visited_storage_entries);
+    ) -> TransactionExecutorResult<StateChangesKeys> {
         let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
-        self.transactional.state_changes_keys =
-            tx_state_changes_keys.difference(&self.bouncer.state_changes_keys);
-        Ok(())
-    }
-
-    pub fn commit(mut self) -> Bouncer {
-        self.bouncer.merge(self.transactional);
-        self.bouncer
-    }
-
-    pub fn abort(self) -> Bouncer {
-        self.bouncer
+        Ok(tx_state_changes_keys.difference(&self.state_changes_keys))
     }
 }
