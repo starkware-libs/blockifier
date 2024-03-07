@@ -1,4 +1,5 @@
 use blockifier::blockifier::stateful_validator::StatefulValidator;
+use blockifier::bouncer::BouncerConfig;
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::versioned_constants::VersionedConstants;
@@ -45,8 +46,12 @@ impl PyValidator {
 
         // Create the stateful validator.
         let max_nonce_for_validation_skip = Nonce(max_nonce_for_validation_skip.0);
-        let stateful_validator =
-            StatefulValidator::create(state, block_context, max_nonce_for_validation_skip);
+        let stateful_validator = StatefulValidator::create(
+            state,
+            block_context,
+            max_nonce_for_validation_skip,
+            BouncerConfig::max(),
+        );
 
         Ok(Self { stateful_validator })
     }
