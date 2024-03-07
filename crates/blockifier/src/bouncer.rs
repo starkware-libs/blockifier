@@ -15,6 +15,7 @@ use crate::fee::gas_usage::{
 };
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::ResourcesMapping;
 use crate::utils::usize_from_u128;
 
@@ -38,8 +39,22 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BouncerConfig {
+    pub block_max_capacity: BouncerWeights,
+    pub block_max_capacity_with_keccak: BouncerWeights,
+}
+
 #[derive(
-    Clone, Copy, Debug, Default, derive_more::Add, derive_more::Sub, Deserialize, PartialEq,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    derive_more::Add,
+    derive_more::Sub,
+    Deserialize,
+    PartialEq,
+    PartialOrd,
 )]
 /// Represents the execution resources counted throughout block creation.
 pub struct BouncerWeights {
@@ -73,7 +88,15 @@ impl From<ExecutionResources> for BouncerWeights {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, derive_more::Add, derive_more::Sub, Deserialize, PartialEq,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    derive_more::Add,
+    derive_more::Sub,
+    Deserialize,
+    PartialEq,
+    PartialOrd,
 )]
 pub struct BuiltinCount {
     bitwise: usize,
@@ -91,16 +114,16 @@ impl BuiltinCount {
 
 impl From<HashMapWrapper> for BuiltinCount {
     fn from(mut data: HashMapWrapper) -> Self {
+        // TODO(yael 24/3/24): replace the unwrap_or_default with expect, once the
+        // ExecutionResources contains all the builtins.
         let builtin_count = Self {
-            bitwise: data.remove(BuiltinName::bitwise.name()).expect("bitwise must be present"),
-            ecdsa: data.remove(BuiltinName::ecdsa.name()).expect("ecdsa must be present"),
-            ec_op: data.remove(BuiltinName::ec_op.name()).expect("ec_op must be present"),
-            keccak: data.remove(BuiltinName::keccak.name()).expect("keccak must be present"),
-            pedersen: data.remove(BuiltinName::pedersen.name()).expect("pedersen must be present"),
-            poseidon: data.remove(BuiltinName::poseidon.name()).expect("poseidon must be present"),
-            range_check: data
-                .remove(BuiltinName::range_check.name())
-                .expect("range_check must be present"),
+            bitwise: data.remove(BuiltinName::bitwise.name()).unwrap_or_default(),
+            ecdsa: data.remove(BuiltinName::ecdsa.name()).unwrap_or_default(),
+            ec_op: data.remove(BuiltinName::ec_op.name()).unwrap_or_default(),
+            keccak: data.remove(BuiltinName::keccak.name()).unwrap_or_default(),
+            pedersen: data.remove(BuiltinName::pedersen.name()).unwrap_or_default(),
+            poseidon: data.remove(BuiltinName::poseidon.name()).unwrap_or_default(),
+            range_check: data.remove(BuiltinName::range_check.name()).unwrap_or_default(),
         };
         assert!(
             data.is_empty(),
@@ -111,52 +134,70 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Bouncer {
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
-    // The capacity is calculated based of the values of the other Bouncer fields.
-    capacity: BouncerWeights,
+    pub bouncer_config: BouncerConfig,
+    // The accumulated_weights is calculated based of the values of the other Bouncer fields.
+    accumulated_weights: BouncerWeights,
 }
 
 impl Bouncer {
-    pub fn new(capacity: BouncerWeights) -> Self {
-        Bouncer {
-            executed_class_hashes: HashSet::new(),
-            state_changes_keys: StateChangesKeys::default(),
-            visited_storage_entries: HashSet::new(),
-            capacity,
+    pub fn new(bouncer_config: BouncerConfig) -> Self {
+        Bouncer { bouncer_config, ..Default::default() }
+    }
+
+    fn _update(
+        &mut self,
+        tx_weights: BouncerWeights,
+        tx_execution_summary: &ExecutionSummary,
+        state_changes_keys: &StateChangesKeys,
+    ) {
+        self.accumulated_weights = self.accumulated_weights + tx_weights;
+        self.visited_storage_entries.extend(&tx_execution_summary.visited_storage_entries);
+        self.executed_class_hashes.extend(&tx_execution_summary.executed_class_hashes);
+        self.state_changes_keys.extend(state_changes_keys);
+    }
+
+    /// Updates the bouncer with a new transaction.
+    pub fn try_update<S: StateReader>(
+        &mut self,
+        state: &mut TransactionalState<'_, S>,
+        tx_execution_summary: &ExecutionSummary,
+        bouncer_resources: &ResourcesMapping,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutorResult<()> {
+        let state_changes_keys = self.get_state_changes_keys(state)?;
+        let tx_weights = self.get_tx_weights(
+            state,
+            tx_execution_summary,
+            bouncer_resources,
+            l1_handler_payload_size,
+            &state_changes_keys,
+        )?;
+
+        let mut max_capacity = self.bouncer_config.block_max_capacity;
+        if self.accumulated_weights.builtin_count.keccak > 0 || tx_weights.builtin_count.keccak > 0
+        {
+            max_capacity = self.bouncer_config.block_max_capacity_with_keccak;
         }
+
+        // Check if the transaction is too large to fit any block.
+        if max_capacity.checked_sub(tx_weights).is_none() {
+            Err(TransactionExecutionError::TransactionTooLarge)?
+        }
+
+        // Check if the transaction can fit the current block available capacity.
+        if max_capacity.checked_sub(self.accumulated_weights + tx_weights).is_none() {
+            Err(TransactionExecutionError::BlockFull)?
+        }
+
+        self._update(tx_weights, tx_execution_summary, &state_changes_keys);
+
+        Ok(())
     }
-
-    pub fn create_transactional(self) -> TransactionalBouncer {
-        TransactionalBouncer::new(self)
-    }
-
-    pub fn merge(&mut self, other: Bouncer) {
-        self.executed_class_hashes.extend(other.executed_class_hashes);
-        self.state_changes_keys.extend(&other.state_changes_keys);
-        self.visited_storage_entries.extend(other.visited_storage_entries);
-        self.capacity = other.capacity;
-    }
-}
-
-#[derive(Clone)]
-pub struct TransactionalBouncer {
-    // The bouncer can be modified only through the merge method.
-    bouncer: Bouncer,
-    // The transactional bouncer can be modified only through the update method.
-    transactional: Bouncer,
-}
-
-impl TransactionalBouncer {
-    pub fn new(parent: Bouncer) -> TransactionalBouncer {
-        let capacity = parent.capacity;
-        TransactionalBouncer { bouncer: parent, transactional: Bouncer::new(capacity) }
-    }
-
-    // TODO update function (in the next PRs)
 
     pub fn get_tx_weights<S: StateReader>(
         &mut self,
@@ -164,15 +205,16 @@ impl TransactionalBouncer {
         tx_execution_summary: &ExecutionSummary,
         bouncer_resources: &ResourcesMapping,
         l1_handler_payload_size: Option<usize>,
+        state_changes_keys: &StateChangesKeys,
     ) -> TransactionExecutorResult<BouncerWeights> {
         let mut additional_os_resources = get_casm_hash_calculation_resources(
             state,
-            &self.bouncer.executed_class_hashes,
-            &self.transactional.executed_class_hashes,
+            &self.executed_class_hashes,
+            &tx_execution_summary.executed_class_hashes,
         )?;
         additional_os_resources += &get_particia_update_resources(
-            &self.bouncer.visited_storage_entries,
-            &self.transactional.visited_storage_entries,
+            &self.visited_storage_entries,
+            &tx_execution_summary.visited_storage_entries,
         )?;
 
         let execution_info_weights = Self::get_tx_execution_info_resources_weights(
@@ -182,9 +224,17 @@ impl TransactionalBouncer {
         )?;
 
         let mut tx_weights = BouncerWeights::from(additional_os_resources) + execution_info_weights;
-        tx_weights.state_diff_size =
-            get_onchain_data_segment_length(&self.transactional.state_changes_keys.count());
+
+        tx_weights.state_diff_size = get_onchain_data_segment_length(&state_changes_keys.count());
         Ok(tx_weights)
+    }
+
+    pub fn get_state_changes_keys<S: StateReader>(
+        &self,
+        state: &mut TransactionalState<'_, S>,
+    ) -> TransactionExecutorResult<StateChangesKeys> {
+        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        Ok(tx_state_changes_keys.difference(&self.state_changes_keys))
     }
 
     pub fn get_tx_execution_info_resources_weights(
@@ -216,38 +266,12 @@ impl TransactionalBouncer {
                 .expect("n_steps must be present in the execution info")
                 + execution_info_resources
                     .remove(constants::N_MEMORY_HOLES)
-                    .expect("n_memory_hols must be present in the execution info"),
+                    .expect("n_memory_holes must be present in the execution info"),
             builtin_count: BuiltinCount::from(execution_info_resources),
             state_diff_size: 0,
         };
 
         Ok(weights)
-    }
-
-    pub fn update_auxiliary_info<S: StateReader>(
-        &mut self,
-        tx_execution_summary: &ExecutionSummary,
-        state: &mut TransactionalState<'_, S>,
-    ) -> TransactionExecutorResult<()> {
-        self.transactional
-            .executed_class_hashes
-            .extend(&tx_execution_summary.executed_class_hashes);
-        self.transactional
-            .visited_storage_entries
-            .extend(&tx_execution_summary.visited_storage_entries);
-        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
-        self.transactional.state_changes_keys =
-            tx_state_changes_keys.difference(&self.bouncer.state_changes_keys);
-        Ok(())
-    }
-
-    pub fn commit(mut self) -> Bouncer {
-        self.bouncer.merge(self.transactional);
-        self.bouncer
-    }
-
-    pub fn abort(self) -> Bouncer {
-        self.bouncer
     }
 }
 
@@ -266,7 +290,6 @@ pub fn calculate_message_l1_resources(
         },
         l1_handler_payload_size,
     );
-    // TODO(Avi, 30/03/2024): Consider removing "l1_gas_usage" from actual resources.
     let gas_weight = usize_from_u128(gas_usage.l1_gas)
         .expect("This conversion should not fail as the value is a converted usize.");
     (message_segment_length, gas_weight)
