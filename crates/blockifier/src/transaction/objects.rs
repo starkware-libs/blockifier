@@ -221,6 +221,11 @@ impl TransactionExecutionInfo {
             .chain(self.fee_transfer_call_info.iter())
     }
 
+    /// Returns the number of events emitted in this transaction execution.
+    pub fn get_number_of_events(&self) -> usize {
+        self.non_optional_call_infos().map(|call_info| call_info.get_number_of_events()).sum()
+    }
+
     pub fn is_reverted(&self) -> bool {
         self.revert_error.is_some()
     }
