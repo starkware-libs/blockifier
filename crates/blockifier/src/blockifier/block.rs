@@ -21,6 +21,7 @@ pub mod block_test;
 pub struct BlockInfo {
     pub block_number: BlockNumber,
     pub block_timestamp: BlockTimestamp,
+    pub bouncer_config: BouncerConfig,
 
     // Fee-related.
     pub sequencer_address: ContractAddress,
@@ -28,7 +29,7 @@ pub struct BlockInfo {
     pub use_kzg_da: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
     pub block_max_capacity_with_keccak: BouncerWeights,

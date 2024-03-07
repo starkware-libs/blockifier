@@ -85,6 +85,17 @@ impl BouncerWeights {
         n_steps,
         state_diff_size
     );
+
+    pub fn create_for_testing(with_keccak: bool) -> Self {
+        Self {
+            gas: 2500000,
+            n_steps: 2500000,
+            message_segment_length: 3750,
+            state_diff_size: 20000,
+            n_events: 10000,
+            builtin_count: BuiltinCount::create_for_testing(with_keccak),
+        }
+    }
 }
 
 #[derive(
@@ -122,6 +133,20 @@ impl From<HashMapWrapper> for BuiltinCount {
 
 impl BuiltinCount {
     impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
+
+    pub fn create_for_testing(with_keccak: bool) -> Self {
+        Self {
+            bitwise: 39062,
+            ecdsa: 1220,
+            ec_op: 2441,
+            keccak: {
+                if with_keccak { 0 } else { 1220 }
+            },
+            pedersen: 78125,
+            poseidon: 78125,
+            range_check: 156250,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -143,6 +168,10 @@ impl Bouncer {
             available_capacity: capacity,
             block_contains_keccak,
         }
+    }
+
+    pub fn new_block_bouncer(bouncer_config: BouncerConfig) -> Bouncer {
+        Bouncer::new(bouncer_config.block_max_capacity, false)
     }
 
     pub fn create_transactional(self) -> TransactionalBouncer {

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use blockifier::blockifier::block::{
-    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
+    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair,
+    BouncerConfig, GasPrices,
 };
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
@@ -378,6 +379,8 @@ pub fn into_block_context_args(
     let block_info = BlockInfo {
         block_number: BlockNumber(block_info.block_number),
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
+        bouncer_config: BouncerConfig::default(), /* TODO(yael) - initiate with the value from
+                                                   * PyBlockInfo.bouncer_config */
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         gas_prices: GasPrices {
             eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {
