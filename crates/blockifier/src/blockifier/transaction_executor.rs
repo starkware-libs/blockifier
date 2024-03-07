@@ -102,7 +102,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 let tx_execution_summary = tx_execution_info.summarize();
 
                 // Count message to L1 resources.
-                let (message_segment_length, starknet_gas_usage) =
+                let (message_segment_length, messages_gas_usage) =
                     calc_message_l1_resources(&tx_execution_info, l1_handler_payload_size)?;
 
                 // Count additional OS resources.
@@ -130,7 +130,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // Finalize counting logic.
                 let bouncer_info = BouncerInfo::calculate(
                     &tx_execution_info.bouncer_resources,
-                    starknet_gas_usage,
+                    messages_gas_usage,
                     additional_os_resources,
                     message_segment_length,
                     state_diff_size,

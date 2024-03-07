@@ -4,8 +4,7 @@ use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 
 use crate::abi::constants;
-use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionResult};
-use crate::utils::usize_from_u128;
+use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
 #[derive(Clone, Default)]
 pub struct BouncerInfo {
@@ -19,15 +18,12 @@ pub struct BouncerInfo {
 impl BouncerInfo {
     pub fn calculate(
         tx_actual_resources: &ResourcesMapping,
-        tx_starknet_gas_usage: GasVector,
+        gas_weight: usize,
         tx_additional_os_resources: VmExecutionResources,
         message_segment_length: usize,
         state_diff_size: usize,
         n_events: usize,
     ) -> TransactionExecutionResult<Self> {
-        // TODO(Avi, 30/03/2024): Consider removing "l1_gas_usage" from actual resources.
-        let gas_weight = usize_from_u128(tx_starknet_gas_usage.l1_gas)
-            .expect("This conversion should not fail as the value is a converted usize.");
         // TODO(Ayelet, 04/02/2024): Consider defining a constant list.
         let builtin_ordered_list = [
             BuiltinName::output,
