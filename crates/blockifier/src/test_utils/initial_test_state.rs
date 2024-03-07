@@ -6,7 +6,7 @@ use starknet_api::stark_felt;
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
-use crate::block_context::BlockContext;
+use crate::context::ChainInfo;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
@@ -14,7 +14,7 @@ use crate::transaction::objects::FeeType;
 
 /// Utility to fund an account.
 pub fn fund_account(
-    block_context: &BlockContext,
+    chain_info: &ChainInfo,
     account_address: ContractAddress,
     initial_balance: u128,
     state: &mut CachedState<DictStateReader>,
@@ -23,7 +23,7 @@ pub fn fund_account(
     let balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
         storage_view.insert(
-            (block_context.fee_token_address(&fee_type), balance_key),
+            (chain_info.fee_token_address(&fee_type), balance_key),
             stark_felt!(initial_balance),
         );
     }
@@ -38,7 +38,7 @@ pub fn fund_account(
 /// * "Deploys" the requested number of instances of each input contract.
 /// * Makes each input account contract privileged.
 pub fn test_state(
-    block_context: &BlockContext,
+    chain_info: &ChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u8)],
 ) -> CachedState<DictStateReader> {
@@ -49,9 +49,9 @@ pub fn test_state(
     let erc20 = FeatureContract::ERC20;
     class_hash_to_class.insert(erc20.get_class_hash(), erc20.get_class());
     address_to_class_hash
-        .insert(block_context.fee_token_address(&FeeType::Eth), erc20.get_class_hash());
+        .insert(chain_info.fee_token_address(&FeeType::Eth), erc20.get_class_hash());
     address_to_class_hash
-        .insert(block_context.fee_token_address(&FeeType::Strk), erc20.get_class_hash());
+        .insert(chain_info.fee_token_address(&FeeType::Strk), erc20.get_class_hash());
 
     // Set up the rest of the requested contracts.
     for (contract, n_instances) in contract_instances.iter() {
@@ -77,7 +77,7 @@ pub fn test_state(
                 FeatureContract::AccountWithLongValidate(_)
                 | FeatureContract::AccountWithoutValidations(_)
                 | FeatureContract::FaultyAccount(_) => {
-                    fund_account(block_context, instance_address, initial_balances, &mut state);
+                    fund_account(chain_info, instance_address, initial_balances, &mut state);
                 }
                 _ => (),
             }

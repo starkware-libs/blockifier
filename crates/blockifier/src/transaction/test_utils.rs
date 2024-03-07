@@ -13,8 +13,8 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
-use crate::block_context::BlockContext;
-use crate::execution::contract_class::{ContractClass, ContractClassV0};
+use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use crate::execution::contract_class::{ClassInfo, ContractClass, ContractClassV0};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::contracts::FeatureContract;
@@ -42,6 +42,10 @@ pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
 pub const CALL_CONTRACT: u64 = 2;
 pub const GET_BLOCK_HASH: u64 = 3;
+pub const GET_EXECUTION_INFO: u64 = 4;
+pub const GET_BLOCK_NUMBER: u64 = 5;
+pub const GET_BLOCK_TIMESTAMP: u64 = 6;
+pub const GET_SEQUENCER_ADDRESS: u64 = 7;
 
 macro_rules! impl_from_versioned_tx {
     ($(($specified_tx_type:ty, $enum_variant:ident)),*) => {
@@ -92,7 +96,7 @@ pub struct TestInitData {
 pub fn deploy_and_fund_account(
     state: &mut CachedState<DictStateReader>,
     nonce_manager: &mut NonceManager,
-    block_context: &BlockContext,
+    chain_info: &ChainInfo,
     deploy_tx_args: DeployAccountTxArgs,
 ) -> (AccountTransaction, ContractAddress) {
     // Deploy an account contract.
@@ -105,7 +109,7 @@ pub fn deploy_and_fund_account(
     // Set balance in all fee types.
     let deployed_account_balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
-        let fee_token_address = block_context.fee_token_address(&fee_type);
+        let fee_token_address = chain_info.fee_token_address(&fee_type);
         state
             .set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE))
             .unwrap();
@@ -115,14 +119,11 @@ pub fn deploy_and_fund_account(
 }
 
 /// Initializes a state and returns a `TestInitData` instance.
-pub fn create_test_init_data(
-    block_context: &BlockContext,
-    cairo_version: CairoVersion,
-) -> TestInitData {
+pub fn create_test_init_data(chain_info: &ChainInfo, cairo_version: CairoVersion) -> TestInitData {
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
     let erc20 = FeatureContract::ERC20;
-    let state = test_state(block_context, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
+    let state = test_state(chain_info, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
     TestInitData {
         state,
         account_address: account.get_instance_address(0),
@@ -139,8 +140,6 @@ pub fn create_account_tx_test_state(
     initial_account_balance: u128,
     test_contract_class: ContractClass,
 ) -> CachedState<DictStateReader> {
-    let block_context = BlockContext::create_for_testing();
-
     let test_contract_class_hash = class_hash!(TEST_CLASS_HASH);
     let test_account_class_hash = class_hash!(account_class_hash);
     let test_erc20_class_hash = class_hash!(TEST_ERC20_CONTRACT_CLASS_HASH);
@@ -153,8 +152,10 @@ pub fn create_account_tx_test_state(
     // A random address that is unlikely to equal the result of the calculation of a contract
     // address.
     let test_account_address = contract_address!(account_address);
-    let test_strk_token_address = block_context.fee_token_addresses.strk_fee_token_address;
-    let test_eth_token_address = block_context.fee_token_addresses.eth_fee_token_address;
+    let FeeTokenAddresses {
+        eth_fee_token_address: test_eth_token_address,
+        strk_fee_token_address: test_strk_token_address,
+    } = ChainInfo::create_for_testing().fee_token_addresses;
     let address_to_class_hash = HashMap::from([
         (test_contract_address, test_contract_class_hash),
         (test_account_address, test_account_class_hash),
@@ -196,7 +197,7 @@ pub struct FaultyAccountTxCreatorArgs {
     pub tx_type: TransactionType,
     pub scenario: u64,
     // Should be None unless scenario is CALL_CONTRACT.
-    pub additional_data: Option<StarkFelt>,
+    pub additional_data: Option<Vec<StarkFelt>>,
     // Should be use with tx_type Declare or InvokeFunction.
     pub sender_address: ContractAddress,
     // Should be used with tx_type DeployAccount.
@@ -243,18 +244,18 @@ pub fn create_account_tx_for_validate_test(
 
     // The first felt of the signature is used to set the scenario. If the scenario is
     // `CALL_CONTRACT` the second felt is used to pass the contract address.
-    let signature = TransactionSignature(vec![
-        StarkFelt::from(scenario),
-        // Assumes the default value of StarkFelt is 0.
-        additional_data.unwrap_or_default(),
-    ]);
+    let mut signature_vector = vec![StarkFelt::from(scenario)];
+    if let Some(additional_data) = additional_data {
+        signature_vector.extend(additional_data);
+    }
+    let signature = TransactionSignature(signature_vector);
 
     match tx_type {
         TransactionType::Declare => {
             // It does not matter which class is declared for this test.
             let declared_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
             let class_hash = declared_contract.get_class_hash();
-            let contract_class = declared_contract.get_class();
+            let class_info = calculate_class_info_for_testing(declared_contract.get_class());
             declare_tx(
                 declare_tx_args! {
                     class_hash,
@@ -263,7 +264,7 @@ pub fn create_account_tx_for_validate_test(
                     nonce: nonce_manager.next(sender_address),
                     max_fee,
                 },
-                contract_class,
+                class_info,
             )
         }
         TransactionType::DeployAccount => {
@@ -321,4 +322,13 @@ pub fn l1_resource_bounds(max_amount: u64, max_price: u128) -> ResourceBoundsMap
         (Resource::L2Gas, ResourceBounds { max_amount: 0, max_price_per_unit: 0 }),
     ])
     .unwrap()
+}
+
+pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassInfo {
+    let sierra_program_length = match contract_class {
+        ContractClass::V0(_) => 0,
+        ContractClass::V1(_) => 100,
+        ContractClass::V1Sierra(_) => todo!("it probably should be 100 as well"),
+    };
+    ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
 }

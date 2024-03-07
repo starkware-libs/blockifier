@@ -1,0 +1,23 @@
+name: Nightly Latest Dependencies Check
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs at 00:00 UTC every day
+
+jobs:
+  latest_deps:
+    name: Latest Dependencies
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - name: Update Dependencies
+        run: cargo update --verbose
+      - name: Build
+        run: cargo build --verbose
+      - name: Test
+        run: cargo test --verbose

@@ -86,6 +86,8 @@ pub enum TransactionExecutionError {
     TransactionPreValidationError(#[from] TransactionPreValidationError),
     #[error("Unexpected holes in the {object} order. No object with the order: {order}.")]
     UnexpectedHoles { object: String, order: usize },
+    #[error(transparent)]
+    TryFromIntError(#[from] std::num::TryFromIntError),
     #[error("Transaction validation has failed: {0}")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
 }
@@ -107,4 +109,10 @@ pub enum TransactionPreValidationError {
 pub enum ParseError {
     #[error("Unsupported transaction type: {0}")]
     UnknownTransactionType(String),
+}
+
+#[derive(Debug, Error)]
+pub enum NumericConversionError {
+    #[error("Conversion of {0} to u128 unsuccessful.")]
+    U128ToUsizeError(u128),
 }

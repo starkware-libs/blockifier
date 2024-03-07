@@ -3,6 +3,7 @@ use std::sync::Arc;
 use cairo_native::starknet::{
     BlockInfo, ExecutionInfoV2, StarkNetSyscallHandler, SyscallResult, TxInfo, TxV2Info,
 };
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, EthAddress,
     PatriciaKey,
@@ -15,13 +16,15 @@ use starknet_api::transaction::{
 };
 use starknet_types_core::felt::Felt;
 
-use super::sierra_utils::{chain_id_to_felt, contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt};
+use super::sierra_utils::{
+    chain_id_to_felt, contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
+};
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
-    CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext, ExecutionResources,
+    CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::execute_deployment;
 use crate::execution::syscalls::hint_processor::{
@@ -37,8 +40,8 @@ pub struct NativeSyscallHandler<'state> {
     pub caller_address: ContractAddress,
     pub contract_address: ContractAddress,
     pub entry_point_selector: StarkFelt,
-    pub execution_resources: ExecutionResources,
-    pub execution_context: EntryPointExecutionContext,
+    pub execution_resources: &'state mut ExecutionResources,
+    pub execution_context: &'state mut EntryPointExecutionContext,
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     pub inner_calls: Vec<CallInfo>,
@@ -56,7 +59,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             return Err(vec![execution_mode_err]);
         }
 
-        let current_block_number = self.execution_context.block_context.block_number.0;
+        let current_block_number = self.execution_context.tx_context.block_context.block_info.block_number.0;
 
         if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
             || block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
@@ -84,8 +87,8 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &mut self,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<cairo_native::starknet::ExecutionInfo> {
-        let block_context = &self.execution_context.block_context;
-        let account_tx_context = &self.execution_context.account_tx_context;
+        let block_context = &self.execution_context.tx_context.block_context.block_info;
+        let account_tx_context = &self.execution_context.tx_context.tx_info;
 
         let block_info: BlockInfo = BlockInfo {
             block_number: block_context.block_number.0,
@@ -93,16 +96,17 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             sequencer_address: contract_address_to_felt(block_context.sequencer_address),
         };
 
-        let signature = account_tx_context.signature().0.into_iter().map(starkfelt_to_felt).collect();
+        let signature =
+            account_tx_context.signature().0.into_iter().map(starkfelt_to_felt).collect();
 
         let tx_info = TxInfo {
             version: starkfelt_to_felt(account_tx_context.version().0),
-            account_contract_address: contract_address_to_felt(account_tx_context.sender_address(),),
+            account_contract_address: contract_address_to_felt(account_tx_context.sender_address()),
             // todo(rodro): it is ok to unwrap as default? Also, will this be deprecated soon?
             max_fee: account_tx_context.max_fee().unwrap_or_default().0,
             signature,
             transaction_hash: starkfelt_to_felt(account_tx_context.transaction_hash().0),
-            chain_id: chain_id_to_felt(&block_context.chain_id).unwrap(),
+            chain_id: chain_id_to_felt(&self.execution_context.tx_context.block_context.chain_info.chain_id).unwrap(),
             nonce: starkfelt_to_felt(account_tx_context.nonce().0),
         };
 
@@ -123,8 +127,8 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &mut self,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<ExecutionInfoV2> {
-        let block_context = &self.execution_context.block_context;
-        let account_tx_context = &self.execution_context.account_tx_context;
+        let block_context = &self.execution_context.tx_context.block_context.block_info;
+        let account_tx_context = &self.execution_context.tx_context.tx_info;
 
         Ok(ExecutionInfoV2 {
             block_info: BlockInfo {
@@ -134,7 +138,9 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             },
             tx_info: TxV2Info {
                 version: starkfelt_to_felt(account_tx_context.version().0),
-                account_contract_address: contract_address_to_felt(account_tx_context.sender_address()),
+                account_contract_address: contract_address_to_felt(
+                    account_tx_context.sender_address(),
+                ),
                 max_fee: account_tx_context.max_fee().unwrap_or_default().0,
                 signature: vec![],
                 transaction_hash: Default::default(),

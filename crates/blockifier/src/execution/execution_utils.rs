@@ -10,7 +10,8 @@ use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::CairoArg;
+use cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::{CairoArg, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use starknet_api::core::ClassHash;
@@ -22,7 +23,7 @@ use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, ConstructorContext,
-    EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
+    EntryPointExecutionContext, EntryPointExecutionResult,
 };
 use crate::execution::errors::PostExecutionError;
 use crate::execution::{
@@ -30,7 +31,7 @@ use crate::execution::{
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::TransactionInfo;
 
 pub type Args = Vec<CairoArg>;
 
@@ -195,7 +196,13 @@ impl ReadOnlySegments {
     pub fn validate(&self, vm: &VirtualMachine) -> Result<(), PostExecutionError> {
         for segment in &self.0 {
             let used_size = vm
-                .get_segment_used_size(segment.start_ptr.segment_index as usize)
+                .get_segment_used_size(
+                    segment
+                        .start_ptr
+                        .segment_index
+                        .try_into()
+                        .expect("The size of isize and usize should be the same."),
+                )
                 .expect("Segments must contain the allocated read-only segment.");
             if segment.length != used_size {
                 return Err(PostExecutionError::SecurityValidationError(
@@ -274,10 +281,10 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     Ok(())
 }
 
-pub fn max_fee_for_execution_info(account_tx_context: &AccountTransactionContext) -> Felt252 {
-    match account_tx_context {
-        AccountTransactionContext::Current(_) => 0,
-        AccountTransactionContext::Deprecated(context) => context.max_fee.0,
+pub fn max_fee_for_execution_info(tx_info: &TransactionInfo) -> Felt252 {
+    match tx_info {
+        TransactionInfo::Current(_) => 0,
+        TransactionInfo::Deprecated(tx_info) => tx_info.max_fee.0,
     }
     .into()
 }
@@ -289,4 +296,19 @@ pub fn format_panic_data(felts: &[StarkFelt]) -> String {
         items.push(item.quote_if_string());
     }
     if let [item] = &items[..] { item.clone() } else { format!("({})", items.join(", ")) }
+}
+
+/// Returns the VM resources required for running `poseidon_hash_many` in the Starknet OS.
+pub fn poseidon_hash_many_cost(data_length: usize) -> ExecutionResources {
+    ExecutionResources {
+        n_steps: (data_length / 10) * 55
+            + ((data_length % 10) / 2) * 18
+            + (data_length % 2) * 3
+            + 21,
+        n_memory_holes: 0,
+        builtin_instance_counter: HashMap::from([(
+            POSEIDON_BUILTIN_NAME.to_string(),
+            data_length / 2 + 1,
+        )]),
+    }
 }

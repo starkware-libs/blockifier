@@ -1,16 +1,16 @@
+use std::sync::Arc;
+
 use cached::proc_macro::cached;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::block_context::BlockContext;
+use crate::context::BlockContext;
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, EntryPointExecutionContext};
 use crate::state::state_api::State;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::InvokeTxArgs;
@@ -26,7 +26,7 @@ pub enum Prices {
     FeeTransfer(ContractAddress, FeeType),
 }
 
-impl From<Prices> for VmExecutionResources {
+impl From<Prices> for ExecutionResources {
     fn from(value: Prices) -> Self {
         match value {
             Prices::FeeTransfer(contract_address, fee_type) => {
@@ -41,10 +41,11 @@ impl From<Prices> for VmExecutionResources {
 fn fee_transfer_resources(
     account_contract_address: ContractAddress,
     fee_type: FeeType,
-) -> VmExecutionResources {
+) -> ExecutionResources {
     let block_context = &BlockContext::create_for_account_testing();
-    let state = &mut test_state(block_context, BALANCE, &[]);
-    let token_address = block_context.fee_token_address(&fee_type);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[]);
+    let token_address = chain_info.fee_token_address(&fee_type);
 
     // Fund the account so we don't hit an error.
     state
@@ -59,9 +60,9 @@ fn fee_transfer_resources(
     let fee_transfer_call = CallEntryPoint {
         entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
-            *block_context.sequencer_address.0.key(), // Recipient.
-            stark_felt!(7_u8),                        // LSB of Amount.
-            stark_felt!(0_u8)                         // MSB of Amount.
+            *block_context.block_info.sequencer_address.0.key(), // Recipient.
+            stark_felt!(7_u8),                                   // LSB of Amount.
+            stark_felt!(0_u8)                                    // MSB of Amount.
         ],
         storage_address: token_address,
         caller_address: account_contract_address,
@@ -72,13 +73,12 @@ fn fee_transfer_resources(
             state,
             &mut ExecutionResources::default(),
             &mut EntryPointExecutionContext::new(
-                block_context,
-                &account_invoke_tx(InvokeTxArgs::default()).get_account_tx_context(),
+                Arc::new(block_context.to_tx_context(&account_invoke_tx(InvokeTxArgs::default()))),
                 ExecutionMode::Execute,
                 false,
             )
             .unwrap(),
         )
         .unwrap()
-        .vm_resources
+        .resources
 }

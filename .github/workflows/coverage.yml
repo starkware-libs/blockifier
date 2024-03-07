@@ -1,0 +1,33 @@
+name: Coverage
+
+on: [pull_request, push]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+      MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
+      LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
+      TABLEGEN_170_PREFIX: /usr/lib/llvm-17
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Set up Native Dependencies
+        uses: ./.github/actions/setup-native-dep
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --codecov --output-path codecov.json
+        env:
+          SEED: 0
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          fail_ci_if_error: true

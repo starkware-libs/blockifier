@@ -1,8 +1,6 @@
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{
-    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
-};
+use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -14,11 +12,9 @@ use crate::execution::call_info::{CallExecution, CallInfo};
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::deprecated_syscalls::hint_processor::DeprecatedSyscallHintProcessor;
 use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
+    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult,
 };
-use crate::execution::errors::{
-    PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
-};
+use crate::execution::errors::{PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, Args, ReadOnlySegments,
 };
@@ -57,7 +53,7 @@ pub fn execute_entry_point_call(
     let n_total_args = args.len();
 
     // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
+    let previous_resources = syscall_handler.resources.clone();
 
     // Execute.
     run_entry_point(&mut vm, &mut runner, &mut syscall_handler, entry_point_pc, args)?;
@@ -67,7 +63,7 @@ pub fn execute_entry_point_call(
         runner,
         syscall_handler,
         call,
-        previous_vm_resources,
+        previous_resources,
         implicit_args,
         n_total_args,
     )?)
@@ -195,7 +191,7 @@ pub fn run_entry_point(
     hint_processor: &mut DeprecatedSyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
-) -> Result<(), VirtualMachineExecutionError> {
+) -> EntryPointExecutionResult<()> {
     let verify_secure = true;
     let program_segment_size = None; // Infer size from program.
     let args: Vec<&CairoArg> = args.iter().collect();
@@ -216,7 +212,7 @@ pub fn finalize_execution(
     runner: CairoRunner,
     syscall_handler: DeprecatedSyscallHintProcessor<'_>,
     call: CallEntryPoint,
-    previous_vm_resources: VmExecutionResources,
+    previous_resources: ExecutionResources,
     implicit_args: Vec<MaybeRelocatable>,
     n_total_args: usize,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -241,9 +237,13 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
-    syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    *syscall_handler.resources += &vm_resources_without_inner_calls;
+    let versioned_constants = syscall_handler.context.versioned_constants();
+    // Take into account the syscall resources of the current call.
+    *syscall_handler.resources += &versioned_constants
+        .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
 
-    let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
+    let full_call_resources = &*syscall_handler.resources - &previous_resources;
     Ok(CallInfo {
         call,
         execution: CallExecution {
@@ -253,7 +253,7 @@ pub fn finalize_execution(
             failed: false,
             gas_consumed: 0,
         },
-        vm_resources: full_call_vm_resources.filter_unused_builtins(),
+        resources: full_call_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,
@@ -292,7 +292,12 @@ pub fn validate_run(
     // Validate syscall segment size.
     let syscall_end_ptr = vm.get_relocatable(implicit_args_start)?;
     let syscall_used_size = vm
-        .get_segment_used_size(syscall_start_ptr.segment_index as usize)
+        .get_segment_used_size(
+            syscall_start_ptr
+                .segment_index
+                .try_into()
+                .expect("The size of isize and usize should be the same."),
+        )
         .expect("Segments must contain the syscall segment.");
     if (syscall_start_ptr + syscall_used_size)? != syscall_end_ptr {
         return Err(PostExecutionError::SecurityValidationError(

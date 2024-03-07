@@ -31,15 +31,14 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::abi::constants::{self};
-use crate::block_context::BlockContext;
+use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, OrderedEvent};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
-use crate::execution::execution_utils::{execute_deployment, felt_to_stark_felt};
+use crate::execution::execution_utils::{execute_deployment, felt_to_stark_felt}; //TODO rename to felt252_to_stark_felt
 use crate::execution::sierra_utils::{
     contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
 };
@@ -49,9 +48,11 @@ use crate::execution::syscalls::hint_processor::{
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::cached_state::get_erc20_class_hash_mapping;
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::transaction::objects::AccountTransactionContext;
+use crate::transaction::objects::TransactionInfo;
 use crate::utils::const_max;
+use crate::versioned_constants::VersionedConstants;
 
 // TODO(Dori, 1/2/2024): Remove these constants once all tests use the `contracts` and
 //   `initial_test_state` modules for testing.
@@ -137,9 +138,11 @@ pub fn test_erc20_faulty_account_balance_key() -> StorageKey {
 
 // The max_fee / resource bounds used for txs in this test.
 pub const MAX_L1_GAS_AMOUNT: u64 = 1000000;
+#[allow(clippy::as_conversions)]
+pub const MAX_L1_GAS_AMOUNT_U128: u128 = MAX_L1_GAS_AMOUNT as u128;
 pub const MAX_L1_GAS_PRICE: u128 = DEFAULT_STRK_L1_GAS_PRICE;
-pub const MAX_RESOURCE_COMMITMENT: u128 = MAX_L1_GAS_AMOUNT as u128 * MAX_L1_GAS_PRICE;
-pub const MAX_FEE: u128 = MAX_L1_GAS_AMOUNT as u128 * DEFAULT_ETH_L1_GAS_PRICE;
+pub const MAX_RESOURCE_COMMITMENT: u128 = MAX_L1_GAS_AMOUNT_U128 * MAX_L1_GAS_PRICE;
+pub const MAX_FEE: u128 = MAX_L1_GAS_AMOUNT_U128 * DEFAULT_ETH_L1_GAS_PRICE;
 
 // The amount of test-token allocated to the account in this test, set to a multiple of the max
 // amount deprecated / non-deprecated transactions commit to paying.
@@ -147,12 +150,16 @@ pub const BALANCE: u128 = 10 * const_max(MAX_FEE, MAX_RESOURCE_COMMITMENT);
 
 pub const DEFAULT_ETH_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of Wei.
 pub const DEFAULT_STRK_L1_GAS_PRICE: u128 = 100 * u128::pow(10, 9); // Given in units of STRK.
+pub const DEFAULT_ETH_L1_DATA_GAS_PRICE: u128 = u128::pow(10, 6); // Given in units of Wei.
+pub const DEFAULT_STRK_L1_DATA_GAS_PRICE: u128 = u128::pow(10, 9); // Given in units of STRK.
 
 // The block number of the BlockContext being used for testing.
-pub const CURRENT_BLOCK_NUMBER: u64 = 2000;
+pub const CURRENT_BLOCK_NUMBER: u64 = 2001;
+pub const CURRENT_BLOCK_NUMBER_FOR_VALIDATE: u64 = 2000;
 
 // The block timestamp of the BlockContext being used for testing.
 pub const CURRENT_BLOCK_TIMESTAMP: u64 = 1072023;
+pub const CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE: u64 = 1069200;
 
 pub const CHAIN_ID_NAME: &str = "SN_GOERLI";
 
@@ -200,7 +207,7 @@ pub fn pad_address_to_64(address: &str) -> String {
 
 pub fn get_raw_contract_class(contract_path: &str) -> String {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
-    fs::read_to_string(path).unwrap()
+    fs::read_to_string(path.clone()).expect(&format!("File expected at {}", path.display()))
 }
 
 pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractClass {
@@ -222,15 +229,17 @@ pub fn get_test_contract_class() -> ContractClass {
 }
 
 pub fn trivial_external_entry_point() -> CallEntryPoint {
-    external_entry_point(None)
+    trivial_external_entry_point_with_address(contract_address!(TEST_CONTRACT_ADDRESS))
 }
 
-pub fn erc20_external_entry_point() -> CallEntryPoint {
-    external_entry_point(Some(contract_address!(TEST_ERC20_FULL_CONTRACT_ADDRESS)))
+pub fn trivial_external_entry_point_new(contract: FeatureContract) -> CallEntryPoint {
+    let address = contract.get_instance_address(0);
+    trivial_external_entry_point_with_address(address)
 }
 
-pub fn external_entry_point(contract_address: Option<ContractAddress>) -> CallEntryPoint {
-    let contract_address = contract_address.unwrap_or(contract_address!(TEST_CONTRACT_ADDRESS));
+pub fn trivial_external_entry_point_with_address(
+    contract_address: ContractAddress,
+) -> CallEntryPoint {
     CallEntryPoint {
         class_hash: None,
         code_address: Some(contract_address),
@@ -240,8 +249,12 @@ pub fn external_entry_point(contract_address: Option<ContractAddress>) -> CallEn
         storage_address: contract_address,
         caller_address: ContractAddress::default(),
         call_type: CallType::Call,
-        initial_gas: constants::INITIAL_GAS_COST,
+        initial_gas: VersionedConstants::create_for_testing().gas_cost("initial_gas_cost"),
     }
+}
+
+pub fn erc20_external_entry_point() -> CallEntryPoint {
+    trivial_external_entry_point_with_address(contract_address!(TEST_ERC20_FULL_CONTRACT_ADDRESS))
 }
 
 fn default_testing_resource_bounds() -> ResourceBoundsMapping {
@@ -260,8 +273,11 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 macro_rules! check_inner_exc_for_custom_hint {
     ($inner_exc:expr, $expected_hint:expr) => {
         if let cairo_vm::vm::errors::vm_errors::VirtualMachineError::Hint(hint) = $inner_exc {
-            if let cairo_vm::vm::errors::hint_errors::HintError::CustomHint(custom_hint) = &hint.1 {
-                assert_eq!(custom_hint.as_ref(), $expected_hint)
+            if let cairo_vm::vm::errors::hint_errors::HintError::Internal(
+                cairo_vm::vm::errors::vm_errors::VirtualMachineError::Other(error),
+            ) = &hint.1
+            {
+                assert_eq!(error.to_string(), $expected_hint.to_string());
             } else {
                 panic!("Unexpected hint: {:?}", hint);
             }
@@ -288,10 +304,8 @@ macro_rules! check_entry_point_execution_error {
     ($error:expr, $expected_hint:expr $(,)?) => {
         if let EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
             source:
-                VirtualMachineExecutionError::CairoRunError(
-                    cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
-                        cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
-                    ),
+                cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
+                    cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
                 ),
             ..
         } = $error
@@ -399,6 +413,15 @@ pub fn create_calldata(
     Calldata(calldata.into())
 }
 
+/// Calldata for a trivial entry point in the test contract.
+pub fn create_trivial_calldata(test_contract_address: ContractAddress) -> Calldata {
+    create_calldata(
+        test_contract_address,
+        "return_result",
+        &[stark_felt!(2_u8)], // Calldata: num.
+    )
+}
+
 pub fn create_erc20_deploy_test_state() -> CachedState<DictStateReader> {
     let address_to_class_hash: HashMap<ContractAddress, ClassHash> = HashMap::from([(
         contract_address!(TEST_ERC20_FULL_CONTRACT_ADDRESS),
@@ -422,9 +445,8 @@ pub fn deploy_contract(
 
     let class_hash = ClassHash(felt_to_starkfelt(class_hash));
 
-    let wrapper_calldata = Calldata(Arc::new(
-        calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
-    ));
+    let wrapper_calldata =
+        Calldata(Arc::new(calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect()));
 
     let calculated_contract_address = calculate_contract_address(
         ContractAddressSalt(felt_to_starkfelt(contract_address_salt)),
@@ -445,8 +467,10 @@ pub fn deploy_contract(
         state,
         &mut Default::default(),
         &mut EntryPointExecutionContext::new(
-            &BlockContext::create_for_testing(),
-            &AccountTransactionContext::Current(Default::default()),
+            Arc::new(TransactionContext {
+                block_context: BlockContext::create_for_testing(),
+                tx_info: TransactionInfo::Current(Default::default()),
+            }),
             ExecutionMode::Execute,
             false,
         )
@@ -478,9 +502,8 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
     )
     .unwrap();
 
-    let contract_address = ContractAddress(
-        PatriciaKey::try_from(felt_to_starkfelt(contract_address)).unwrap(),
-    );
+    let contract_address =
+        ContractAddress(PatriciaKey::try_from(felt_to_starkfelt(contract_address)).unwrap());
 
     (contract_address, state)
 }

@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use blockifier::transaction::errors::{TransactionExecutionError, TransactionFeeError};
+use blockifier::versioned_constants::VersionedConstants;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -92,19 +92,20 @@ pub fn int_to_chain_id(int: &PyAny) -> PyResult<ChainId> {
     Ok(ChainId(String::from_utf8_lossy(&biguint.to_bytes_be()).into()))
 }
 
-// TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
-#[pyfunction]
-pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {
-    Err(TransactionExecutionError::TransactionFeeError(
-        TransactionFeeError::CairoResourcesNotContainedInFeeCosts,
-    )
-    .into())
-}
-
 pub fn py_attr<T>(obj: &PyAny, attr: &str) -> NativeBlockifierResult<T>
 where
     T: for<'a> FromPyObject<'a>,
     T: Clone,
 {
     Ok(obj.getattr(attr)?.extract()?)
+}
+
+pub fn versioned_constants_with_overrides(
+    validate_max_n_steps: u32,
+    max_recursion_depth: usize,
+) -> VersionedConstants {
+    let mut versioned_constants = VersionedConstants::latest_constants().clone();
+    versioned_constants.max_recursion_depth = max_recursion_depth;
+    versioned_constants.validate_max_n_steps = validate_max_n_steps;
+    versioned_constants
 }

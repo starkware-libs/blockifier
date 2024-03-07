@@ -1,11 +1,11 @@
 use cairo_lang_sierra::program::Program as SierraProgram;
-use cairo_lang_starknet::contract_class::ContractEntryPoints;
+use cairo_lang_starknet_classes::contract_class::ContractEntryPoints;
 use starknet_api::core::ClassHash;
 
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::SierraContractClassV1;
 use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext, ExecutionResources,
+    CallEntryPoint, EntryPointExecutionContext,
 };
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::native_syscall_handler::NativeSyscallHandler;
@@ -15,6 +15,7 @@ use crate::execution::sierra_utils::{
     setup_syscall_handler, wrap_syscall_handler,
 };
 use crate::state::state_api::State;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 
 pub fn execute_entry_point_call(
     call: CallEntryPoint,
@@ -23,6 +24,7 @@ pub fn execute_entry_point_call(
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> Result<CallInfo, EntryPointExecutionError> {
+    // println!("Executing through native");
     let sierra_program: &SierraProgram = get_program(&contract_class);
     let contract_entrypoints: &ContractEntryPoints = get_entrypoints(&contract_class);
 
@@ -40,8 +42,8 @@ pub fn execute_entry_point_call(
         call.caller_address,
         call.storage_address,
         call.entry_point_selector,
-        resources.clone(),
-        context.clone(),
+        resources, // TODO, no longer supports clone, do we add it or can we get away with using mut refs
+        context,
         Vec::new(),
         Vec::new(),
         Vec::new(),

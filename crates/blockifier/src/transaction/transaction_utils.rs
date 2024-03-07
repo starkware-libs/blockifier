@@ -1,49 +1,45 @@
 use std::collections::HashMap;
 
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::transaction::TransactionVersion;
 
 use crate::abi::constants;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::ExecutionResources;
-use crate::fee::gas_usage::calculate_tx_gas_usage;
-use crate::fee::os_usage::get_additional_os_resources;
+use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
+use crate::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionResult};
 use crate::transaction::transaction_types::TransactionType;
-
-pub fn calculate_l1_gas_usage<'a>(
-    call_infos: impl Iterator<Item = &'a CallInfo>,
-    state_changes_count: StateChangesCount,
-    l1_handler_payload_size: Option<usize>,
-) -> TransactionExecutionResult<usize> {
-    let mut l2_to_l1_payloads_length = vec![];
-    for call_info in call_infos {
-        l2_to_l1_payloads_length.extend(call_info.get_sorted_l2_to_l1_payloads_length()?);
-    }
-
-    let l1_gas_usage = calculate_tx_gas_usage(
-        &l2_to_l1_payloads_length,
-        state_changes_count,
-        l1_handler_payload_size,
-    );
-
-    Ok(l1_gas_usage)
-}
+use crate::utils::usize_from_u128;
+use crate::versioned_constants::VersionedConstants;
 
 /// Calculates the total resources needed to include the transaction in a Starknet block as
 /// most-recent (recent w.r.t. application on the given state).
 /// I.e., Cairo VM execution resources.
 pub fn calculate_tx_resources(
+    versioned_constants: &VersionedConstants,
     execution_resources: &ExecutionResources,
-    l1_gas_usage: usize,
+    gas_vector: GasVector,
     tx_type: TransactionType,
+    calldata_length: usize,
+    state_changes_count: StateChangesCount,
+    use_kzg_da: bool,
 ) -> TransactionExecutionResult<ResourcesMapping> {
+    let l1_gas_usage = usize_from_u128(gas_vector.l1_gas)
+        .expect("This conversion should not fail as the value is a converted usize.");
+    let l1_blob_gas_usage = usize_from_u128(gas_vector.l1_data_gas)
+        .expect("This conversion should not fail as the value is a converted usize.");
     // Add additional Cairo resources needed for the OS to run the transaction.
-    let total_vm_usage = &execution_resources.vm_resources
-        + &get_additional_os_resources(&execution_resources.syscall_counter, tx_type)?;
+    let data_segment_length = get_onchain_data_segment_length(state_changes_count);
+    let total_vm_usage = execution_resources
+        + &versioned_constants.get_additional_os_tx_resources(
+            tx_type,
+            calldata_length,
+            data_segment_length,
+            use_kzg_da,
+        )?;
     let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
     // The segment arena" builtin is not part of SHARP (not in any proof layout).
     // Each instance requires approximately 10 steps in the OS.
@@ -55,7 +51,8 @@ pub fn calculate_tx_resources(
             .unwrap_or_default();
 
     let mut tx_resources = HashMap::from([
-        (constants::GAS_USAGE.to_string(), l1_gas_usage),
+        (constants::L1_GAS_USAGE.to_string(), l1_gas_usage),
+        (constants::BLOB_GAS_USAGE.to_string(), l1_blob_gas_usage),
         (constants::N_STEPS_RESOURCE.to_string(), n_steps + total_vm_usage.n_memory_holes),
     ]);
     tx_resources.extend(total_vm_usage.builtin_instance_counter);
@@ -68,29 +65,27 @@ pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
 }
 
 pub fn verify_contract_class_version(
-    contract_class: ContractClass,
+    contract_class: &ContractClass,
     declare_version: TransactionVersion,
-) -> Result<ContractClass, TransactionExecutionError> {
+) -> Result<(), TransactionExecutionError> {
     match contract_class {
         ContractClass::V0(_) => {
             if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
-                Ok(contract_class)
-            } else {
-                Err(TransactionExecutionError::ContractClassVersionMismatch {
-                    declare_version,
-                    cairo_version: 0,
-                })
+                return Ok(());
             }
+            Err(TransactionExecutionError::ContractClassVersionMismatch {
+                declare_version,
+                cairo_version: 0,
+            })
         }
         ContractClass::V1(_) => {
             if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
-                Ok(contract_class)
-            } else {
-                Err(TransactionExecutionError::ContractClassVersionMismatch {
-                    declare_version,
-                    cairo_version: 1,
-                })
+                return Ok(());
             }
+            Err(TransactionExecutionError::ContractClassVersionMismatch {
+                declare_version,
+                cairo_version: 1,
+            })
         }
         ContractClass::V1Sierra(_) => todo!("Sierra verify contract class version"),
     }

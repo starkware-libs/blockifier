@@ -15,8 +15,8 @@ use starknet_api::transaction::{
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
-    read_call_params, read_calldata, read_felt_array, write_segment, SyscallExecutionError,
-    SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
+    read_call_params, read_calldata, read_felt_array, write_segment, EmitEventError,
+    SyscallExecutionError, SyscallHintProcessor, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
 };
 use crate::abi::constants;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
@@ -29,16 +29,17 @@ use crate::execution::execution_utils::{
 };
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
 use crate::transaction::transaction_utils::update_remaining_gas;
+use crate::versioned_constants::{EventLimits, VersionedConstants};
 
 pub mod hint_processor;
 mod secp;
 
 #[cfg(test)]
+#[path = "syscall_tests.rs"]
+pub mod syscall_tests;
+#[cfg(test)]
 #[path = "syscall_tests_vm.rs"]
 mod syscall_tests_vm;
-#[cfg(test)]
-#[path = "syscalls_test.rs"]
-pub mod syscalls_test;
 
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
@@ -66,8 +67,7 @@ impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
                 input: felt_to_stark_felt(&gas_counter),
                 info: String::from("Unexpected gas."),
             })?;
-        let request = T::read(vm, ptr)?;
-        Ok(Self { gas_counter, request })
+        Ok(Self { gas_counter, request: T::read(vm, ptr)? })
     }
 }
 
@@ -164,10 +164,11 @@ pub fn call_contract(
 ) -> SyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
     if syscall_handler.is_validate_mode() && syscall_handler.storage_address() != storage_address {
-        return Err(SyscallExecutionError::InvalidSyscallInExecutionMode {
+        let error = SyscallExecutionError::InvalidSyscallInExecutionMode {
             syscall_name: "call_contract".to_string(),
             execution_mode: syscall_handler.execution_mode(),
-        });
+        };
+        return Err(error.as_call_contract_execution_error(storage_address));
     }
     let entry_point = CallEntryPoint {
         class_hash: None,
@@ -180,7 +181,8 @@ pub fn call_contract(
         call_type: CallType::Call,
         initial_gas: *remaining_gas,
     };
-    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)?;
+    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)
+        .map_err(|error| error.as_call_contract_execution_error(storage_address))?;
 
     Ok(CallContractResponse { segment: retdata_segment })
 }
@@ -289,6 +291,31 @@ impl SyscallRequest for EmitEventRequest {
 
 type EmitEventResponse = EmptyResponse;
 
+pub fn exceeds_event_size_limit(
+    versioned_constants: &VersionedConstants,
+    n_emitted_events: usize,
+    event: &EventContent,
+) -> Result<(), EmitEventError> {
+    let EventLimits { max_data_length, max_keys_length, max_n_emitted_events } =
+        versioned_constants.tx_event_limits;
+    if n_emitted_events > max_n_emitted_events {
+        return Err(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+            n_emitted_events,
+            max_n_emitted_events,
+        });
+    }
+    let keys_length = event.keys.len();
+    if keys_length > max_keys_length {
+        return Err(EmitEventError::ExceedsMaxKeysLength { keys_length, max_keys_length });
+    }
+    let data_length = event.data.0.len();
+    if data_length > max_data_length {
+        return Err(EmitEventError::ExceedsMaxDataLength { data_length, max_data_length });
+    }
+
+    Ok(())
+}
+
 pub fn emit_event(
     request: EmitEventRequest,
     _vm: &mut VirtualMachine,
@@ -296,6 +323,11 @@ pub fn emit_event(
     _remaining_gas: &mut u64,
 ) -> SyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
+    exceeds_event_size_limit(
+        execution_context.versioned_constants(),
+        execution_context.n_emitted_events + 1,
+        &request.content,
+    )?;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
@@ -355,7 +387,8 @@ pub fn get_block_hash(
     }
 
     let requested_block_number = request.block_number.0;
-    let current_block_number = syscall_handler.context.block_context.block_number.0;
+    let current_block_number =
+        syscall_handler.context.tx_context.block_context.block_info.block_number.0;
 
     if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
         || requested_block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
@@ -655,14 +688,15 @@ pub fn keccak(
 
     if remainder != 0 {
         return Err(SyscallExecutionError::SyscallError {
-            error_data: vec![
-                StarkFelt::try_from(INVALID_INPUT_LENGTH_ERROR)
-                    .map_err(SyscallExecutionError::from)?,
-            ],
+            error_data: vec![StarkFelt::try_from(INVALID_INPUT_LENGTH_ERROR)
+                .map_err(SyscallExecutionError::from)?],
         });
     }
 
-    let gas_cost = n_rounds as u64 * constants::KECCAK_ROUND_COST_GAS_COST;
+    // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
+    let n_rounds_as_u64 = u64::try_from(n_rounds).expect("Failed to convert usize to u64.");
+    let gas_cost =
+        n_rounds_as_u64 * syscall_handler.context.get_gas_cost("keccak_round_cost_gas_cost");
     if gas_cost > *remaining_gas {
         let out_of_gas_error =
             StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;

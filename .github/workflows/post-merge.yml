@@ -1,0 +1,24 @@
+name: post-merge
+
+on:
+  pull_request:
+    types:
+      - closed
+jobs:
+  if_merged:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: rustfmt
+          toolchain: nightly-2023-07-05
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      - run:
+          pip install -r crates/blockifier/tests/requirements.txt;
+          cargo test -- --include-ignored

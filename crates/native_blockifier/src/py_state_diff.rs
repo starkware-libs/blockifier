@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use blockifier::state::cached_state::CommitmentStateDiff;
+use blockifier::test_utils::{
+    DEFAULT_ETH_L1_DATA_GAS_PRICE, DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE,
+    DEFAULT_STRK_L1_GAS_PRICE,
+};
 use indexmap::IndexMap;
 use pyo3::prelude::*;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
@@ -115,10 +119,37 @@ impl From<CommitmentStateDiff> for PyStateDiff {
 }
 
 #[derive(Default, FromPyObject)]
+pub struct PyResourcePrice {
+    pub price_in_wei: u128,
+    pub price_in_fri: u128,
+}
+
+#[derive(FromPyObject)]
 pub struct PyBlockInfo {
     pub block_number: u64,
     pub block_timestamp: u64,
-    pub eth_l1_gas_price: u128,
-    pub strk_l1_gas_price: u128,
+    pub l1_gas_price: PyResourcePrice,
+    pub l1_data_gas_price: PyResourcePrice,
     pub sequencer_address: PyFelt,
+    pub use_kzg_da: bool,
+}
+
+/// Block info cannot have gas prices set to zero; implement `Default` explicitly.
+impl Default for PyBlockInfo {
+    fn default() -> Self {
+        Self {
+            block_number: u64::default(),
+            block_timestamp: u64::default(),
+            l1_gas_price: PyResourcePrice {
+                price_in_wei: DEFAULT_ETH_L1_GAS_PRICE,
+                price_in_fri: DEFAULT_STRK_L1_GAS_PRICE,
+            },
+            l1_data_gas_price: PyResourcePrice {
+                price_in_wei: DEFAULT_ETH_L1_DATA_GAS_PRICE,
+                price_in_fri: DEFAULT_STRK_L1_DATA_GAS_PRICE,
+            },
+            sequencer_address: PyFelt::default(),
+            use_kzg_da: bool::default(),
+        }
+    }
 }

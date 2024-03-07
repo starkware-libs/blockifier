@@ -2,6 +2,7 @@ use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
+use cairo_vm::vm::errors::trace_errors::TraceError;
 use cairo_vm::vm::errors::vm_errors::{VirtualMachineError, HINT_ERROR_STR};
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -70,20 +71,12 @@ impl From<RunnerError> for PostExecutionError {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum VirtualMachineExecutionError {
-    #[error(transparent)]
-    CairoRunError(#[from] CairoRunError),
-    #[error(transparent)]
-    VirtualMachineError(#[from] VirtualMachineError),
-}
-
-impl VirtualMachineExecutionError {
+impl EntryPointExecutionError {
     /// Unwrap inner VM exception and return it as a string. If this is a call_contract exception,
     /// the inner error (inner call errors) will not appear in the string.
     pub fn try_to_vm_trace(&self) -> String {
         match self {
-            VirtualMachineExecutionError::CairoRunError(CairoRunError::VmException(exception)) => {
+            EntryPointExecutionError::CairoRunError(CairoRunError::VmException(exception)) => {
                 let mut trace_string = format!("Error at pc=0:{}:\n", exception.pc);
                 let inner_exc_string = &exception.inner_exc.to_string();
 
@@ -91,8 +84,7 @@ impl VirtualMachineExecutionError {
                 // to append inner representation.
                 // Otherwise, add the inner representation. Prefer using the error attribute as the
                 // description of the error; if it is unavailable, use the inner exception string.
-                let outer_call_prefix =
-                    format!("{HINT_ERROR_STR}Hint Error: Error in the called contract");
+                let outer_call_prefix = format!("{HINT_ERROR_STR}Error in the called contract");
                 if inner_exc_string.starts_with(&outer_call_prefix) {
                     trace_string += "Got an exception while executing a hint.";
                 } else if let Some(error_attribute) = &exception.error_attr_value {
@@ -122,8 +114,12 @@ impl VirtualMachineExecutionError {
 
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
+    #[error(transparent)]
+    CairoRunError(#[from] CairoRunError),
     #[error("Execution failed. Failure reason: {}.", format_panic_data(.error_data))]
     ExecutionFailed { error_data: Vec<StarkFelt> },
+    #[error("Internal error: {0}")]
+    InternalError(String),
     #[error("Invalid input: {input_descriptor}; {info}")]
     InvalidExecutionInput { input_descriptor: String, info: String },
     #[error(transparent)]
@@ -134,13 +130,25 @@ pub enum EntryPointExecutionError {
     RecursionDepthExceeded,
     #[error(transparent)]
     StateError(#[from] StateError),
-    /// Gathers all errors from running the Cairo VM, excluding hints.
     #[error(transparent)]
-    VirtualMachineExecutionError(#[from] VirtualMachineExecutionError),
+    TraceError(#[from] TraceError),
+    /// Gathers all errors from running the Cairo VM, excluding hints.
     #[error("{trace}")]
     VirtualMachineExecutionErrorWithTrace {
         trace: String,
         #[source]
-        source: VirtualMachineExecutionError,
+        source: CairoRunError,
+    },
+}
+
+#[derive(Debug, Error)]
+pub enum ContractClassError {
+    #[error(
+        "Sierra program length must be > 0 for Cairo1, and == 0 for Cairo0. Got: \
+         {sierra_program_length:?} for contract class version {contract_class_version:?}"
+    )]
+    ContractClassVersionSierraProgramLengthMismatch {
+        contract_class_version: u8,
+        sierra_program_length: usize,
     },
 }

@@ -1,17 +1,19 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, EthAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 
 use crate::execution::entry_point::CallEntryPoint;
+use crate::fee::gas_usage::get_message_segment_length;
 use crate::state::cached_state::StorageEntry;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
 #[macro_export]
@@ -21,21 +23,45 @@ macro_rules! retdata {
     };
 }
 
-#[derive(Debug, Default, Eq, PartialEq, Clone)]
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedEvent {
     pub order: usize,
     pub event: EventContent,
 }
 
-#[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, Eq, PartialEq)]
+pub struct MessageL1CostInfo {
+    pub l2_to_l1_payload_lengths: Vec<usize>,
+    pub message_segment_length: usize,
+}
+
+impl MessageL1CostInfo {
+    pub fn calculate<'a>(
+        call_infos: impl Iterator<Item = &'a CallInfo>,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutionResult<Self> {
+        let mut l2_to_l1_payload_lengths = Vec::new();
+        for call_info in call_infos {
+            l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths()?);
+        }
+
+        let message_segment_length =
+            get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
+
+        Ok(Self { l2_to_l1_payload_lengths, message_segment_length })
+    }
+}
+
+#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct MessageToL1 {
     pub to_address: EthAddress,
     pub payload: L2ToL1Payload,
 }
 
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedL2ToL1Message {
     pub order: usize,
     pub message: MessageToL1,
@@ -43,7 +69,7 @@ pub struct OrderedL2ToL1Message {
 
 /// Represents the effects of executing a single entry point.
 #[cfg_attr(test, derive(Clone))]
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallExecution {
     pub retdata: Retdata,
     pub events: Vec<OrderedEvent>,
@@ -52,12 +78,22 @@ pub struct CallExecution {
     pub gas_consumed: u64,
 }
 
+// This struct is used to implement `serde` functionality in a remote `ExecutionResources` Struct.
+#[derive(Debug, Default, Deserialize, derive_more::From, Eq, PartialEq, Serialize)]
+#[serde(remote = "ExecutionResources")]
+struct ExecutionResourcesDef {
+    n_steps: usize,
+    n_memory_holes: usize,
+    builtin_instance_counter: HashMap<String, usize>,
+}
+
 /// Represents the full effects of executing an entry point, including the inner calls it invoked.
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
-    pub vm_resources: VmExecutionResources,
+    #[serde(with = "ExecutionResourcesDef")]
+    pub resources: ExecutionResources,
     pub inner_calls: Vec<CallInfo>,
 
     // Additional information gathered during execution.
@@ -98,9 +134,9 @@ impl CallInfo {
 
     /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
     /// by the order in which they were sent.
-    pub fn get_sorted_l2_to_l1_payloads_length(&self) -> TransactionExecutionResult<Vec<usize>> {
+    pub fn get_sorted_l2_to_l1_payload_lengths(&self) -> TransactionExecutionResult<Vec<usize>> {
         let n_messages = self.into_iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
-        let mut starknet_l2_to_l1_payloads_length: Vec<Option<usize>> = vec![None; n_messages];
+        let mut starknet_l2_to_l1_payload_lengths: Vec<Option<usize>> = vec![None; n_messages];
 
         for call_info in self.into_iter() {
             for ordered_message_content in &call_info.execution.l2_to_l1_messages {
@@ -112,12 +148,12 @@ impl CallInfo {
                         max_order: n_messages,
                     });
                 }
-                starknet_l2_to_l1_payloads_length[message_order] =
+                starknet_l2_to_l1_payload_lengths[message_order] =
                     Some(ordered_message_content.message.payload.0.len());
             }
         }
 
-        starknet_l2_to_l1_payloads_length.into_iter().enumerate().try_fold(
+        starknet_l2_to_l1_payload_lengths.into_iter().enumerate().try_fold(
             Vec::new(),
             |mut acc, (i, option)| match option {
                 Some(value) => {
@@ -130,6 +166,11 @@ impl CallInfo {
                 }),
             },
         )
+    }
+
+    /// Returns the sum of events in CallInfo and its inner_calls
+    pub fn get_number_of_events(&self) -> usize {
+        self.into_iter().map(|call_info| call_info.execution.events.len()).sum()
     }
 }
 

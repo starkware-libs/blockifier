@@ -6,10 +6,11 @@ use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_sierra::program::Program as SierraProgram;
-use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
-use cairo_lang_starknet::contract_class::{
+use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_lang_starknet_classes::contract_class::{
     ContractClass as SierraContractClass, ContractEntryPoints as SierraContractEntryPoints,
 };
+use cairo_lang_starknet_classes::NestedIntList;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -17,7 +18,7 @@ use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer};
 use starknet_api::core::EntryPointSelector;
@@ -26,18 +27,21 @@ use starknet_api::deprecated_contract_class::{
     Program as DeprecatedProgram,
 };
 
+use super::execution_utils::poseidon_hash_many_cost;
+use super::sierra_utils::contract_entrypoint_to_entrypoint_selector;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::errors::PreExecutionError;
+use crate::execution::errors::{ContractClassError, PreExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
-
-use super::sierra_utils::contract_entrypoint_to_entrypoint_selector;
 
 /// Represents a runnable Starknet contract class (meaning, the program is runnable by the VM).
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
 // by serde, since it is not required for execution.
+
+pub type ContractClassResult<T> = Result<T, ContractClassError>;
+
 #[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
 pub enum ContractClass {
     V0(ContractClassV0),
@@ -54,11 +58,19 @@ impl ContractClass {
         }
     }
 
-    pub fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+    pub fn estimate_casm_hash_computation_resources(&self) -> ExecutionResources {
         match self {
             ContractClass::V0(class) => class.estimate_casm_hash_computation_resources(),
             ContractClass::V1(class) => class.estimate_casm_hash_computation_resources(),
             ContractClass::V1Sierra(_) => todo!("sierra estimate casm hash computation resources"),
+        }
+    }
+
+    pub fn bytecode_length(&self) -> usize {
+        match self {
+            ContractClass::V0(class) => class.bytecode_length(),
+            ContractClass::V1(class) => class.bytecode_length(),
+            ContractClass::V1Sierra(_) => todo!("Sierra bytecode_length"),
         }
     }
 }
@@ -91,15 +103,15 @@ impl ContractClassV0 {
         self.program.data_len()
     }
 
-    fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
+    fn estimate_casm_hash_computation_resources(&self) -> ExecutionResources {
         let hashed_data_size = (constants::CAIRO0_ENTRY_POINT_STRUCT_SIZE * self.n_entry_points())
             + self.n_builtins()
             + self.bytecode_length()
             + 1; // Hinted class hash.
-        // The hashed data size is approximately the number of hashes (invoked in hash chains).
+                 // The hashed data size is approximately the number of hashes (invoked in hash chains).
         let n_steps = constants::N_STEPS_PER_PEDERSEN * hashed_data_size;
 
-        VmExecutionResources {
+        ExecutionResources {
             n_steps,
             n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(
@@ -134,7 +146,7 @@ impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
 }
 
 // V1.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractClassV1(pub Arc<ContractClassV1Inner>);
 impl Deref for ContractClassV1 {
     type Target = ContractClassV1Inner;
@@ -182,19 +194,8 @@ impl ContractClassV1 {
     /// Returns the estimated VM resources required for computing Casm hash.
     /// This is an empiric measurement of several bytecode lengths, which constitutes as the
     /// dominant factor in it.
-    fn estimate_casm_hash_computation_resources(&self) -> VmExecutionResources {
-        let bytecode_length = self.bytecode_length() as f64;
-        let n_steps = (503.0 + bytecode_length * 5.7) as usize;
-        let n_poseidon_builtins = (10.9 + bytecode_length * 0.5) as usize;
-
-        VmExecutionResources {
-            n_steps,
-            n_memory_holes: 0,
-            builtin_instance_counter: HashMap::from([(
-                POSEIDON_BUILTIN_NAME.to_string(),
-                n_poseidon_builtins,
-            )]),
-        }
+    fn estimate_casm_hash_computation_resources(&self) -> ExecutionResources {
+        estimate_casm_hash_computation_resources(&self.bytecode_segment_lengths)
     }
 
     pub fn try_from_json_string(raw_contract_class: &str) -> Result<ContractClassV1, ProgramError> {
@@ -203,13 +204,69 @@ impl ContractClassV1 {
 
         Ok(contract_class)
     }
+
+    /// Returns an empty contract class for testing purposes.
+    #[cfg(any(feature = "testing", test))]
+    pub fn empty_for_testing() -> Self {
+        Self(Arc::new(ContractClassV1Inner {
+            program: Default::default(),
+            entry_points_by_type: Default::default(),
+            hints: Default::default(),
+            bytecode_segment_lengths: NestedIntList::Leaf(0),
+        }))
+    }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+/// Returns the estimated VM resources required for computing Casm hash (for Cairo 1 contracts).
+///
+/// Note: the function focuses on the bytecode size, and currently ignores the cost handling the
+/// class entry points.
+pub fn estimate_casm_hash_computation_resources(
+    bytecode_segment_lengths: &NestedIntList,
+) -> ExecutionResources {
+    // The constants in this function were computed by running the Casm code on a few values
+    // of `bytecode_segment_lengths`.
+    match bytecode_segment_lengths {
+        NestedIntList::Leaf(length) => {
+            // The entire contract is a single segment (old Sierra contracts).
+            &ExecutionResources {
+                n_steps: 474,
+                n_memory_holes: 0,
+                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 10)]),
+            } + &poseidon_hash_many_cost(*length)
+        }
+        NestedIntList::Node(segments) => {
+            // The contract code is segmented by its functions.
+            let mut execution_resources = ExecutionResources {
+                n_steps: 491,
+                n_memory_holes: 0,
+                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 11)]),
+            };
+            let base_segment_cost = ExecutionResources {
+                n_steps: 24,
+                n_memory_holes: 1,
+                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 1)]),
+            };
+            for segment in segments {
+                let NestedIntList::Leaf(length) = segment else {
+                    panic!(
+                        "Estimating hash cost is only supported for segmentation depth at most 1."
+                    );
+                };
+                execution_resources += &poseidon_hash_many_cost(*length);
+                execution_resources += &base_segment_cost;
+            }
+            execution_resources
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractClassV1Inner {
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
     pub hints: HashMap<String, Hint>,
+    bytecode_segment_lengths: NestedIntList,
 }
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
@@ -283,10 +340,15 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
             convert_entry_points_v1(class.entry_points_by_type.l1_handler)?,
         );
 
+        let bytecode_segment_lengths = class
+            .bytecode_segment_lengths
+            .unwrap_or_else(|| NestedIntList::Leaf(program.data_len()));
+
         Ok(Self(Arc::new(ContractClassV1Inner {
             program,
             entry_points_by_type,
             hints: string_to_hint,
+            bytecode_segment_lengths,
         })))
     }
 }
@@ -331,6 +393,52 @@ fn convert_entry_points_v1(
         .collect()
 }
 
+#[derive(Clone, Debug)]
+// TODO(Ayelet,10/02/2024): Change to bytes.
+pub struct ClassInfo {
+    contract_class: ContractClass,
+    sierra_program_length: usize,
+    abi_length: usize,
+}
+
+impl ClassInfo {
+    pub fn bytecode_length(&self) -> usize {
+        self.contract_class.bytecode_length()
+    }
+
+    pub fn contract_class(&self) -> ContractClass {
+        self.contract_class.clone()
+    }
+
+    pub fn sierra_program_length(&self) -> usize {
+        self.sierra_program_length
+    }
+
+    pub fn abi_length(&self) -> usize {
+        self.abi_length
+    }
+
+    pub fn new(
+        contract_class: &ContractClass,
+        sierra_program_length: usize,
+        abi_length: usize,
+    ) -> ContractClassResult<Self> {
+        let (contract_class_version, condition) = match contract_class {
+            ContractClass::V0(_) => (0, sierra_program_length == 0),
+            ContractClass::V1(_) => (1, sierra_program_length > 0),
+            ContractClass::V1Sierra(_) => todo!("Sierra contract class version and condition"),
+        };
+
+        if condition {
+            Ok(Self { contract_class: contract_class.clone(), sierra_program_length, abi_length })
+        } else {
+            Err(ContractClassError::ContractClassVersionSierraProgramLengthMismatch {
+                contract_class_version,
+                sierra_program_length,
+            })
+        }
+    }
+}
 // TODO add default?
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SierraContractClassV1(pub Arc<SierraContractClassV1Inner>);

@@ -2,9 +2,9 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::sync::Arc;
 
-use cairo_vm::vm::runners::cairo_runner::{
-    ExecutionResources as VmExecutionResources, ResourceTracker, RunResources,
-};
+use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
+use num_traits::{Inv, Zero};
+use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
@@ -12,18 +12,16 @@ use starknet_api::transaction::{Calldata, TransactionVersion};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
-use crate::fee::os_resources::OS_RESOURCES;
 use crate::state::state_api::State;
-use crate::transaction::objects::{
-    AccountTransactionContext, HasRelatedFeeType, TransactionExecutionResult,
-};
+use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionResult, TransactionInfo};
 use crate::transaction::transaction_types::TransactionType;
+use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "entry_point_test.rs"]
@@ -35,14 +33,14 @@ pub const FAULTY_CLASS_HASH: &str =
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
 
 /// Represents a the type of the call (used for debugging).
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize)]
 pub enum CallType {
     #[default]
     Call = 0,
     Delegate = 1,
 }
 /// Represents a call to an entry point of a Starknet contract.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct CallEntryPoint {
     // The class hash is not given if it can be deduced from the storage address.
     pub class_hash: Option<ClassHash>,
@@ -67,9 +65,10 @@ impl CallEntryPoint {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
     ) -> EntryPointExecutionResult<CallInfo> {
+        let tx_context = &context.tx_context;
         let mut decrement_when_dropped = RecursionDepthGuard::new(
             context.current_recursion_depth.clone(),
-            context.max_recursion_depth,
+            context.versioned_constants().max_recursion_depth,
         );
         decrement_when_dropped.try_increment_and_check_depth()?;
 
@@ -85,7 +84,7 @@ impl CallEntryPoint {
             None => storage_class_hash, // If not given, take the storage contract class hash.
         };
         // Hack to prevent version 0 attack on argent accounts.
-        if context.account_tx_context.version() == TransactionVersion::ZERO
+        if tx_context.tx_info.version() == TransactionVersion::ZERO
             && class_hash
                 == ClassHash(
                     StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
@@ -98,10 +97,11 @@ impl CallEntryPoint {
         let contract_class = state.get_compiled_contract_class(class_hash)?;
 
         execute_entry_point_call(self, contract_class, state, resources, context).map_err(|error| {
+            let vm_trace = error.try_to_vm_trace();
             match error {
                 // On VM error, pack the stack trace into the propagated error.
-                EntryPointExecutionError::VirtualMachineExecutionError(error) => {
-                    context.error_stack.push((storage_address, error.try_to_vm_trace()));
+                EntryPointExecutionError::CairoRunError(internal_error) => {
+                    context.error_stack.push((storage_address, vm_trace));
                     // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
                     //   right now, each intermediate VM error is wrapped in a
                     //   VirtualMachineExecutionErrorWithTrace error with the stringified trace
@@ -110,10 +110,13 @@ impl CallEntryPoint {
                     let error_trace = context.error_trace();
                     EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
                         trace: error_trace[..min(10000, error_trace.len())].to_string(),
-                        source: error,
+                        source: internal_error,
                     }
                 }
-                other_error => other_error,
+                other_error => {
+                    context.error_stack.push((storage_address, format!("{}\n", &other_error)));
+                    other_error
+                }
             }
         })
     }
@@ -127,16 +130,11 @@ pub struct ConstructorContext {
     pub caller_address: ContractAddress,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ExecutionResources {
-    pub vm_resources: VmExecutionResources,
-    pub syscall_counter: SyscallCounter,
-}
-
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct EntryPointExecutionContext {
-    pub block_context: BlockContext,
-    pub account_tx_context: AccountTransactionContext,
+    // We use `Arc` to avoid the clone of this potentially large object, as inner calls
+    // are created during execution.
+    pub tx_context: Arc<TransactionContext>,
     // VM execution limits.
     pub vm_run_resources: RunResources,
     /// Used for tracking events order during the current execution.
@@ -148,8 +146,6 @@ pub struct EntryPointExecutionContext {
 
     // Managed by dedicated guard object.
     current_recursion_depth: Arc<RefCell<usize>>,
-    // Maximum depth is limited by the stack size, which is configured at `.cargo/config.toml`.
-    max_recursion_depth: usize,
 
     // The execution mode affects the behavior of the hint processor.
     pub execution_mode: ExecutionMode,
@@ -157,94 +153,111 @@ pub struct EntryPointExecutionContext {
 
 impl EntryPointExecutionContext {
     pub fn new(
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        tx_context: Arc<TransactionContext>,
         mode: ExecutionMode,
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<Self> {
-        let max_steps =
-            Self::max_steps(block_context, account_tx_context, &mode, limit_steps_by_resources)?;
+        let max_steps = Self::max_steps(&tx_context, &mode, limit_steps_by_resources)?;
         Ok(Self {
             vm_run_resources: RunResources::new(max_steps),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
             error_stack: vec![],
-            account_tx_context: account_tx_context.clone(),
+            tx_context: tx_context.clone(),
             current_recursion_depth: Default::default(),
-            max_recursion_depth: block_context.max_recursion_depth,
-            block_context: block_context.clone(),
             execution_mode: mode,
         })
     }
 
     pub fn new_validate(
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        tx_context: Arc<TransactionContext>,
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<Self> {
-        Self::new(
-            block_context,
-            account_tx_context,
-            ExecutionMode::Validate,
-            limit_steps_by_resources,
-        )
+        Self::new(tx_context, ExecutionMode::Validate, limit_steps_by_resources)
     }
 
     pub fn new_invoke(
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        tx_context: Arc<TransactionContext>,
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<Self> {
-        Self::new(
-            block_context,
-            account_tx_context,
-            ExecutionMode::Execute,
-            limit_steps_by_resources,
-        )
+        Self::new(tx_context, ExecutionMode::Execute, limit_steps_by_resources)
     }
 
     /// Returns the maximum number of cairo steps allowed, given the max fee, gas price and the
     /// execution mode.
     /// If fee is disabled, returns the global maximum.
     fn max_steps(
-        block_context: &BlockContext,
-        account_tx_context: &AccountTransactionContext,
+        tx_context: &TransactionContext,
         mode: &ExecutionMode,
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<usize> {
+        let TransactionContext { block_context, tx_info } = tx_context;
+        let BlockContext { block_info, versioned_constants, .. } = block_context;
         let block_upper_bound = match mode {
-            ExecutionMode::Validate => min(
-                block_context.validate_max_n_steps as usize,
-                constants::MAX_VALIDATE_STEPS_PER_TX,
-            ),
-            ExecutionMode::Execute => {
-                min(block_context.invoke_tx_max_n_steps as usize, constants::MAX_STEPS_PER_TX)
-            }
+            // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
+            // works.
+            ExecutionMode::Validate => versioned_constants
+                .validate_max_n_steps
+                .try_into()
+                .expect("Failed to convert validate_max_n_steps (u32) to usize."),
+            ExecutionMode::Execute => versioned_constants
+                .invoke_tx_max_n_steps
+                .try_into()
+                .expect("Failed to convert invoke_tx_max_n_steps (u32) to usize."),
         };
 
-        if !limit_steps_by_resources || !account_tx_context.enforce_fee()? {
+        if !limit_steps_by_resources || !tx_info.enforce_fee()? {
             return Ok(block_upper_bound);
         }
 
-        let gas_per_step =
-            block_context.vm_resource_fee_cost.get(constants::N_STEPS_RESOURCE).unwrap_or_else(
-                || panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE),
-            );
+        let gas_per_step = versioned_constants
+            .vm_resource_fee_cost()
+            .get(constants::N_STEPS_RESOURCE)
+            .unwrap_or_else(|| {
+                panic!("{} must appear in `vm_resource_fee_cost`.", constants::N_STEPS_RESOURCE)
+            });
 
         // New transactions derive the step limit by the L1 gas resource bounds; deprecated
         // transactions derive this value from the `max_fee`.
-        let tx_gas_upper_bound = match account_tx_context {
-            AccountTransactionContext::Deprecated(context) => {
-                (context.max_fee.0
-                    / block_context.gas_prices.get_by_fee_type(&account_tx_context.fee_type()))
-                    as usize
+        let tx_gas_upper_bound = match tx_info {
+            TransactionInfo::Deprecated(context) => {
+                let max_cairo_steps = context.max_fee.0
+                    / block_info.gas_prices.get_gas_price_by_fee_type(&tx_info.fee_type());
+                // FIXME: This is saturating in the python bootstrapping test. Fix the value so
+                // that it'll fit in a usize and remove the `as`.
+                usize::try_from(max_cairo_steps).unwrap_or_else(|_| {
+                    log::error!(
+                        "Performed a saturating cast from u128 to usize: {max_cairo_steps:?}"
+                    );
+                    usize::MAX
+                })
             }
-            AccountTransactionContext::Current(context) => {
-                context.l1_resource_bounds()?.max_amount as usize
+            TransactionInfo::Current(context) => {
+                // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
+                // convertion works.
+                context
+                    .l1_resource_bounds()?
+                    .max_amount
+                    .try_into()
+                    .expect("Failed to convert u64 to usize.")
             }
         };
 
-        let tx_upper_bound = (tx_gas_upper_bound as f64 / gas_per_step).floor() as usize;
+        // Use saturating upper bound to avoid overflow. This is safe because the upper bound is
+        // bounded above by the block's limit, which is a usize.
+
+        let upper_bound_u128 = if gas_per_step.is_zero() {
+            u128::MAX
+        } else {
+            (gas_per_step.inv() * u128_from_usize(tx_gas_upper_bound)).to_integer()
+        };
+        let tx_upper_bound = usize_from_u128(upper_bound_u128).unwrap_or_else(|_| {
+            log::warn!(
+                "Failed to convert u128 to usize: {upper_bound_u128}. Upper bound from tx is \
+                 {tx_gas_upper_bound}, gas per step is {gas_per_step}."
+            );
+            usize::MAX
+        });
         Ok(min(tx_upper_bound, block_upper_bound))
     }
 
@@ -278,13 +291,15 @@ impl EntryPointExecutionContext {
         &mut self,
         validate_call_info: &Option<CallInfo>,
         tx_type: &TransactionType,
+        calldata_length: usize,
     ) -> usize {
         let validate_steps = validate_call_info
             .as_ref()
-            .map(|call_info| call_info.vm_resources.n_steps)
+            .map(|call_info| call_info.resources.n_steps)
             .unwrap_or_default();
 
-        let overhead_steps = OS_RESOURCES.resources_for_tx_type(tx_type).n_steps;
+        let overhead_steps =
+            self.versioned_constants().os_resources_for_tx_type(tx_type, calldata_length).n_steps;
         self.subtract_steps(validate_steps + overhead_steps)
     }
 
@@ -303,6 +318,14 @@ impl EntryPointExecutionContext {
             })
             .collect::<Vec<String>>()
             .join("\n")
+    }
+
+    pub fn versioned_constants(&self) -> &VersionedConstants {
+        &self.tx_context.block_context.versioned_constants
+    }
+
+    pub fn get_gas_cost(&self, name: &str) -> u64 {
+        self.versioned_constants().gas_cost(name)
     }
 }
 

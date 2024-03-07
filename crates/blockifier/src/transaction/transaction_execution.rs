@@ -1,21 +1,26 @@
+use std::sync::Arc;
+
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
-use crate::abi::constants as abi_constants;
-use crate::block_context::BlockContext;
-use crate::execution::contract_class::ContractClass;
-use crate::execution::entry_point::{EntryPointExecutionContext, ExecutionResources};
+use crate::context::BlockContext;
+use crate::execution::contract_class::ClassInfo;
+use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::fee::actual_cost::ActualCost;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionFeeError;
-use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
+use crate::transaction::objects::{
+    TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo, TransactionInfoCreator,
+};
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
     InvokeTransaction, L1HandlerTransaction,
 };
 
+// TODO: Move into transaction.rs, makes more sense to be defined there.
 #[derive(Debug, derive_more::From)]
 pub enum Transaction {
     AccountTransaction(AccountTransaction),
@@ -23,15 +28,10 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    /// Returns the initial gas of the transaction to run with.
-    pub fn initial_gas() -> u64 {
-        abi_constants::INITIAL_GAS_COST - abi_constants::TRANSACTION_GAS_COST
-    }
-
     pub fn from_api(
         tx: StarknetApiTransaction,
         tx_hash: TransactionHash,
-        contract_class: Option<ContractClass>,
+        class_info: Option<ClassInfo>,
         paid_fee_on_l1: Option<Fee>,
         deployed_contract_address: Option<ContractAddress>,
         only_query: bool,
@@ -46,11 +46,13 @@ impl Transaction {
                 }))
             }
             StarknetApiTransaction::Declare(declare) => {
-                let contract_class =
-                    contract_class.expect("Declare should be created with a ContractClass");
+                let non_optional_class_info =
+                    class_info.expect("Declare should be created with a ClassInfo.");
                 let declare_tx = match only_query {
-                    true => DeclareTransaction::new_for_query(declare, tx_hash, contract_class),
-                    false => DeclareTransaction::new(declare, tx_hash, contract_class),
+                    true => {
+                        DeclareTransaction::new_for_query(declare, tx_hash, non_optional_class_info)
+                    }
+                    false => DeclareTransaction::new(declare, tx_hash, non_optional_class_info),
                 };
                 Ok(Self::AccountTransaction(AccountTransaction::Declare(declare_tx?)))
             }
@@ -88,6 +90,15 @@ impl Transaction {
     }
 }
 
+impl TransactionInfoCreator for Transaction {
+    fn create_tx_info(&self) -> TransactionInfo {
+        match self {
+            Self::AccountTransaction(account_tx) => account_tx.create_tx_info(),
+            Self::L1HandlerTransaction(l1_handler_tx) => l1_handler_tx.create_tx_info(),
+        }
+    }
+}
+
 impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
     fn execute_raw(
         self,
@@ -96,18 +107,17 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         _charge_fee: bool,
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let tx_context = self.get_account_tx_context();
+        let tx_context = Arc::new(block_context.to_tx_context(&self));
 
         let mut execution_resources = ExecutionResources::default();
-        let mut context = EntryPointExecutionContext::new_invoke(block_context, &tx_context, true)?;
-        let mut remaining_gas = Transaction::initial_gas();
+        let mut context = EntryPointExecutionContext::new_invoke(tx_context.clone(), true)?;
+        let mut remaining_gas = block_context.versioned_constants.tx_initial_gas();
         let execute_call_info =
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
-        // The calldata includes the "from" field, which is not a part of the payload.
-        let l1_handler_payload_size = self.tx.calldata.0.len() - 1;
+        let l1_handler_payload_size = self.payload_size();
 
-        let ActualCost { actual_fee, actual_resources } =
-            ActualCost::builder_for_l1_handler(block_context, tx_context, l1_handler_payload_size)
+        let ActualCost { actual_fee, da_gas, actual_resources } =
+            ActualCost::builder_for_l1_handler(tx_context, l1_handler_payload_size)
                 .with_execute_call_info(&execute_call_info)
                 .try_add_state_changes(state)?
                 .build(&execution_resources)?;
@@ -124,6 +134,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             execute_call_info,
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
+            da_gas,
             actual_resources,
             revert_error: None,
         })

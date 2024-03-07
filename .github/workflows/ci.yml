@@ -1,33 +1,89 @@
-name: ERC20 Native Tests
+name: CI
 
 on:
+  push:
+    branches:
+      - main
+      - main-v[0-9].**
+    tags:
+      - v[0-9].**
+
   pull_request:
-  workflow_dispatch:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - auto_merge_enabled
+      - edited
+
+env:
+  MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
+  LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
+  TABLEGEN_170_PREFIX: /usr/lib/llvm-17
 
 jobs:
-  erc20-native-tests:
-    env:
-      MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
-      LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
-      TABLEGEN_170_PREFIX: /usr/lib/llvm-17
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install commitlint
+        run: npm install --global @commitlint/cli @commitlint/config-conventional
+
+      - name: Validate PR commits with commitlint
+        if: github.event_name == 'pull_request'
+        run: commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      - name: Validate PR title with commitlint
+        if: github.event_name != 'merge_group' && github.event_name != 'push' && !(contains(github.event.pull_request.title, '/merge-main') || contains(github.event.pull_request.title, '/merge main'))
+        run: echo "${{ github.event.pull_request.title }}" | commitlint --verbose
+
+  format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          components: rustfmt
+          toolchain: nightly-2023-07-05
+      - uses: Swatinem/rust-cache@v2
+      - run: scripts/rust_fmt.sh --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Set up Native Dependencies
+        uses: ./.github/actions/setup-native-dep
+      - run: scripts/clippy.sh
+
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Native Dependencies
+        uses: ./.github/actions/setup-native-dep
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
-      - name: add llvm deb repository
-        uses: myci-actions/add-deb-repo@10
-        with:
-          repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main
-          repo-name: llvm-repo
-          keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
-      - name: Install LLVM
-        run: sudo apt-get install llvm-17 llvm-17-dev llvm-17-runtime clang-17 clang-tools-17 lld-17 libpolly-17-dev libmlir-17-dev mlir-17-tools
-      - name: Install gmplib
-        run: sudo apt install -y libgmp3-dev
+      - run: cargo test
+
+  erc20-native-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Set up Native Dependencies
+        uses: ./.github/actions/setup-native-dep
       - uses: actions/checkout@v3
         with:
           repository: 'lambdaclass/cairo_native'
@@ -41,3 +97,23 @@ jobs:
           cd ../.. &&
           cd crates/blockifier && 
           cargo test --test erc20_tests --features testing
+
+  udeps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        name: "Rust Toolchain Setup"
+        with:
+          toolchain: nightly-2023-07-05
+      - name: Set up Native Dependencies
+        uses: ./.github/actions/setup-native-dep
+      - uses: Swatinem/rust-cache@v2
+        id: "cache-cargo"
+      - if: ${{ steps.cache-cargo.outputs.cache-hit != 'true' }}
+        name: "Download and run cargo-udeps"
+        run: |
+          wget -O - -c https://github.com/est31/cargo-udeps/releases/download/v0.1.35/cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz | tar -xz
+          cargo-udeps-*/cargo-udeps udeps
+        env:
+          RUSTUP_TOOLCHAIN: nightly-2023-07-05

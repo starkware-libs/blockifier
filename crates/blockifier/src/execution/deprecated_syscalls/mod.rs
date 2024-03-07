@@ -18,8 +18,9 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
-use crate::abi::constants;
+use super::syscalls::exceeds_event_size_limit;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
+use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
 use crate::execution::execution_utils::{
     execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
@@ -187,10 +188,11 @@ pub fn call_contract(
     let storage_address = request.contract_address;
     // Check that the call is legal if in Validate execution mode.
     if syscall_handler.is_validate_mode() && syscall_handler.storage_address != storage_address {
-        return Err(DeprecatedSyscallExecutionError::InvalidSyscallInExecutionMode {
+        let error = DeprecatedSyscallExecutionError::InvalidSyscallInExecutionMode {
             syscall_name: "call_contract".to_string(),
             execution_mode: syscall_handler.execution_mode(),
-        });
+        };
+        return Err(error.as_call_contract_execution_error(storage_address));
     }
     let entry_point = CallEntryPoint {
         class_hash: None,
@@ -201,9 +203,10 @@ pub fn call_contract(
         storage_address,
         caller_address: syscall_handler.storage_address,
         call_type: CallType::Call,
-        initial_gas: constants::INITIAL_GAS_COST,
+        initial_gas: syscall_handler.context.get_gas_cost("initial_gas_cost"),
     };
-    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)?;
+    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)
+        .map_err(|error| error.as_call_contract_execution_error(storage_address))?;
 
     Ok(CallContractResponse { segment: retdata_segment })
 }
@@ -329,7 +332,7 @@ pub fn deploy(
         syscall_handler.context,
         ctor_context,
         request.constructor_calldata,
-        constants::INITIAL_GAS_COST,
+        syscall_handler.context.get_gas_cost("initial_gas_cost"),
     )?;
     syscall_handler.inner_calls.push(call_info);
 
@@ -367,6 +370,11 @@ pub fn emit_event(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<EmitEventResponse> {
     let execution_context = &mut syscall_handler.context;
+    exceeds_event_size_limit(
+        execution_context.versioned_constants(),
+        execution_context.n_emitted_events + 1,
+        &request.content,
+    )?;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
@@ -396,8 +404,19 @@ pub fn get_block_number(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockNumberResponse> {
-    // TODO(Yoni, 1/5/2024): disable for validate.
-    Ok(GetBlockNumberResponse { block_number: syscall_handler.context.block_context.block_number })
+    let versioned_constants = syscall_handler.context.versioned_constants();
+    let block_number = syscall_handler.get_block_info().block_number;
+    let block_number = match syscall_handler.execution_mode() {
+        ExecutionMode::Validate => {
+            let validate_block_number_rounding =
+                versioned_constants.get_validate_block_number_rounding();
+            BlockNumber(
+                (block_number.0 / validate_block_number_rounding) * validate_block_number_rounding,
+            )
+        }
+        ExecutionMode::Execute => block_number,
+    };
+    Ok(GetBlockNumberResponse { block_number })
 }
 
 // GetBlockTimestamp syscall.
@@ -421,10 +440,18 @@ pub fn get_block_timestamp(
     _vm: &mut VirtualMachine,
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetBlockTimestampResponse> {
-    // TODO(Yoni, 1/5/2024): disable for validate.
-    Ok(GetBlockTimestampResponse {
-        block_timestamp: syscall_handler.context.block_context.block_timestamp,
-    })
+    let versioned_constants = syscall_handler.context.versioned_constants();
+    let block_timestamp = syscall_handler.get_block_info().block_timestamp;
+    let block_timestamp = match syscall_handler.execution_mode() {
+        ExecutionMode::Validate => {
+            let validate_timestamp_rounding = versioned_constants.get_validate_timestamp_rounding();
+            BlockTimestamp(
+                (block_timestamp.0 / validate_timestamp_rounding) * validate_timestamp_rounding,
+            )
+        }
+        ExecutionMode::Execute => block_timestamp,
+    };
+    Ok(GetBlockTimestampResponse { block_timestamp })
 }
 
 // GetCallerAddress syscall.
@@ -475,9 +502,7 @@ pub fn get_sequencer_address(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetSequencerAddressResponse> {
     syscall_handler.verify_not_in_validate_mode("get_sequencer_address")?;
-    Ok(GetSequencerAddressResponse {
-        address: syscall_handler.context.block_context.sequencer_address,
-    })
+    Ok(GetSequencerAddressResponse { address: syscall_handler.get_block_info().sequencer_address })
 }
 
 // GetTxInfo syscall.
@@ -516,7 +541,7 @@ pub fn get_tx_signature(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<GetTxSignatureResponse> {
     let start_ptr = syscall_handler.get_or_allocate_tx_signature_segment(vm)?;
-    let length = syscall_handler.context.account_tx_context.signature().0.len();
+    let length = syscall_handler.context.tx_context.tx_info.signature().0.len();
 
     Ok(GetTxSignatureResponse { segment: ReadOnlySegment { start_ptr, length } })
 }

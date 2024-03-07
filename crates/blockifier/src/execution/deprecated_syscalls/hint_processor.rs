@@ -14,7 +14,7 @@ use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::cairo_runner::{ResourceTracker, RunResources};
+use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -24,7 +24,8 @@ use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
-use crate::abi::constants;
+use crate::blockifier::block::BlockInfo;
+use crate::context::TransactionContext;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{
     extended_builtin_hint_processor, ExecutionMode, HintExecutionResult,
@@ -37,15 +38,14 @@ use crate::execution::deprecated_syscalls::{
     DeprecatedSyscallSelector, StorageReadResponse, StorageWriteResponse, SyscallRequest,
     SyscallResponse,
 };
-use crate::execution::entry_point::{
-    CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources,
-};
+use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
     felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
     ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::hint_code;
+use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 
@@ -56,7 +56,20 @@ pub enum DeprecatedSyscallExecutionError {
     #[error("Bad syscall_ptr; expected: {expected_ptr:?}, got: {actual_ptr:?}.")]
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
-    InnerCallExecutionError(#[from] EntryPointExecutionError),
+    EntryPointExecutionError(#[from] EntryPointExecutionError),
+    #[error("{error}")]
+    CallContractExecutionError {
+        storage_address: ContractAddress,
+        error: Box<DeprecatedSyscallExecutionError>,
+    },
+    #[error(transparent)]
+    EmitEventError(#[from] EmitEventError),
+    #[error("{error}")]
+    LibraryCallExecutionError {
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+        error: Box<DeprecatedSyscallExecutionError>,
+    },
     #[error("Invalid syscall input: {input:?}; {info}")]
     InvalidSyscallInput { input: StarkFelt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
@@ -79,7 +92,28 @@ pub enum DeprecatedSyscallExecutionError {
 // cairo-rs API.
 impl From<DeprecatedSyscallExecutionError> for HintError {
     fn from(error: DeprecatedSyscallExecutionError) -> Self {
-        HintError::CustomHint(error.to_string().into())
+        HintError::Internal(VirtualMachineError::Other(error.into()))
+    }
+}
+
+impl DeprecatedSyscallExecutionError {
+    pub fn as_call_contract_execution_error(self, storage_address: ContractAddress) -> Self {
+        DeprecatedSyscallExecutionError::CallContractExecutionError {
+            storage_address,
+            error: Box::new(self),
+        }
+    }
+
+    pub fn as_lib_call_execution_error(
+        self,
+        class_hash: ClassHash,
+        storage_address: ContractAddress,
+    ) -> Self {
+        DeprecatedSyscallExecutionError::LibraryCallExecutionError {
+            class_hash,
+            storage_address,
+            error: Box::new(self),
+        }
     }
 }
 
@@ -98,6 +132,7 @@ pub struct DeprecatedSyscallHintProcessor<'a> {
     pub inner_calls: Vec<CallInfo>,
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
+    pub syscall_counter: SyscallCounter,
 
     // Fields needed for execution and validation.
     pub read_only_segments: ReadOnlySegments,
@@ -133,6 +168,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
             inner_calls: vec![],
             events: vec![],
             l2_to_l1_messages: vec![],
+            syscall_counter: SyscallCounter::default(),
             read_only_segments: ReadOnlySegments::default(),
             syscall_ptr: initial_syscall_ptr,
             read_values: vec![],
@@ -287,7 +323,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     }
 
     fn increment_syscall_count(&mut self, selector: &DeprecatedSyscallSelector) {
-        let syscall_count = self.resources.syscall_counter.entry(*selector).or_default();
+        let syscall_count = self.syscall_counter.entry(*selector).or_default();
         *syscall_count += 1;
     }
 
@@ -295,7 +331,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         &mut self,
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<Relocatable> {
-        let signature = &self.context.account_tx_context.signature().0;
+        let signature = &self.context.tx_context.tx_info.signature().0;
         let signature =
             signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
@@ -308,17 +344,17 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<Relocatable> {
         let tx_signature_start_ptr = self.get_or_allocate_tx_signature_segment(vm)?;
-        let account_tx_context = &self.context.account_tx_context;
-        let tx_signature_length = account_tx_context.signature().0.len();
+        let TransactionContext { block_context, tx_info } = self.context.tx_context.as_ref();
+        let tx_signature_length = tx_info.signature().0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(account_tx_context.signed_version().0).into(),
-            stark_felt_to_felt(*account_tx_context.sender_address().0.key()).into(),
-            max_fee_for_execution_info(account_tx_context).into(),
+            stark_felt_to_felt(tx_info.signed_version().0).into(),
+            stark_felt_to_felt(*tx_info.sender_address().0.key()).into(),
+            max_fee_for_execution_info(tx_info).into(),
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
-            stark_felt_to_felt(account_tx_context.transaction_hash().0).into(),
-            Felt252::from_bytes_be(self.context.block_context.chain_id.0.as_bytes()).into(),
-            stark_felt_to_felt(account_tx_context.nonce().0).into(),
+            stark_felt_to_felt(tx_info.transaction_hash().0).into(),
+            Felt252::from_bytes_be(block_context.chain_info.chain_id.0.as_bytes()).into(),
+            stark_felt_to_felt(tx_info.nonce().0).into(),
         ];
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
@@ -345,6 +381,10 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         self.state.set_storage_at(self.storage_address, key, value)?;
 
         Ok(StorageWriteResponse {})
+    }
+
+    pub fn get_block_info(&self) -> &BlockInfo {
+        &self.context.tx_context.block_context.block_info
     }
 }
 
@@ -452,10 +492,12 @@ pub fn execute_library_call(
         storage_address: syscall_handler.storage_address,
         caller_address: syscall_handler.caller_address,
         call_type: CallType::Delegate,
-        initial_gas: constants::INITIAL_GAS_COST,
+        initial_gas: syscall_handler.context.get_gas_cost("initial_gas_cost"),
     };
 
-    execute_inner_call(entry_point, vm, syscall_handler)
+    execute_inner_call(entry_point, vm, syscall_handler).map_err(|error| {
+        error.as_lib_call_execution_error(class_hash, syscall_handler.storage_address)
+    })
 }
 
 pub fn read_felt_array<TErr>(

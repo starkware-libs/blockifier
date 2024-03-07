@@ -6,7 +6,7 @@ use starknet_api::transaction::{
     TransactionVersion,
 };
 
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::ClassInfo;
 use crate::test_utils::default_testing_resource_bounds;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::transactions::DeclareTransaction;
@@ -67,10 +67,7 @@ macro_rules! declare_tx_args {
     };
 }
 
-pub fn declare_tx(
-    declare_tx_args: DeclareTxArgs,
-    contract_class: ContractClass,
-) -> AccountTransaction {
+pub fn declare_tx(declare_tx_args: DeclareTxArgs, class_info: ClassInfo) -> AccountTransaction {
     AccountTransaction::Declare(
         DeclareTransaction::new(
             match declare_tx_args.version {
@@ -120,7 +117,7 @@ pub fn declare_tx(
                 version => panic!("Unsupported transaction version: {:?}.", version),
             },
             declare_tx_args.tx_hash,
-            contract_class,
+            class_info,
         )
         .unwrap(),
     )

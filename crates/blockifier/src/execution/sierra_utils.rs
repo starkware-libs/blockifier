@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::Program as SierraProgram;
-use cairo_lang_starknet::contract_class::{ContractEntryPoint, ContractEntryPoints};
+use cairo_lang_starknet_classes::contract_class::{ContractEntryPoint, ContractEntryPoints};
 use cairo_native::cache::{JitProgramCache, ProgramCache};
 use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
@@ -26,6 +26,10 @@ use super::native_syscall_handler::NativeSyscallHandler;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::state_api::State;
 
+// An arbitrary number, chosen to avoid accidentally aligning with actually calculated gas
+// To be deleted once cairo native gas handling can be used
+pub const NATIVE_GAS_PLACEHOLDER: u64 = 12;
+
 pub fn get_program(contract_class: &SierraContractClassV1) -> &SierraProgram {
     &contract_class.sierra_program
 }
@@ -44,7 +48,7 @@ pub fn match_entrypoint(
         EntryPointType::External => &contract_entrypoints.external,
         EntryPointType::L1Handler => &contract_entrypoints.l1_handler,
     };
-    
+
     entrypoints
         .iter()
         .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
@@ -75,7 +79,7 @@ static NATIVE_CONTEXT: std::sync::OnceLock<cairo_native::context::NativeContext>
 // }
 pub fn get_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
     Rc::new(RefCell::new(ProgramCache::Jit(JitProgramCache::new(
-        NATIVE_CONTEXT.get_or_init(NativeContext::new)
+        NATIVE_CONTEXT.get_or_init(NativeContext::new),
     ))))
 }
 
@@ -97,16 +101,16 @@ pub fn get_native_executor<'context>(
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Aot(match cached_executor {
                 Some(executor) => executor,
-                None => cache.compile_and_insert(class_hash, program, OptLevel::Default)
+                None => cache.compile_and_insert(class_hash, program, OptLevel::Default),
             })
         }
         ProgramCache::Jit(cache) => {
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Jit(match cached_executor {
                 Some(executor) => executor,
-                None => cache.compile_and_insert(class_hash, program, OptLevel::Default)
+                None => cache.compile_and_insert(class_hash, program, OptLevel::Default),
             })
-        },
+        }
     }
 }
 
@@ -122,17 +126,17 @@ pub fn get_sierra_entry_function_id<'a>(
         .id
 }
 
-pub fn setup_syscall_handler(
-    state: &mut dyn State,
+pub fn setup_syscall_handler<'state>(
+    state: &'state mut dyn State,
     caller_address: ContractAddress,
     contract_address: ContractAddress,
     entry_point_selector: EntryPointSelector,
-    execution_resources: crate::execution::entry_point::ExecutionResources,
-    execution_context: EntryPointExecutionContext,
+    execution_resources: &'state mut ExecutionResources,
+    execution_context: &'state mut EntryPointExecutionContext,
     events: Vec<OrderedEvent>,
     l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     inner_calls: Vec<CallInfo>,
-) -> NativeSyscallHandler<'_> {
+) -> NativeSyscallHandler<'state> {
     NativeSyscallHandler {
         state,
         caller_address,
@@ -162,7 +166,9 @@ pub fn contract_address_to_felt(contract_address: ContractAddress) -> Felt {
     Felt::from_bytes_be_slice(contract_address.0.key().bytes())
 }
 
-pub fn contract_entrypoint_to_entrypoint_selector(entrypoint: &ContractEntryPoint) -> EntryPointSelector {
+pub fn contract_entrypoint_to_entrypoint_selector(
+    entrypoint: &ContractEntryPoint,
+) -> EntryPointSelector {
     let selector_felt = Felt::from_bytes_be_slice(&entrypoint.selector.to_be_bytes());
     EntryPointSelector(felt_to_starkfelt(selector_felt))
 }
@@ -215,7 +221,7 @@ pub fn run_native_executor(
                     return_values: vec![],
                     error_msg: Some("error".to_string()),
                 })
-        },
+        }
     }
 }
 
@@ -235,9 +241,9 @@ pub fn create_callinfo(
             events,
             l2_to_l1_messages,
             failed: run_result.failure_flag,
-            gas_consumed: 34650, // TODO use cairo native's gas logic
+            gas_consumed: NATIVE_GAS_PLACEHOLDER
         },
-        vm_resources: ExecutionResources {
+        resources: ExecutionResources {
             n_steps: 0,
             n_memory_holes: 0,
             builtin_instance_counter: HashMap::default(),

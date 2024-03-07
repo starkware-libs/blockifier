@@ -1,11 +1,11 @@
+use std::collections::HashSet;
+
 use cairo_felt::Felt252;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
-use cairo_vm::vm::runners::cairo_runner::{
-    CairoArg, CairoRunner, ExecutionResources as VmExecutionResources,
-};
+use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::ToPrimitive;
 use starknet_api::hash::StarkFelt;
@@ -14,11 +14,9 @@ use starknet_api::stark_felt;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
 use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult, ExecutionResources,
+    CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult,
 };
-use crate::execution::errors::{
-    EntryPointExecutionError, PostExecutionError, PreExecutionError, VirtualMachineExecutionError,
-};
+use crate::execution::errors::{EntryPointExecutionError, PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
     read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
     ReadOnlySegments,
@@ -52,6 +50,12 @@ pub fn execute_entry_point_call(
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
+    // println!("Executing via vm");
+    // Fetch the class hash from `call`.
+    let class_hash = call.class_hash.ok_or(EntryPointExecutionError::InternalError(
+        "Class hash must not be None when executing an entry point.".into(),
+    ))?;
+
     let VmExecutionContext {
         mut runner,
         mut vm,
@@ -70,11 +74,12 @@ pub fn execute_entry_point_call(
     )?;
     let n_total_args = args.len();
 
-    // Fix the VM resources, in order to calculate the usage of this run at the end.
-    let previous_vm_resources = syscall_handler.resources.vm_resources.clone();
+    // Fix the resources, in order to calculate the usage of this run at the end.
+    let previous_resources = syscall_handler.resources.clone();
 
     // Execute.
-    let program_segment_size = contract_class.bytecode_length() + program_extra_data_length;
+    let bytecode_length = contract_class.bytecode_length();
+    let program_segment_size = bytecode_length + program_extra_data_length;
     run_entry_point(
         &mut vm,
         &mut runner,
@@ -84,11 +89,20 @@ pub fn execute_entry_point_call(
         program_segment_size,
     )?;
 
+    // Collect the set PC values that were visited during the entry point execution.
+    register_visited_pcs(
+        &mut vm,
+        syscall_handler.state,
+        class_hash,
+        program_segment_size,
+        bytecode_length,
+    )?;
+
     let call_info = finalize_execution(
         vm,
         runner,
         syscall_handler,
-        previous_vm_resources,
+        previous_resources,
         n_total_args,
         program_extra_data_length,
     )?;
@@ -99,6 +113,38 @@ pub fn execute_entry_point_call(
     }
 
     Ok(call_info)
+}
+
+// Collects the set PC values that were visited during the entry point execution.
+fn register_visited_pcs(
+    vm: &mut VirtualMachine,
+    state: &mut dyn State,
+    class_hash: starknet_api::core::ClassHash,
+    program_segment_size: usize,
+    bytecode_length: usize,
+) -> EntryPointExecutionResult<()> {
+    let mut class_visited_pcs = HashSet::new();
+    // Relocate the trace, putting the program segment at address 1 and the execution segment right
+    // after it.
+    // TODO(lior): Avoid unnecessary relocation once the VM has a non-relocated `get_trace()`
+    //   function.
+    vm.relocate_trace(&[1, 1 + program_segment_size])?;
+    for trace_entry in vm.get_relocated_trace()? {
+        let pc = trace_entry.pc;
+        if pc < 1 {
+            return Err(EntryPointExecutionError::InternalError(format!(
+                "Invalid PC value {pc} in trace."
+            )));
+        }
+        let real_pc = pc - 1;
+        // Jumping to a PC that is not inside the bytecode is possible. For example, to obtain
+        // the builtin costs. Filter out these values.
+        if real_pc < bytecode_length {
+            class_visited_pcs.insert(real_pc);
+        }
+    }
+    state.add_visited_pcs(class_hash, &class_visited_pcs);
+    Ok(())
 }
 
 pub fn initialize_execution_context<'a>(
@@ -114,7 +160,7 @@ pub fn initialize_execution_context<'a>(
     let proof_mode = false;
     let mut runner = CairoRunner::new(&contract_class.0.program, "starknet", proof_mode)?;
 
-    let trace_enabled = false;
+    let trace_enabled = true;
     let mut vm = VirtualMachine::new(trace_enabled);
 
     // Initialize program with all builtins.
@@ -240,7 +286,7 @@ pub fn run_entry_point(
     entry_point: EntryPointV1,
     args: Args,
     program_segment_size: usize,
-) -> Result<(), VirtualMachineExecutionError> {
+) -> EntryPointExecutionResult<()> {
     let verify_secure = true;
     let args: Vec<&CairoArg> = args.iter().collect();
     let result = runner.run_from_entrypoint(
@@ -259,7 +305,7 @@ pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
     syscall_handler: SyscallHintProcessor<'_>,
-    previous_vm_resources: VmExecutionResources,
+    previous_resources: ExecutionResources,
     n_total_args: usize,
     program_extra_data_length: usize,
 ) -> Result<CallInfo, PostExecutionError> {
@@ -286,9 +332,13 @@ pub fn finalize_execution(
         .get_execution_resources(&vm)
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
-    syscall_handler.resources.vm_resources += &vm_resources_without_inner_calls;
+    *syscall_handler.resources += &vm_resources_without_inner_calls;
+    let versioned_constants = syscall_handler.context.versioned_constants();
+    // Take into account the syscall resources of the current call.
+    *syscall_handler.resources += &versioned_constants
+        .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
 
-    let full_call_vm_resources = &syscall_handler.resources.vm_resources - &previous_vm_resources;
+    let full_call_resources = &*syscall_handler.resources - &previous_resources;
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {
@@ -298,7 +348,7 @@ pub fn finalize_execution(
             failed: call_result.failed,
             gas_consumed: call_result.gas_consumed,
         },
-        vm_resources: full_call_vm_resources.filter_unused_builtins(),
+        resources: full_call_resources.filter_unused_builtins(),
         inner_calls: syscall_handler.inner_calls,
         storage_read_values: syscall_handler.read_values,
         accessed_storage_keys: syscall_handler.accessed_keys,

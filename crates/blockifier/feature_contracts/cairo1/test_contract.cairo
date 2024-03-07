@@ -14,6 +14,7 @@ mod TestContract {
     use traits::Into;
     use traits::TryInto;
     use starknet::{
+        class_hash_try_from_felt252, contract_address_try_from_felt252,
         eth_address::U256IntoEthAddress, EthAddress, secp256_trait::{Signature, is_valid_signature},
         secp256r1::{Secp256r1Point, Secp256r1Impl}, eth_signature::verify_eth_signature,
         info::{BlockInfo, SyscallResultTrait}, info::v2::{ExecutionInfo, TxInfo, ResourceBounds,},
@@ -65,8 +66,15 @@ mod TestContract {
     }
 
     #[external(v0)]
-    fn test_emit_event(self: @ContractState, keys: Array::<felt252>, data: Array::<felt252>) {
-        syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
+    fn test_emit_events(self: @ContractState, events_number: u64, keys: Array::<felt252>, data: Array::<felt252>) {
+        let mut c = 0_u64;
+        loop {
+            if c == events_number {
+                break;
+            }
+            syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
+            c += 1;
+        };
     }
 
     #[external(v0)]
@@ -131,7 +139,7 @@ mod TestContract {
         nested_library_calldata.append(2);
         nested_library_calldata.append(a + 1);
         nested_library_calldata.append(b + 1);
-        let res = starknet::library_call_syscall(
+        let _res = starknet::library_call_syscall(
             class_hash, lib_selector, nested_library_calldata.span(),
         )
             .unwrap_syscall();
@@ -234,7 +242,7 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256k1::secp256k1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        let (msg_hash, signature, _expected_public_key_x, _expected_public_key_y, eth_address) =
             get_message_and_secp256k1_signature();
         verify_eth_signature(:msg_hash, :signature, :eth_address);
     }
@@ -280,7 +288,7 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256r1::secp256r1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, _eth_address) =
             get_message_and_secp256r1_signature();
         let public_key = Secp256r1Impl::secp256_ec_new_syscall(
             expected_public_key_x, expected_public_key_y
@@ -359,6 +367,50 @@ mod TestContract {
     fn assert_eq(ref self: ContractState, x: felt252, y: felt252) -> felt252 {
         assert(x == y, 'x != y');
         'success'
+    }
+
+    #[external(v0)]
+    fn invoke_call_chain(ref self: ContractState, mut call_chain: Array::<felt252>,) -> felt252 {
+        // If the chain is too short, fail with division by zero.
+        let len = call_chain.len();
+        if len < 3 {
+            return (1_u8 / 0_u8).into();
+        }
+
+        // Pop the parameters for the next call in the chain.
+        let contract_id = call_chain.pop_front().unwrap();
+        let function_selector = call_chain.pop_front().unwrap();
+        let call_type = call_chain.pop_front().unwrap();
+
+        // Choose call type according to the following options:
+        // 0 - call contract syscall. 1 - library call syscall. other - regular inner call.
+        // The remaining items of the call_chain array are passed on as calldata.
+        if call_type == 0 {
+            let contract_address = contract_address_try_from_felt252(contract_id).unwrap();
+            syscalls::call_contract_syscall(contract_address, function_selector, call_chain.span())
+                .unwrap_syscall();
+        } else if call_type == 1 {
+            let class_hash = class_hash_try_from_felt252(contract_id).unwrap();
+            syscalls::library_call_syscall(class_hash, function_selector, call_chain.span())
+                .unwrap_syscall();
+        } else {
+            let invoke_call_chain_selector: felt252 =
+                0x0062c83572d28cb834a3de3c1e94977a4191469a4a8c26d1d7bc55305e640ed5;
+            let fail_selector: felt252 =
+                0x032564d7e0fe091d49b4c20f4632191e4ed6986bf993849879abfef9465def25;
+            if function_selector == invoke_call_chain_selector {
+                return invoke_call_chain(ref self, call_chain);
+            }
+            if function_selector == fail_selector {
+                fail(ref self);
+            }
+        }
+        return 0;
+    }
+
+    #[external(v0)]
+    fn fail(ref self: ContractState) {
+        panic_with_felt252('fail');
     }
 
     #[external(v0)]

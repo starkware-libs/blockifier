@@ -1,9 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
+use blockifier::blockifier::bouncer::BouncerInfo;
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
+use blockifier::execution::entry_point::CallType;
 use blockifier::transaction::objects::TransactionExecutionInfo;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use pyo3::prelude::*;
+use starknet_api::deprecated_contract_class::EntryPointType;
 
 use crate::py_utils::{to_py_vec, PyFelt};
 
@@ -51,21 +54,21 @@ pub struct PyCallInfo {
     #[pyo3(get)]
     pub entry_point_selector: PyFelt,
     #[pyo3(get)]
-    pub entry_point_type: u8,
+    pub entry_point_type: PyEntryPointType,
     #[pyo3(get)]
     pub calldata: Vec<PyFelt>,
     #[pyo3(get)]
-    pub call_type: u8,
+    pub call_type: PyCallType,
 
     // Call results.
     #[pyo3(get)]
     pub gas_consumed: u64, // Currently not in use.
     #[pyo3(get)]
-    pub failure_flag: PyFelt, // Currently not in use.
+    pub failure_flag: bool, // Currently not in use.
     #[pyo3(get)]
     pub retdata: Vec<PyFelt>,
     #[pyo3(get)]
-    pub execution_resources: PyVmExecutionResources,
+    pub execution_resources: PyExecutionResources,
     #[pyo3(get)]
     pub events: Vec<PyOrderedEvent>,
     #[pyo3(get)]
@@ -86,6 +89,40 @@ pub struct PyCallInfo {
     pub code_address: Option<PyFelt>,
 }
 
+#[pyclass]
+#[derive(Clone)]
+pub enum PyCallType {
+    Call = 0,
+    Delegate = 1,
+}
+
+impl From<CallType> for PyCallType {
+    fn from(call_type: CallType) -> Self {
+        match call_type {
+            CallType::Call => PyCallType::Call,
+            CallType::Delegate => PyCallType::Delegate,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+pub enum PyEntryPointType {
+    Constructor,
+    External,
+    L1Handler,
+}
+
+impl From<EntryPointType> for PyEntryPointType {
+    fn from(enrty_point_type: EntryPointType) -> Self {
+        match enrty_point_type {
+            EntryPointType::Constructor => PyEntryPointType::Constructor,
+            EntryPointType::External => PyEntryPointType::External,
+            EntryPointType::L1Handler => PyEntryPointType::L1Handler,
+        }
+    }
+}
+
 impl From<CallInfo> for PyCallInfo {
     fn from(call_info: CallInfo) -> Self {
         let call = call_info.call;
@@ -96,12 +133,12 @@ impl From<CallInfo> for PyCallInfo {
             contract_address: PyFelt::from(call.storage_address),
             class_hash: call.class_hash.map(PyFelt::from),
             entry_point_selector: PyFelt(call.entry_point_selector.0),
-            entry_point_type: call.entry_point_type as u8,
+            entry_point_type: PyEntryPointType::from(call.entry_point_type),
             calldata: to_py_vec(call.calldata.0.to_vec(), PyFelt),
             gas_consumed: execution.gas_consumed,
-            failure_flag: PyFelt::from(execution.failed as u8),
+            failure_flag: execution.failed,
             retdata: to_py_vec(execution.retdata.0, PyFelt),
-            execution_resources: PyVmExecutionResources::from(call_info.vm_resources),
+            execution_resources: PyExecutionResources::from(call_info.resources),
             events: to_py_vec(execution.events, PyOrderedEvent::from),
             l2_to_l1_messages: to_py_vec(execution.l2_to_l1_messages, PyOrderedL2ToL1Message::from),
             internal_calls: to_py_vec(call_info.inner_calls, PyCallInfo::from),
@@ -111,7 +148,7 @@ impl From<CallInfo> for PyCallInfo {
                 .into_iter()
                 .map(|storage_key| PyFelt(*storage_key.0.key()))
                 .collect(),
-            call_type: call.call_type as u8,
+            call_type: PyCallType::from(call.call_type),
             code_address: call.code_address.map(PyFelt::from),
         }
     }
@@ -130,9 +167,11 @@ pub struct PyOrderedEvent {
 
 impl From<OrderedEvent> for PyOrderedEvent {
     fn from(ordered_event: OrderedEvent) -> Self {
-        let keys = to_py_vec(ordered_event.event.keys, |x| PyFelt(x.0));
-        let data = to_py_vec(ordered_event.event.data.0, PyFelt);
-        Self { order: ordered_event.order, keys, data }
+        Self {
+            order: ordered_event.order,
+            keys: to_py_vec(ordered_event.event.keys, |x| PyFelt(x.0)),
+            data: to_py_vec(ordered_event.event.data.0, PyFelt),
+        }
     }
 }
 
@@ -149,18 +188,17 @@ pub struct PyOrderedL2ToL1Message {
 
 impl From<OrderedL2ToL1Message> for PyOrderedL2ToL1Message {
     fn from(ordered_message: OrderedL2ToL1Message) -> Self {
-        let payload = to_py_vec(ordered_message.message.payload.0, PyFelt);
         Self {
             order: ordered_message.order,
             to_address: PyFelt::from(ordered_message.message.to_address),
-            payload,
+            payload: to_py_vec(ordered_message.message.payload.0, PyFelt),
         }
     }
 }
 
 #[pyclass]
 #[derive(Clone, Default)]
-pub struct PyVmExecutionResources {
+pub struct PyExecutionResources {
     #[pyo3(get)]
     pub n_steps: usize,
     #[pyo3(get)]
@@ -169,12 +207,12 @@ pub struct PyVmExecutionResources {
     pub n_memory_holes: usize,
 }
 
-impl From<VmExecutionResources> for PyVmExecutionResources {
-    fn from(vm_resources: VmExecutionResources) -> Self {
+impl From<ExecutionResources> for PyExecutionResources {
+    fn from(resources: ExecutionResources) -> Self {
         Self {
-            n_steps: vm_resources.n_steps,
-            builtin_instance_counter: vm_resources.builtin_instance_counter,
-            n_memory_holes: vm_resources.n_memory_holes,
+            n_steps: resources.n_steps,
+            builtin_instance_counter: resources.builtin_instance_counter,
+            n_memory_holes: resources.n_memory_holes,
         }
     }
 }
@@ -183,8 +221,25 @@ impl From<VmExecutionResources> for PyVmExecutionResources {
 #[derive(Clone, Default)]
 pub struct PyBouncerInfo {
     #[pyo3(get)]
-    // The number of felts needed to store L1<>L2 messages.
-    pub message_segment_length: usize,
+    pub state_diff_size: usize, // The number of felts needed to store the state diff.
     #[pyo3(get)]
-    pub additional_os_resources: PyVmExecutionResources,
+    pub gas_weight: usize,
+    #[pyo3(get)]
+    pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
+    #[pyo3(get)]
+    pub execution_resources: PyExecutionResources,
+    #[pyo3(get)]
+    pub n_events: usize,
+}
+
+impl From<BouncerInfo> for PyBouncerInfo {
+    fn from(bouncer_info: BouncerInfo) -> Self {
+        Self {
+            state_diff_size: bouncer_info.state_diff_size,
+            gas_weight: bouncer_info.gas_weight,
+            message_segment_length: bouncer_info.message_segment_length,
+            execution_resources: PyExecutionResources::from(bouncer_info.execution_resources),
+            n_events: bouncer_info.n_events,
+        }
+    }
 }

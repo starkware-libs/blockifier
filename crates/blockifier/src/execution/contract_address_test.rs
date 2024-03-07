@@ -5,8 +5,7 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt};
 use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::selector_from_name;
-use crate::abi::constants;
-use crate::block_context::BlockContext;
+use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::retdata;
@@ -15,12 +14,13 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, BALANCE};
+use crate::versioned_constants::VersionedConstants;
 
 #[rstest]
 fn test_calculate_contract_address() {
-    let block_context = &BlockContext::create_for_account_testing();
+    let chain_info = &ChainInfo::create_for_testing();
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(block_context, BALANCE, &[(test_contract, 1)]);
+    let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
     fn run_test(
         salt: ContractAddressSalt,
@@ -30,11 +30,12 @@ fn test_calculate_contract_address() {
         deployer_address: ContractAddress,
         state: &mut CachedState<DictStateReader>,
     ) {
+        let versioned_constants = VersionedConstants::create_for_testing();
         let entry_point_call = CallEntryPoint {
             calldata,
             entry_point_selector: selector_from_name("test_contract_address"),
             storage_address: deployer_address,
-            initial_gas: constants::INITIAL_GAS_COST,
+            initial_gas: versioned_constants.gas_cost("initial_gas_cost"),
             ..Default::default()
         };
         let contract_address =
