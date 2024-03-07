@@ -331,11 +331,8 @@ impl StarknetResources {
     /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for
     /// both Starknet and SHARP contracts.
     pub fn get_messages_cost(&self) -> GasVector {
-        let starknet_gas_usage = get_messages_gas_usage(
-            self.message_cost_info.message_segment_length,
-            &self.message_cost_info.l2_to_l1_payload_lengths,
-            self.l1_handler_payload_size,
-        );
+        let starknet_gas_usage =
+            get_messages_gas_usage(&self.message_cost_info, self.l1_handler_payload_size);
         let sharp_gas_usage = GasVector::from_l1_gas(u128_from_usize(
             self.message_cost_info.message_segment_length
                 * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,

@@ -106,14 +106,12 @@ impl<S: StateReader> TransactionExecutor<S> {
                         .filter_map(|&call_info| call_info.as_ref())
                         .collect::<Vec<&CallInfo>>()
                         .into_iter();
-                let MessageL1CostInfo { l2_to_l1_payload_lengths, message_segment_length } =
+
+                let message_cost_info =
                     MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
 
-                let starknet_gas_usage = get_messages_gas_usage(
-                    message_segment_length,
-                    &l2_to_l1_payload_lengths,
-                    l1_handler_payload_size,
-                );
+                let starknet_gas_usage =
+                    get_messages_gas_usage(&message_cost_info, l1_handler_payload_size);
 
                 // Count additional OS resources.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
@@ -142,7 +140,7 @@ impl<S: StateReader> TransactionExecutor<S> {
                     &tx_execution_info.bouncer_resources,
                     starknet_gas_usage,
                     additional_os_resources,
-                    message_segment_length,
+                    message_cost_info.message_segment_length,
                     state_diff_size,
                     tx_execution_summary.n_events,
                 )?;
