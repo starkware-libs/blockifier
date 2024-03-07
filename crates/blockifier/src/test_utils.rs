@@ -23,6 +23,8 @@ use starknet_api::transaction::{
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::constants;
+use crate::bouncer::{BouncerWeights, HashMapWrapper};
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::felt_to_stark_felt;
@@ -385,5 +387,19 @@ pub fn update_json_value(base: &mut serde_json::Value, update: serde_json::Value
             base_map.extend(update_map);
         }
         _ => panic!("Both base and update should be of type serde_json::Value::Object."),
+    }
+}
+
+impl From<BouncerWeights> for HashMapWrapper {
+    fn from(val: BouncerWeights) -> Self {
+        let mut map = HashMapWrapper::from([
+            (constants::L1_GAS_USAGE.to_string(), val.gas),
+            (constants::N_STEPS_RESOURCE.to_string(), val.n_steps),
+            (constants::MESSAGE_SEGMENT_LENGTH.to_string(), val.message_segment_length),
+            (constants::STATE_DIFF_SIZE.to_string(), val.state_diff_size),
+            (constants::N_EVENTS.to_string(), val.n_events),
+        ]);
+        map.extend::<HashMap<String, usize>>(val.builtin_count.into());
+        map
     }
 }
