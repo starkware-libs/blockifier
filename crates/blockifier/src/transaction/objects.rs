@@ -12,12 +12,12 @@ use starknet_api::transaction::{
 use strum_macros::EnumIter;
 
 use crate::context::BlockContext;
-use crate::execution::call_info::{CallInfo, ExecutionSummary};
+use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo};
 use crate::execution::contract_class::ClassInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::calculate_tx_fee;
-use crate::fee::gas_usage::get_da_gas_cost;
+use crate::fee::gas_usage::{get_da_gas_cost, get_messages_gas_usage};
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::constants;
 use crate::transaction::errors::{
@@ -254,27 +254,33 @@ impl ResourcesMapping {
 }
 
 /// Containes all the L2 resources consumed by a transaction
-#[derive(Clone, Debug, Default, Copy)]
+#[derive(Clone, Debug, Default)]
 pub struct StarknetResources {
     pub calldata_length: usize,
     pub state_changes_count: StateChangesCount,
+    pub message_cost_info: MessageL1CostInfo,
+    pub l1_handler_payload_size: Option<usize>,
     signature_length: usize,
     code_size: usize,
 }
 
 impl StarknetResources {
-    pub fn new(
+    pub fn new<'a>(
         calldata_length: usize,
         signature_length: usize,
         class_info: Option<&ClassInfo>,
         state_changes_count: StateChangesCount,
-    ) -> Self {
-        Self {
+        l1_handler_payload_size: Option<usize>,
+        call_infos: impl Iterator<Item = &'a CallInfo>,
+    ) -> TransactionExecutionResult<Self> {
+        Ok(Self {
             calldata_length,
             signature_length,
             code_size: StarknetResources::calculate_code_size(class_info),
             state_changes_count,
-        }
+            l1_handler_payload_size,
+            message_cost_info: MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?,
+        })
     }
 
     /// Returns the gas cost of the starknet resources, summing all components.
@@ -286,12 +292,25 @@ impl StarknetResources {
         self.get_calldata_and_signature_cost(versioned_constants)
             + self.get_code_cost(versioned_constants)
             + self.get_state_changes_cost(use_kzg_da)
+            + self.get_messages_cost()
     }
 
     /// Sets the code_size field from a ClassInfo from (Sierra, Casm and ABI). Each code felt costs
     /// a fixed and configurable amount of gas. The cost is 0 for non-Declare transactions.
     pub fn set_code_size(&mut self, class_info: Option<&ClassInfo>) {
         self.code_size = StarknetResources::calculate_code_size(class_info);
+    }
+
+    /// Sets the l2_to_l1_payload_lengths, message_segment_length fields according to the call_infos
+    /// of a transaction.
+    pub fn set_messages_resources<'a>(
+        &mut self,
+        call_infos: impl Iterator<Item = &'a CallInfo>,
+    ) -> TransactionExecutionResult<()> {
+        self.message_cost_info =
+            MessageL1CostInfo::calculate(call_infos, self.l1_handler_payload_size)?;
+
+        Ok(())
     }
 
     // Returns the gas cost for transaction calldata and transaction signature. Each felt costs a
@@ -309,7 +328,23 @@ impl StarknetResources {
         GasVector::from_l1_gas(l1_gas)
     }
 
-    // Returns the gas cost of declared class codes.
+    /// Returns an estimation of the gas usage for processing L1<>L2 messages on L1. Accounts for
+    /// both Starknet and SHARP contracts.
+    pub fn get_messages_cost(&self) -> GasVector {
+        let starknet_gas_usage = get_messages_gas_usage(
+            self.message_cost_info.message_segment_length,
+            &self.message_cost_info.l2_to_l1_payload_lengths,
+            self.l1_handler_payload_size,
+        );
+        let sharp_gas_usage = GasVector::from_l1_gas(u128_from_usize(
+            self.message_cost_info.message_segment_length
+                * eth_gas_constants::SHARP_GAS_PER_MEMORY_WORD,
+        ));
+
+        starknet_gas_usage + sharp_gas_usage
+    }
+
+    /// Returns the gas cost of declared class codes.
     pub fn get_code_cost(&self, versioned_constants: &VersionedConstants) -> GasVector {
         GasVector::from_l1_gas(
             (versioned_constants.l2_resource_gas_costs.gas_per_code_byte
@@ -318,13 +353,13 @@ impl StarknetResources {
         )
     }
 
-    // Returns the gas cost of the transaction's state changes.
+    /// Returns the gas cost of the transaction's state changes.
     pub fn get_state_changes_cost(&self, use_kzg_da: bool) -> GasVector {
         // TODO(Nimrod, 29/3/2024): delete `get_da_gas_cost` and move it's logic here.
         get_da_gas_cost(&self.state_changes_count, use_kzg_da)
     }
 
-    // Private and static method that calculates the code size from ClassInfo
+    /// Private and static method that calculates the code size from ClassInfo
     fn calculate_code_size(class_info: Option<&ClassInfo>) -> usize {
         if let Some(class_info) = class_info {
             (class_info.bytecode_length()
