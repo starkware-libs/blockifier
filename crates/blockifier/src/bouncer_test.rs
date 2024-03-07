@@ -1,9 +1,24 @@
-use std::ops::Sub;
+use std::collections::{HashMap, HashSet};
 
+use cairo_vm::serde::deserialize_program::BuiltinName;
+use rstest::rstest;
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
+
+use super::BouncerConfig;
+use crate::blockifier::transaction_executor::{
+    TransactionExecutorError, TransactionExecutorResult,
+};
 use crate::bouncer::{Bouncer, BouncerWeights, BuiltinCount};
+use crate::context::BlockContext;
+use crate::execution::call_info::ExecutionSummary;
+use crate::state::cached_state::{CachedState, StateChangesKeys};
+use crate::test_utils::initial_test_state::test_state;
+use crate::transaction::errors::TransactionExecutionError;
 
 #[test]
-fn test_block_weights_sub_checked() {
+fn test_block_weights_has_room() {
     let max_bouncer_weights = BouncerWeights {
         builtin_count: BuiltinCount {
             bitwise: 10,
@@ -38,9 +53,7 @@ fn test_block_weights_sub_checked() {
         state_diff_size: 7,
     };
 
-    let result = max_bouncer_weights.checked_sub(bouncer_weights).unwrap();
-    let difference_bouncer_weights = max_bouncer_weights.sub(bouncer_weights);
-    assert_eq!(result, difference_bouncer_weights);
+    assert!(max_bouncer_weights.has_room(bouncer_weights));
 
     let bouncer_weights_exceeds_max = BouncerWeights {
         builtin_count: BuiltinCount {
@@ -59,13 +72,22 @@ fn test_block_weights_sub_checked() {
         state_diff_size: 5,
     };
 
-    let result = max_bouncer_weights.checked_sub(bouncer_weights_exceeds_max);
-    assert!(result.is_none());
+    assert!(!max_bouncer_weights.has_room(bouncer_weights_exceeds_max));
 }
 
-#[test]
-fn test_transactional_bouncer() {
-    let initial_bouncer_weights = BouncerWeights {
+#[rstest]
+#[case::empty_initial_bouncer(Bouncer::new(BouncerConfig::default()))]
+#[case::non_empty_initial_bouncer(Bouncer {
+    executed_class_hashes: HashSet::from([ClassHash(StarkFelt::from(0_u128))]),
+    visited_storage_entries: HashSet::from([(
+        ContractAddress::from(0_u128),
+        StorageKey::from(0_u128),
+    )]),
+    state_changes_keys: StateChangesKeys::create_for_testing(HashSet::from([
+        ContractAddress::from(0_u128),
+    ])),
+    bouncer_config: BouncerConfig::default(),
+    accumulated_weights: BouncerWeights {
         builtin_count: BuiltinCount {
             bitwise: 10,
             ecdsa: 10,
@@ -80,9 +102,22 @@ fn test_transactional_bouncer() {
         n_steps: 10,
         n_events: 10,
         state_diff_size: 10,
+    },
+})]
+fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
+    let execution_summary_to_update = ExecutionSummary {
+        executed_class_hashes: HashSet::from([
+            ClassHash(StarkFelt::from(1_u128)),
+            ClassHash(StarkFelt::from(2_u128)),
+        ]),
+        visited_storage_entries: HashSet::from([
+            (ContractAddress::from(1_u128), StorageKey::from(1_u128)),
+            (ContractAddress::from(2_u128), StorageKey::from(2_u128)),
+        ]),
+        ..Default::default()
     };
 
-    let weights_to_commit = BouncerWeights {
+    let weights_to_update = BouncerWeights {
         builtin_count: BuiltinCount {
             bitwise: 1,
             ecdsa: 2,
@@ -99,15 +134,155 @@ fn test_transactional_bouncer() {
         state_diff_size: 2,
     };
 
-    let bouncer = Bouncer::new(initial_bouncer_weights);
-    let mut transactional_bouncer = bouncer.create_transactional();
-    transactional_bouncer.transactional.capacity = weights_to_commit;
+    let state_changes_keys_to_update =
+        StateChangesKeys::create_for_testing(HashSet::from([ContractAddress::from(1_u128)]));
 
-    // Test transactional bouncer abort.
-    let final_weights = transactional_bouncer.clone().abort();
-    assert!(final_weights.capacity == initial_bouncer_weights);
+    let mut updated_bouncer = initial_bouncer.clone();
+    updated_bouncer._update(
+        weights_to_update,
+        &execution_summary_to_update,
+        &state_changes_keys_to_update,
+    );
 
-    // Test transactional bouncer commit.
-    let final_weights = transactional_bouncer.commit();
-    assert!(final_weights.capacity == weights_to_commit);
+    let mut expected_bouncer = initial_bouncer;
+    expected_bouncer
+        .executed_class_hashes
+        .extend(&execution_summary_to_update.executed_class_hashes);
+    expected_bouncer
+        .visited_storage_entries
+        .extend(&execution_summary_to_update.visited_storage_entries);
+    expected_bouncer.state_changes_keys.extend(&state_changes_keys_to_update);
+    expected_bouncer.accumulated_weights += weights_to_update;
+
+    assert_eq!(updated_bouncer, expected_bouncer);
+}
+
+#[rstest]
+#[case::positive_flow(0, 1, 0, Ok(()))]
+#[case::block_full(
+    0,
+    11,
+    0,
+    Err(TransactionExecutorError::TransactionExecutionError(
+        TransactionExecutionError::BlockFull
+    ))
+)]
+#[case::transaction_too_large(
+    0,
+    21,
+    0,
+    Err(TransactionExecutorError::TransactionExecutionError(
+        TransactionExecutionError::TransactionTooLarge
+    ))
+)]
+#[case::positive_flow_with_keccak(0, 0, 1, Ok(()))]
+#[case::block_full_with_keccak(
+    1,
+    0,
+    1,
+    Err(TransactionExecutorError::TransactionExecutionError(
+        TransactionExecutionError::BlockFull
+    ))
+)]
+#[case::transaction_too_large_with_keccak(
+    0,
+    0,
+    2,
+    Err(TransactionExecutorError::TransactionExecutionError(
+        TransactionExecutionError::TransactionTooLarge
+    ))
+)]
+#[case::block_full_with_keccak_ecdsa_exceeds(
+    0,
+    11,
+    1,
+    Err(TransactionExecutorError::TransactionExecutionError(
+        TransactionExecutionError::BlockFull
+    ))
+)]
+#[case::transaction_too_large_with_keccak_ecdsa_too_large(
+    0,
+    21,
+    1,
+    Err(TransactionExecutorError::TransactionExecutionError(
+        TransactionExecutionError::TransactionTooLarge
+    ))
+)]
+fn test_bouncer_try_update(
+    #[case] initial_keccak: usize,
+    #[case] added_ecdsa: usize,
+    #[case] added_keccak: usize,
+    #[case] expected_result: TransactionExecutorResult<()>,
+) {
+    use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+
+    use crate::transaction::objects::TransactionResources;
+
+    let state = &mut test_state(&BlockContext::create_for_account_testing().chain_info, 0, &[]);
+    let mut transactional_state = CachedState::create_transactional(state);
+
+    // Setup the bouncer.
+    let block_max_capacity = BouncerWeights {
+        builtin_count: BuiltinCount {
+            bitwise: 20,
+            ecdsa: 20,
+            ec_op: 20,
+            keccak: 0,
+            pedersen: 20,
+            poseidon: 20,
+            range_check: 20,
+        },
+        gas: 20,
+        message_segment_length: 20,
+        n_steps: 20,
+        n_events: 20,
+        state_diff_size: 20,
+    };
+    let mut block_max_capacity_with_keccak = block_max_capacity;
+    block_max_capacity_with_keccak.builtin_count.keccak = 1;
+    let bouncer_config = BouncerConfig { block_max_capacity, block_max_capacity_with_keccak };
+
+    let accumulated_weights = BouncerWeights {
+        builtin_count: BuiltinCount {
+            bitwise: 10,
+            ecdsa: 10,
+            ec_op: 10,
+            keccak: initial_keccak,
+            pedersen: 10,
+            poseidon: 10,
+            range_check: 10,
+        },
+        gas: 10,
+        message_segment_length: 10,
+        n_steps: 10,
+        n_events: 10,
+        state_diff_size: 10,
+    };
+
+    let mut bouncer = Bouncer { accumulated_weights, bouncer_config, ..Default::default() };
+
+    // Prepare the resources to be added to the bouncer.
+    let execution_summary = ExecutionSummary { ..Default::default() };
+    let builtin_counter = HashMap::from([
+        (BuiltinName::bitwise.name().to_string(), 1),
+        (BuiltinName::ecdsa.name().to_string(), added_ecdsa),
+        (BuiltinName::ec_op.name().to_string(), 1),
+        (BuiltinName::keccak.name().to_string(), added_keccak),
+        (BuiltinName::pedersen.name().to_string(), 1),
+        (BuiltinName::poseidon.name().to_string(), 1),
+        (BuiltinName::range_check.name().to_string(), 1),
+    ]);
+    let tx_resources = TransactionResources {
+        vm_resources: ExecutionResources {
+            builtin_instance_counter: builtin_counter,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Try to update the bouncer.
+    let result = bouncer.try_update(&mut transactional_state, &execution_summary, &tx_resources);
+
+    // TODO(yael 27/3/24): compare the results without using string comparison.
+    assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }
