@@ -9,6 +9,7 @@ use starknet_api::hash::StarkFelt;
 
 use crate::py_block_executor::{PyBlockExecutor, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
+use crate::py_transaction_execution_info::PyBouncerConfig;
 use crate::py_utils::PyFelt;
 use crate::test_utils::MockStorage;
 
@@ -20,7 +21,11 @@ fn global_contract_cache_update() {
         PyBlockExecutor::create_for_testing(PyGeneralConfig::default(), temp_storage_path);
     let sentinel_block_number_and_hash = None; // Information does not exist for block 0.
     block_executor
-        .setup_block_execution(PyBlockInfo::default(), sentinel_block_number_and_hash)
+        .setup_block_execution(
+            PyBlockInfo::default(),
+            PyBouncerConfig::create_for_testing(),
+            sentinel_block_number_and_hash,
+        )
         .unwrap();
 
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -40,7 +45,11 @@ fn global_contract_cache_update() {
 
     // Finalizing a non-pending block does update the global cache.
     block_executor
-        .setup_block_execution(PyBlockInfo::default(), sentinel_block_number_and_hash)
+        .setup_block_execution(
+            PyBlockInfo::default(),
+            PyBouncerConfig::create_for_testing(),
+            sentinel_block_number_and_hash,
+        )
         .unwrap();
     block_executor.tx_executor().state.set_contract_class(class_hash, contract_class).unwrap();
     let is_pending_block = false;

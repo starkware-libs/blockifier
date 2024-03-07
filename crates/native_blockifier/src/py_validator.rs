@@ -10,6 +10,7 @@ use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, PyClassInfo};
+use crate::py_transaction_execution_info::PyBouncerConfig;
 use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 
@@ -20,12 +21,15 @@ pub struct PyValidator {
 
 #[pymethods]
 impl PyValidator {
+    // TODO(yael 12/3/2024): refactor to reduce the number of arguments.
+    #![allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, bouncer_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
+        bouncer_config: PyBouncerConfig,
         validate_max_n_steps: u32,
         max_recursion_depth: usize,
         global_contract_cache_size: usize,
@@ -47,8 +51,12 @@ impl PyValidator {
 
         // Create the stateful validator.
         let max_nonce_for_validation_skip = Nonce(max_nonce_for_validation_skip.0);
-        let stateful_validator =
-            StatefulValidator::create(state, block_context, max_nonce_for_validation_skip);
+        let stateful_validator = StatefulValidator::create(
+            state,
+            block_context,
+            max_nonce_for_validation_skip,
+            bouncer_config.into(),
+        );
 
         Ok(Self { stateful_validator })
     }
