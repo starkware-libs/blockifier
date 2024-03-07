@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::bouncer::BouncerWeights;
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::test_utils::{
     DEFAULT_ETH_L1_DATA_GAS_PRICE, DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE,
@@ -124,10 +125,26 @@ pub struct PyResourcePrice {
     pub price_in_fri: u128,
 }
 
+#[derive(Clone, Debug, FromPyObject)]
+pub struct PyBouncerConfig {
+    pub full_total_weights_with_keccak: HashMap<String, usize>,
+    pub full_total_weights: HashMap<String, usize>,
+}
+
+impl PyBouncerConfig {
+    pub fn create_for_testing() -> Self {
+        Self {
+            full_total_weights_with_keccak: BouncerWeights::create_for_testing(true).into(),
+            full_total_weights: BouncerWeights::create_for_testing(false).into(),
+        }
+    }
+}
+
 #[derive(FromPyObject)]
 pub struct PyBlockInfo {
     pub block_number: u64,
     pub block_timestamp: u64,
+    pub bouncer_config: PyBouncerConfig,
     pub l1_gas_price: PyResourcePrice,
     pub l1_data_gas_price: PyResourcePrice,
     pub sequencer_address: PyFelt,
@@ -135,11 +152,12 @@ pub struct PyBlockInfo {
 }
 
 /// Block info cannot have gas prices set to zero; implement `Default` explicitly.
-impl Default for PyBlockInfo {
-    fn default() -> Self {
+impl PyBlockInfo {
+    pub fn create_for_testing() -> Self {
         Self {
             block_number: u64::default(),
             block_timestamp: u64::default(),
+            bouncer_config: PyBouncerConfig::create_for_testing(),
             l1_gas_price: PyResourcePrice {
                 price_in_wei: DEFAULT_ETH_L1_GAS_PRICE,
                 price_in_fri: DEFAULT_STRK_L1_GAS_PRICE,

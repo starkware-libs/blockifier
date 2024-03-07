@@ -5,6 +5,7 @@ use blockifier::blockifier::block::{
     BouncerConfig, GasPrices,
 };
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
+use blockifier::bouncer::BouncerWeights;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
@@ -379,8 +380,14 @@ pub fn into_block_context_args(
     let block_info = BlockInfo {
         block_number: BlockNumber(block_info.block_number),
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
-        bouncer_config: BouncerConfig::default(), /* TODO(yael) - initiate with the value from
-                                                   * PyBlockInfo.bouncer_config */
+        bouncer_config: BouncerConfig {
+            block_max_capacity: BouncerWeights::from(
+                block_info.bouncer_config.full_total_weights.clone(),
+            ),
+            block_max_capacity_with_keccak: BouncerWeights::from(
+                block_info.bouncer_config.full_total_weights_with_keccak.clone(),
+            ),
+        },
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         gas_prices: GasPrices {
             eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {
