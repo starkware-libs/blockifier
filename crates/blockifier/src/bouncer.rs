@@ -38,9 +38,19 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
+#[derive(Clone, Copy, Debug)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
     pub block_max_capacity_with_keccak: BouncerWeights,
+}
+
+impl BouncerConfig {
+    pub fn create_for_testing() -> Self {
+        Self {
+            block_max_capacity_with_keccak: BouncerWeights::create_for_testing(true),
+            block_max_capacity: BouncerWeights::create_for_testing(false),
+        }
+    }
 }
 
 #[derive(
@@ -80,6 +90,19 @@ impl From<ExecutionResources> for BouncerWeights {
     }
 }
 
+impl From<BouncerWeights> for HashMapWrapper {
+    fn from(val: BouncerWeights) -> Self {
+        let mut map = HashMapWrapper::new();
+        map.insert(constants::L1_GAS_USAGE.to_string(), val.gas);
+        map.insert(constants::N_STEPS_RESOURCE.to_string(), val.n_steps);
+        map.insert(constants::MESSAGE_SEGMENT_LENGTH.to_string(), val.message_segment_length);
+        map.insert(constants::STATE_DIFF_SIZE.to_string(), val.state_diff_size);
+        map.insert(constants::N_EVENTS.to_string(), val.n_events);
+        map.extend::<HashMap<String, usize>>(val.builtin_count.into());
+        map
+    }
+}
+
 impl BouncerWeights {
     impl_checked_sub!(
         builtin_count,
@@ -89,6 +112,17 @@ impl BouncerWeights {
         n_steps,
         state_diff_size
     );
+
+    pub fn create_for_testing(with_keccak: bool) -> Self {
+        Self {
+            gas: 2500000,
+            n_steps: 2500000,
+            message_segment_length: 3750,
+            state_diff_size: 20000,
+            n_events: 10000,
+            builtin_count: BuiltinCount::create_for_testing(with_keccak),
+        }
+    }
 }
 
 #[derive(
@@ -124,8 +158,34 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
+impl From<BuiltinCount> for HashMapWrapper {
+    fn from(val: BuiltinCount) -> Self {
+        let mut map = HashMapWrapper::new();
+        map.insert(BuiltinName::bitwise.name().to_string(), val.bitwise);
+        map.insert(BuiltinName::ecdsa.name().to_string(), val.ecdsa);
+        map.insert(BuiltinName::ec_op.name().to_string(), val.ec_op);
+        map.insert(BuiltinName::keccak.name().to_string(), val.keccak);
+        map.insert(BuiltinName::pedersen.name().to_string(), val.pedersen);
+        map.insert(BuiltinName::poseidon.name().to_string(), val.poseidon);
+        map.insert(BuiltinName::range_check.name().to_string(), val.range_check);
+        map
+    }
+}
+
 impl BuiltinCount {
     impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
+
+    pub fn create_for_testing(with_keccak: bool) -> Self {
+        Self {
+            bitwise: 39062,
+            ecdsa: 1220,
+            ec_op: 2441,
+            keccak: { if with_keccak { 1220 } else { 0 } },
+            pedersen: 78125,
+            poseidon: 78125,
+            range_check: 156250,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -147,6 +207,10 @@ impl Bouncer {
             available_capacity: capacity,
             block_contains_keccak,
         }
+    }
+
+    pub fn new_block_bouncer(bouncer_config: BouncerConfig) -> Bouncer {
+        Bouncer::new(bouncer_config.block_max_capacity, false)
     }
 
     pub fn create_transactional(self) -> TransactionalBouncer {
