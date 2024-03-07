@@ -34,7 +34,8 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
+#[cfg_attr(test, derive(Clone))]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
     pub block_max_capacity_with_keccak: BouncerWeights,
@@ -53,12 +54,12 @@ pub struct BouncerConfig {
 )]
 /// Represents the execution resources counted throughout block creation.
 pub struct BouncerWeights {
-    builtin_count: BuiltinCount,
-    gas: usize,
-    message_segment_length: usize,
-    n_events: usize,
-    n_steps: usize,
-    state_diff_size: usize,
+    pub builtin_count: BuiltinCount,
+    pub gas: usize,
+    pub message_segment_length: usize,
+    pub n_events: usize,
+    pub n_steps: usize,
+    pub state_diff_size: usize,
 }
 
 impl BouncerWeights {
@@ -88,13 +89,13 @@ impl BouncerWeights {
     PartialEq,
 )]
 pub struct BuiltinCount {
-    bitwise: usize,
-    ecdsa: usize,
-    ec_op: usize,
-    keccak: usize,
-    pedersen: usize,
-    poseidon: usize,
-    range_check: usize,
+    pub bitwise: usize,
+    pub ecdsa: usize,
+    pub ec_op: usize,
+    pub keccak: usize,
+    pub pedersen: usize,
+    pub poseidon: usize,
+    pub range_check: usize,
 }
 
 impl BuiltinCount {
@@ -105,6 +106,7 @@ impl From<HashMapWrapper> for BuiltinCount {
     fn from(mut data: HashMapWrapper) -> Self {
         // TODO(yael 24/3/24): replace the unwrap_or_default with expect, once the
         // ExecutionResources contains all the builtins.
+        // The keccak config we get from python is not always present.
         let builtin_count = Self {
             bitwise: data.remove(BuiltinName::bitwise.name()).unwrap_or_default(),
             ecdsa: data.remove(BuiltinName::ecdsa.name()).unwrap_or_default(),
@@ -123,7 +125,8 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
+#[cfg_attr(test, derive(Clone))]
 pub struct Bouncer {
     // Additional info; maintained and used to calculate the residual contribution of a transaction
     // to the accumulated weights.
