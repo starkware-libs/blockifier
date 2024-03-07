@@ -51,6 +51,8 @@ pub enum TransactionFeeError {
 
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
+    #[error("Transaction cannot be added to the current block, block capacity reached.")]
+    BlockFull,
     #[error(
         "Declare transaction version {declare_version:?} must have a contract class of Cairo \
          version {cairo_version:?}."
@@ -88,6 +90,8 @@ pub enum TransactionExecutionError {
     UnexpectedHoles { object: String, order: usize },
     #[error(transparent)]
     TryFromIntError(#[from] std::num::TryFromIntError),
+    #[error("Transaction size exceeds the maximum block capacity.")]
+    TxTooLarge,
     #[error("Transaction validation has failed: {0}")]
     ValidateTransactionError(#[source] EntryPointExecutionError),
     #[error(

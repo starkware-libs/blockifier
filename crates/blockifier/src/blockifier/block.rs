@@ -6,6 +6,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
+use crate::bouncer::BouncerWeights;
 use crate::context::{BlockContext, ChainInfo};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateResult};
@@ -25,6 +26,12 @@ pub struct BlockInfo {
     pub sequencer_address: ContractAddress,
     pub gas_prices: GasPrices,
     pub use_kzg_da: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct BouncerConfig {
+    pub block_max_capacity: BouncerWeights,
+    pub block_max_capacity_with_keccak: BouncerWeights,
 }
 
 #[derive(Clone, Debug)]
