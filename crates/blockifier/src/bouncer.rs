@@ -7,7 +7,6 @@ use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
 use crate::abi::constants;
-use crate::blockifier::block::BouncerConfig;
 use crate::blockifier::transaction_executor::{
     get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
 };
@@ -38,6 +37,12 @@ macro_rules! impl_checked_sub {
 }
 
 pub type HashMapWrapper = HashMap<String, usize>;
+
+#[derive(Clone, Copy, Debug)]
+pub struct BouncerConfig {
+    pub block_max_capacity: BouncerWeights,
+    pub block_max_capacity_with_keccak: BouncerWeights,
+}
 
 #[derive(
     Clone, Copy, Debug, Default, derive_more::Add, derive_more::Sub, Deserialize, PartialEq,
@@ -73,6 +78,19 @@ impl From<ExecutionResources> for BouncerWeights {
         let mut weights = BouncerWeights::from(val.builtin_instance_counter);
         weights.n_steps = val.n_steps + val.n_memory_holes;
         weights
+    }
+}
+
+impl From<BouncerWeights> for HashMapWrapper {
+    fn from(val: BouncerWeights) -> Self {
+        let mut map = HashMapWrapper::new();
+        map.insert(constants::L1_GAS_USAGE.to_string(), val.gas);
+        map.insert(constants::N_STEPS_RESOURCE.to_string(), val.n_steps);
+        map.insert(constants::MESSAGE_SEGMENT_LENGTH.to_string(), val.message_segment_length);
+        map.insert(constants::STATE_DIFF_SIZE.to_string(), val.state_diff_size);
+        map.insert(constants::N_EVENTS.to_string(), val.n_events);
+        map.extend::<HashMap<String, usize>>(val.builtin_count.into());
+        map
     }
 }
 
@@ -131,6 +149,20 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
+impl From<BuiltinCount> for HashMapWrapper {
+    fn from(val: BuiltinCount) -> Self {
+        let mut map = HashMapWrapper::new();
+        map.insert(BuiltinName::bitwise.name().to_string(), val.bitwise);
+        map.insert(BuiltinName::ecdsa.name().to_string(), val.ecdsa);
+        map.insert(BuiltinName::ec_op.name().to_string(), val.ec_op);
+        map.insert(BuiltinName::keccak.name().to_string(), val.keccak);
+        map.insert(BuiltinName::pedersen.name().to_string(), val.pedersen);
+        map.insert(BuiltinName::poseidon.name().to_string(), val.poseidon);
+        map.insert(BuiltinName::range_check.name().to_string(), val.range_check);
+        map
+    }
+}
+
 impl BuiltinCount {
     impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
 
@@ -140,7 +172,7 @@ impl BuiltinCount {
             ecdsa: 1220,
             ec_op: 2441,
             keccak: {
-                if with_keccak { 0 } else { 1220 }
+                if with_keccak { 1220 } else { 0 }
             },
             pedersen: 78125,
             poseidon: 78125,

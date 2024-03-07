@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use blockifier::blockifier::block::{
-    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair,
-    BouncerConfig, GasPrices,
+    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
@@ -23,7 +22,7 @@ use crate::errors::{
     InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
     NativeBlockifierResult,
 };
-use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
+use crate::py_state_diff::{PyBlockInfo, PyBouncerConfig, PyStateDiff};
 use crate::py_transaction::{py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, versioned_constants_with_overrides, PyFelt};
@@ -115,10 +114,11 @@ impl PyBlockExecutor {
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[pyo3(signature = (next_block_info, old_block_number_and_hash))]
+    #[pyo3(signature = (next_block_info, bouncer_config, old_block_number_and_hash))]
     fn setup_block_execution(
         &mut self,
         next_block_info: PyBlockInfo,
+        bouncer_config: PyBouncerConfig,
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
@@ -132,7 +132,7 @@ impl PyBlockExecutor {
             &self.versioned_constants,
         )?;
 
-        let tx_executor = TransactionExecutor::new(state, block_context);
+        let tx_executor = TransactionExecutor::new(state, block_context, bouncer_config.into());
         self.tx_executor = Some(tx_executor);
 
         Ok(())
@@ -379,8 +379,6 @@ pub fn into_block_context_args(
     let block_info = BlockInfo {
         block_number: BlockNumber(block_info.block_number),
         block_timestamp: BlockTimestamp(block_info.block_timestamp),
-        bouncer_config: BouncerConfig::default(), /* TODO(yael) - initiate with the value from
-                                                   * PyBlockInfo.bouncer_config */
         sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
         gas_prices: GasPrices {
             eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {

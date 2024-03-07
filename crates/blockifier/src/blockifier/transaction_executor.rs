@@ -7,7 +7,7 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::bouncer::BouncerInfo;
-use crate::bouncer::{calc_message_l1_resources, Bouncer};
+use crate::bouncer::{calc_message_l1_resources, Bouncer, BouncerConfig};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::ActualCost;
@@ -56,9 +56,12 @@ pub struct TransactionExecutor<S: StateReader> {
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
-    pub fn new(state: CachedState<S>, block_context: BlockContext) -> Self {
+    pub fn new(
+        state: CachedState<S>,
+        block_context: BlockContext,
+        bouncer_config: BouncerConfig,
+    ) -> Self {
         log::debug!("Initializing Transaction Executor...");
-        let bouncer_config = block_context.block_info().bouncer_config;
         let tx_executor = Self {
             block_context,
             bouncer: Bouncer::new_block_bouncer(bouncer_config),
