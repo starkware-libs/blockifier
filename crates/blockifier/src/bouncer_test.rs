@@ -99,15 +99,15 @@ fn test_transactional_bouncer() {
         state_diff_size: 2,
     };
 
-    let bouncer = Bouncer::new(initial_bouncer_weights);
+    let bouncer = Bouncer::new(initial_bouncer_weights, true);
     let mut transactional_bouncer = bouncer.create_transactional();
-    transactional_bouncer.transactional.capacity = weights_to_commit;
+    transactional_bouncer.transactional.available_capacity = weights_to_commit;
 
     // Test transactional bouncer abort.
     let final_weights = transactional_bouncer.clone().abort();
-    assert!(final_weights.capacity == initial_bouncer_weights);
+    assert!(final_weights.available_capacity == initial_bouncer_weights);
 
     // Test transactional bouncer commit.
     let final_weights = transactional_bouncer.commit();
-    assert!(final_weights.capacity == weights_to_commit);
+    assert!(final_weights.available_capacity == weights_to_commit);
 }
