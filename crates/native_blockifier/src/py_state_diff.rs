@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use blockifier::bouncer::{BouncerConfig, BouncerWeights};
 use blockifier::state::cached_state::CommitmentStateDiff;
 use blockifier::test_utils::{
     DEFAULT_ETH_L1_DATA_GAS_PRICE, DEFAULT_ETH_L1_GAS_PRICE, DEFAULT_STRK_L1_DATA_GAS_PRICE,
@@ -122,6 +123,33 @@ impl From<CommitmentStateDiff> for PyStateDiff {
 pub struct PyResourcePrice {
     pub price_in_wei: u128,
     pub price_in_fri: u128,
+}
+
+#[derive(Clone, Debug, FromPyObject)]
+pub struct PyBouncerConfig {
+    pub full_total_weights_with_keccak: HashMap<String, usize>,
+    pub full_total_weights: HashMap<String, usize>,
+}
+
+impl From<PyBouncerConfig> for BouncerConfig {
+    fn from(py_bouncer_config: PyBouncerConfig) -> Self {
+        BouncerConfig {
+            block_max_capacity: BouncerWeights::from(py_bouncer_config.full_total_weights.clone()),
+            block_max_capacity_with_keccak: BouncerWeights::from(
+                py_bouncer_config.full_total_weights_with_keccak.clone(),
+            ),
+        }
+    }
+}
+
+impl PyBouncerConfig {
+    #[cfg(test)]
+    pub fn create_for_testing() -> Self {
+        Self {
+            full_total_weights_with_keccak: BouncerWeights::create_for_testing(true).into(),
+            full_total_weights: BouncerWeights::create_for_testing(false).into(),
+        }
+    }
 }
 
 #[derive(FromPyObject)]

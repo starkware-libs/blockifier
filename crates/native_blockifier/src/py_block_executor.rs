@@ -24,7 +24,7 @@ use crate::errors::{
     InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
     NativeBlockifierResult,
 };
-use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
+use crate::py_state_diff::{PyBlockInfo, PyBouncerConfig, PyStateDiff};
 use crate::py_transaction::{py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, PyFelt};
@@ -125,10 +125,11 @@ impl PyBlockExecutor {
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[pyo3(signature = (next_block_info, old_block_number_and_hash))]
+    #[pyo3(signature = (next_block_info, bouncer_config, old_block_number_and_hash))]
     fn setup_block_execution(
         &mut self,
         next_block_info: PyBlockInfo,
+        bouncer_config: PyBouncerConfig,
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
@@ -142,7 +143,7 @@ impl PyBlockExecutor {
             &self.versioned_constants,
         )?;
 
-        let tx_executor = TransactionExecutor::new(state, block_context);
+        let tx_executor = TransactionExecutor::new(state, block_context, bouncer_config.into());
         self.tx_executor = Some(tx_executor);
 
         Ok(())

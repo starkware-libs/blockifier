@@ -4,6 +4,7 @@ use cairo_vm::serde::deserialize_program::BuiltinName;
 use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
+use crate::abi::constants;
 use crate::blockifier::transaction_executor::{
     get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
 };
@@ -34,7 +35,8 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
+#[cfg_attr(test, derive(Clone))]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
     pub block_max_capacity_with_keccak: BouncerWeights,
@@ -53,12 +55,12 @@ pub struct BouncerConfig {
 )]
 /// Represents the execution resources counted throughout block creation.
 pub struct BouncerWeights {
-    builtin_count: BuiltinCount,
-    gas: usize,
-    message_segment_length: usize,
-    n_events: usize,
-    n_steps: usize,
-    state_diff_size: usize,
+    pub builtin_count: BuiltinCount,
+    pub gas: usize,
+    pub message_segment_length: usize,
+    pub n_events: usize,
+    pub n_steps: usize,
+    pub state_diff_size: usize,
 }
 
 impl BouncerWeights {
@@ -76,6 +78,37 @@ impl BouncerWeights {
     }
 }
 
+impl From<HashMapWrapper> for BouncerWeights {
+    fn from(mut data: HashMapWrapper) -> Self {
+        Self {
+            gas: data.remove(constants::L1_GAS_USAGE).expect("gas_weight must be present"),
+            n_steps: data.remove(constants::N_STEPS_RESOURCE).expect("n_steps must be present"),
+            message_segment_length: data
+                .remove(constants::MESSAGE_SEGMENT_LENGTH)
+                .expect("message_segment_length must be present"),
+            state_diff_size: data
+                .remove(constants::STATE_DIFF_SIZE)
+                .expect("state_diff_size must be present"),
+            n_events: data.remove(constants::N_EVENTS).expect("n_events must be present"),
+            builtin_count: BuiltinCount::from(data),
+        }
+    }
+}
+
+impl From<BouncerWeights> for HashMapWrapper {
+    fn from(val: BouncerWeights) -> Self {
+        let mut map = HashMapWrapper::from([
+            (constants::L1_GAS_USAGE.to_string(), val.gas),
+            (constants::N_STEPS_RESOURCE.to_string(), val.n_steps),
+            (constants::MESSAGE_SEGMENT_LENGTH.to_string(), val.message_segment_length),
+            (constants::STATE_DIFF_SIZE.to_string(), val.state_diff_size),
+            (constants::N_EVENTS.to_string(), val.n_events),
+        ]);
+        map.extend::<HashMap<String, usize>>(val.builtin_count.into());
+        map
+    }
+}
+
 #[derive(
     Clone,
     Copy,
@@ -88,13 +121,13 @@ impl BouncerWeights {
     PartialEq,
 )]
 pub struct BuiltinCount {
-    bitwise: usize,
-    ecdsa: usize,
-    ec_op: usize,
-    keccak: usize,
-    pedersen: usize,
-    poseidon: usize,
-    range_check: usize,
+    pub bitwise: usize,
+    pub ecdsa: usize,
+    pub ec_op: usize,
+    pub keccak: usize,
+    pub pedersen: usize,
+    pub poseidon: usize,
+    pub range_check: usize,
 }
 
 impl BuiltinCount {
@@ -123,7 +156,22 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+impl From<BuiltinCount> for HashMapWrapper {
+    fn from(val: BuiltinCount) -> Self {
+        HashMapWrapper::from([
+            (BuiltinName::bitwise.name().to_string(), val.bitwise),
+            (BuiltinName::ecdsa.name().to_string(), val.ecdsa),
+            (BuiltinName::ec_op.name().to_string(), val.ec_op),
+            (BuiltinName::keccak.name().to_string(), val.keccak),
+            (BuiltinName::pedersen.name().to_string(), val.pedersen),
+            (BuiltinName::poseidon.name().to_string(), val.poseidon),
+            (BuiltinName::range_check.name().to_string(), val.range_check),
+        ])
+    }
+}
+
+#[derive(Debug, Default, PartialEq)]
+#[cfg_attr(test, derive(Clone))]
 pub struct Bouncer {
     // Additional info; maintained and used to calculate the residual contribution of a transaction
     // to the accumulated weights.
