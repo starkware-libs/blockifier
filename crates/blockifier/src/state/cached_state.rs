@@ -712,6 +712,10 @@ impl StateChangesKeys {
             n_modified_contracts: self.modified_contracts.len(),
         }
     }
+
+    pub fn create_for_testing(nonce_keys: HashSet<ContractAddress>) -> Self {
+        Self { nonce_keys, ..Default::default() }
+    }
 }
 
 /// Holds the state changes.
