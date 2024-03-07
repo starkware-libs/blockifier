@@ -5,7 +5,6 @@ use cairo_felt::Felt252;
 use cairo_lang_utils::byte_array::BYTE_ARRAY_MAGIC;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -180,13 +179,14 @@ fn emit_events(
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
     let calldata = Calldata(
-        concat(vec![
+        [
             n_emitted_events.to_owned(),
             vec![stark_felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
             keys.to_vec(),
             vec![stark_felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
             data.to_vec(),
-        ])
+        ]
+        .concat()
         .into(),
     );
 
@@ -774,7 +774,7 @@ fn test_send_message_to_l1() {
     let to_address = stark_felt!(1234_u16);
     let payload = vec![stark_felt!(2019_u16), stark_felt!(2020_u16), stark_felt!(2021_u16)];
     let calldata = Calldata(
-        concat(vec![
+        [
             vec![
                 to_address,
                 // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
@@ -782,7 +782,8 @@ fn test_send_message_to_l1() {
                 stark_felt!(u64::try_from(payload.len()).expect("Failed to convert usize to u64.")),
             ],
             payload.clone(),
-        ])
+        ]
+        .concat()
         .into(),
     );
     let entry_point_call = CallEntryPoint {
@@ -850,7 +851,7 @@ fn test_deploy(
         vec![]
     };
 
-    let calldata = calldata_for_deploy_test(class_hash, &constructor_calldata, true);
+    let calldata = calldata_for_deploy_test(class_hash, constructor_calldata.clone(), true);
 
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),

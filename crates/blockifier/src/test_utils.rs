@@ -175,18 +175,22 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
 /// ]
 pub fn calldata_for_deploy_test(
     class_hash: ClassHash,
-    constructor_calldata: &Vec<StarkFelt>,
+    constructor_calldata: Vec<StarkFelt>,
     valid_deploy_from_zero: bool,
 ) -> Calldata {
-    let mut calldata = Vec::new();
-    calldata.extend(vec![
-        class_hash.0,
-        ContractAddressSalt::default().0,
-        stark_felt!(u8::try_from(constructor_calldata.len()).unwrap()),
-    ]);
-    calldata.extend(constructor_calldata);
-    calldata.push(stark_felt!(if valid_deploy_from_zero { 0_u8 } else { 2_u8 }));
-    Calldata(calldata.into())
+    Calldata(
+        [
+            vec![
+                class_hash.0,
+                ContractAddressSalt::default().0,
+                stark_felt!(u8::try_from(constructor_calldata.len()).unwrap()),
+            ],
+            constructor_calldata,
+            vec![stark_felt!(if valid_deploy_from_zero { 0_u8 } else { 2_u8 })],
+        ]
+        .concat()
+        .into(),
+    )
 }
 
 // Transactions.
@@ -336,14 +340,18 @@ pub fn create_calldata(
     let n_args = u128::try_from(entry_point_args.len()).expect("Calldata too big");
     let n_args = StarkFelt::from(n_args);
 
-    let mut calldata = vec![
-        *contract_address.0.key(),              // Contract address.
-        selector_from_name(entry_point_name).0, // EP selector name.
-        n_args,
-    ];
-    calldata.extend(entry_point_args);
-
-    Calldata(calldata.into())
+    Calldata(
+        [
+            vec![
+                *contract_address.0.key(),              // Contract address.
+                selector_from_name(entry_point_name).0, // EP selector name.
+                n_args,
+            ],
+            entry_point_args.into(),
+        ]
+        .concat()
+        .into(),
+    )
 }
 
 /// Calldata for a trivial entry point in the test contract.
