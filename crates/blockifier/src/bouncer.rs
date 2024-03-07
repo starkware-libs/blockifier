@@ -15,7 +15,8 @@ use crate::fee::gas_usage::{
 };
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
-use crate::transaction::objects::ResourcesMapping;
+use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::objects::{ResourcesMapping, TransactionExecutionInfo};
 use crate::utils::usize_from_u128;
 
 #[cfg(test)]
@@ -37,6 +38,11 @@ macro_rules! impl_checked_sub {
 }
 
 pub type HashMapWrapper = HashMap<String, usize>;
+
+pub struct BouncerConfig {
+    pub block_max_capacity: BouncerWeights,
+    pub block_max_capacity_with_keccak: BouncerWeights,
+}
 
 #[derive(
     Clone, Copy, Debug, Default, derive_more::Add, derive_more::Sub, Deserialize, PartialEq,
@@ -66,7 +72,17 @@ impl From<ExecutionResources> for BouncerWeights {
     fn from(data: ExecutionResources) -> Self {
         BouncerWeights {
             n_steps: data.n_steps + data.n_memory_holes,
-            builtin_count: data.builtin_instance_counter.into(),
+            builtin_count: BuiltinCount {
+                pedersen: *data
+                    .builtin_instance_counter
+                    .get(BuiltinName::pedersen.name())
+                    .unwrap_or(&0),
+                poseidon: *data
+                    .builtin_instance_counter
+                    .get(BuiltinName::poseidon.name())
+                    .unwrap_or(&0),
+                ..Default::default()
+            },
             ..Default::default()
         }
     }
@@ -111,22 +127,24 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Bouncer {
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
+    pub block_contains_keccak: bool,
     // The capacity is calculated based of the values of the other Bouncer fields.
-    capacity: BouncerWeights,
+    available_capacity: BouncerWeights,
 }
 
 impl Bouncer {
-    pub fn new(capacity: BouncerWeights) -> Self {
+    pub fn new(available_capacity: BouncerWeights, block_contains_keccak: bool) -> Self {
         Bouncer {
             executed_class_hashes: HashSet::new(),
             state_changes_keys: StateChangesKeys::default(),
             visited_storage_entries: HashSet::new(),
-            capacity,
+            available_capacity,
+            block_contains_keccak,
         }
     }
 
@@ -138,25 +156,112 @@ impl Bouncer {
         self.executed_class_hashes.extend(other.executed_class_hashes);
         self.state_changes_keys.extend(&other.state_changes_keys);
         self.visited_storage_entries.extend(other.visited_storage_entries);
-        self.capacity = other.capacity;
+        self.block_contains_keccak = other.block_contains_keccak;
+        self.available_capacity = other.available_capacity;
     }
 }
 
 #[derive(Clone)]
 pub struct TransactionalBouncer {
-    // The bouncer can be modified only through the merge method.
+    // The block bouncer can be modified only through the merge method.
     bouncer: Bouncer,
-    // The transactional bouncer can be modified only through the update method.
+    // The transaction bouncer can be modified only through the update method.
     transactional: Bouncer,
 }
 
 impl TransactionalBouncer {
-    pub fn new(parent: Bouncer) -> TransactionalBouncer {
-        let capacity = parent.capacity;
-        TransactionalBouncer { bouncer: parent, transactional: Bouncer::new(capacity) }
+    pub fn new(block_bouncer: Bouncer) -> TransactionalBouncer {
+        let transactional =
+            Bouncer::new(block_bouncer.available_capacity, block_bouncer.block_contains_keccak);
+        TransactionalBouncer { bouncer: block_bouncer, transactional }
     }
 
-    // TODO update function (in the next PRs)
+    /// Updates the bouncer with a new transaction info and weights after execution.
+    pub fn update<S: StateReader>(
+        &mut self,
+        bouncer_config: &BouncerConfig,
+        state: &mut TransactionalState<'_, S>,
+        tx_execution_info: &TransactionExecutionInfo,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutorResult<()> {
+        let tx_execution_summary = tx_execution_info.summarize();
+        self.update_auxiliary_info(state, &tx_execution_summary)?;
+        self.update_available_capacity(
+            bouncer_config,
+            state,
+            &tx_execution_summary,
+            &tx_execution_info.bouncer_resources,
+            l1_handler_payload_size,
+        )?;
+
+        Ok(())
+    }
+
+    /// This function is called by the update function to update the bouncer capacity.
+    fn update_available_capacity<S: StateReader>(
+        &mut self,
+        bouncer_config: &BouncerConfig,
+        state: &mut TransactionalState<'_, S>,
+        tx_execution_summary: &ExecutionSummary,
+        bouncer_resources: &ResourcesMapping,
+        l1_handler_payload_size: Option<usize>,
+    ) -> TransactionExecutorResult<()> {
+        let tx_weights = self.get_tx_weights(
+            state,
+            tx_execution_summary,
+            bouncer_resources,
+            l1_handler_payload_size,
+        )?;
+
+        if !self.transactional.block_contains_keccak && tx_weights.builtin_count.keccak > 0 {
+            // This is the first transaction to contain keccak in this block. Available capacity
+            // should be updated according to the keccak max capacity.
+            self.update_available_capacity_with_keccak(bouncer_config)?;
+        }
+
+        // Check if the transaction is too large to fit any block.
+        let mut max_capacity = bouncer_config.block_max_capacity;
+        if self.transactional.block_contains_keccak {
+            max_capacity = bouncer_config.block_max_capacity_with_keccak;
+        }
+        max_capacity.checked_sub(tx_weights).ok_or(TransactionExecutionError::TxTooLarge)?;
+
+        // Check if the transaction can fit the current block available capacity.
+        self.transactional.available_capacity = self
+            .transactional
+            .available_capacity
+            .checked_sub(tx_weights)
+            .ok_or(TransactionExecutionError::BlockFull)?;
+        Ok(())
+    }
+
+    /// Assumption: the block does not contain keccak yet.
+    fn update_available_capacity_with_keccak(
+        &mut self,
+        bouncer_config: &BouncerConfig,
+    ) -> TransactionExecutorResult<()> {
+        // First zero the keccak capacity to be able to subtract the max_capacity_with_keccak from
+        // max_capacity (that is without keccak).
+        let mut max_capacity_with_keccak_tmp = bouncer_config.block_max_capacity_with_keccak;
+        max_capacity_with_keccak_tmp.builtin_count.keccak = 0;
+        // compute the diff between the max_capacity and the max_capacity_with_keccak.
+        let max_capacity_with_keccak_diff = bouncer_config
+            .block_max_capacity
+            .checked_sub(max_capacity_with_keccak_tmp)
+            .expect("max_capacity_with_keccak should be smaller than max_capacity");
+        // Subtract the diff from the available capacity.
+        self.transactional.available_capacity = self
+            .transactional
+            .available_capacity
+            .checked_sub(max_capacity_with_keccak_diff)
+            .ok_or(TransactionExecutionError::BlockFull)?;
+        // Add back the keccack capacity that was reset at the beggining.
+        self.transactional.available_capacity.builtin_count.keccak =
+            bouncer_config.block_max_capacity_with_keccak.builtin_count.keccak;
+        // Mark this block as contains keccak.
+        self.transactional.block_contains_keccak = true;
+        Ok(())
+    }
 
     pub fn get_tx_weights<S: StateReader>(
         &mut self,
@@ -216,7 +321,7 @@ impl TransactionalBouncer {
                 .expect("n_steps must be present in the execution info")
                 + execution_info_resources
                     .remove(constants::N_MEMORY_HOLES)
-                    .expect("n_memory_hols must be present in the execution info"),
+                    .expect("n_memory_holes must be present in the execution info"),
             builtin_count: BuiltinCount::from(execution_info_resources),
             state_diff_size: 0,
         };
@@ -226,9 +331,11 @@ impl TransactionalBouncer {
 
     pub fn update_auxiliary_info<S: StateReader>(
         &mut self,
-        tx_execution_summary: &ExecutionSummary,
         state: &mut TransactionalState<'_, S>,
+        tx_execution_summary: &ExecutionSummary,
     ) -> TransactionExecutorResult<()> {
+        // TODO(Yael): consider removing the auxiliary_info from the bouncer and using the
+        // ExecutionSummary directly.
         self.transactional
             .executed_class_hashes
             .extend(&tx_execution_summary.executed_class_hashes);
