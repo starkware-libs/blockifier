@@ -372,11 +372,6 @@ impl<'de> Deserialize<'de> for OsResources {
 // conversion into actual values.
 // Assumption: if the json has a value that contains the expression "FOO * 2", then the key `FOO`
 // must appear before this value in the JSON.
-// FIXME: JSON doesn't guarantee order, serde seems to work for this use-case, buit there is no
-// guarantee that it will stay that way. Seriously consider switching to serde_yaml/other format.
-// FIXME FOLLOWUP: if we switch from JSON, we can switch to strongly typed fields, instead of an
-// internal indexmap: using strongly typed fields breaks the order under serialization, making
-// testing very difficult.
 // TODO: consider encoding the * and + operations inside the json file, instead of hardcoded below
 // in the `try_from`.
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -497,9 +492,10 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
+        // TODO(Ori, 15/03/2024): Move these two lines to an implementation of TryFrom for GasCosts.
         let gas_costs = raw_json_data.parse_gas_costs()?;
-        let json_value = serde_json::to_value(&gas_costs).unwrap();
-        let gas_costs_struct: GasCosts = serde_json::from_value(json_value).unwrap();
+        let gas_costs_struct: GasCosts =
+            serde_json::to_value(&gas_costs).and_then(serde_json::from_value).unwrap();
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
         let os_constants = OSConstants { gas_costs, gas_costs_struct, validate_rounding_consts };
 
