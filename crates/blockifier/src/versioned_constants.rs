@@ -419,14 +419,9 @@ impl<'de> Deserialize<'de> for OsResources {
 // conversion into actual values.
 // Assumption: if the json has a value that contains the expression "FOO * 2", then the key `FOO`
 // must appear before this value in the JSON.
-// FIXME: JSON doesn't guarantee order, serde seems to work for this use-case, buit there is no
-// guarantee that it will stay that way. Seriously consider switching to serde_yaml/other format.
-// FIXME FOLLOWUP: if we switch from JSON, we can switch to strongly typed fields, instead of an
-// internal indexmap: using strongly typed fields breaks the order under serialization, making
-// testing very difficult.
 // TODO: consider encoding the * and + operations inside the json file, instead of hardcoded below
 // in the `try_from`.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 #[serde(try_from = "OsConstantsRawJson")]
 pub struct OSConstants {
     pub gas_costs_struct: GasCosts,
@@ -436,17 +431,16 @@ pub struct OSConstants {
     gas_costs: IndexMap<String, u64>,
 }
 
-// List of all gas cost constants that *must* be present in the JSON file, all other consts are
-// ignored. See documentation in core/os/constants.cairo.
-#[derive(Clone, Debug, Default, Deserialize)]
+/// Gas cost constants. For more documentation see in core/os/constants.cairo.
+#[derive(Debug, Default, Deserialize)]
 pub struct GasCosts {
     pub step_gas_cost: u64,
     pub range_check_gas_cost: u64,
     pub memory_hole_gas_cost: u64,
     // An estimation of the initial gas for a transaction to run with. This solution is
-    // temporary and this value will become a field of the transaction.
+    // temporary and this value will be deduced from the transaction's fields.
     pub initial_gas_cost: u64,
-    // ** Compiler gas costs **
+    // Compiler gas costs.
     pub entry_point_initial_budget: u64,
     // The initial gas budget for a system call (this value is hard-coded by the compiler).
     // This needs to be high enough to cover OS costs in the case of failure due to out of gas.
@@ -492,14 +486,12 @@ impl OSConstants {
         "initial_gas_cost",
         // ** Compiler gas costs **
         "entry_point_initial_budget",
-        // The initial gas budget for a system call (this value is hard-coded by the compiler).
-        // This needs to be high enough to cover OS costs in the case of failure due to out of gas.
         "syscall_base_gas_cost",
-        // ** OS gas costs **
+        // OS gas costs.
         "entry_point_gas_cost",
         "fee_transfer_gas_cost",
         "transaction_gas_cost",
-        // ** Required gas for each syscall **
+        // Syscall gas costs.
         "call_contract_gas_cost",
         "deploy_gas_cost",
         "get_block_hash_gas_cost",
@@ -544,9 +536,11 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
+        // TODO(Ori, 15/03/2024): Move these two lines to an implementation of TryFrom for GasCosts.
         let gas_costs = raw_json_data.parse_gas_costs()?;
-        let json_value = serde_json::to_value(&gas_costs).unwrap();
-        let gas_costs_struct: GasCosts = serde_json::from_value(json_value).unwrap();
+        let gas_costs_struct: GasCosts = serde_json::to_value(&gas_costs)
+            .and_then(serde_json::from_value)
+            .expect("Can not convert json Value to GasCosts");
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
         let os_constants = OSConstants { gas_costs, gas_costs_struct, validate_rounding_consts };
 
