@@ -68,7 +68,12 @@ impl PyValidator {
         raw_contract_class: Option<&str>,
     ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
         let limit_execution_steps_by_resource_bounds = true;
-        self.tx_executor.execute(tx, raw_contract_class, limit_execution_steps_by_resource_bounds)
+        let (a, b) = self.tx_executor.execute(
+            tx,
+            raw_contract_class,
+            limit_execution_steps_by_resource_bounds,
+        )?;
+        Ok((PyTransactionExecutionInfo::from(a), b))
     }
 
     // TODO(Noa, 20/11/23): when this method is no longer externalized to python, remove

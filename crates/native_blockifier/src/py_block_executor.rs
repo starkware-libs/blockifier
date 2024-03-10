@@ -3,27 +3,41 @@ use std::sync::Arc;
 
 use blockifier::block_context::{BlockContext, FeeTokenAddresses, GasPrices};
 use blockifier::state::cached_state::GlobalContractCache;
+use blockifier::transaction::objects::TransactionExecutionInfo;
+use cairo_vm::vm::runners::builtin_runner::{
+    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
+    OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
+};
 use pyo3::prelude::*;
+use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
-use crate::py_transaction_execution_info::{PyBouncerInfo, PyTransactionExecutionInfo};
+use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, py_attr, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{Storage, StorageConfig};
 use crate::transaction_executor::TransactionExecutor;
-
+pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
+use blockifier::abi::constants;
 #[cfg(test)]
 #[path = "py_block_executor_test.rs"]
 mod py_block_executor_test;
 
 #[pyclass]
+#[derive(Debug, Serialize)]
+pub(crate) struct TypedTransactionExecutionInfo {
+    #[serde(flatten)]
+    pub info: TransactionExecutionInfo,
+    pub tx_type: String,
+}
+
+#[pyclass]
 pub struct PyBlockExecutor {
     pub general_config: PyGeneralConfig,
-    pub max_recursion_depth: usize,
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
     pub storage: Storage,
     pub global_contract_cache: GlobalContractCache,
@@ -32,12 +46,8 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, max_recursion_depth, target_storage_config))]
-    pub fn create(
-        general_config: PyGeneralConfig,
-        max_recursion_depth: usize,
-        target_storage_config: StorageConfig,
-    ) -> Self {
+    #[pyo3(signature = (general_config, target_storage_config))]
+    pub fn create(general_config: PyGeneralConfig, target_storage_config: StorageConfig) -> Self {
         log::debug!("Initializing Block Executor...");
         let tx_executor = None;
         let storage = Storage::new(target_storage_config).expect("Failed to initialize storage");
@@ -45,7 +55,6 @@ impl PyBlockExecutor {
         log::debug!("Initialized Block Executor.");
         Self {
             general_config,
-            max_recursion_depth,
             tx_executor,
             storage,
             global_contract_cache: GlobalContractCache::default(),
@@ -73,7 +82,7 @@ impl PyBlockExecutor {
             papyrus_reader,
             &self.general_config,
             next_block_info,
-            self.max_recursion_depth,
+            50,
             self.global_contract_cache.clone(),
         )?;
         self.tx_executor = Some(tx_executor);
@@ -90,9 +99,15 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         raw_contract_class: Option<&str>,
-    ) -> NativeBlockifierResult<(PyTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
         let charge_fee = true;
-        self.tx_executor().execute(tx, raw_contract_class, charge_fee)
+        let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
+        let (tx_execution_info, py_bouncer_info) =
+            self.tx_executor().execute(tx, raw_contract_class, charge_fee)?;
+        let typed_tx_execution_info =
+            TypedTransactionExecutionInfo { info: tx_execution_info, tx_type };
+        let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+        Ok((raw_tx_execution_info, py_bouncer_info))
     }
 
     pub fn finalize(&mut self, is_pending_block: bool) -> PyStateDiff {
@@ -200,7 +215,6 @@ impl PyBlockExecutor {
         Self {
             storage: Storage::new_for_testing(path, &general_config.starknet_os_config.chain_id),
             general_config,
-            max_recursion_depth: 50,
             tx_executor: None,
             global_contract_cache: GlobalContractCache::default(),
         }
@@ -222,32 +236,13 @@ impl PyBlockExecutor {
 #[derive(Default)]
 pub struct PyGeneralConfig {
     pub starknet_os_config: PyOsConfig,
-    pub min_strk_l1_gas_price: u128,
-    pub max_strk_l1_gas_price: u128,
-    pub cairo_resource_fee_weights: Arc<HashMap<String, f64>>,
-    pub invoke_tx_max_n_steps: u32,
-    pub validate_max_n_steps: u32,
 }
 
 impl FromPyObject<'_> for PyGeneralConfig {
     fn extract(general_config: &PyAny) -> PyResult<Self> {
         let starknet_os_config: PyOsConfig = py_attr(general_config, "starknet_os_config")?;
-        let cairo_resource_fee_weights: HashMap<String, f64> =
-            py_attr(general_config, "cairo_resource_fee_weights")?;
-        let cairo_resource_fee_weights = Arc::new(cairo_resource_fee_weights);
-        let min_strk_l1_gas_price: u128 = py_attr(general_config, "min_strk_l1_gas_price")?;
-        let max_strk_l1_gas_price: u128 = py_attr(general_config, "max_strk_l1_gas_price")?;
-        let invoke_tx_max_n_steps: u32 = py_attr(general_config, "invoke_tx_max_n_steps")?;
-        let validate_max_n_steps: u32 = py_attr(general_config, "validate_max_n_steps")?;
 
-        Ok(Self {
-            starknet_os_config,
-            min_strk_l1_gas_price,
-            max_strk_l1_gas_price,
-            cairo_resource_fee_weights,
-            invoke_tx_max_n_steps,
-            validate_max_n_steps,
-        })
+        Ok(Self { starknet_os_config })
     }
 }
 
@@ -289,13 +284,20 @@ pub fn into_block_context(
                 starknet_os_config.fee_token_address.0,
             )?,
         },
-        vm_resource_fee_cost: general_config.cairo_resource_fee_weights.clone(),
-        gas_prices: GasPrices {
-            eth_l1_gas_price: block_info.eth_l1_gas_price,
-            strk_l1_gas_price: block_info.strk_l1_gas_price,
-        },
-        invoke_tx_max_n_steps: general_config.invoke_tx_max_n_steps,
-        validate_max_n_steps: general_config.validate_max_n_steps,
+        vm_resource_fee_cost: Arc::new(HashMap::from([
+            (constants::N_STEPS_RESOURCE.to_string(), 0.0025_f64),
+            (HASH_BUILTIN_NAME.to_string(), 0.01_f64),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 0.01_f64),
+            (SIGNATURE_BUILTIN_NAME.to_string(), 0.01_f64),
+            (KECCAK_BUILTIN_NAME.to_string(), 5.12_f64),
+            (BITWISE_BUILTIN_NAME.to_string(), 0.01_f64),
+            (POSEIDON_BUILTIN_NAME.to_string(), 0.01_f64),
+            (OUTPUT_BUILTIN_NAME.to_string(), 0.01_f64),
+            (EC_OP_BUILTIN_NAME.to_string(), 0.01_f64),
+        ])),
+        gas_prices: GasPrices { eth_l1_gas_price: 1000000000, strk_l1_gas_price: 1000000000000 },
+        invoke_tx_max_n_steps: 4000000,
+        validate_max_n_steps: 1000000,
         max_recursion_depth,
     };
 
