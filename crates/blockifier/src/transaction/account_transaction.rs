@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use itertools::concat;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -97,13 +96,14 @@ impl AccountTransaction {
     fn validate_entrypoint_calldata(&self) -> Calldata {
         match self {
             Self::Declare(tx) => calldata![tx.class_hash().0],
-            Self::DeployAccount(tx) => {
-                let validate_calldata = concat(vec![
+            Self::DeployAccount(tx) => Calldata(
+                [
                     vec![tx.class_hash().0, tx.contract_address_salt().0],
                     (*tx.constructor_calldata().0).clone(),
-                ]);
-                Calldata(validate_calldata.into())
-            }
+                ]
+                .concat()
+                .into(),
+            ),
             // Calldata for validation is the same calldata as for the execution itself.
             Self::Invoke(tx) => tx.calldata(),
         }

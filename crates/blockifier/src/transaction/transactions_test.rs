@@ -5,7 +5,6 @@ use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use itertools::concat;
 use num_traits::Pow;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
@@ -1288,7 +1287,7 @@ fn test_deploy_account_tx(
 
     // Build expected validate call info.
     let validate_calldata =
-        concat(vec![vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()]);
+        [vec![class_hash.0, salt.0], (*constructor_calldata.0).clone()].concat();
     let expected_gas_consumed = 0;
     let expected_validate_call_info = expected_validate_call_info(
         account_class_hash,
