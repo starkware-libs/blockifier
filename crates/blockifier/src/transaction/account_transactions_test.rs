@@ -175,8 +175,8 @@ fn test_invoke_tx_from_non_deployed_account(
         }
         Err(err) => {
             //  Make sure the error is because the account wasn't deployed.
-            assert!(matches!(err, TransactionExecutionError::ExecutionError(
-                EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. })
+            assert!(matches!(err, TransactionExecutionError::ExecutionError{
+                error: EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. } , ..}
                 if trace.contains(expected_error)
             ));
             // We expect to get an error only when tx_version is 0, on other versions to revert.
@@ -288,9 +288,9 @@ fn test_max_fee_limit_validate(
     let error = deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
     assert_matches!(
         error,
-        TransactionExecutionError::ValidateTransactionError(
-            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }
-        )
+        TransactionExecutionError::ValidateTransactionError{
+            error: EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }, ..
+        }
         if trace.contains("no remaining steps")
     );
 
@@ -349,9 +349,9 @@ fn test_max_fee_limit_validate(
 
     assert_matches!(
         error,
-        TransactionExecutionError::ValidateTransactionError(
-            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }
-        )
+        TransactionExecutionError::ValidateTransactionError{
+            error: EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }, ..
+        }
         if trace.contains("no remaining steps")
     );
 }
