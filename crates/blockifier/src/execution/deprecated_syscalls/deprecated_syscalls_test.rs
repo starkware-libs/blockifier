@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use itertools::concat;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -549,13 +548,14 @@ fn emit_events(
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
     let calldata = Calldata(
-        concat(vec![
+        [
             n_emitted_events.to_owned(),
             vec![stark_felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
             keys.to_vec(),
             vec![stark_felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
             data.to_vec(),
-        ])
+        ]
+        .concat()
         .into(),
     );
 
