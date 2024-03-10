@@ -164,33 +164,6 @@ fn default_testing_resource_bounds() -> ResourceBoundsMapping {
     .unwrap()
 }
 
-/// Creates the calldata for the Cairo function "test_deploy" in the featured contract TestContract.
-/// The format of the calldata is:
-/// [
-///     class_hash,
-///     contract_address_salt,
-///     constructor_calldata_len,
-///     *constructor_calldata,
-///     deploy_from_zero
-/// ]
-pub fn calldata_for_deploy_test(
-    class_hash: ClassHash,
-    constructor_calldata: &Vec<StarkFelt>,
-    valid_deploy_from_zero: bool,
-) -> Calldata {
-    let mut calldata = Vec::new();
-    calldata.extend(vec![
-        class_hash.0,
-        ContractAddressSalt::default().0,
-        stark_felt!(u8::try_from(constructor_calldata.len()).unwrap()),
-    ]);
-    calldata.extend(constructor_calldata);
-    calldata.push(stark_felt!(if valid_deploy_from_zero { 0_u8 } else { 2_u8 }));
-    Calldata(calldata.into())
-}
-
-// Transactions.
-
 #[macro_export]
 macro_rules! check_inner_exc_for_custom_hint {
     ($inner_exc:expr, $expected_hint:expr) => {
@@ -328,22 +301,63 @@ pub fn get_tx_resources(tx_type: TransactionType) -> ExecutionResources {
     versioned_constants.get_additional_os_tx_resources(tx_type, 1, 0, false).unwrap()
 }
 
+/// Creates the calldata for the Cairo function "test_deploy" in the featured contract TestContract.
+/// The format of the calldata is:
+/// [
+///     class_hash,
+///     contract_address_salt,
+///     constructor_calldata_len,
+///     *constructor_calldata,
+///     deploy_from_zero
+/// ]
+pub fn calldata_for_deploy_test(
+    class_hash: ClassHash,
+    constructor_calldata: &[StarkFelt],
+    valid_deploy_from_zero: bool,
+) -> Calldata {
+    Calldata(
+        [
+            vec![
+                class_hash.0,
+                ContractAddressSalt::default().0,
+                stark_felt!(u128::try_from(constructor_calldata.len()).expect("Calldata too big")),
+            ],
+            constructor_calldata.into(),
+            vec![stark_felt!(if valid_deploy_from_zero { 0_u8 } else { 2_u8 })],
+        ]
+        .concat()
+        .into(),
+    )
+}
+
+/// Creates the calldata for the "__execute__" entry point in the featured contracts
+/// AccountWithLongValidate and AccountWithoutValidations. The format of the returned calldata is:
+/// [
+///     contract_address,
+///     entry_point_name,
+///     calldata_length,
+///     *calldata,
+/// ]
+/// The contract_address is the address of the called contract, the entry_point_name is the
+/// name of the called entry point in said contract, and the calldata is the calldata for the called
+/// entry point.
 pub fn create_calldata(
     contract_address: ContractAddress,
     entry_point_name: &str,
     entry_point_args: &[StarkFelt],
 ) -> Calldata {
-    let n_args = u128::try_from(entry_point_args.len()).expect("Calldata too big");
-    let n_args = StarkFelt::from(n_args);
-
-    let mut calldata = vec![
-        *contract_address.0.key(),              // Contract address.
-        selector_from_name(entry_point_name).0, // EP selector name.
-        n_args,
-    ];
-    calldata.extend(entry_point_args);
-
-    Calldata(calldata.into())
+    Calldata(
+        [
+            vec![
+                *contract_address.0.key(),              // Contract address.
+                selector_from_name(entry_point_name).0, // EP selector name.
+                stark_felt!(u128::try_from(entry_point_args.len()).expect("Calldata too big")),
+            ],
+            entry_point_args.into(),
+        ]
+        .concat()
+        .into(),
+    )
 }
 
 /// Calldata for a trivial entry point in the test contract.
