@@ -24,6 +24,10 @@ use crate::transaction::objects::TransactionExecutionInfo;
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 
+#[cfg(test)]
+#[path = "transaction_executor_test.rs"]
+pub mod transaction_executor_test;
+
 #[derive(Debug, Error)]
 pub enum TransactionExecutorError {
     #[error(transparent)]
