@@ -181,11 +181,16 @@ impl BuiltinCount {
     }
 }
 
-#[derive(Clone)]
-pub struct Bouncer {
+#[derive(Clone, Default)]
+pub struct BouncerAuxiliaryInfo {
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
+}
+
+#[derive(Clone)]
+pub struct Bouncer {
+    pub auxiliary_info: BouncerAuxiliaryInfo,
     pub block_contains_keccak: bool,
     // The capacity is calculated based of the values of the other Bouncer fields.
     available_capacity: BouncerWeights,
@@ -194,9 +199,7 @@ pub struct Bouncer {
 impl Bouncer {
     pub fn new(capacity: BouncerWeights, block_contains_keccak: bool) -> Self {
         Bouncer {
-            executed_class_hashes: HashSet::new(),
-            state_changes_keys: StateChangesKeys::default(),
-            visited_storage_entries: HashSet::new(),
+            auxiliary_info: BouncerAuxiliaryInfo::default(),
             available_capacity: capacity,
             block_contains_keccak,
         }
@@ -206,32 +209,16 @@ impl Bouncer {
         Bouncer::new(bouncer_config.block_max_capacity, false)
     }
 
-    pub fn create_transactional(self) -> TransactionalBouncer {
-        TransactionalBouncer::new(self)
-    }
-
     pub fn merge(&mut self, other: Bouncer) {
-        self.executed_class_hashes.extend(other.executed_class_hashes);
-        self.state_changes_keys.extend(&other.state_changes_keys);
-        self.visited_storage_entries.extend(other.visited_storage_entries);
+        self.auxiliary_info
+            .executed_class_hashes
+            .extend(other.auxiliary_info.executed_class_hashes);
+        self.auxiliary_info.state_changes_keys.extend(&other.auxiliary_info.state_changes_keys);
+        self.auxiliary_info
+            .visited_storage_entries
+            .extend(other.auxiliary_info.visited_storage_entries);
         self.block_contains_keccak = other.block_contains_keccak;
         self.available_capacity = other.available_capacity;
-    }
-}
-
-#[derive(Clone)]
-pub struct TransactionalBouncer {
-    // The block bouncer can be modified only through the merge method.
-    block: Bouncer,
-    // The transaction bouncer can be modified only through the update method.
-    transaction: Bouncer,
-}
-
-impl TransactionalBouncer {
-    pub fn new(block_bouncer: Bouncer) -> TransactionalBouncer {
-        let transactional =
-            Bouncer::new(block_bouncer.available_capacity, block_bouncer.block_contains_keccak);
-        TransactionalBouncer { block: block_bouncer, transaction: transactional }
     }
 
     pub fn update<S: StateReader>(
@@ -241,38 +228,40 @@ impl TransactionalBouncer {
         tx_execution_info: &TransactionExecutionInfo,
         l1_handler_payload_size: Option<usize>,
     ) -> TransactionExecutorResult<()> {
-        self.update_used_state_entries_sets(state, tx_execution_info)?;
-        self.update_capacity(bouncer_config, state, tx_execution_info, l1_handler_payload_size)?;
+        // Creating a temporary transactional bouncer that will be merged into the Bouncer if
+        // the update succeeds.
+        let mut transactional_bouncer =
+            Bouncer::new(self.available_capacity, self.block_contains_keccak);
 
-        Ok(())
-    }
+        transactional_bouncer.auxiliary_info =
+            self.get_tx_auxiliary_info(state, tx_execution_info)?;
 
-    fn update_capacity<S: StateReader>(
-        &mut self,
-        bouncer_config: &BouncerConfig,
-        state: &mut TransactionalState<'_, S>,
-        tx_execution_info: &TransactionExecutionInfo,
-        l1_handler_payload_size: Option<usize>,
-    ) -> TransactionExecutorResult<()> {
-        let tx_weights = self.get_tx_weights(state, tx_execution_info, l1_handler_payload_size)?;
+        let tx_weights = self.get_tx_weights(
+            state,
+            &transactional_bouncer.auxiliary_info,
+            tx_execution_info,
+            l1_handler_payload_size,
+        )?;
 
-        if !self.transaction.block_contains_keccak && tx_weights.builtin_count.keccak > 0 {
-            self.update_available_capacity_with_keccak(bouncer_config)?;
+        if !transactional_bouncer.block_contains_keccak && tx_weights.builtin_count.keccak > 0 {
+            transactional_bouncer.update_available_capacity_with_keccak(bouncer_config)?;
         }
 
         // Check if the transaction is too large to fit any block.
         let mut max_capacity = bouncer_config.block_max_capacity;
-        if self.transaction.block_contains_keccak {
+        if transactional_bouncer.block_contains_keccak {
             max_capacity = bouncer_config.block_max_capacity_with_keccak;
         }
         max_capacity.checked_sub(tx_weights).ok_or(TransactionExecutionError::TxTooLarge)?;
 
         // Check if the transaction can fit the current block available capacity.
-        self.transaction.available_capacity = self
-            .transaction
+        transactional_bouncer.available_capacity = transactional_bouncer
             .available_capacity
             .checked_sub(tx_weights)
             .ok_or(TransactionExecutionError::BlockFull)?;
+
+        self.merge(transactional_bouncer);
+
         Ok(())
     }
 
@@ -290,33 +279,33 @@ impl TransactionalBouncer {
             .checked_sub(max_capacity_with_keccak_tmp)
             .expect("max_capacity_with_keccak should be smaller than max_capacity");
         // Subtract the diff from the available capacity.
-        self.transaction.available_capacity = self
-            .transaction
+        self.available_capacity = self
             .available_capacity
             .checked_sub(max_capacity_with_keccak_diff)
             .ok_or(TransactionExecutionError::BlockFull)?;
         // Add back the keccack capacity that was reset at the beggining.
-        self.transaction.available_capacity.builtin_count.keccak =
+        self.available_capacity.builtin_count.keccak =
             bouncer_config.block_max_capacity_with_keccak.builtin_count.keccak;
         // Mark this block as contains keccak.
-        self.transaction.block_contains_keccak = true;
+        self.block_contains_keccak = true;
         Ok(())
     }
 
     pub fn get_tx_weights<S: StateReader>(
         &mut self,
         state: &mut TransactionalState<'_, S>,
+        tx_auxiliary_info: &BouncerAuxiliaryInfo,
         tx_execution_info: &TransactionExecutionInfo,
         l1_handler_payload_size: Option<usize>,
     ) -> TransactionExecutorResult<BouncerWeights> {
         let mut additional_os_resources = get_casm_hash_calculation_resources(
             state,
-            &self.block.executed_class_hashes,
-            &self.transaction.executed_class_hashes,
+            &self.auxiliary_info.executed_class_hashes,
+            &tx_auxiliary_info.executed_class_hashes,
         )?;
         additional_os_resources += &get_particia_update_resources(
-            &self.block.visited_storage_entries,
-            &self.transaction.visited_storage_entries,
+            &self.auxiliary_info.visited_storage_entries,
+            &tx_auxiliary_info.visited_storage_entries,
         )?;
         let tx_execution_info_weights = Self::get_tx_execution_info_resources_weights(
             tx_execution_info,
@@ -326,7 +315,7 @@ impl TransactionalBouncer {
         let mut tx_weights =
             BouncerWeights::from(additional_os_resources) + tx_execution_info_weights;
         tx_weights.state_diff_size =
-            get_onchain_data_segment_length(&self.transaction.state_changes_keys.count());
+            get_onchain_data_segment_length(&tx_auxiliary_info.state_changes_keys.count());
         Ok(tx_weights)
     }
 
@@ -352,33 +341,21 @@ impl TransactionalBouncer {
         Ok(weights)
     }
 
-    pub fn update_used_state_entries_sets<S: StateReader>(
+    pub fn get_tx_auxiliary_info<S: StateReader>(
         &mut self,
         state: &mut TransactionalState<'_, S>,
         tx_execution_info: &TransactionExecutionInfo,
-    ) -> TransactionExecutorResult<()> {
+    ) -> TransactionExecutorResult<BouncerAuxiliaryInfo> {
         let tx_execution_summary = tx_execution_info.summarize();
-        self.transaction.executed_class_hashes.extend(tx_execution_summary.executed_class_hashes);
-        self.transaction
-            .visited_storage_entries
-            .extend(tx_execution_summary.visited_storage_entries);
-        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
-        self.transaction.state_changes_keys =
-            tx_state_changes_keys.difference(&self.block.state_changes_keys);
-        Ok(())
-    }
-
-    pub fn commit(mut self) -> Bouncer {
-        self.block.merge(self.transaction);
-        self.block
-    }
-
-    pub fn abort(self) -> Bouncer {
-        self.block
-    }
-
-    pub fn capacity(&mut self) -> &mut BouncerWeights {
-        &mut self.transaction.available_capacity
+        let auxiliary_info = BouncerAuxiliaryInfo {
+            executed_class_hashes: tx_execution_summary.executed_class_hashes,
+            visited_storage_entries: tx_execution_summary.visited_storage_entries,
+            state_changes_keys: {
+                let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+                tx_state_changes_keys.difference(&self.auxiliary_info.state_changes_keys)
+            },
+        };
+        Ok(auxiliary_info)
     }
 }
 

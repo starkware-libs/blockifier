@@ -39,6 +39,7 @@ pub type VisitedSegmentsMapping = Vec<(ClassHash, Vec<usize>)>;
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
     pub bouncer: Bouncer,
+    pub bouncer_config: BouncerConfig,
 
     // Maintained for counting purposes.
     pub executed_class_hashes: HashSet<ClassHash>,
@@ -65,6 +66,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         let tx_executor = Self {
             block_context,
             bouncer: Bouncer::new_block_bouncer(bouncer_config),
+            bouncer_config,
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             // Note: the state might not be empty even at this point; it is the creator's
@@ -101,6 +103,16 @@ impl<S: StateReader> TransactionExecutor<S> {
             tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
         match tx_execution_result {
             Ok(tx_execution_info) => {
+                // New Bouncer code.
+                // TODO(Yael): Return the error and remove the old bouncer code in the following
+                // PRs.
+                let _ = self.bouncer.update(
+                    &self.bouncer_config,
+                    &mut transactional_state,
+                    &tx_execution_info,
+                    l1_handler_payload_size,
+                );
+
                 // Prepare bouncer info; the countings here should be linear in the transactional
                 // state changes and execution info rather than the cumulative state attributes.
 
