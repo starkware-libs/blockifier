@@ -1,21 +1,25 @@
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::TransactionExecutor;
 use crate::context::BlockContext;
-use crate::deploy_account_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE};
+use crate::test_utils::{
+    create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
+};
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::test_utils::{block_context, l1_resource_bounds};
+use crate::transaction::test_utils::{account_invoke_tx, block_context, l1_resource_bounds};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::L1HandlerTransaction;
+use crate::{deploy_account_tx_args, invoke_tx_args};
 
 fn tx_executor_test_body<S: StateReader>(
     state: CachedState<S>,
@@ -60,6 +64,54 @@ fn test_tx_executor_on_deploy_account(
         n_events: 0,
         ..Default::default()
     };
+    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_info);
+}
+
+#[rstest]
+#[case::invoke_function(
+    "assert_eq",
+    vec![stark_felt!(3_u32), stark_felt!(3_u32)],
+    BouncerInfo {
+        state_diff_size: 2,
+        message_segment_length: 0,
+        n_events: 0,
+        ..Default::default()
+    }
+)]
+#[case::invoke_emit_event(
+    "test_emit_events",
+    vec![stark_felt!(1_u32), stark_felt!(0_u32), stark_felt!(0_u32)],
+    BouncerInfo {
+        state_diff_size: 2,
+        message_segment_length: 0,
+        n_events: 1,
+        ..Default::default()
+    }
+)]
+fn test_tx_executor_on_invoke(
+    block_context: BlockContext,
+    #[values(true, false)] charge_fee: bool,
+    #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+    #[case] selector_name: &str,
+    #[case] calldata: Vec<StarkFelt>,
+    #[case] expected_bouncer_info: BouncerInfo,
+) {
+    // Setup context.
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let state = test_state(
+        &block_context.chain_info,
+        BALANCE,
+        &[(test_contract, 1), (account_contract, 1)],
+    );
+    let calldata = create_calldata(test_contract.get_instance_address(0), selector_name, &calldata);
+    let tx = Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
+        sender_address: account_contract.get_instance_address(0),
+        calldata,
+        version,
+    }));
+
     tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_info);
 }
 
