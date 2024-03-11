@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cairo_native::starknet::{
-    BlockInfo, ExecutionInfoV2, StarkNetSyscallHandler, SyscallResult, TxInfo, TxV2Info,
+    BlockInfo, ExecutionInfoV2, StarkNetSyscallHandler, SyscallResult, TxInfo, TxV2Info, U256,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{
@@ -29,7 +29,7 @@ use crate::execution::entry_point::{
 use crate::execution::execution_utils::execute_deployment;
 use crate::execution::syscalls::hint_processor::{
     execute_inner_call_raw, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_CALCULATE_CONTRACT_ADDRESS,
-    FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_PARSE, FAILED_TO_READ_RESULT,
+    FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_READ_RESULT,
     FAILED_TO_SET_CLASS_HASH, FAILED_TO_WRITE, FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT,
     INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
@@ -59,7 +59,8 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             return Err(vec![execution_mode_err]);
         }
 
-        let current_block_number = self.execution_context.tx_context.block_context.block_info.block_number.0;
+        let current_block_number =
+            self.execution_context.tx_context.block_context.block_info.block_number.0;
 
         if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
             || block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
@@ -106,7 +107,10 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             max_fee: account_tx_context.max_fee().unwrap_or_default().0,
             signature,
             transaction_hash: starkfelt_to_felt(account_tx_context.transaction_hash().0),
-            chain_id: chain_id_to_felt(&self.execution_context.tx_context.block_context.chain_info.chain_id).unwrap(),
+            chain_id: chain_id_to_felt(
+                &self.execution_context.tx_context.block_context.chain_info.chain_id,
+            )
+            .unwrap(),
             nonce: starkfelt_to_felt(account_tx_context.nonce().0),
         };
 
@@ -394,46 +398,28 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         Ok(())
     }
 
-    fn keccak(
-        &mut self,
-        input: &[u64],
-        _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::U256> {
-        let input_len = input.len();
+    fn keccak(&mut self, input: &[u64], _remaining_gas: &mut u128) -> SyscallResult<U256> {
+        let length = input.len();
 
-        const KECCAK_FULL_RATE_IN_WORDS: usize = 17;
-        let (_, remainder) = num_integer::div_rem(input_len, KECCAK_FULL_RATE_IN_WORDS);
-
-        if remainder != 0 {
+        if length % 17 != 0 {
             return Err(vec![Felt::from_hex(INVALID_INPUT_LENGTH_ERROR).unwrap()]);
         }
 
-        let input_chunks = input.chunks_exact(KECCAK_FULL_RATE_IN_WORDS);
-        let mut keccak_state = [0u64; 25];
+        let n_chunks = length / 17;
+        let mut state = [0u64; 25];
 
-        for chunk in input_chunks {
+        for i in 0..n_chunks {
+            let chunk = &input[i * 17..(i + 1) * 17];
             for (i, val) in chunk.iter().enumerate() {
-                keccak_state[i] ^= val;
+                state[i] ^= val;
             }
-            keccak::f1600(&mut keccak_state)
+            keccak::f1600(&mut state)
         }
 
-        let hash: Vec<Vec<u8>> =
-            [keccak_state[0], keccak_state[1], keccak_state[2], keccak_state[3]]
-                .iter()
-                .map(|e| e.to_le_bytes().to_vec())
-                .collect();
-
-        let hash = hash.concat();
-
-        let hi: u128 = u128::from_le_bytes(
-            hash[16..32].try_into().map_err(|_| vec![Felt::from_hex(FAILED_TO_PARSE).unwrap()])?,
-        );
-        let lo: u128 = u128::from_le_bytes(
-            hash[0..16].try_into().map_err(|_| vec![Felt::from_hex(FAILED_TO_PARSE).unwrap()])?,
-        );
-
-        Ok(cairo_native::starknet::U256 { hi, lo })
+        Ok(U256 {
+            lo: state[2] as u128 | ((state[3] as u128) << 64),
+            hi: state[0] as u128 | ((state[1] as u128) << 64),
+        })
     }
 
     fn secp256k1_add(
