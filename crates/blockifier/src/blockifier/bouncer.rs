@@ -6,7 +6,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResour
 use crate::abi::constants;
 use crate::transaction::objects::{ResourcesMapping, TransactionExecutionResult};
 
-#[derive(Clone, Default, Eq, PartialEq, Debug)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BouncerInfo {
     pub state_diff_size: usize, // The number of felts needed to store the state diff.
     pub gas_weight: usize,

@@ -7,7 +7,7 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::bouncer::BouncerInfo;
-use crate::bouncer::{Bouncer, BouncerConfig};
+use crate::bouncer::{Bouncer, BouncerConfig, HashMapWrapper};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -66,6 +66,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         bouncer_config: BouncerConfig,
     ) -> Self {
         log::debug!("Initializing Transaction Executor...");
+        println!("yael TransactionExecutor::new  bouncer_config: {:?}", bouncer_config);
         let tx_executor = Self {
             block_context,
             bouncer: Bouncer::new(bouncer_config),
@@ -77,6 +78,11 @@ impl<S: StateReader> TransactionExecutor<S> {
             state,
             staged_for_commit_state: None,
         };
+        println!(
+            "yael TransactionExecutor::new  bouncer_config: {:?}",
+            tx_executor.bouncer.bouncer_config
+        );
+
         log::debug!("Initialized Transaction Executor.");
 
         tx_executor
@@ -89,7 +95,16 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: Transaction,
         charge_fee: bool,
-    ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo)> {
+    ) -> TransactionExecutorResult<(
+        TransactionExecutionInfo,
+        BouncerInfo,
+        HashMap<String, usize>,
+        i32,
+    )> {
+        println!(
+            "yael TransactionExecutor::execute , block number: {}, bouncer_config: {:?}",
+            self.block_context.block_info.block_number, self.bouncer.bouncer_config
+        );
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
@@ -97,6 +112,21 @@ impl<S: StateReader> TransactionExecutor<S> {
             tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
         match tx_execution_result {
             Ok(tx_execution_info) => {
+                // New Bouncer code.
+                // TODO(Yael): Return the error and remove the old bouncer code in the following
+                // PRs.
+                println!(
+                    "yael TransactionExecutor::execute , tx_execution_info: {:?}",
+                    tx_execution_info.actual_resources
+                );
+                let prev_bouncer = self.bouncer.clone();
+                let tx_execution_summary = tx_execution_info.summarize();
+                let res = self.bouncer.try_update(
+                    &mut transactional_state,
+                    &tx_execution_summary,
+                    &tx_execution_info.actual_resources,
+                );
+                println!("yael Bouncer res: {:?}", res);
                 // Prepare bouncer info; the countings here should be linear in the transactional
                 // state changes and execution info rather than the cumulative state attributes.
 
@@ -134,12 +164,44 @@ impl<S: StateReader> TransactionExecutor<S> {
                     state_diff_size,
                 )?;
                 self.staged_for_commit_state = Some(transactional_state.stage(
-                    tx_execution_summary.executed_class_hashes,
-                    tx_execution_summary.visited_storage_entries,
-                    tx_unique_state_changes_keys,
+                    tx_execution_summary.executed_class_hashes.clone(),
+                    tx_execution_summary.visited_storage_entries.clone(),
+                    tx_unique_state_changes_keys.clone(),
                 ));
 
-                Ok((tx_execution_info, bouncer_info))
+                // Code for testing the new bouncer.
+                let mut result = 0;
+                if let Ok(()) = res {
+                    Bouncer::compare_bouncer_results(
+                        &prev_bouncer,
+                        &bouncer_info,
+                        &self.bouncer,
+                        &tx_execution_summary.executed_class_hashes,
+                        &tx_execution_summary.visited_storage_entries,
+                        &tx_unique_state_changes_keys,
+                    );
+                } else if matches!(
+                    res.as_ref().unwrap_err(),
+                    TransactionExecutorError::TransactionExecutionError(
+                        TransactionExecutionError::BlockFull
+                    )
+                ) {
+                    result = 1;
+                } else if matches!(
+                    res.as_ref().unwrap_err(),
+                    TransactionExecutorError::TransactionExecutionError(
+                        TransactionExecutionError::TransactionTooLarge
+                    )
+                ) {
+                    result = 2;
+                } else {
+                    panic!("Unexpected error: {:?}", res.unwrap_err());
+                }
+
+                let accumulated_weights: HashMapWrapper =
+                    (*self.bouncer.accumulated_weights()).into();
+
+                Ok((tx_execution_info, bouncer_info, accumulated_weights, result))
             }
             Err(error) => {
                 transactional_state.abort();

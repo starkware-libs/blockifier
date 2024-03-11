@@ -142,6 +142,10 @@ impl PyBlockExecutor {
             &next_block_info,
             &self.versioned_constants,
         )?;
+        println!(
+            "yael setup_block_execution, after pre_process_block, bouncer_config: {:?}",
+            bouncer_config
+        );
 
         let tx_executor = TransactionExecutor::new(state, block_context, bouncer_config.into());
         self.tx_executor = Some(tx_executor);
@@ -158,11 +162,16 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(Py<PyBytes>, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(Py<PyBytes>, PyBouncerInfo, HashMap<String, usize>, i32)> {
         let charge_fee = true;
         let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-        let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
+        let (tx_execution_info, bouncer_info, accumulated_weights, res) =
+            self.tx_executor().execute(tx, charge_fee)?;
+        println!(
+            "yael py_block_executer, execute, after execute, accumulated_weights: {:?}, res: {:?}",
+            accumulated_weights, res
+        );
         let typed_tx_execution_info = TypedTransactionExecutionInfo {
             info: ThinTransactionExecutionInfo::from_tx_execution_info(
                 &self.tx_executor().block_context,
@@ -176,23 +185,27 @@ impl PyBlockExecutor {
             let bytes_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info).unwrap();
             PyBytes::new(py, &bytes_tx_execution_info).into()
         });
+
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        Ok((raw_tx_execution_info, py_bouncer_info))
+        Ok((raw_tx_execution_info, py_bouncer_info, accumulated_weights, res))
     }
 
     #[pyo3(signature = (txs_with_class_infos))]
     pub fn execute_txs(
         &mut self,
         txs_with_class_infos: Vec<(&PyAny, Option<PyClassInfo>)>,
-    ) -> NativeBlockifierResult<Vec<(RawTransactionExecutionInfo, PyBouncerInfo)>> {
+    ) -> NativeBlockifierResult<
+        Vec<(RawTransactionExecutionInfo, PyBouncerInfo, HashMap<String, usize>, i32)>,
+    > {
         let charge_fee = true;
         let mut result_vec = Vec::new();
 
         for (tx, optional_py_class_info) in txs_with_class_infos.into_iter() {
             let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
             let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-            let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
+            let (tx_execution_info, bouncer_info, accumulated_weights, res) =
+                self.tx_executor().execute(tx, charge_fee)?;
             let typed_tx_execution_info = TypedTransactionExecutionInfo {
                 info: ThinTransactionExecutionInfo::from_tx_execution_info(
                     &self.tx_executor().block_context,
@@ -203,7 +216,7 @@ impl PyBlockExecutor {
             let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
             let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-            result_vec.push((raw_tx_execution_info, py_bouncer_info));
+            result_vec.push((raw_tx_execution_info, py_bouncer_info, accumulated_weights, res));
         }
 
         Ok(result_vec)

@@ -4,6 +4,7 @@ use cairo_vm::serde::deserialize_program::BuiltinName;
 use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
+use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::{
     get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
 };
@@ -34,8 +35,7 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
-#[derive(Debug, Default, PartialEq)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
     pub block_max_capacity_with_keccak: BouncerWeights,
@@ -49,7 +49,6 @@ pub struct BouncerConfig {
     derive_more::Add,
     derive_more::AddAssign,
     derive_more::Sub,
-    Deserialize,
     PartialEq,
 )]
 /// Represents the execution resources counted throughout block creation.
@@ -125,8 +124,7 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct Bouncer {
     // Additional info; maintained and used to calculate the residual contribution of a transaction
     // to the accumulated weights.
@@ -144,16 +142,23 @@ impl Bouncer {
         Bouncer { bouncer_config, ..Default::default() }
     }
 
+    pub fn accumulated_weights(&self) -> &BouncerWeights {
+        &self.accumulated_weights
+    }
+
     fn _update(
         &mut self,
         tx_weights: BouncerWeights,
         tx_execution_summary: &ExecutionSummary,
         state_changes_keys: &StateChangesKeys,
     ) {
+        println!("yael merge, old accumulted weights {:?}", self.accumulated_weights);
+
         self.accumulated_weights += tx_weights;
         self.visited_storage_entries.extend(&tx_execution_summary.visited_storage_entries);
         self.executed_class_hashes.extend(&tx_execution_summary.executed_class_hashes);
         self.state_changes_keys.extend(state_changes_keys);
+        println!("yael merge, new accumulated weights {:?}", self.accumulated_weights);
     }
 
     /// Updates the bouncer with a new transaction.
@@ -173,15 +178,23 @@ impl Bouncer {
             max_capacity = self.bouncer_config.block_max_capacity_with_keccak;
         }
 
+        println!("yael update before txtoobig, tx_weights {:?}", tx_weights);
+        println!(
+            "yael update before txtoobig, transactional_bouncer.accumulated_weights {:?}",
+            self.accumulated_weights
+        );
         // Check if the transaction is too large to fit any block.
         if !max_capacity.has_room(tx_weights) {
             Err(TransactionExecutionError::TransactionTooLarge)?
         }
 
+        println!("yael update before BlockFull");
+
         // Check if the transaction can fit the current block available capacity.
         if !max_capacity.has_room(self.accumulated_weights + tx_weights) {
             Err(TransactionExecutionError::BlockFull)?
         }
+        println!("yael update afterBlockFull");
 
         self._update(tx_weights, tx_execution_summary, &state_changes_keys);
 
@@ -207,6 +220,8 @@ impl Bouncer {
             &self.visited_storage_entries,
             &tx_execution_summary.visited_storage_entries,
         )?;
+        println!("yael get_tx_weights additional_os_resources {:?}", additional_os_resources);
+        println!("yael get_tx_weights tx_resources {:?}", tx_resources.vm_resources);
 
         let vm_resources = &additional_os_resources + &tx_resources.vm_resources;
 
@@ -226,5 +241,123 @@ impl Bouncer {
     ) -> TransactionExecutorResult<StateChangesKeys> {
         let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
         Ok(tx_state_changes_keys.difference(&self.state_changes_keys))
+    }
+
+    // TODO : This is code for testing - remove before PR
+    pub fn compare_bouncer_results(
+        prev_bouncer: &Bouncer,
+        bouncer_info: &BouncerInfo,
+        transaction_bouncer: &Bouncer,
+        tx_executed_class_hashes: &HashSet<ClassHash>,
+        tx_visited_storage_entries: &HashSet<StorageEntry>,
+        tx_unique_state_changes_keys: &StateChangesKeys,
+    ) {
+        println!("yael Bouncer Info {:?}", bouncer_info);
+        println!(
+            "yael Bouncer parent-transactional {:?}",
+            transaction_bouncer.accumulated_weights - prev_bouncer.accumulated_weights
+        );
+        println!(
+            "yael tx_executed_class_hashes {:?}, new : {:?}",
+            tx_executed_class_hashes, transaction_bouncer.executed_class_hashes
+        );
+        println!(
+            "yael tx_visited_storage_entries {:?}, new : {:?}",
+            tx_visited_storage_entries, transaction_bouncer.visited_storage_entries
+        );
+        println!(
+            "yael tx_unique_state_changes_keys {:?}, new : {:?}",
+            tx_unique_state_changes_keys, transaction_bouncer.state_changes_keys
+        );
+
+        assert_eq!(
+            bouncer_info.gas_weight,
+            transaction_bouncer.accumulated_weights.gas - prev_bouncer.accumulated_weights.gas,
+            "yael error in gas_weight"
+        );
+        assert_eq!(
+            bouncer_info.message_segment_length,
+            transaction_bouncer.accumulated_weights.message_segment_length
+                - prev_bouncer.accumulated_weights.message_segment_length,
+            "yael error in message_segment_length"
+        );
+        assert_eq!(
+            bouncer_info.state_diff_size,
+            transaction_bouncer.accumulated_weights.state_diff_size
+                - prev_bouncer.accumulated_weights.state_diff_size,
+            "yael error in state_diff_size"
+        );
+        assert_eq!(
+            bouncer_info.n_events,
+            transaction_bouncer.accumulated_weights.n_events
+                - prev_bouncer.accumulated_weights.n_events,
+            "yael error in n_events"
+        );
+        assert_eq!(
+            bouncer_info.execution_resources.n_steps,
+            transaction_bouncer.accumulated_weights.n_steps
+                - prev_bouncer.accumulated_weights.n_steps,
+            "yael error in n_steps"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::bitwise.name())
+                .unwrap(),
+            transaction_bouncer.accumulated_weights.builtin_count.bitwise
+                - prev_bouncer.accumulated_weights.builtin_count.bitwise,
+            "yael error in bitwise"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::ecdsa.name())
+                .unwrap(),
+            transaction_bouncer.accumulated_weights.builtin_count.ecdsa
+                - prev_bouncer.accumulated_weights.builtin_count.ecdsa,
+            "yael error in ecdsa"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::ec_op.name())
+                .unwrap(),
+            transaction_bouncer.accumulated_weights.builtin_count.ec_op
+                - prev_bouncer.accumulated_weights.builtin_count.ec_op,
+            "yael error in ec_op"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::pedersen.name())
+                .unwrap(),
+            transaction_bouncer.accumulated_weights.builtin_count.pedersen
+                - prev_bouncer.accumulated_weights.builtin_count.pedersen,
+            "yael error in pedersen"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::poseidon.name())
+                .unwrap(),
+            transaction_bouncer.accumulated_weights.builtin_count.poseidon
+                - prev_bouncer.accumulated_weights.builtin_count.poseidon,
+            "yael error in poseidon"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::range_check.name())
+                .unwrap(),
+            transaction_bouncer.accumulated_weights.builtin_count.range_check
+                - prev_bouncer.accumulated_weights.builtin_count.range_check,
+            "yael error in range_check"
+        );
     }
 }
