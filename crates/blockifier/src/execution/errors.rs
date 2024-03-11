@@ -1,3 +1,4 @@
+use cairo_native::error::jit_engine::RunnerError as NativeRunnerError;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
@@ -138,6 +139,11 @@ pub enum EntryPointExecutionError {
         trace: String,
         #[source]
         source: CairoRunError,
+    },
+    #[error("Native Execution Error: {source}.")]
+    NativeExecutionError {
+        #[source]
+        source: NativeRunnerError,
     },
 }
 

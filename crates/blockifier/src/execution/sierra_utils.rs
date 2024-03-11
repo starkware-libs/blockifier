@@ -5,7 +5,7 @@ use std::rc::Rc;
 use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_starknet_classes::contract_class::{ContractEntryPoint, ContractEntryPoints};
-use cairo_native::cache::{JitProgramCache, ProgramCache};
+use cairo_native::cache::{AotProgramCache, JitProgramCache, ProgramCache};
 use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
 use cairo_native::executor::NativeExecutor;
@@ -21,7 +21,8 @@ use starknet_types_core::felt::{Felt, FromStrError};
 
 use super::call_info::{CallExecution, CallInfo, OrderedEvent, OrderedL2ToL1Message, Retdata};
 use super::contract_class::SierraContractClassV1;
-use super::entry_point::CallEntryPoint;
+use super::entry_point::{CallEntryPoint, EntryPointExecutionResult};
+use super::errors::EntryPointExecutionError;
 use super::native_syscall_handler::NativeSyscallHandler;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::state::state_api::State;
@@ -68,16 +69,12 @@ fn cmp_selector_to_entrypoint(
 static NATIVE_CONTEXT: std::sync::OnceLock<cairo_native::context::NativeContext> =
     std::sync::OnceLock::new();
 
-// StarkHash parameter is the class hash type
-// Two alternatives are provided here, one that uses Ahead Of Time compilation,
-// and one that uses Just In Time. Only one is uncommented to avoid accidentally making
-// two caches
-// pub fn get_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
-//     Rc::new(RefCell::new(ProgramCache::Aot(AotProgramCache::new(
-//         NATIVE_CONTEXT.get_or_init(NativeContext::new),
-//     ))))
-// }
-pub fn get_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
+pub fn get_native_aot_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
+    Rc::new(RefCell::new(ProgramCache::Aot(AotProgramCache::new(
+        NATIVE_CONTEXT.get_or_init(NativeContext::new),
+    ))))
+}
+pub fn get_native_jit_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
     Rc::new(RefCell::new(ProgramCache::Jit(JitProgramCache::new(
         NATIVE_CONTEXT.get_or_init(NativeContext::new),
     ))))
@@ -190,37 +187,26 @@ pub fn run_native_executor(
     sierra_entry_function_id: &FunctionId,
     call: &CallEntryPoint,
     syscall_handler: &SyscallHandlerMeta,
-) -> ContractExecutionResult {
-    match native_executor {
-        NativeExecutor::Aot(executor) => {
-            executor
-                .invoke_contract_dynamic(
-                    sierra_entry_function_id,
-                    &starkfelts_to_felts(&call.calldata.0),
-                    Some(call.initial_gas as u128), // TODO track gas reduction?
-                    Some(syscall_handler),
-                )
-                .unwrap_or(ContractExecutionResult {
-                    remaining_gas: 0,
-                    failure_flag: false,
-                    return_values: vec![],
-                    error_msg: Some("error".to_string()),
-                })
-        }
-        NativeExecutor::Jit(executor) => {
-            executor
-                .invoke_contract_dynamic(
-                    sierra_entry_function_id,
-                    &starkfelts_to_felts(&call.calldata.0),
-                    Some(call.initial_gas as u128), // TODO track gas reduction?
-                    Some(syscall_handler),
-                )
-                .unwrap_or(ContractExecutionResult {
-                    remaining_gas: 0,
-                    failure_flag: false,
-                    return_values: vec![],
-                    error_msg: Some("error".to_string()),
-                })
+) -> EntryPointExecutionResult<ContractExecutionResult> {
+    let execution_result = match native_executor {
+        NativeExecutor::Aot(executor) => executor.invoke_contract_dynamic(
+            sierra_entry_function_id,
+            &starkfelts_to_felts(&call.calldata.0),
+            Some(call.initial_gas as u128), // TODO track gas reduction?
+            Some(syscall_handler),
+        ),
+        NativeExecutor::Jit(executor) => executor.invoke_contract_dynamic(
+            sierra_entry_function_id,
+            &starkfelts_to_felts(&call.calldata.0),
+            Some(call.initial_gas as u128), // TODO track gas reduction?
+            Some(syscall_handler),
+        ),
+    };
+
+    match execution_result {
+        Ok(res) => Ok(res),
+        Err(runner_err) => {
+            Err(EntryPointExecutionError::NativeExecutionError { source: runner_err })
         }
     }
 }
@@ -241,7 +227,7 @@ pub fn create_callinfo(
             events,
             l2_to_l1_messages,
             failed: run_result.failure_flag,
-            gas_consumed: NATIVE_GAS_PLACEHOLDER
+            gas_consumed: NATIVE_GAS_PLACEHOLDER,
         },
         resources: ExecutionResources {
             n_steps: 0,

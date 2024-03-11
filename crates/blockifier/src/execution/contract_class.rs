@@ -6,11 +6,14 @@ use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_sierra::program::Program as SierraProgram;
-use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_lang_starknet_classes::casm_contract_class::{
+    CasmContractClass, CasmContractEntryPoint, StarknetSierraCompilationError,
+};
 use cairo_lang_starknet_classes::contract_class::{
     ContractClass as SierraContractClass, ContractEntryPoints as SierraContractEntryPoints,
 };
 use cairo_lang_starknet_classes::NestedIntList;
+use cairo_lang_utils::bigint::BigUintAsHex;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -439,7 +442,7 @@ impl ClassInfo {
         }
     }
 }
-// TODO add default?
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SierraContractClassV1(pub Arc<SierraContractClassV1Inner>);
 impl Deref for SierraContractClassV1 {
@@ -464,6 +467,21 @@ impl SierraContractClassV1 {
 
         Ok(contract_class)
     }
+
+    pub fn to_casm_contract_class(
+        self,
+    ) -> Result<CasmContractClass, StarknetSierraCompilationError> {
+        let sierra_contract_class = SierraContractClass {
+            // todo(rodro): can we do better than cloning?
+            sierra_program: self.sierra_program_raw.clone(),
+            entry_points_by_type: self.entry_points_by_type.clone(),
+            abi: None,
+            sierra_program_debug_info: None,
+            contract_class_version: String::default(),
+        };
+
+        CasmContractClass::from_contract_class(sierra_contract_class, false, usize::MAX)
+    }
 }
 
 impl TryFrom<SierraContractClass> for SierraContractClassV1 {
@@ -471,9 +489,14 @@ impl TryFrom<SierraContractClass> for SierraContractClassV1 {
     type Error = ProgramError;
 
     fn try_from(class: SierraContractClass) -> Result<Self, Self::Error> {
+        // todo(rodro): we are having two instances of a sierra program, one it's object form
+        // and another in its felt encoded form. This can be avoided by either:
+        //   1. Having access to the encoding/decoding functions
+        //   2. Refactoring the code on the Cairo mono-repo
         Ok(Self(Arc::new(SierraContractClassV1Inner {
             sierra_program: class.extract_sierra_program().unwrap(),
             entry_points_by_type: class.entry_points_by_type,
+            sierra_program_raw: class.sierra_program,
         })))
     }
 }
@@ -482,4 +505,5 @@ impl TryFrom<SierraContractClass> for SierraContractClassV1 {
 pub struct SierraContractClassV1Inner {
     pub sierra_program: SierraProgram,
     pub entry_points_by_type: SierraContractEntryPoints,
+    sierra_program_raw: Vec<BigUintAsHex>,
 }
