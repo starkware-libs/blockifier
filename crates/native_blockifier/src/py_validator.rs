@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, TransactionContext};
 use blockifier::execution::call_info::CallInfo;
@@ -28,7 +30,6 @@ pub struct PyValidator {
     pub max_nonce_for_validation_skip: Nonce,
     pub tx_executor: TransactionExecutor<PyStateReader>,
 }
-
 #[pymethods]
 impl PyValidator {
     #[new]
@@ -53,6 +54,7 @@ impl PyValidator {
         // TODO(Yael 24/01/24): calc block_context using pre_process_block
         let block_context =
             BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
+        println!("yael py_calidator create bouncer_config: {:?}", bouncer_config);
         let tx_executor = TransactionExecutor::new(state, block_context, bouncer_config.into());
 
         let validator = Self {
@@ -77,9 +79,12 @@ impl PyValidator {
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
+        println!("yael perform_validations");
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let sentinel_class_info = None;
-            let (_tx_execution_info, _py_bouncer_info) = self.execute(tx, sentinel_class_info)?;
+            println!("yael going into execute deploy account");
+            let (_tx_execution_info, _py_bouncer_info, _accumulated_weights, _res) =
+                self.execute(tx, sentinel_class_info)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());
@@ -146,14 +151,19 @@ impl PyValidator {
         &mut self,
         tx: &PyAny,
         optional_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(ThinTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(
+        ThinTransactionExecutionInfo,
+        PyBouncerInfo,
+        HashMap<String, usize>,
+        i32,
+    )> {
         let limit_execution_steps_by_resource_bounds = true;
         let tx: Transaction = py_tx(tx, optional_class_info)?;
-        let (tx_execution_info, bouncer_info) =
+        let (tx_execution_info, bouncer_info, accumulated_weights, res) =
             self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        Ok((tx_execution_info.into(), py_bouncer_info))
+        Ok((tx_execution_info.into(), py_bouncer_info, accumulated_weights, res))
     }
 
     fn perform_pre_validation_stage(
