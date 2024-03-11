@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::transaction::TransactionVersion;
 
@@ -40,20 +39,15 @@ pub fn calculate_tx_resources(
             data_segment_length,
             use_kzg_da,
         )?;
-    let mut total_vm_usage = total_vm_usage.filter_unused_builtins();
-    // The segment arena" builtin is not part of SHARP (not in any proof layout).
-    // Each instance requires approximately 10 steps in the OS.
-    // TODO(Noa, 01/07/23): Verify the removal of the segmen_arena builtin.
-    let n_steps = total_vm_usage.n_steps
-        + 10 * total_vm_usage
-            .builtin_instance_counter
-            .remove(SEGMENT_ARENA_BUILTIN_NAME)
-            .unwrap_or_default();
+    let total_vm_usage = total_vm_usage.filter_unused_builtins();
 
     let mut tx_resources = HashMap::from([
         (constants::L1_GAS_USAGE.to_string(), l1_gas_usage),
         (constants::BLOB_GAS_USAGE.to_string(), l1_blob_gas_usage),
-        (constants::N_STEPS_RESOURCE.to_string(), n_steps + total_vm_usage.n_memory_holes),
+        (
+            constants::N_STEPS_RESOURCE.to_string(),
+            total_vm_usage.n_steps + total_vm_usage.n_memory_holes,
+        ),
     ]);
     tx_resources.extend(total_vm_usage.builtin_instance_counter);
 
