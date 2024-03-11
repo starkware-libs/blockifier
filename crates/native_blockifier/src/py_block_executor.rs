@@ -10,6 +10,8 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
+use pyo3::types::PyBytes;
+use pyo3::{FromPyObject, PyAny, PyResult, Python};
 use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -25,7 +27,7 @@ use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, py_attr, versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
-use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecutor};
+use crate::transaction_executor::TransactionExecutor;
 
 #[cfg(test)]
 #[path = "py_block_executor_test.rs"]
@@ -114,14 +116,19 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(Py<PyBytes>, PyBouncerInfo)> {
         let charge_fee = true;
         let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
         let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
         let typed_tx_execution_info =
             TypedTransactionExecutionInfo { info: tx_execution_info, tx_type: tx_type.to_string() };
-        let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+
+        // Convert to PyBytes:
+        let raw_tx_execution_info = Python::with_gil(|py| {
+            let bytes_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info).unwrap();
+            PyBytes::new(py, &bytes_tx_execution_info).into()
+        });
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
         Ok((raw_tx_execution_info, py_bouncer_info))

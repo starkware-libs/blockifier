@@ -22,8 +22,6 @@ use starknet_api::core::ClassHash;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 
-pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
-
 // TODO(Gilad): make this hold TransactionContext instead of BlockContext.
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
