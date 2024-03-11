@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
-use crate::abi::constants;
+use crate::abi::constants::{self, N_STEPS_RESOURCE};
 use crate::blockifier::block::BlockInfo;
 use crate::context::{BlockContext, TransactionContext};
 use crate::state::state_api::StateReader;
@@ -36,29 +37,49 @@ pub fn extract_l1_blob_gas_usage(resources: &ResourcesMapping) -> (usize, Resour
     (l1_blob_gas_usage, ResourcesMapping(vm_resource_usage))
 }
 
+pub fn extract_n_steps_gas_usage(resources: &ResourcesMapping) -> (usize, ResourcesMapping) {
+    let mut vm_resource_usage = resources.0.clone();
+    let n_steps = vm_resource_usage.remove(constants::N_STEPS_RESOURCE).unwrap_or_default();
+    (n_steps, ResourcesMapping(vm_resource_usage))
+}
+
 /// Calculates the L1 gas consumed when submitting the underlying Cairo program to SHARP.
 /// I.e., returns the heaviest Cairo resource weight (in terms of L1 gas), as the size of
 /// a proof is determined similarly - by the (normalized) largest segment.
 pub fn calculate_l1_gas_by_vm_usage(
     versioned_constants: &VersionedConstants,
-    vm_resource_usage: &ResourcesMapping,
+    vm_resource_usage: &ExecutionResources,
 ) -> TransactionFeeResult<GasVector> {
     let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
-    let vm_resource_names = HashSet::<&String>::from_iter(vm_resource_usage.0.keys());
+    let vm_resource_names =
+        HashSet::<&String>::from_iter(vm_resource_usage.builtin_instance_counter.keys());
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
     };
+    let n_steps_gas_usage = u128_from_usize(vm_resource_usage.n_steps)
+        * vm_resource_fee_costs
+            .get(N_STEPS_RESOURCE)
+            .cloned()
+            .unwrap_or_default()
+            .ceil()
+            .to_integer();
 
     // Convert Cairo usage to L1 gas usage.
     let vm_l1_gas_usage = vm_resource_fee_costs
         .iter()
         .map(|(key, resource_val)| {
             ((*resource_val)
-                * u128_from_usize(vm_resource_usage.0.get(key).cloned().unwrap_or_default()))
+                * u128_from_usize(
+                    vm_resource_usage
+                        .builtin_instance_counter
+                        .get(key)
+                        .cloned()
+                        .unwrap_or_default(),
+                ))
             .ceil()
             .to_integer()
         })
-        .fold(0, u128::max);
+        .fold(n_steps_gas_usage, u128::max);
 
     Ok(GasVector::from_l1_gas(vm_l1_gas_usage))
 }
@@ -72,7 +93,11 @@ pub fn calculate_tx_gas_vector(
 ) -> TransactionFeeResult<GasVector> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
     let (l1_blob_gas_usage, vm_resources) = extract_l1_blob_gas_usage(&vm_resources);
-    let vm_usage_gas_vector = calculate_l1_gas_by_vm_usage(versioned_constants, &vm_resources)?;
+    let (n_steps, vm_resources) = extract_n_steps_gas_usage(&vm_resources);
+    let execution_resources =
+        ExecutionResources { n_steps, n_memory_holes: 0, builtin_instance_counter: vm_resources.0 };
+    let vm_usage_gas_vector =
+        calculate_l1_gas_by_vm_usage(versioned_constants, &execution_resources)?;
 
     Ok(GasVector {
         l1_gas: u128_from_usize(l1_gas_usage),
