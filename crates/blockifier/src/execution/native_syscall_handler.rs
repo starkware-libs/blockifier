@@ -399,17 +399,18 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
     }
 
     fn keccak(&mut self, input: &[u64], _remaining_gas: &mut u128) -> SyscallResult<U256> {
+        const CHUNK_SIZE: usize = 17;
         let length = input.len();
 
-        if length % 17 != 0 {
+        if length % CHUNK_SIZE != 0 {
             return Err(vec![Felt::from_hex(INVALID_INPUT_LENGTH_ERROR).unwrap()]);
         }
 
-        let n_chunks = length / 17;
+        let n_chunks = length / CHUNK_SIZE;
         let mut state = [0u64; 25];
 
         for i in 0..n_chunks {
-            let chunk = &input[i * 17..(i + 1) * 17];
+            let chunk = &input[i * CHUNK_SIZE..(i + 1) * CHUNK_SIZE];
             for (i, val) in chunk.iter().enumerate() {
                 state[i] ^= val;
             }
