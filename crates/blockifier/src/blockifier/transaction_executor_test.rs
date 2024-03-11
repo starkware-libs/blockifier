@@ -10,16 +10,19 @@ use crate::context::BlockContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::test_utils::{account_invoke_tx, block_context, l1_resource_bounds};
+use crate::transaction::test_utils::{
+    account_invoke_tx, block_context, calculate_class_info_for_testing, l1_resource_bounds,
+};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::L1HandlerTransaction;
-use crate::{deploy_account_tx_args, invoke_tx_args};
+use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 
 fn tx_executor_test_body<S: StateReader>(
     state: CachedState<S>,
@@ -37,6 +40,71 @@ fn tx_executor_test_body<S: StateReader>(
     assert_eq!(bouncer_info.state_diff_size, expected_bouncer_info.state_diff_size);
     assert_eq!(bouncer_info.message_segment_length, expected_bouncer_info.message_segment_length);
     assert_eq!(bouncer_info.n_events, expected_bouncer_info.n_events);
+}
+
+#[rstest]
+#[case::v0(
+    TransactionVersion::ZERO,
+    CairoVersion::Cairo0,
+    BouncerInfo {
+        state_diff_size: 0,
+        message_segment_length: 0,
+        n_events: 0,
+        ..Default::default()
+    }
+)]
+#[case::v1(
+    TransactionVersion::ONE,
+    CairoVersion::Cairo0,
+    BouncerInfo {
+        state_diff_size: 2,
+        message_segment_length: 0,
+        n_events: 0,
+        ..Default::default()
+    }
+)]
+#[case::v2(
+    TransactionVersion::TWO,
+    CairoVersion::Cairo1,
+    BouncerInfo {
+        state_diff_size: 4,
+        message_segment_length: 0,
+        n_events: 0,
+        ..Default::default()
+    }
+)]
+#[case::v3(
+    TransactionVersion::THREE,
+    CairoVersion::Cairo1,
+    BouncerInfo {
+        state_diff_size: 4,
+        message_segment_length: 0,
+        n_events: 0,
+        ..Default::default()
+    }
+)]
+fn test_tx_executor_on_declare(
+    block_context: BlockContext,
+    #[values(true, false)] charge_fee: bool,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
+    #[case] transaction_version: TransactionVersion,
+    #[case] cairo_version: CairoVersion,
+    #[case] expected_bouncer_info: BouncerInfo,
+) {
+    let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
+    let declared_contract = FeatureContract::Empty(cairo_version); // Some unused contract.
+    let state = test_state(&block_context.chain_info, BALANCE, &[(account_contract, 1)]);
+
+    let tx = Transaction::AccountTransaction(declare_tx(
+        declare_tx_args! {
+            sender_address: account_contract.get_instance_address(0),
+            class_hash: declared_contract.get_class_hash(),
+            version: transaction_version,
+            resource_bounds: l1_resource_bounds(0, DEFAULT_STRK_L1_GAS_PRICE),
+        },
+        calculate_class_info_for_testing(declared_contract.get_class()),
+    ));
+    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_info);
 }
 
 #[rstest]
