@@ -14,8 +14,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, TransactionSignature,
-    TransactionVersion,
+    Calldata, Fee, L2ToL1Payload, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -28,14 +27,14 @@ use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{
-    CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
+    CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message, Retdata,
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::execution::syscalls::SyscallSelector;
-use crate::fee::fee_utils::calculate_tx_fee;
+use crate::fee::fee_utils::{calculate_tx_fee, create_fee_transfer_call_info};
 use crate::fee::gas_usage::{
     estimate_minimal_gas_vector, get_da_gas_cost, get_onchain_data_segment_length,
 };
@@ -48,7 +47,6 @@ use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::invoke_tx;
-use crate::test_utils::prices::Prices;
 use crate::test_utils::{
     create_calldata, create_trivial_calldata, get_syscall_resources, get_tx_resources,
     test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager, BALANCE,
@@ -160,6 +158,7 @@ fn expected_validate_call_info(
             call_type: CallType::Call,
             initial_gas: tx_initial_gas(),
         },
+
         // The account contract we use for testing has trivial `validate` functions.
         resources,
         execution: CallExecution { retdata, gas_consumed, ..Default::default() },
@@ -174,6 +173,7 @@ fn expected_fee_transfer_call_info(
     expected_fee_token_class_hash: ClassHash,
 ) -> Option<CallInfo> {
     let block_context = &tx_context.block_context;
+    let tx_info = &tx_context.tx_info;
     let fee_type = &tx_context.tx_info.fee_type();
     let expected_sequencer_address = block_context.block_info.sequencer_address;
     let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
@@ -197,54 +197,17 @@ fn expected_fee_transfer_call_info(
         call_type: CallType::Call,
         initial_gas: block_context.versioned_constants.os_constants.gas_costs.initial_gas_cost,
     };
-    let expected_fee_sender_address = *account_address.0.key();
-    let expected_fee_transfer_event = OrderedEvent {
-        order: 0,
-        event: EventContent {
-            keys: vec![EventKey(selector_from_name(constants::TRANSFER_EVENT_NAME).0)],
-            data: EventData(vec![
-                expected_fee_sender_address,
-                expected_sequencer_address_felt, // Recipient.
-                lsb_expected_amount,
-                msb_expected_amount,
-            ]),
-        },
-    };
 
-    let sender_balance_key_low = get_fee_token_var_address(account_address);
-    let sender_balance_key_high =
-        next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
-    let sequencer_balance_key_low = get_fee_token_var_address(expected_sequencer_address);
-    let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
-        .expect("Cannot get sequencer balance high key.");
-    Some(CallInfo {
-        call: expected_fee_transfer_call,
-        execution: CallExecution {
-            retdata: retdata![stark_felt!(constants::FELT_TRUE)],
-            events: vec![expected_fee_transfer_event],
-            ..Default::default()
-        },
-        resources: Prices::FeeTransfer(account_address, *fee_type).into(),
-        // We read sender balance, write (which starts with read) sender balance, then the same for
-        // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
-        storage_read_values: vec![
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-        ],
-        accessed_storage_keys: HashSet::from_iter(vec![
-            sender_balance_key_low,
-            sender_balance_key_high,
-            sequencer_balance_key_low,
-            sequencer_balance_key_high,
-        ]),
-        ..Default::default()
-    })
+    Some(create_fee_transfer_call_info(
+        expected_fee_transfer_call,
+        block_context,
+        tx_info,
+        account_address,
+        lsb_expected_amount,
+        constants::TRANSFER_EVENT_NAME,
+        retdata![stark_felt!(constants::FELT_TRUE)],
+        BALANCE,
+    ))
 }
 
 fn get_expected_cairo_resources(

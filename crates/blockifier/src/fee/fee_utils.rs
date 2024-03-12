@@ -1,17 +1,24 @@
 use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::Fee;
+use starknet_api::stark_felt;
+use starknet_api::transaction::{EventContent, EventData, EventKey, Fee};
 
+use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::abi::constants;
+use crate::abi::sierra_types::next_storage_key;
 use crate::blockifier::block::BlockInfo;
 use crate::context::{BlockContext, TransactionContext};
+use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
+use crate::execution::entry_point::CallEntryPoint;
 use crate::state::state_api::StateReader;
+use crate::test_utils::prices::Prices;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
-    ExecutionResourcesTraits, FeeType, GasVector, TransactionFeeResult, TransactionInfo,
-    TransactionResources,
+    ExecutionResourcesTraits, FeeType, GasVector, HasRelatedFeeType, TransactionFeeResult,
+    TransactionInfo, TransactionResources,
 };
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -100,7 +107,70 @@ pub fn get_balance_and_if_covers_fee(
         balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0),
     ))
 }
+pub fn create_fee_transfer_call_info(
+    call_entry_point: CallEntryPoint,
+    block_context: &BlockContext,
+    tx_info: &TransactionInfo,
+    account_address: ContractAddress,
+    lsb_amount: StarkFelt,
+    event_name: &str,
+    ret_value: Retdata,
+    balance: u128,
+) -> CallInfo {
+    let fee_type = tx_info.fee_type();
+    let expected_sequencer_address = block_context.block_info.sequencer_address;
+    let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
+    // The most significant 128 bits of the expected amount transferred.
+    let msb_expected_amount = stark_felt!(0_u8);
+    let expected_fee_sender_address = *account_address.0.key();
+    let expected_fee_transfer_event = OrderedEvent {
+        order: 0,
+        event: EventContent {
+            keys: vec![EventKey(selector_from_name(event_name).0)],
+            data: EventData(vec![
+                expected_fee_sender_address,
+                expected_sequencer_address_felt, // Recipient.
+                lsb_amount,
+                msb_expected_amount,
+            ]),
+        },
+    };
 
+    let sender_balance_key_low = get_fee_token_var_address(account_address);
+    let sender_balance_key_high =
+        next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
+    let sequencer_balance_key_low = get_fee_token_var_address(expected_sequencer_address);
+    let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
+        .expect("Cannot get sequencer balance high key.");
+    CallInfo {
+        call: call_entry_point,
+        execution: CallExecution {
+            retdata: ret_value,
+            events: vec![expected_fee_transfer_event],
+            ..Default::default()
+        },
+        resources: Prices::FeeTransfer(account_address, fee_type).into(),
+        // We read sender balance, write (which starts with read) sender balance, then the same for
+        // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
+        storage_read_values: vec![
+            stark_felt!(balance),
+            stark_felt!(0_u8),
+            stark_felt!(balance),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+        ],
+        accessed_storage_keys: HashSet::from_iter(vec![
+            sender_balance_key_low,
+            sender_balance_key_high,
+            sequencer_balance_key_low,
+            sequencer_balance_key_high,
+        ]),
+        ..Default::default()
+    }
+}
 /// Verifies that, given the current state, the account can cover the resource upper bounds.
 /// Error may indicate insufficient balance, or some other error.
 pub fn verify_can_pay_committed_bounds(
