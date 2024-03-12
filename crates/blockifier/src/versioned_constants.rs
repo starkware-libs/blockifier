@@ -463,6 +463,16 @@ impl GasCosts {
     ];
 }
 
+impl TryFrom<&OsConstantsRawJson> for GasCosts {
+    type Error = OsConstantsSerdeError;
+
+    fn try_from(raw_json_data: &OsConstantsRawJson) -> Result<Self, Self::Error> {
+        let gas_costs_value: Value = serde_json::to_value(&raw_json_data.parse_gas_costs()?)?;
+        let gas_costs: GasCosts = serde_json::from_value(gas_costs_value)?;
+        Ok(gas_costs)
+    }
+}
+
 // Below, serde first deserializes the json into a regular IndexMap wrapped by the newtype
 // `OsConstantsRawJson`, then calls the `try_from` of the newtype, which handles the
 // conversion into actual values.
@@ -497,13 +507,9 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
-        // TODO(Ori, 15/03/2024): Move these two lines to an implementation of TryFrom for GasCosts.
-        let gas_costs_map = raw_json_data.parse_gas_costs()?;
-        let gas_costs: GasCosts =
-            serde_json::to_value(&gas_costs_map).and_then(serde_json::from_value)?;
+        let gas_costs = GasCosts::try_from(&raw_json_data)?;
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
         let os_constants = OSConstants { gas_costs, validate_rounding_consts };
-
         Ok(os_constants)
     }
 }
