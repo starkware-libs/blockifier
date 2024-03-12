@@ -77,8 +77,8 @@ impl<S: StateReader> TransactionExecutor<S> {
     }
 
     /// Executes the given transaction on the state maintained by the executor.
-    /// Returns the execution trace, together with the compiled class hashes of executed classes
-    /// (used for counting purposes).
+    /// Returns the execution trace and the resources consumed by the transaction (required for the
+    /// bouncer).
     pub fn execute(
         &mut self,
         tx: Transaction,
