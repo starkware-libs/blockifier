@@ -5,6 +5,7 @@ use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
     SIGNATURE_BUILTIN_NAME,
 };
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use rstest::rstest;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
@@ -23,15 +24,18 @@ use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
 
-fn get_vm_resource_usage() -> ResourcesMapping {
-    ResourcesMapping(HashMap::from([
-        (constants::N_STEPS_RESOURCE.to_string(), 1800),
-        (HASH_BUILTIN_NAME.to_string(), 10),
-        (RANGE_CHECK_BUILTIN_NAME.to_string(), 24),
-        (SIGNATURE_BUILTIN_NAME.to_string(), 1),
-        (BITWISE_BUILTIN_NAME.to_string(), 1),
-        (POSEIDON_BUILTIN_NAME.to_string(), 1),
-    ]))
+fn get_vm_resource_usage() -> ExecutionResources {
+    ExecutionResources {
+        n_steps: 1800,
+        n_memory_holes: 0,
+        builtin_instance_counter: HashMap::from([
+            (HASH_BUILTIN_NAME.to_string(), 10),
+            (RANGE_CHECK_BUILTIN_NAME.to_string(), 24),
+            (SIGNATURE_BUILTIN_NAME.to_string(), 1),
+            (BITWISE_BUILTIN_NAME.to_string(), 1),
+            (POSEIDON_BUILTIN_NAME.to_string(), 1),
+        ]),
+    }
 }
 
 #[test]
@@ -41,16 +45,18 @@ fn test_calculate_l1_gas_by_vm_usage() {
 
     // Positive flow.
     // Verify calculation - in our case, n_steps is the heaviest resource.
-    let l1_gas_by_vm_usage = vm_resource_usage.0.get(constants::N_STEPS_RESOURCE).unwrap();
+    let l1_gas_by_vm_usage = vm_resource_usage.n_steps;
     assert_eq!(
-        GasVector::from_l1_gas(u128_from_usize(*l1_gas_by_vm_usage)),
+        GasVector::from_l1_gas(u128_from_usize(l1_gas_by_vm_usage)),
         calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage).unwrap()
     );
 
     // Negative flow.
     // Pass dict with extra key.
-    let mut invalid_vm_resource_usage = ResourcesMapping(vm_resource_usage.0.clone());
-    invalid_vm_resource_usage.0.insert(String::from("bad_resource_name"), 17);
+    let mut invalid_vm_resource_usage = vm_resource_usage.clone();
+    invalid_vm_resource_usage
+        .builtin_instance_counter
+        .insert(String::from("bad_resource_name"), 17);
     let error =
         calculate_l1_gas_by_vm_usage(&versioned_constants, &invalid_vm_resource_usage).unwrap_err();
     assert_matches!(error, TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
