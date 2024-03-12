@@ -29,6 +29,7 @@ use crate::test_utils::{
 use crate::versioned_constants::VersionedConstants;
 
 const INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET: usize = 65;
+const ACCOUNT_PC_OFFSET: usize = 82;
 
 #[test]
 fn test_call_info_iteration() {
@@ -593,86 +594,92 @@ fn test_stack_trace(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let chain_info = ChainInfo::create_for_testing();
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
-    let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 3)]);
+    let mut state = test_state(&chain_info, BALANCE, &[(account, 1), (test_contract, 2)]);
+    let account_address = account.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
     let test_contract_address_2 = test_contract.get_instance_address(1);
-    let test_contract_address_3 = test_contract.get_instance_address(2);
+    let account_address_felt = *account_address.0.key();
+    let test_contract_address_felt = *test_contract_address.0.key();
+    let test_contract_address_2_felt = *test_contract_address_2.0.key();
 
-    // Nest 3 calls: test_call_contract -> test_call_contract -> assert_0_is_1.
+    // Nest calls: __execute__ -> test_call_contract -> assert_0_is_1.
     let call_contract_function_name = "test_call_contract";
     let inner_entry_point_selector = selector_from_name("fail");
     let calldata = create_calldata(
-        test_contract_address_2, // contract_address
+        test_contract_address, // contract_address
         call_contract_function_name,
         &[
-            *test_contract_address_3.0.key(), // Contract address.
-            inner_entry_point_selector.0,     // Function selector.
-            stark_felt!(0_u8),                // Innermost calldata length.
+            test_contract_address_2_felt, // Contract address.
+            inner_entry_point_selector.0, // Function selector.
+            stark_felt!(0_u8),            // Innermost calldata length.
         ],
     );
+
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name(call_contract_function_name),
+        entry_point_selector: selector_from_name("__execute__"),
         calldata,
-        ..trivial_external_entry_point_with_address(test_contract_address)
+        ..trivial_external_entry_point_with_address(account_address)
     };
 
     // Fetch PC locations from the compiled contract to compute the expected PC locations in the
     // traceback. Computation is not robust, but as long as the cairo function itself is not edited,
     // this computation should be stable.
+    let account_contract_class = account.get_class();
+    let account_entry_point_offset =
+        get_entry_point_offset(&account_contract_class, selector_from_name("__execute__"));
     let contract_class = test_contract.get_class();
     let entry_point_offset =
-        get_entry_point_offset(&contract_class, entry_point_call.entry_point_selector);
+        get_entry_point_offset(&contract_class, selector_from_name(call_contract_function_name));
     // Relative offsets of the test_call_contract entry point and the inner call.
     let call_location = entry_point_offset.0 + 14;
     let entry_point_location = entry_point_offset.0 - 3;
+    // Relative offsets of the account contract.
+    let account_call_location = account_entry_point_offset.0 + 18;
+    let account_entry_point_location = account_entry_point_offset.0 - 8;
 
     let expected_trace_cairo0 = format!(
-        "Error in the called contract ({}):
+        "Error in the called contract ({account_address_felt}):
+Error at pc=0:7:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:{account_call_location})
+Unknown location (pc=0:{account_entry_point_location})
+
+Error in the called contract ({test_contract_address_felt}):
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-Error in the called contract ({}):
-Error at pc=0:37:
-Got an exception while executing a hint.
-Cairo traceback (most recent call last):
-Unknown location (pc=0:{call_location})
-Unknown location (pc=0:{entry_point_location})
-
-Error in the called contract ({}):
+Error in the called contract ({test_contract_address_2_felt}):
 Error at pc=0:1184:
 An ASSERT_EQ instruction failed: 1 != 0.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:1188)
-",
-        *test_contract_address.0.key(),
-        *test_contract_address_2.0.key(),
-        *test_contract_address_3.0.key(),
+"
     );
 
+    let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
     let pc_location = entry_point_offset.0 + 82;
     let expected_trace_cairo1 = format!(
-        "Error in the called contract ({}):
-Error at pc=0:4992:
+        "Error in the called contract ({account_address_felt}):
+Error at pc=0:797:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
-Unknown location (pc=0:{pc_location})
+Unknown location (pc=0:{account_pc_location})
 
-Error in the called contract ({}):
+Error in the called contract ({test_contract_address_felt}):
 Error at pc=0:4992:
 Got an exception while executing a hint: Execution failed. Failure reason: 0x6661696c ('fail').
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-Error in the called contract ({}):
+Error in the called contract ({test_contract_address_2_felt}):
 Execution failed. Failure reason: 0x6661696c ('fail').
-",
-        *test_contract_address.0.key(),
-        *test_contract_address_2.0.key(),
-        *test_contract_address_3.0.key(),
+"
     );
 
     let expected_trace = match cairo_version {
@@ -685,7 +692,7 @@ Execution failed. Failure reason: 0x6661696c ('fail').
             assert_eq!(trace, expected_trace);
             // Temporarily here. Will be removed once the new stack trace is integrated..
             let new_stack_trace: String =
-                gen_error_stack_trace_for_testing(&source, *test_contract_address.0.key());
+                gen_error_stack_trace_for_testing(&source, account_address_felt);
             assert_eq!(new_stack_trace, expected_trace)
         }
         other_error => panic!("Unexpected error type: {other_error:?}"),
@@ -704,40 +711,62 @@ fn test_trace_callchain_ends_with_regular_call(
     #[case] expected_pc_locations: (u16, u16),
 ) {
     let chain_info = ChainInfo::create_for_testing();
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
-    let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 1)]);
+    let mut state = test_state(&chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+
+    let account_address = account_contract.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
+    let account_address_felt = *account_address.0.key();
     let contract_address_felt = *test_contract_address.0.key();
 
     // invoke_call_chain -> call_contract_syscall invoke_call_chain -> regular call to final func.
     let invoke_call_chain_selector = selector_from_name("invoke_call_chain");
 
-    let calldata = calldata![
-        stark_felt!(7_u8),                    // Calldata length
-        contract_address_felt,                // Contract address.
-        invoke_call_chain_selector.0,         // Function selector.
-        stark_felt!(0_u8),                    // Call type: call_contract_syscall.
-        stark_felt!(3_u8),                    // Calldata length
-        contract_address_felt,                // Contract address.
-        selector_from_name(last_func_name).0, // Function selector.
-        stark_felt!(2_u8)                     // Call type: regular call.
-    ];
+    let calldata = create_calldata(
+        test_contract_address, // contract_address
+        "invoke_call_chain",
+        &[
+            stark_felt!(7_u8),                    // Calldata length
+            contract_address_felt,                // Contract address.
+            invoke_call_chain_selector.0,         // Function selector.
+            stark_felt!(0_u8),                    // Call type: call_contract_syscall.
+            stark_felt!(3_u8),                    // Calldata length
+            contract_address_felt,                // Contract address.
+            selector_from_name(last_func_name).0, // Function selector.
+            stark_felt!(2_u8),                    // Call type: regular call.
+        ],
+    );
 
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: invoke_call_chain_selector,
+        entry_point_selector: selector_from_name("__execute__"),
         calldata,
-        ..trivial_external_entry_point_with_address(test_contract_address)
+        ..trivial_external_entry_point_with_address(account_address)
     };
 
+    let account_entry_point_offset =
+        get_entry_point_offset(&account_contract.get_class(), selector_from_name("__execute__"));
     let entry_point_offset =
-        get_entry_point_offset(&test_contract.get_class(), entry_point_call.entry_point_selector);
+        get_entry_point_offset(&test_contract.get_class(), invoke_call_chain_selector);
 
     let expected_trace = match cairo_version {
         CairoVersion::Cairo0 => {
             let call_location = entry_point_offset.0 + 12;
             let entry_point_location = entry_point_offset.0 - 61;
+            // Relative offsets of the account contract.
+            let account_call_location = account_entry_point_offset.0 + 18;
+            let account_entry_point_location = account_entry_point_offset.0 - 8;
+            // Final invocation locations.
+            let (expected_pc0, expected_pc1) = expected_pc_locations;
             format!(
-                "Error in the called contract ({contract_address_felt}):
+                "Error in the called contract ({account_address_felt}):
+Error at pc=0:7:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:{account_call_location})
+Unknown location (pc=0:{account_entry_point_location})
+
+Error in the called contract ({contract_address_felt}):
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
@@ -745,19 +774,25 @@ Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
 Error in the called contract ({contract_address_felt}):
-Error at pc=0:{}:
+Error at pc=0:{expected_pc0}:
 {expected_error}
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
-Unknown location (pc=0:{})
-",
-                expected_pc_locations.0, expected_pc_locations.1
+Unknown location (pc=0:{expected_pc1})
+"
             )
         }
         CairoVersion::Cairo1 => {
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
+            let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
             format!(
-                "Error in the called contract ({contract_address_felt}):
+                "Error in the called contract ({account_address_felt}):
+Error at pc=0:797:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:{account_pc_location})
+
+Error in the called contract ({contract_address_felt}):
 Error at pc=0:8010:
 Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
 Cairo traceback (most recent call last):
@@ -775,7 +810,7 @@ Execution failed. Failure reason: {expected_error}.
             assert_eq!(trace, expected_trace);
             // Temporarily here. Will be removed once the new stack trace is integrated..
             let new_stack_trace: String =
-                gen_error_stack_trace_for_testing(&source, *test_contract_address.0.key());
+                gen_error_stack_trace_for_testing(&source, account_address_felt);
             assert_eq!(new_stack_trace, expected_trace)
         }
         other_error => panic!("Unexpected error type: {other_error:?}"),
@@ -800,10 +835,15 @@ fn test_trace_call_chain_with_syscalls(
     #[case] expected_pcs: (u16, u16, u16, u16),
 ) {
     let chain_info = ChainInfo::create_for_testing();
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
-    let mut state = test_state(&chain_info, BALANCE, &[(test_contract, 1)]);
+    let mut state = test_state(&chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+
+    let account_address = account_contract.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
+
     let test_contract_hash = test_contract.get_class_hash().0;
+    let account_address_felt = *account_address.0.key();
     let address_felt = *test_contract_address.0.key();
     let contract_id = if call_type == 0 { address_felt } else { test_contract_hash };
 
@@ -811,7 +851,7 @@ fn test_trace_call_chain_with_syscalls(
     // library_call_syscall to final func.
     let invoke_call_chain_selector = selector_from_name("invoke_call_chain");
 
-    let mut calldata = vec![
+    let mut raw_calldata = vec![
         stark_felt!(7_u8 + calldata_extra_length), // Calldata length
         address_felt,                              // Contract address.
         invoke_call_chain_selector.0,              // Function selector.
@@ -824,24 +864,43 @@ fn test_trace_call_chain_with_syscalls(
 
     // Need to send an empty array for the last call in `invoke_call_chain` variant.
     if last_func_name == "invoke_call_chain" {
-        calldata.push(stark_felt!(0_u8));
+        raw_calldata.push(stark_felt!(0_u8));
     }
 
+    let calldata = create_calldata(
+        test_contract_address, // contract_address
+        "invoke_call_chain",
+        &raw_calldata,
+    );
+
     let entry_point_call = CallEntryPoint {
-        entry_point_selector: invoke_call_chain_selector,
-        calldata: Calldata(calldata.into()),
-        ..trivial_external_entry_point_with_address(test_contract_address)
+        entry_point_selector: selector_from_name("__execute__"),
+        calldata,
+        ..trivial_external_entry_point_with_address(account_address)
     };
 
+    let account_entry_point_offset =
+        get_entry_point_offset(&account_contract.get_class(), selector_from_name("__execute__"));
     let entry_point_offset =
-        get_entry_point_offset(&test_contract.get_class(), entry_point_call.entry_point_selector);
+        get_entry_point_offset(&test_contract.get_class(), invoke_call_chain_selector);
 
     let expected_trace = match cairo_version {
         CairoVersion::Cairo0 => {
             let call_location = entry_point_offset.0 + 12;
             let entry_point_location = entry_point_offset.0 - 61;
+            // Relative offsets of the account contract.
+            let account_call_location = account_entry_point_offset.0 + 18;
+            let account_entry_point_location = account_entry_point_offset.0 - 8;
+            let (expected_pc0, expected_pc1, expected_pc2, expected_pc3) = expected_pcs;
             format!(
-                "Error in the called contract ({address_felt}):
+                "Error in the called contract ({account_address_felt}):
+Error at pc=0:7:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:{account_call_location})
+Unknown location (pc=0:{account_entry_point_location})
+
+Error in the called contract ({address_felt}):
 Error at pc=0:37:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
@@ -849,40 +908,46 @@ Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
 Error in the called contract ({address_felt}):
-Error at pc=0:{}:
+Error at pc=0:{expected_pc0}:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
-Unknown location (pc=0:{})
+Unknown location (pc=0:{expected_pc1})
 
 Error in the called contract ({address_felt}):
-Error at pc=0:{}:
+Error at pc=0:{expected_pc2}:
 {expected_error}
 Cairo traceback (most recent call last):
-Unknown location (pc=0:{})
-",
-                expected_pcs.0, expected_pcs.1, expected_pcs.2, expected_pcs.3
+Unknown location (pc=0:{expected_pc3})
+"
             )
         }
         CairoVersion::Cairo1 => {
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
+            let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
+            let expected_pc = expected_pcs.0;
             format!(
-                "Error in the called contract ({address_felt}):
+                "Error in the called contract ({account_address_felt}):
+Error at pc=0:797:
+Got an exception while executing a hint.
+Cairo traceback (most recent call last):
+Unknown location (pc=0:{account_pc_location})
+
+Error in the called contract ({address_felt}):
 Error at pc=0:8010:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({address_felt}):
-Error at pc=0:{}:
+Error at pc=0:{expected_pc}:
 Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({address_felt}):
 Execution failed. Failure reason: {expected_error}.
-",
-                expected_pcs.0
+"
             )
         }
     };
@@ -892,7 +957,7 @@ Execution failed. Failure reason: {expected_error}.
             assert_eq!(trace, expected_trace);
             // Temporarily here. Will be removed once the new stack trace is integrated..
             let new_stack_trace: String =
-                gen_error_stack_trace_for_testing(&source, *test_contract_address.0.key());
+                gen_error_stack_trace_for_testing(&source, account_address_felt);
             assert_eq!(new_stack_trace, expected_trace)
         }
         other_error => panic!("Unexpected error type: {other_error:?}"),
