@@ -1,20 +1,27 @@
 use std::sync::Arc;
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use starknet_api::calldata;
+use num_bigint::BigInt;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
+use starknet_api::transaction::{
+    Calldata, Fee, ResourceBounds, TransactionVersion,
+};
+use starknet_api::calldata;
 
-use crate::abi::abi_utils::selector_from_name;
+use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
-use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_bounds};
+use crate::fee::fee_utils::{
+    create_fee_transfer_call_info, get_fee_by_gas_vector, verify_can_pay_committed_bounds,
+};
 use crate::fee::gas_usage::{compute_discounted_gas_from_gas_vector, estimate_minimal_gas_vector};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, StateChanges, TransactionalState};
@@ -288,22 +295,18 @@ impl AccountTransaction {
         Ok(Some(fee_transfer_call_info))
     }
 
-    fn execute_fee_transfer(
+    fn create_call_info(
         state: &mut dyn State,
-        tx_context: Arc<TransactionContext>,
-        actual_fee: Fee,
-    ) -> TransactionExecutionResult<CallInfo> {
-        // The least significant 128 bits of the amount transferred.
-        let lsb_amount = StarkFelt::from(actual_fee.0);
+        block_context: &BlockContext,
+        tx_info: &TransactionInfo,
+        lsb_amount: StarkFelt,
+        storage_address: ContractAddress,
+    ) -> CallInfo {
         // The most significant 128 bits of the amount transferred.
         let msb_amount = StarkFelt::from(0_u8);
-
-        let TransactionContext { block_context, tx_info } = tx_context.as_ref();
-
-        // TODO(Gilad): add test that correct fee address is taken, once we add V3 test support.
-        let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
+        let class_hash = state.get_class_hash_at(storage_address).unwrap();
         let fee_transfer_call = CallEntryPoint {
-            class_hash: None,
+            class_hash: class_hash.into(),
             code_address: None,
             entry_point_type: EntryPointType::External,
             entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
@@ -319,11 +322,81 @@ impl AccountTransaction {
             initial_gas: block_context.versioned_constants.os_constants.gas_costs.initial_gas_cost,
         };
 
-        let mut context = EntryPointExecutionContext::new_invoke(tx_context, true)?;
+        create_fee_transfer_call_info(
+            fee_transfer_call,
+            block_context,
+            tx_info,
+            tx_info.sender_address(),
+            lsb_amount,
+            constants::TRANSFER_EVENT_NAME,
+            retdata![StarkFelt::from(constants::FELT_TRUE)],
+        )
+    }
 
-        Ok(fee_transfer_call
-            .execute(state, &mut ExecutionResources::default(), &mut context)
-            .map_err(TransactionFeeError::ExecuteFeeTransferError)?)
+    fn set_balance(
+        state: &mut dyn State,
+        fee_token_address: ContractAddress,
+        contract: ContractAddress,
+        amount: Felt252,
+    ) {
+        let sender_balance_key = get_fee_token_var_address(contract);
+        let sender_balance_value =
+            state.get_storage_at(fee_token_address, sender_balance_key).unwrap();
+        let value = stark_felt_to_felt(sender_balance_value) + amount;
+        assert!(value.to_signed_felt() >= BigInt::from(0), "balance cannot be negative");
+        state
+            .set_storage_at(fee_token_address, sender_balance_key, felt_to_stark_felt(&value))
+            .unwrap();
+        println!("set balance: {:?}", value);
+    }
+
+    pub fn transfer(
+        state: &mut dyn State,
+        fee_token_address: ContractAddress,
+        sender: ContractAddress,
+        recipient: ContractAddress,
+        amount: StarkFelt,
+    ) {
+        AccountTransaction::set_balance(
+            state,
+            fee_token_address,
+            sender,
+            -stark_felt_to_felt(amount),
+        );
+        AccountTransaction::set_balance(
+            state,
+            fee_token_address,
+            recipient,
+            stark_felt_to_felt(amount),
+        );
+    }
+
+    fn execute_fee_transfer(
+        state: &mut dyn State,
+        tx_context: Arc<TransactionContext>,
+        actual_fee: Fee,
+    ) -> TransactionExecutionResult<CallInfo> {
+        // The least significant 128 bits of the amount transferred.
+        let lsb_amount = StarkFelt::from(actual_fee.0);
+        let TransactionContext { block_context, tx_info } = tx_context.as_ref();
+        // TODO(Gilad): add test that correct fee address is taken, once we add V3 test support.
+        let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
+        AccountTransaction::transfer(
+            state,
+            storage_address,
+            tx_info.sender_address(),
+            block_context.block_info.sequencer_address,
+            lsb_amount,
+        );
+
+        let result = AccountTransaction::create_call_info(
+            state,
+            block_context,
+            tx_info,
+            lsb_amount,
+            storage_address,
+        );
+        Ok(result)
     }
 
     fn run_execute<S: State>(
