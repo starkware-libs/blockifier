@@ -18,7 +18,6 @@ use crate::py_block_executor::{
 };
 use crate::py_state_diff::{PyBlockInfo, PyBouncerConfig};
 use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
-use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
 
@@ -79,7 +78,7 @@ impl PyValidator {
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let sentinel_class_info = None;
-            let (_tx_execution_info, _py_bouncer_info) = self.execute(tx, sentinel_class_info)?;
+            let _tx_execution_info = self.execute(tx, sentinel_class_info)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());
@@ -146,14 +145,13 @@ impl PyValidator {
         &mut self,
         tx: &PyAny,
         optional_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(ThinTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<ThinTransactionExecutionInfo> {
         let limit_execution_steps_by_resource_bounds = true;
         let tx: Transaction = py_tx(tx, optional_class_info)?;
-        let (tx_execution_info, bouncer_info) =
+        let tx_execution_info =
             self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
-        let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        Ok((tx_execution_info.into(), py_bouncer_info))
+        Ok(tx_execution_info.into())
     }
 
     fn perform_pre_validation_stage(
