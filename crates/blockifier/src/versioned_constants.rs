@@ -52,7 +52,7 @@ pub struct VersionedConstants {
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
-    pub os_constants: Arc<OSConstants>,
+    pub os_constants: Arc<OsConstants>,
 
     // Resources.
     os_resources: Arc<OsResources>,
@@ -441,12 +441,12 @@ pub struct GasCosts {
 // in the `try_from`.
 #[derive(Debug, Default, Deserialize)]
 #[serde(try_from = "OsConstantsRawJson")]
-pub struct OSConstants {
+pub struct OsConstants {
     pub gas_costs: GasCosts,
     validate_rounding_consts: ValidateRoundingConsts,
 }
 
-impl OSConstants {
+impl OsConstants {
     // List of additinal os constants, beside the gas cost and validate rounding constants, that are
     // not used by the blockifier but included for transparency. These constanst will be ignored
     // during the creation of the struct containing the gas costs.
@@ -490,13 +490,13 @@ impl TryFrom<&OsConstantsRawJson> for GasCosts {
     }
 }
 
-impl TryFrom<OsConstantsRawJson> for OSConstants {
+impl TryFrom<OsConstantsRawJson> for OsConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
         let gas_costs = GasCosts::try_from(&raw_json_data)?;
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
-        let os_constants = OSConstants { gas_costs, validate_rounding_consts };
+        let os_constants = OsConstants { gas_costs, validate_rounding_consts };
         Ok(os_constants)
     }
 }
@@ -515,7 +515,7 @@ impl OsConstantsRawJson {
     fn parse_gas_costs(&self) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
         let mut gas_costs = IndexMap::new();
         let additional_fields: IndexSet<_> =
-            OSConstants::ADDITIONAL_FIELDS.iter().copied().collect();
+            OsConstants::ADDITIONAL_FIELDS.iter().copied().collect();
         for (key, value) in &self.raw_json_file_as_dict {
             if additional_fields.contains(key.as_str()) {
                 // Ignore additional constants.
