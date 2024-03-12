@@ -406,6 +406,17 @@ pub struct GasCosts {
     pub keccak_round_cost_gas_cost: u64,
 }
 
+impl TryFrom<OsConstantsRawJson> for GasCosts {
+    type Error = OsConstantsSerdeError;
+
+    fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
+        let gas_costs_map = raw_json_data.parse_gas_costs()?;
+        let gas_costs: GasCosts =
+            serde_json::to_value(&gas_costs_map).and_then(serde_json::from_value).unwrap();
+        Ok(gas_costs)
+    }
+}
+
 impl OSConstants {
     // List of all gas cost constants that *must* be present in the JSON file, all other consts are
     // ignored. See documentation in core/os/constants.cairo.
@@ -458,13 +469,9 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
-        // TODO(Ori, 15/03/2024): Move these two lines to an implementation of TryFrom for GasCosts.
-        let gas_costs_map = raw_json_data.parse_gas_costs()?;
-        let gas_costs: GasCosts =
-            serde_json::to_value(&gas_costs_map).and_then(serde_json::from_value).unwrap();
-        let validate_rounding_consts = raw_json_data.validate_rounding_consts;
+        let validate_rounding_consts = raw_json_data.validate_rounding_consts.clone();
+        let gas_costs = GasCosts::try_from(raw_json_data)?;
         let os_constants = OSConstants { gas_costs, validate_rounding_consts };
-
         Ok(os_constants)
     }
 }
