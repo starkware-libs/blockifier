@@ -425,10 +425,10 @@ impl GasCosts {
     ];
 }
 
-impl TryFrom<&OsConstantsRawJson> for GasCosts {
-    type Error = OsConstantsSerdeError;
+impl TryFrom<&OSConstantsRawJson> for GasCosts {
+    type Error = OSConstantsSerdeError;
 
-    fn try_from(raw_json_data: &OsConstantsRawJson) -> Result<Self, Self::Error> {
+    fn try_from(raw_json_data: &OSConstantsRawJson) -> Result<Self, Self::Error> {
         let gas_costs: GasCosts =
             serde_json::from_value(serde_json::to_value(&raw_json_data.parse_gas_costs()?)?)?;
         Ok(gas_costs)
@@ -436,12 +436,12 @@ impl TryFrom<&OsConstantsRawJson> for GasCosts {
 }
 
 // Below, serde first deserializes the json into a regular IndexMap wrapped by the newtype
-// `OsConstantsRawJson`, then calls the `try_from` of the newtype, which handles the
+// `OSConstantsRawJson`, then calls the `try_from` of the newtype, which handles the
 // conversion into actual values.
 // TODO: consider encoding the * and + operations inside the json file, instead of hardcoded below
 // in the `try_from`.
 #[derive(Clone, Debug, Default, Deserialize)]
-#[serde(try_from = "OsConstantsRawJson")]
+#[serde(try_from = "OSConstantsRawJson")]
 pub struct OSConstants {
     pub gas_costs: GasCosts,
     validate_rounding_consts: ValidateRoundingConsts,
@@ -465,10 +465,10 @@ impl OSConstants {
     }
 }
 
-impl TryFrom<OsConstantsRawJson> for OSConstants {
-    type Error = OsConstantsSerdeError;
+impl TryFrom<OSConstantsRawJson> for OSConstants {
+    type Error = OSConstantsSerdeError;
 
-    fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
+    fn try_from(raw_json_data: OSConstantsRawJson) -> Result<Self, Self::Error> {
         let gas_costs = GasCosts::try_from(&raw_json_data)?;
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
         let os_constants = OSConstants { gas_costs, validate_rounding_consts };
@@ -479,15 +479,15 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
 // Intermediate representation of the JSON file in order to make the deserialization easier, using a
 // regular try_from.
 #[derive(Debug, Deserialize)]
-struct OsConstantsRawJson {
+struct OSConstantsRawJson {
     #[serde(flatten)]
     raw_json_file_as_dict: IndexMap<String, Value>,
     #[serde(default)]
     validate_rounding_consts: ValidateRoundingConsts,
 }
 
-impl OsConstantsRawJson {
-    fn parse_gas_costs(&self) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
+impl OSConstantsRawJson {
+    fn parse_gas_costs(&self) -> Result<IndexMap<String, u64>, OSConstantsSerdeError> {
         let mut gas_costs = IndexMap::new();
         let additional_fields: IndexSet<_> = GasCosts::ADDITIONAL_FIELDS.iter().copied().collect();
         for (key, value) in &self.raw_json_file_as_dict {
@@ -508,14 +508,14 @@ impl OsConstantsRawJson {
         key: &str,
         value: &Value,
         gas_costs: &mut IndexMap<String, u64>,
-    ) -> Result<(), OsConstantsSerdeError> {
+    ) -> Result<(), OSConstantsSerdeError> {
         if gas_costs.contains_key(key) {
             return Ok(());
         }
 
         match value {
             Value::Number(n) => {
-                let value = n.as_u64().ok_or_else(|| OsConstantsSerdeError::OutOfRange {
+                let value = n.as_u64().ok_or_else(|| OSConstantsSerdeError::OutOfRange {
                     key: key.to_string(),
                     value: n.clone(),
                 })?;
@@ -530,20 +530,20 @@ impl OsConstantsRawJson {
                 for (inner_key, factor) in obj {
                     let inner_value =
                         &self.raw_json_file_as_dict.get(inner_key).ok_or_else(|| {
-                            OsConstantsSerdeError::KeyNotFound {
+                            OSConstantsSerdeError::KeyNotFound {
                                 key: key.to_string(),
                                 inner_key: inner_key.clone(),
                             }
                         })?;
                     self.recursive_add_to_gas_costs(inner_key, inner_value, gas_costs)?;
                     let inner_key_value = gas_costs.get(inner_key).ok_or_else(|| {
-                        OsConstantsSerdeError::KeyNotFound {
+                        OSConstantsSerdeError::KeyNotFound {
                             key: key.to_string(),
                             inner_key: inner_key.to_string(),
                         }
                     })?;
                     let factor =
-                        factor.as_u64().ok_or_else(|| OsConstantsSerdeError::OutOfRangeFactor {
+                        factor.as_u64().ok_or_else(|| OSConstantsSerdeError::OutOfRangeFactor {
                             key: key.to_string(),
                             value: factor.clone(),
                         })?;
@@ -557,7 +557,7 @@ impl OsConstantsRawJson {
                      check and should not be depended on"
                 )
             }
-            _ => return Err(OsConstantsSerdeError::UnhandledValueType(value.clone())),
+            _ => return Err(OSConstantsSerdeError::UnhandledValueType(value.clone())),
         }
 
         Ok(())
@@ -577,7 +577,7 @@ pub enum VersionedConstantsError {
 }
 
 #[derive(Debug, Error)]
-pub enum OsConstantsSerdeError {
+pub enum OSConstantsSerdeError {
     #[error("Value cannot be cast into u64: {0}")]
     InvalidFactorFormat(Value),
     #[error("Unknown key '{inner_key}' used to create value for '{key}'")]
