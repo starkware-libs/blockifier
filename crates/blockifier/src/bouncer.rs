@@ -213,10 +213,13 @@ impl Bouncer {
         self.auxiliary_info
             .executed_class_hashes
             .extend(other.auxiliary_info.executed_class_hashes);
-        self.auxiliary_info.state_changes_keys.extend(&other.auxiliary_info.state_changes_keys);
         self.auxiliary_info
             .visited_storage_entries
             .extend(other.auxiliary_info.visited_storage_entries);
+        // Note: cancelling writes (0 -> 1 -> 0) will not be removed,
+        // but it's fine since fee was charged for them.
+        self.auxiliary_info.state_changes_keys.extend(&other.auxiliary_info.state_changes_keys);
+
         self.block_contains_keccak = other.block_contains_keccak;
         self.available_capacity = other.available_capacity;
     }

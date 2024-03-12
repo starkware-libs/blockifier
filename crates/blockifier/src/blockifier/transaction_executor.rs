@@ -87,7 +87,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: Transaction,
         charge_fee: bool,
-    ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo)> {
+    ) -> TransactionExecutorResult<TransactionExecutionInfo> {
         // TODO(yael, 25/2/2024): consider moving the l1_handler_payload_size calc into
         // calc_message_segment_length(), this requires clone or copy of the tx.
         let l1_handler_payload_size: Option<usize> =
@@ -103,67 +103,21 @@ impl<S: StateReader> TransactionExecutor<S> {
             tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
         match tx_execution_result {
             Ok(tx_execution_info) => {
-                // New Bouncer code.
-                // TODO(Yael): Return the error and remove the old bouncer code in the following
-                // PRs.
-                let _ = self.bouncer.update(
+                self.bouncer.update(
                     &self.bouncer_config,
                     &mut transactional_state,
                     &tx_execution_info,
                     l1_handler_payload_size,
-                );
-
-                // Prepare bouncer info; the countings here should be linear in the transactional
-                // state changes and execution info rather than the cumulative state attributes.
-
-                // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
-                let tx_execution_summary = tx_execution_info.summarize();
-
-                // Count message to L1 resources.
-                let (message_segment_length, messages_gas_usage) =
-                    calc_message_l1_resources(&tx_execution_info, l1_handler_payload_size)?;
-
-                // Count additional OS resources.
-                let mut additional_os_resources = get_casm_hash_calculation_resources(
-                    &mut transactional_state,
-                    &self.executed_class_hashes,
-                    &tx_execution_summary.executed_class_hashes,
-                )?;
-                additional_os_resources += &get_particia_update_resources(
-                    &self.visited_storage_entries,
-                    &tx_execution_summary.visited_storage_entries,
                 )?;
 
-                // Count residual state diff size (w.r.t. the OS output encoding).
-                let tx_state_changes_keys =
-                    transactional_state.get_actual_state_changes()?.into_keys();
-                let tx_unique_state_changes_keys =
-                    tx_state_changes_keys.difference(&self.state_changes_keys);
-                // Note: block-constant felts are not counted here. so the bouncer needs to
-                // tune the size limit accordingly. E.g., the felt that encodes the number of
-                // modified contracts in a block.
-                let state_diff_size =
-                    get_onchain_data_segment_length(&tx_unique_state_changes_keys.count());
+                transactional_state.commit();
+                log::debug!("Transaction execution complete and committed.");
 
-                // Finalize counting logic.
-                let bouncer_info = BouncerInfo::calculate(
-                    &tx_execution_info.bouncer_resources,
-                    messages_gas_usage,
-                    additional_os_resources,
-                    message_segment_length,
-                    state_diff_size,
-                    tx_execution_summary.n_events,
-                )?;
-                self.staged_for_commit_state = Some(transactional_state.stage(
-                    tx_execution_summary.executed_class_hashes,
-                    tx_execution_summary.visited_storage_entries,
-                    tx_unique_state_changes_keys,
-                ));
-
-                Ok((tx_execution_info, bouncer_info))
+                Ok(tx_execution_info)
             }
             Err(error) => {
                 transactional_state.abort();
+                log::debug!("Transaction execution failed with: {error}");
                 Err(TransactionExecutorError::TransactionExecutionError(error))
             }
         }
@@ -244,14 +198,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             finalized_transactional_state.global_class_hash_to_class,
         );
         self.state.update_visited_pcs_cache(&finalized_transactional_state.visited_pcs);
-
-        self.executed_class_hashes.extend(&finalized_transactional_state.tx_executed_class_hashes);
-        self.visited_storage_entries
-            .extend(&finalized_transactional_state.tx_visited_storage_entries);
-
-        // Note: cancelling writes (0 -> 1 -> 0) will not be removed,
-        // but it's fine since fee was charged for them.
-        self.state_changes_keys.extend(&finalized_transactional_state.tx_unique_state_changes_keys);
 
         self.staged_for_commit_state = None
     }

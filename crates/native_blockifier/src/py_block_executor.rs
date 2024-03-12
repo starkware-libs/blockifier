@@ -147,37 +147,35 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<RawTransactionExecutionInfo> {
         let charge_fee = true;
         let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-        let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
+        let tx_execution_info = self.tx_executor().execute(tx, charge_fee)?;
         let typed_tx_execution_info =
             TypedTransactionExecutionInfo { info: tx_execution_info.into(), tx_type };
         let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
-        let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-        Ok((raw_tx_execution_info, py_bouncer_info))
+        Ok(raw_tx_execution_info)
     }
 
     #[pyo3(signature = (txs_with_class_infos))]
     pub fn execute_txs(
         &mut self,
         txs_with_class_infos: Vec<(&PyAny, Option<PyClassInfo>)>,
-    ) -> NativeBlockifierResult<Vec<(RawTransactionExecutionInfo, PyBouncerInfo)>> {
+    ) -> NativeBlockifierResult<Vec<RawTransactionExecutionInfo>> {
         let charge_fee = true;
         let mut result_vec = Vec::new();
 
         for (tx, optional_py_class_info) in txs_with_class_infos.into_iter() {
             let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
             let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-            let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
+            let tx_execution_info = self.tx_executor().execute(tx, charge_fee)?;
             let typed_tx_execution_info =
                 TypedTransactionExecutionInfo { info: tx_execution_info.into(), tx_type };
             let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
-            let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
-            result_vec.push((raw_tx_execution_info, py_bouncer_info));
+            result_vec.push(raw_tx_execution_info);
         }
 
         Ok(result_vec)
