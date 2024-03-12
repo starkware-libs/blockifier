@@ -23,7 +23,7 @@ use crate::test_utils::{
     TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::objects::{DeprecatedTransactionInfo, TransactionInfo};
-use crate::versioned_constants::{OSConstants, VersionedConstants, DEFAULT_CONSTANTS_JSON};
+use crate::versioned_constants::{OsConstants, VersionedConstants, DEFAULT_CONSTANTS_JSON};
 
 impl CallEntryPoint {
     /// Executes the call directly, without account context. Limits the number of steps by resource
@@ -86,7 +86,7 @@ impl VersionedConstants {
     }
 }
 
-impl OSConstants {
+impl OsConstants {
     pub fn create_for_testing_from_subset(subset_of_os_constants: &str) -> Self {
         let subset_of_os_constants: Value = serde_json::from_str(subset_of_os_constants).unwrap();
         let mut os_constants: Value = serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON)
@@ -95,7 +95,7 @@ impl OSConstants {
             .unwrap()
             .clone();
         update_json_value(&mut os_constants, subset_of_os_constants);
-        let os_constants: OSConstants = serde_json::from_value(os_constants).unwrap();
+        let os_constants: OsConstants = serde_json::from_value(os_constants).unwrap();
         os_constants
     }
 }
