@@ -8,25 +8,22 @@ use starknet_api::core::{EntryPointSelector, PatriciaKey};
 use starknet_api::deprecated_contract_class::{EntryPointOffset, EntryPointType};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
-use starknet_api::transaction::Calldata;
+use starknet_api::transaction::{Calldata, TransactionVersion};
 use starknet_api::{calldata, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
-use crate::context::ChainInfo;
+use crate::context::{BlockContext, ChainInfo};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::errors::{gen_error_stack_trace_for_testing, EntryPointExecutionError};
-use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{
-    create_calldata, trivial_external_entry_point_new, trivial_external_entry_point_with_address,
-    CairoVersion, BALANCE,
-};
+use crate::test_utils::{create_calldata, trivial_external_entry_point_new, CairoVersion, BALANCE};
+use crate::transaction::test_utils::{block_context, run_invoke_tx};
 use crate::versioned_constants::VersionedConstants;
+use crate::{invoke_tx_args, retdata};
 
 const INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET: usize = 65;
 const ACCOUNT_PC_OFFSET: usize = 82;
@@ -591,6 +588,7 @@ fn get_entry_point_offset(
 
 #[rstest]
 fn test_stack_trace(
+    block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let chain_info = ChainInfo::create_for_testing();
@@ -614,11 +612,16 @@ fn test_stack_trace(
         ],
     );
 
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("__execute__"),
-        calldata,
-        ..trivial_external_entry_point_with_address(account_address)
-    };
+    let tx_execution_error = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            sender_address: account_address,
+            calldata,
+            version: TransactionVersion::ZERO,
+        },
+    )
+    .unwrap_err();
 
     // Fetch PC locations from the compiled contract to compute the expected PC locations in the
     // traceback. Computation is not robust, but as long as the cairo function itself is not edited,
@@ -634,7 +637,7 @@ fn test_stack_trace(
     let entry_point_location = entry_point_offset.0 - 3;
 
     let expected_trace_cairo0 = format!(
-        "Error in the called contract ({}):
+        "Transaction execution has failed: Error in the called contract ({}):
 Error at pc=0:7:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
@@ -664,7 +667,7 @@ Unknown location (pc=0:1188)
     let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
     let pc_location = entry_point_offset.0 + 82;
     let expected_trace_cairo1 = format!(
-        "Error in the called contract ({}):
+        "Transaction execution has failed: Error in the called contract ({}):
 Error at pc=0:797:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
@@ -689,16 +692,7 @@ Execution failed. Failure reason: 0x6661696c ('fail').
         CairoVersion::Cairo1 => expected_trace_cairo1,
     };
 
-    match entry_point_call.execute_directly(&mut state).unwrap_err() {
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source } => {
-            assert_eq!(trace, expected_trace);
-            // Temporarily here. Will be removed once the new stack trace is integrated..
-            let new_stack_trace: String =
-                gen_error_stack_trace_for_testing(&source, *account_address.0.key());
-            assert_eq!(new_stack_trace, expected_trace)
-        }
-        other_error => panic!("Unexpected error type: {other_error:?}"),
-    }
+    assert_eq!(tx_execution_error.to_string(), expected_trace);
 }
 
 #[rstest]
@@ -707,6 +701,7 @@ Execution failed. Failure reason: 0x6661696c ('fail').
 #[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", (0_u16, 0_u16))]
 #[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", (0_u16, 0_u16))]
 fn test_trace_callchain_ends_with_regular_call(
+    block_context: BlockContext,
     #[case] cairo_version: CairoVersion,
     #[case] last_func_name: &str,
     #[case] expected_error: &str,
@@ -740,11 +735,16 @@ fn test_trace_callchain_ends_with_regular_call(
         ],
     );
 
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("__execute__"),
-        calldata,
-        ..trivial_external_entry_point_with_address(account_address)
-    };
+    let tx_execution_error = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            sender_address: account_address,
+            calldata,
+            version: TransactionVersion::ZERO,
+        },
+    )
+    .unwrap_err();
 
     let account_entry_point_offset =
         get_entry_point_offset(&account_contract.get_class(), selector_from_name("__execute__"));
@@ -756,7 +756,8 @@ fn test_trace_callchain_ends_with_regular_call(
             let call_location = entry_point_offset.0 + 12;
             let entry_point_location = entry_point_offset.0 - 61;
             format!(
-                "Error in the called contract ({account_address_felt}):
+                "Transaction execution has failed: Error in the called contract \
+                 ({account_address_felt}):
 Error at pc=0:7:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
@@ -787,7 +788,8 @@ Unknown location (pc=0:{})
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
             let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
             format!(
-                "Error in the called contract ({account_address_felt}):
+                "Transaction execution has failed: Error in the called contract \
+                 ({account_address_felt}):
 Error at pc=0:797:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
@@ -806,16 +808,7 @@ Execution failed. Failure reason: {expected_error}.
         }
     };
 
-    match entry_point_call.execute_directly(&mut state).unwrap_err() {
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source } => {
-            assert_eq!(trace, expected_trace);
-            // Temporarily here. Will be removed once the new stack trace is integrated..
-            let new_stack_trace: String =
-                gen_error_stack_trace_for_testing(&source, account_address_felt);
-            assert_eq!(new_stack_trace, expected_trace)
-        }
-        other_error => panic!("Unexpected error type: {other_error:?}"),
-    }
+    assert_eq!(tx_execution_error.to_string(), expected_trace);
 }
 
 #[rstest]
@@ -828,6 +821,7 @@ Execution failed. Failure reason: {expected_error}.
 #[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 0_u8, (8010_u16, 0_u16, 0_u16, 0_u16))]
 #[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 1_u8, (8099_u16, 0_u16, 0_u16, 0_u16))]
 fn test_trace_call_chain_with_syscalls(
+    block_context: BlockContext,
     #[case] cairo_version: CairoVersion,
     #[case] last_func_name: &str,
     #[case] expected_error: &str,
@@ -874,11 +868,16 @@ fn test_trace_call_chain_with_syscalls(
         &raw_calldata,
     );
 
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("__execute__"),
-        calldata,
-        ..trivial_external_entry_point_with_address(account_address)
-    };
+    let tx_execution_error = run_invoke_tx(
+        &mut state,
+        &block_context,
+        invoke_tx_args! {
+            sender_address: account_address,
+            calldata,
+            version: TransactionVersion::ZERO,
+        },
+    )
+    .unwrap_err();
 
     let account_entry_point_offset =
         get_entry_point_offset(&account_contract.get_class(), selector_from_name("__execute__"));
@@ -890,7 +889,8 @@ fn test_trace_call_chain_with_syscalls(
             let call_location = entry_point_offset.0 + 12;
             let entry_point_location = entry_point_offset.0 - 61;
             format!(
-                "Error in the called contract ({account_address_felt}):
+                "Transaction execution has failed: Error in the called contract \
+                 ({account_address_felt}):
 Error at pc=0:7:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
@@ -929,7 +929,8 @@ Unknown location (pc=0:{})
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
             let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
             format!(
-                "Error in the called contract ({account_address_felt}):
+                "Transaction execution has failed: Error in the called contract \
+                 ({account_address_felt}):
 Error at pc=0:797:
 Got an exception while executing a hint.
 Cairo traceback (most recent call last):
@@ -955,14 +956,5 @@ Execution failed. Failure reason: {expected_error}.
         }
     };
 
-    match entry_point_call.execute_directly(&mut state).unwrap_err() {
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, source } => {
-            assert_eq!(trace, expected_trace);
-            // Temporarily here. Will be removed once the new stack trace is integrated..
-            let new_stack_trace: String =
-                gen_error_stack_trace_for_testing(&source, account_address_felt);
-            assert_eq!(new_stack_trace, expected_trace)
-        }
-        other_error => panic!("Unexpected error type: {other_error:?}"),
-    }
+    assert_eq!(tx_execution_error.to_string(), expected_trace);
 }
