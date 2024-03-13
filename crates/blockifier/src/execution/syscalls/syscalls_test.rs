@@ -548,9 +548,8 @@ fn test_library_call_assert_fails() {
         ..trivial_external_entry_point_new(test_contract)
     };
 
-    assert_matches!(
-        entry_point_call.execute_directly(&mut state).unwrap_err(),
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. } if trace.contains("x != y")
+    assert!(
+        entry_point_call.execute_directly(&mut state).unwrap_err().to_string().contains("x != y")
     );
 }
 

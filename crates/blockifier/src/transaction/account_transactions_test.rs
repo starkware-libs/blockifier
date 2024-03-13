@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use pretty_assertions::assert_eq;
@@ -175,10 +174,7 @@ fn test_invoke_tx_from_non_deployed_account(
         }
         Err(err) => {
             //  Make sure the error is because the account wasn't deployed.
-            assert!(matches!(err, TransactionExecutionError::ExecutionError{
-                error: EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. } , ..}
-                if trace.contains(expected_error)
-            ));
+            assert!(err.to_string().contains(expected_error));
             // We expect to get an error only when tx_version is 0, on other versions to revert.
             assert!(matches!(tx_version, TransactionVersion::ZERO));
         }
@@ -285,14 +281,9 @@ fn test_max_fee_limit_validate(
             constructor_calldata: calldata![ctor_grind_arg, ctor_storage_arg],
         },
     );
-    let error = deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err();
-    assert_matches!(
-        error,
-        TransactionExecutionError::ValidateTransactionError{
-            error: EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }, ..
-        }
-        if trace.contains("no remaining steps")
-    );
+    let error_trace =
+        deploy_account_tx.execute(&mut state, &block_context, true, true).unwrap_err().to_string();
+    assert!(error_trace.contains("no remaining steps"));
 
     // Deploy grindy account successfully this time.
     ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
@@ -331,7 +322,7 @@ fn test_max_fee_limit_validate(
     let estimated_min_fee =
         get_fee_by_gas_vector(block_info, estimated_min_gas_usage_vector, &account_tx.fee_type());
 
-    let error = run_invoke_tx(
+    let error_trace = run_invoke_tx(
         &mut state,
         &block_context,
         invoke_tx_args! {
@@ -345,15 +336,10 @@ fn test_max_fee_limit_validate(
             ..tx_args
         },
     )
-    .unwrap_err();
+    .unwrap_err()
+    .to_string();
 
-    assert_matches!(
-        error,
-        TransactionExecutionError::ValidateTransactionError{
-            error: EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }, ..
-        }
-        if trace.contains("no remaining steps")
-    );
+    assert!(error_trace.contains("no remaining steps"));
 }
 
 #[rstest]

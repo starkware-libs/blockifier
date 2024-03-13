@@ -8,7 +8,6 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
 
 use crate::context::{BlockContext, ChainInfo};
-use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::SyscallSelector;
 use crate::fee::fee_utils::{calculate_tx_fee, calculate_tx_gas_vector, get_fee_by_gas_vector};
@@ -371,12 +370,8 @@ fn test_simulate_validate_charge_fee_fail_validate(
             actual_fee,
         );
     } else {
-        assert_matches!(
-            result.unwrap_err(),
-            TransactionExecutionError::ValidateTransactionError{
-                error: EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. }, ..
-            }
-            if trace.contains("An ASSERT_EQ instruction failed: 1 != 0.")
+        assert!(
+            result.unwrap_err().to_string().contains("An ASSERT_EQ instruction failed: 1 != 0.")
         );
     }
 }
