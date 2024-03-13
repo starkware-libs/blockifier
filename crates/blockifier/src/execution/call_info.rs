@@ -13,8 +13,6 @@ use starknet_api::transaction::{EventContent, L2ToL1Payload};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::fee::gas_usage::get_message_segment_length;
 use crate::state::cached_state::StorageEntry;
-use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::TransactionExecutionResult;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
@@ -43,16 +41,16 @@ impl MessageL1CostInfo {
     pub fn calculate<'a>(
         call_infos: impl Iterator<Item = &'a CallInfo>,
         l1_handler_payload_size: Option<usize>,
-    ) -> TransactionExecutionResult<Self> {
+    ) -> Self {
         let mut l2_to_l1_payload_lengths = Vec::new();
         for call_info in call_infos {
-            l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths()?);
+            l2_to_l1_payload_lengths.extend(call_info.get_l2_to_l1_payload_lengths());
         }
 
         let message_segment_length =
             get_message_segment_length(&l2_to_l1_payload_lengths, l1_handler_payload_size);
 
-        Ok(Self { l2_to_l1_payload_lengths, message_segment_length })
+        Self { l2_to_l1_payload_lengths, message_segment_length }
     }
 }
 
@@ -68,6 +66,10 @@ pub struct MessageToL1 {
 pub struct OrderedL2ToL1Message {
     pub order: usize,
     pub message: MessageToL1,
+}
+
+pub fn get_payload_lengths(l2_to_l1_messages: &Vec<OrderedL2ToL1Message>) -> Vec<usize> {
+    l2_to_l1_messages.iter().map(|message| message.message.payload.0.len()).collect()
 }
 
 /// Represents the effects of executing a single entry point.
@@ -94,6 +96,7 @@ struct ExecutionResourcesDef {
 pub struct ExecutionSummary {
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
+    pub l2_to_l1_payload_lengths: Vec<usize>,
     pub n_events: usize,
 }
 
@@ -103,6 +106,7 @@ impl Add for ExecutionSummary {
     fn add(mut self, other: Self) -> Self {
         self.executed_class_hashes.extend(other.executed_class_hashes);
         self.visited_storage_entries.extend(other.visited_storage_entries);
+        self.l2_to_l1_payload_lengths.extend(other.l2_to_l1_payload_lengths);
         self.n_events += other.n_events;
         self
     }
@@ -117,6 +121,7 @@ impl Sum for ExecutionSummary {
 #[derive(Debug, Default)]
 pub struct TestExecutionSummary {
     pub num_of_events: usize,
+    pub num_of_messages: usize,
     pub class_hash: ClassHash,
     pub storage_address: ContractAddress,
     pub storage_key: StorageKey,
@@ -125,12 +130,14 @@ pub struct TestExecutionSummary {
 impl TestExecutionSummary {
     pub fn new(
         num_of_events: usize,
+        num_of_messages: usize,
         class_hash: ClassHash,
         storage_address: &str,
         storage_key: &str,
     ) -> Self {
         TestExecutionSummary {
             num_of_events,
+            num_of_messages,
             class_hash,
             storage_address: ContractAddress(patricia_key!(storage_address)),
             storage_key: StorageKey(patricia_key!(storage_key)),
@@ -146,6 +153,15 @@ impl TestExecutionSummary {
             },
             execution: CallExecution {
                 events: (0..self.num_of_events).map(|_| OrderedEvent::default()).collect(),
+                l2_to_l1_messages: (0..self.num_of_messages)
+                    .map(|i| OrderedL2ToL1Message {
+                        order: i,
+                        message: MessageToL1 {
+                            to_address: EthAddress::default(),
+                            payload: L2ToL1Payload(vec![StarkFelt::default()]),
+                        },
+                    })
+                    .collect(),
                 ..Default::default()
             },
             accessed_storage_keys: vec![self.storage_key].into_iter().collect(),
@@ -174,46 +190,18 @@ impl CallInfo {
         CallInfoIter { call_infos }
     }
 
-    /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
-    /// by the order in which they were sent.
-    pub fn get_sorted_l2_to_l1_payload_lengths(&self) -> TransactionExecutionResult<Vec<usize>> {
-        let n_messages = self.iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
-        let mut starknet_l2_to_l1_payload_lengths: Vec<Option<usize>> = vec![None; n_messages];
-
-        for call_info in self.iter() {
-            for ordered_message_content in &call_info.execution.l2_to_l1_messages {
-                let message_order = ordered_message_content.order;
-                if message_order >= n_messages {
-                    return Err(TransactionExecutionError::InvalidOrder {
-                        object: "L2-to-L1 message".to_string(),
-                        order: message_order,
-                        max_order: n_messages,
-                    });
-                }
-                starknet_l2_to_l1_payload_lengths[message_order] =
-                    Some(ordered_message_content.message.payload.0.len());
-            }
-        }
-
-        starknet_l2_to_l1_payload_lengths.into_iter().enumerate().try_fold(
-            Vec::new(),
-            |mut acc, (i, option)| match option {
-                Some(value) => {
-                    acc.push(value);
-                    Ok(acc)
-                }
-                None => Err(TransactionExecutionError::UnexpectedHoles {
-                    object: "L2-to-L1 message".to_string(),
-                    order: i,
-                }),
-            },
-        )
+    pub fn get_l2_to_l1_payload_lengths(&self) -> Vec<usize> {
+        self.iter().fold(Vec::new(), |mut acc, call_info| {
+            acc.extend(get_payload_lengths(&call_info.execution.l2_to_l1_messages));
+            acc
+        })
     }
 
     pub fn summarize(&self) -> ExecutionSummary {
         let mut executed_class_hashes: HashSet<ClassHash> = HashSet::new();
         let mut visited_storage_entries: HashSet<StorageEntry> = HashSet::new();
         let mut n_events: usize = 0;
+        let mut l2_to_l1_payload_lengths = Vec::new();
 
         for call_info in self.iter() {
             let class_hash =
@@ -227,9 +215,17 @@ impl CallInfo {
             visited_storage_entries.extend(call_storage_entries);
 
             n_events += call_info.execution.events.len();
+
+            l2_to_l1_payload_lengths
+                .extend(get_payload_lengths(&call_info.execution.l2_to_l1_messages));
         }
 
-        ExecutionSummary { executed_class_hashes, visited_storage_entries, n_events }
+        ExecutionSummary {
+            executed_class_hashes,
+            visited_storage_entries,
+            l2_to_l1_payload_lengths,
+            n_events,
+        }
     }
 }
 

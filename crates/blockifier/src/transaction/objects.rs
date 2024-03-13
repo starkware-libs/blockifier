@@ -226,7 +226,7 @@ impl TransactionExecutionInfo {
     }
 
     /// Returns a summary of transaction execution, including executed class hashes, visited storage
-    /// entries, and the number of emitted events.
+    /// entries, L2-to-L1_payload_lengths, and the number of emitted events.
     pub fn summarize(&self) -> ExecutionSummary {
         self.non_optional_call_infos().map(|call_info| call_info.summarize()).sum()
     }
@@ -274,7 +274,7 @@ impl StarknetResources {
         state_changes_count: StateChangesCount,
         l1_handler_payload_size: Option<usize>,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
-    ) -> TransactionExecutionResult<Self> {
+    ) -> Self {
         let mut new = Self {
             calldata_length,
             signature_length,
@@ -283,8 +283,8 @@ impl StarknetResources {
             l1_handler_payload_size,
             ..Default::default()
         };
-        new.set_events_and_messages_resources(call_infos)?;
-        Ok(new)
+        new.set_events_and_messages_resources(call_infos);
+        new
     }
 
     /// Returns the gas cost of the starknet resources, summing all components.
@@ -311,7 +311,7 @@ impl StarknetResources {
     pub fn set_events_and_messages_resources<'a>(
         &mut self,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
-    ) -> TransactionExecutionResult<()> {
+    ) {
         let tuple_add = |(a, b): (u128, u128), (c, d): (u128, u128)| (a + c, b + d);
         let (total_event_keys, total_event_data_size) = call_infos
             .clone()
@@ -333,9 +333,7 @@ impl StarknetResources {
         self.total_event_data_size = total_event_data_size;
 
         self.message_cost_info =
-            MessageL1CostInfo::calculate(call_infos, self.l1_handler_payload_size)?;
-
-        Ok(())
+            MessageL1CostInfo::calculate(call_infos, self.l1_handler_payload_size);
     }
 
     // Returns the gas cost for transaction calldata and transaction signature. Each felt costs a

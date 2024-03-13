@@ -117,7 +117,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         let l1_handler_payload_size = self.payload_size();
 
         let (ActualCost { actual_fee, da_gas, actual_resources }, _bouncer_resources) =
-            ActualCost::builder_for_l1_handler(tx_context, l1_handler_payload_size)?
+            ActualCost::builder_for_l1_handler(tx_context, l1_handler_payload_size)
                 .with_execute_call_info(&execute_call_info)
                 .try_add_state_changes(state)?
                 .build(&execution_resources)?;
