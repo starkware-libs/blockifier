@@ -72,7 +72,7 @@ fn test_events_counter_in_transaction_execution_info(
     };
 
     assert_eq!(
-        transaction_execution_info.summarize().n_events,
+        transaction_execution_info.summarize().unwrap().n_events,
         n_validate_events + n_execute_events + n_fee_transfer_events + n_inner_calls
     );
 }
@@ -103,7 +103,7 @@ fn test_events_counter_in_transaction_execution_info_with_inner_call_info(
     };
 
     assert_eq!(
-        transaction_execution_info.summarize().n_events,
+        transaction_execution_info.summarize().unwrap().n_events,
         n_execute_events
             + n_fee_transfer_events
             + n_execution_events
@@ -152,10 +152,11 @@ fn test_summarize(
         n_events: validate_params.num_of_events
             + execute_params.num_of_events
             + fee_transfer_params.num_of_events,
+        l2_to_l1_payload_lengths: Default::default(),
     };
 
     // Call the summarize method
-    let actual_summary = transaction_execution_info.summarize();
+    let actual_summary = transaction_execution_info.summarize().unwrap();
 
     // Compare the actual result with the expected result
     assert_eq!(actual_summary.executed_class_hashes, expected_summary.executed_class_hashes);

@@ -4,9 +4,11 @@ use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
 use crate::blockifier::transaction_executor::TransactionExecutorResult;
+use crate::execution::call_info::{ExecutionSummary, MessageL1CostInfo};
+use crate::fee::gas_usage::{get_message_segment_length, get_messages_gas_usage};
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
-use crate::transaction::objects::TransactionExecutionInfo;
+use crate::transaction::objects::GasVector;
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -112,14 +114,15 @@ impl TransactionalBouncer {
 
     pub fn update_auxiliary_info<S: StateReader>(
         &mut self,
-        tx_execution_info: &TransactionExecutionInfo,
+        tx_execution_summary: &ExecutionSummary,
         state: &mut TransactionalState<'_, S>,
     ) -> TransactionExecutorResult<()> {
-        let tx_execution_summary = tx_execution_info.summarize();
-        self.transactional.executed_class_hashes.extend(tx_execution_summary.executed_class_hashes);
+        self.transactional
+            .executed_class_hashes
+            .extend(&tx_execution_summary.executed_class_hashes);
         self.transactional
             .visited_storage_entries
-            .extend(tx_execution_summary.visited_storage_entries);
+            .extend(&tx_execution_summary.visited_storage_entries);
         let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
         self.transactional.state_changes_keys =
             tx_state_changes_keys.difference(&self.bouncer.state_changes_keys);
@@ -134,4 +137,22 @@ impl TransactionalBouncer {
     pub fn abort(self) -> Bouncer {
         self.bouncer
     }
+}
+
+pub fn calc_message_l1_resources(
+    execution_summary: &ExecutionSummary,
+    l1_handler_payload_size: Option<usize>,
+) -> (usize, GasVector) {
+    let message_segment_length = get_message_segment_length(
+        &execution_summary.l2_to_l1_payload_lengths,
+        l1_handler_payload_size,
+    );
+    let gas_usage = get_messages_gas_usage(
+        &MessageL1CostInfo {
+            l2_to_l1_payload_lengths: execution_summary.l2_to_l1_payload_lengths.clone(),
+            message_segment_length,
+        },
+        l1_handler_payload_size,
+    );
+    (message_segment_length, gas_usage)
 }

@@ -108,12 +108,17 @@ pub fn get_message_segment_length(
     l2_to_l1_payload_lengths: &[usize],
     l1_handler_payload_size: Option<usize>,
 ) -> usize {
+    println!(
+        "yael get_message_segment_length l1_handler_payload_size={:?}",
+        l1_handler_payload_size
+    );
     // Add L2-to-L1 message segment length; for each message, the OS outputs the following:
     // to_address, from_address, payload_size, payload.
     let mut message_segment_length = l2_to_l1_payload_lengths
         .iter()
         .map(|payload_length| constants::L2_TO_L1_MSG_HEADER_SIZE + payload_length)
         .sum();
+    println!("yael get_message_segment_length1 message_segment_length={}", message_segment_length);
 
     if let Some(payload_size) = l1_handler_payload_size {
         // The corresponding transaction is of type L1 handler; add the length of the L1-to-L2
@@ -122,6 +127,7 @@ pub fn get_message_segment_length(
         // nonce, selector, payload_size, payload=calldata[1:].
         message_segment_length += constants::L1_TO_L2_MSG_HEADER_SIZE + payload_size;
     }
+    println!("yael get_message_segment_length2 message_segment_length={}", message_segment_length);
 
     message_segment_length
 }

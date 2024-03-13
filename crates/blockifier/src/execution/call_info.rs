@@ -46,7 +46,9 @@ impl MessageL1CostInfo {
     ) -> TransactionExecutionResult<Self> {
         let mut l2_to_l1_payload_lengths = Vec::new();
         for call_info in call_infos {
-            l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths()?);
+            println!("yael old calculate enter new call info");
+            l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths());
+            println!("yael old calculate l2_to_l1_payload_lengths: {:?}", l2_to_l1_payload_lengths);
         }
 
         let message_segment_length =
@@ -94,6 +96,7 @@ struct ExecutionResourcesDef {
 pub struct ExecutionSummary {
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
+    pub l2_to_l1_payload_lengths: Vec<usize>,
     pub n_events: usize,
 }
 
@@ -103,6 +106,7 @@ impl Add for ExecutionSummary {
     fn add(mut self, other: Self) -> Self {
         self.executed_class_hashes.extend(other.executed_class_hashes);
         self.visited_storage_entries.extend(other.visited_storage_entries);
+        self.l2_to_l1_payload_lengths.extend(other.l2_to_l1_payload_lengths);
         self.n_events += other.n_events;
         self
     }
@@ -174,9 +178,15 @@ impl CallInfo {
         CallInfoIter { call_infos }
     }
 
-    /// Returns a list of Starknet L2ToL1Payload length collected during the execution, sorted
-    /// by the order in which they were sent.
-    pub fn get_sorted_l2_to_l1_payload_lengths(&self) -> TransactionExecutionResult<Vec<usize>> {
+    pub fn get_l2_to_l1_payload_lengths(&self) -> Vec<usize> {
+        self.execution
+            .l2_to_l1_messages
+            .iter()
+            .map(|message| message.message.payload.0.len())
+            .collect()
+    }
+
+    pub fn get_sorted_l2_to_l1_payload_lengths(&self) -> Vec<usize> {
         let n_messages = self.iter().map(|call| call.execution.l2_to_l1_messages.len()).sum();
         let mut starknet_l2_to_l1_payload_lengths: Vec<Option<usize>> = vec![None; n_messages];
 
@@ -184,28 +194,24 @@ impl CallInfo {
             for ordered_message_content in &call_info.execution.l2_to_l1_messages {
                 let message_order = ordered_message_content.order;
                 if message_order >= n_messages {
-                    return Err(TransactionExecutionError::InvalidOrder {
-                        object: "L2-to-L1 message".to_string(),
-                        order: message_order,
-                        max_order: n_messages,
-                    });
+                    panic!(
+                        "L2 to L1 message order is out of bounds. order {} > n_messages {}.",
+                        message_order, n_messages
+                    );
                 }
                 starknet_l2_to_l1_payload_lengths[message_order] =
                     Some(ordered_message_content.message.payload.0.len());
             }
         }
 
-        starknet_l2_to_l1_payload_lengths.into_iter().enumerate().try_fold(
+        starknet_l2_to_l1_payload_lengths.into_iter().enumerate().fold(
             Vec::new(),
             |mut acc, (i, option)| match option {
                 Some(value) => {
                     acc.push(value);
-                    Ok(acc)
+                    acc
                 }
-                None => Err(TransactionExecutionError::UnexpectedHoles {
-                    object: "L2-to-L1 message".to_string(),
-                    order: i,
-                }),
+                None => panic!("L2 to L1 messages order has an unexpected hole in order = {}.", i),
             },
         )
     }
@@ -214,6 +220,8 @@ impl CallInfo {
         let mut executed_class_hashes: HashSet<ClassHash> = HashSet::new();
         let mut visited_storage_entries: HashSet<StorageEntry> = HashSet::new();
         let mut n_events: usize = 0;
+        let mut l2_to_l1_payload_lengths = Vec::new();
+        println!("yael new calculate enter new call info");
 
         for call_info in self.iter() {
             let class_hash =
@@ -227,9 +235,17 @@ impl CallInfo {
             visited_storage_entries.extend(call_storage_entries);
 
             n_events += call_info.execution.events.len();
+
+            l2_to_l1_payload_lengths.extend(call_info.get_l2_to_l1_payload_lengths());
+            println!("yael new summarize l2_to_l1_payload_lengths: {:?}", l2_to_l1_payload_lengths);
         }
 
-        ExecutionSummary { executed_class_hashes, visited_storage_entries, n_events }
+        ExecutionSummary {
+            executed_class_hashes,
+            visited_storage_entries,
+            l2_to_l1_payload_lengths,
+            n_events,
+        }
     }
 }
 

@@ -8,6 +8,7 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::bouncer::BouncerInfo;
+use crate::bouncer::calc_message_l1_resources;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, MessageL1CostInfo};
 use crate::fee::actual_cost::ActualCost;
@@ -101,9 +102,14 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // state changes and execution info rather than the cumulative state attributes.
 
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
+                println!("yael starting new calculate");
+                println!("yael tx_execution_info: {:?}", tx_execution_info);
                 let tx_execution_summary = tx_execution_info.summarize();
 
+                let (message_segment_length, gas_usage) =
+                    calc_message_l1_resources(&tx_execution_summary, l1_handler_payload_size);
                 // Count message to L1 resources.
+                println!("yael starting old calculate");
                 let call_infos: IntoIter<&CallInfo> =
                     [&tx_execution_info.validate_call_info, &tx_execution_info.execute_call_info]
                         .iter()
@@ -113,9 +119,17 @@ impl<S: StateReader> TransactionExecutor<S> {
 
                 let message_cost_info =
                     MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size)?;
+                println!("yael old message_cost_info: {:?}", message_cost_info);
 
                 let starknet_gas_usage =
                     get_messages_gas_usage(&message_cost_info, l1_handler_payload_size);
+                assert_eq!(
+                    message_cost_info.l2_to_l1_payload_lengths,
+                    tx_execution_summary.l2_to_l1_payload_lengths
+                );
+                assert_eq!(message_cost_info.message_segment_length, message_segment_length);
+
+                assert_eq!(starknet_gas_usage, gas_usage);
 
                 // Count additional OS resources.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
@@ -142,9 +156,9 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // Finalize counting logic.
                 let bouncer_info = BouncerInfo::calculate(
                     &tx_execution_info.bouncer_resources,
-                    starknet_gas_usage,
+                    gas_usage,
                     additional_os_resources,
-                    message_cost_info.message_segment_length,
+                    message_segment_length,
                     state_diff_size,
                     tx_execution_summary.n_events,
                 )?;
