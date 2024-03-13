@@ -34,16 +34,16 @@ impl ActualCost {
     pub fn builder_for_l1_handler<'a>(
         tx_context: Arc<TransactionContext>,
         l1_handler_payload_size: usize,
-    ) -> TransactionExecutionResult<ActualCostBuilder<'a>> {
+    ) -> ActualCostBuilder<'a> {
         let signature_length = 0; // Signature is validated on L1.
-        Ok(ActualCostBuilder::new(
+        ActualCostBuilder::new(
             tx_context,
             TransactionType::L1Handler,
             l1_handler_payload_size,
             signature_length,
-        )?
+        )
         .without_sender_address()
-        .with_l1_payload_size(l1_handler_payload_size))
+        .with_l1_payload_size(l1_handler_payload_size)
     }
 }
 
@@ -67,8 +67,8 @@ impl<'a> ActualCostBuilder<'a> {
         tx_type: TransactionType,
         calldata_length: usize,
         signature_length: usize,
-    ) -> TransactionExecutionResult<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             starknet_resources: StarknetResources::new(
                 calldata_length,
                 signature_length,
@@ -76,7 +76,7 @@ impl<'a> ActualCostBuilder<'a> {
                 StateChangesCount::default(),
                 None,
                 iter::empty(),
-            )?,
+            ),
             sender_address: Some(tx_context.tx_info.sender_address()),
             tx_context,
             tx_type,
@@ -84,7 +84,7 @@ impl<'a> ActualCostBuilder<'a> {
             execute_call_info: None,
             state_changes: StateChanges::default(),
             n_reverted_steps: 0,
-        })
+        }
     }
 
     pub fn without_sender_address(mut self) -> Self {
@@ -164,7 +164,7 @@ impl<'a> ActualCostBuilder<'a> {
             self.validate_call_info.into_iter().chain(self.execute_call_info);
 
         // Set the events and messages resources from the transaction's call infos.
-        self.starknet_resources.set_events_and_messages_resources(non_optional_call_infos)?;
+        self.starknet_resources.set_events_and_messages_resources(non_optional_call_infos);
 
         let mut actual_resources = calculate_tx_resources(
             &self.tx_context.block_context.versioned_constants,
