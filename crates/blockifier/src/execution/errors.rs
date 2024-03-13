@@ -6,7 +6,7 @@ use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
 use cairo_vm::vm::errors::trace_errors::TraceError;
-use cairo_vm::vm::errors::vm_errors::{VirtualMachineError, HINT_ERROR_STR};
+use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use num_bigint::{BigInt, TryFromBigIntError};
 use starknet_api::core::{ContractAddress, EntryPointSelector};
@@ -78,47 +78,6 @@ impl From<RunnerError> for PostExecutionError {
     }
 }
 
-impl EntryPointExecutionError {
-    /// Unwrap inner VM exception and return it as a string. If this is a call_contract exception,
-    /// the inner error (inner call errors) will not appear in the string.
-    pub fn try_to_vm_trace(&self) -> String {
-        match self {
-            EntryPointExecutionError::CairoRunError(CairoRunError::VmException(exception)) => {
-                let mut trace_string = format!("Error at pc=0:{}:\n", exception.pc);
-                let inner_exc_string = &exception.inner_exc.to_string();
-
-                // If this error is the result of call_contract returning in error, we do not want
-                // to append inner representation.
-                // Otherwise, add the inner representation. Prefer using the error attribute as the
-                // description of the error; if it is unavailable, use the inner exception string.
-                let outer_call_prefix = format!("{HINT_ERROR_STR}Error in the called contract");
-                if inner_exc_string.starts_with(&outer_call_prefix) {
-                    trace_string += "Got an exception while executing a hint.";
-                } else if let Some(error_attribute) = &exception.error_attr_value {
-                    trace_string += error_attribute;
-                } else {
-                    trace_string += inner_exc_string;
-                }
-
-                // Append traceback.
-                match &exception.traceback {
-                    None => trace_string,
-                    Some(traceback) => {
-                        // TODO(Dori, 1/5/2023): Once LC add newlines between the 'Unknown location'
-                        //   strings, remove the `replace`.
-                        format!(
-                            "{}\n{}",
-                            trace_string,
-                            traceback.replace(")Unknown location", ")\nUnknown location").as_str()
-                        )
-                    }
-                }
-            }
-            _ => self.to_string(),
-        }
-    }
-}
-
 #[derive(Debug, Error)]
 pub enum EntryPointExecutionError {
     #[error(transparent)]
@@ -139,13 +98,6 @@ pub enum EntryPointExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     TraceError(#[from] TraceError),
-    /// Gathers all errors from running the Cairo VM, excluding hints.
-    #[error("{trace}")]
-    VirtualMachineExecutionErrorWithTrace {
-        trace: String,
-        #[source]
-        source: CairoRunError,
-    },
 }
 
 #[derive(Debug, Error)]
@@ -186,7 +138,7 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     }
 
     let error_stack_str = error_stack.join("\n");
-    error_stack_str[..min(10000, error_stack_str.len())].to_string()
+    error_stack_str[..min(15000, error_stack_str.len())].to_string()
 }
 
 #[cfg(test)]
@@ -200,6 +152,7 @@ fn fix_for_regression(error_stack: &mut [String]) {
             let index = last_wrapping_hint_error_index.unwrap();
             // replace error stack at index with the cairo 1 error that appears at the end of the
             // stack.
+            use cairo_vm::vm::errors::vm_errors::HINT_ERROR_STR;
             error_stack[index] =
                 format!("{HINT_ERROR_STR}{}", error_stack.last().unwrap().trim_end());
         }
@@ -340,8 +293,8 @@ fn extract_entry_point_execution_error_into_stack_trace(
     entry_point_error: &EntryPointExecutionError,
 ) {
     match entry_point_error {
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { source, .. } => {
-            extract_cairo_run_error_into_stack_trace(error_stack, source)
+        EntryPointExecutionError::CairoRunError(cairo_run_error) => {
+            extract_cairo_run_error_into_stack_trace(error_stack, cairo_run_error)
         }
         _ => error_stack.push(format!("{}\n", entry_point_error)),
     }
