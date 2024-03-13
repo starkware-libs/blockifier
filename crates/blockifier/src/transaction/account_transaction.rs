@@ -504,14 +504,14 @@ impl AccountTransaction {
                     }
                 }
             }
-            Err(_) => {
+            Err(execution_error) => {
                 // Error during execution. Revert, even if the error is sequencer-related.
                 execution_state.abort();
                 let post_execution_report =
                     PostExecutionReport::new(state, &tx_context, &revert_cost, charge_fee)?;
                 Ok(ValidateExecuteCallInfo::new_reverted(
                     validate_call_info,
-                    execution_context.error_trace(),
+                    execution_error.to_string(),
                     ActualCost {
                         actual_fee: post_execution_report.recommended_fee(),
                         ..revert_cost
