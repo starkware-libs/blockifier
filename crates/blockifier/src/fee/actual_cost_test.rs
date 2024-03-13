@@ -60,8 +60,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
             StateChangesCount::default(),
             None,
             std::iter::empty(),
-        )
-        .unwrap();
+        );
         let code_gas_cost = versioned_constants.l2_resource_gas_costs.gas_per_code_byte
             * u128_from_usize(
                 (class_info.bytecode_length() + class_info.sierra_program_length())
@@ -94,8 +93,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
         deploy_account_state_changes_count,
         None,
         std::iter::empty(),
-    )
-    .unwrap();
+    );
     let calldata_and_signature_gas_cost =
         versioned_constants.l2_resource_gas_costs.gas_per_data_felt
             * u128_from_usize(calldata_length + signature_length);
@@ -117,8 +115,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
         StateChangesCount::default(),
         Some(l1_handler_payload_size),
         std::iter::empty(),
-    )
-    .unwrap();
+    );
     let l1_handler_gas_usage_vector =
         l1_handler_tx_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
 
@@ -165,7 +162,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     let call_infos_iter = call_infos.iter();
     let l2_to_l1_payload_lengths: Vec<usize> = call_infos_iter
         .clone()
-        .flat_map(|call_info| call_info.get_sorted_l2_to_l1_payload_lengths().unwrap())
+        .flat_map(|call_info| call_info.get_l2_to_l1_payload_lengths())
         .collect();
 
     let l2_to_l1_state_changes_count = StateChangesCount {
@@ -181,8 +178,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
         l2_to_l1_state_changes_count,
         None,
         call_infos_iter.clone(),
-    )
-    .unwrap();
+    );
 
     let l2_to_l1_messages_gas_usage_vector =
         l2_to_l1_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
@@ -224,8 +220,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
         storage_writes_state_changes_count,
         None,
         std::iter::empty(),
-    )
-    .unwrap();
+    );
 
     let storage_writings_gas_usage_vector =
         storage_writes_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
@@ -251,8 +246,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
         combined_state_changes_count,
         Some(l1_handler_payload_size),
         call_infos_iter.clone(),
-    )
-    .unwrap();
+    );
 
     let gas_usage_vector =
         combined_cases_starknet_resources.to_gas_vector(&versioned_constants, use_kzg_da);
@@ -321,8 +315,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         state_changes_count,
         None,
         std::iter::empty(),
-    )
-    .unwrap();
+    );
 
     let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
 
@@ -374,8 +367,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         state_changes_count,
         None,
         std::iter::empty(),
-    )
-    .unwrap();
+    );
 
     let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
     let GasVector { l1_gas: l1_gas_usage, l1_data_gas: l1_blob_gas_usage } = gas_vector;
