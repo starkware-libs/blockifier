@@ -226,9 +226,11 @@ impl TransactionExecutionInfo {
     }
 
     /// Returns a summary of transaction execution, including executed class hashes, visited storage
-    /// entries, and the number of emitted events.
-    pub fn summarize(&self) -> ExecutionSummary {
-        self.non_optional_call_infos().map(|call_info| call_info.summarize()).sum()
+    /// entries, l2_to_l1_payload_lengths, and the number of emitted events.
+    pub fn summarize(&self) -> TransactionExecutionResult<ExecutionSummary> {
+        let execution_summary_vec: TransactionExecutionResult<Vec<ExecutionSummary>> =
+            self.non_optional_call_infos().map(|call_info| call_info.summarize()).collect();
+        Ok(execution_summary_vec?.into_iter().sum())
     }
 }
 

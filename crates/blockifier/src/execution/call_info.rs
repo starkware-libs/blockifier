@@ -94,6 +94,7 @@ struct ExecutionResourcesDef {
 pub struct ExecutionSummary {
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
+    pub l2_to_l1_payload_lengths: Vec<usize>,
     pub n_events: usize,
 }
 
@@ -103,6 +104,7 @@ impl Add for ExecutionSummary {
     fn add(mut self, other: Self) -> Self {
         self.executed_class_hashes.extend(other.executed_class_hashes);
         self.visited_storage_entries.extend(other.visited_storage_entries);
+        self.l2_to_l1_payload_lengths.extend(other.l2_to_l1_payload_lengths);
         self.n_events += other.n_events;
         self
     }
@@ -117,6 +119,7 @@ impl Sum for ExecutionSummary {
 #[derive(Debug, Default)]
 pub struct TestExecutionSummary {
     pub num_of_events: usize,
+    pub num_of_messages: usize,
     pub class_hash: ClassHash,
     pub storage_address: ContractAddress,
     pub storage_key: StorageKey,
@@ -125,12 +128,14 @@ pub struct TestExecutionSummary {
 impl TestExecutionSummary {
     pub fn new(
         num_of_events: usize,
+        num_of_messages: usize,
         class_hash: ClassHash,
         storage_address: &str,
         storage_key: &str,
     ) -> Self {
         TestExecutionSummary {
             num_of_events,
+            num_of_messages,
             class_hash,
             storage_address: ContractAddress(patricia_key!(storage_address)),
             storage_key: StorageKey(patricia_key!(storage_key)),
@@ -146,6 +151,15 @@ impl TestExecutionSummary {
             },
             execution: CallExecution {
                 events: (0..self.num_of_events).map(|_| OrderedEvent::default()).collect(),
+                l2_to_l1_messages: (0..self.num_of_messages)
+                    .map(|i| OrderedL2ToL1Message {
+                        order: i,
+                        message: MessageToL1 {
+                            to_address: EthAddress::default(),
+                            payload: L2ToL1Payload(vec![StarkFelt::default()]),
+                        },
+                    })
+                    .collect(),
                 ..Default::default()
             },
             accessed_storage_keys: vec![self.storage_key].into_iter().collect(),
@@ -210,10 +224,11 @@ impl CallInfo {
         )
     }
 
-    pub fn summarize(&self) -> ExecutionSummary {
+    pub fn summarize(&self) -> TransactionExecutionResult<ExecutionSummary> {
         let mut executed_class_hashes: HashSet<ClassHash> = HashSet::new();
         let mut visited_storage_entries: HashSet<StorageEntry> = HashSet::new();
         let mut n_events: usize = 0;
+        let mut l2_to_l1_payload_lengths = Vec::new();
 
         for call_info in self.iter() {
             let class_hash =
@@ -227,9 +242,16 @@ impl CallInfo {
             visited_storage_entries.extend(call_storage_entries);
 
             n_events += call_info.execution.events.len();
+
+            l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths()?);
         }
 
-        ExecutionSummary { executed_class_hashes, visited_storage_entries, n_events }
+        Ok(ExecutionSummary {
+            executed_class_hashes,
+            visited_storage_entries,
+            l2_to_l1_payload_lengths,
+            n_events,
+        })
     }
 }
 
