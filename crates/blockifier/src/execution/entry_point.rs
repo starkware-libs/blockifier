@@ -73,7 +73,6 @@ impl CallEntryPoint {
         decrement_when_dropped.try_increment_and_check_depth()?;
 
         // Validate contract is deployed.
-        let storage_address = self.storage_address;
         let storage_class_hash = state.get_class_hash_at(self.storage_address)?;
         if storage_class_hash == ClassHash::default() {
             return Err(PreExecutionError::UninitializedStorageAddress(self.storage_address).into());
@@ -96,29 +95,7 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(class_hash)?;
 
-        execute_entry_point_call(self, contract_class, state, resources, context).map_err(|error| {
-            let vm_trace = error.try_to_vm_trace();
-            match error {
-                // On VM error, pack the stack trace into the propagated error.
-                EntryPointExecutionError::CairoRunError(internal_error) => {
-                    context.error_stack.push((storage_address, vm_trace));
-                    // TODO(Dori, 1/5/2023): Call error_trace only in the top call; as it is
-                    //   right now, each intermediate VM error is wrapped in a
-                    //   VirtualMachineExecutionErrorWithTrace error with the stringified trace
-                    //   of all errors below it.
-                    //   When that's done, remove the 10000 character limitation.
-                    let error_trace = context.error_trace();
-                    EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace {
-                        trace: error_trace[..min(10000, error_trace.len())].to_string(),
-                        source: internal_error,
-                    }
-                }
-                other_error => {
-                    context.error_stack.push((storage_address, format!("{}\n", &other_error)));
-                    other_error
-                }
-            }
-        })
+        execute_entry_point_call(self, contract_class, state, resources, context)
     }
 }
 
@@ -141,9 +118,6 @@ pub struct EntryPointExecutionContext {
     pub n_emitted_events: usize,
     /// Used for tracking L2-to-L1 messages order during the current execution.
     pub n_sent_messages_to_l1: usize,
-    /// Used to track error stack for call chain.
-    pub error_stack: Vec<(ContractAddress, String)>,
-
     // Managed by dedicated guard object.
     current_recursion_depth: Arc<RefCell<usize>>,
 
@@ -162,7 +136,6 @@ impl EntryPointExecutionContext {
             vm_run_resources: RunResources::new(max_steps),
             n_emitted_events: 0,
             n_sent_messages_to_l1: 0,
-            error_stack: vec![],
             tx_context: tx_context.clone(),
             current_recursion_depth: Default::default(),
             execution_mode: mode,
@@ -301,23 +274,6 @@ impl EntryPointExecutionContext {
         let overhead_steps =
             self.versioned_constants().os_resources_for_tx_type(tx_type, calldata_length).n_steps;
         self.subtract_steps(validate_steps + overhead_steps)
-    }
-
-    /// Combines individual errors into a single stack trace string, with contract addresses printed
-    /// alongside their respective trace.
-    pub fn error_trace(&self) -> String {
-        self.error_stack
-            .iter()
-            .rev()
-            .map(|(contract_address, trace_string)| {
-                format!(
-                    "Error in the called contract ({}):\n{}",
-                    contract_address.0.key(),
-                    trace_string
-                )
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
     }
 
     pub fn versioned_constants(&self) -> &VersionedConstants {

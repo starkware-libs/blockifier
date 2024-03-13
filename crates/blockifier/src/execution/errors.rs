@@ -139,13 +139,6 @@ pub enum EntryPointExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     TraceError(#[from] TraceError),
-    /// Gathers all errors from running the Cairo VM, excluding hints.
-    #[error("{trace}")]
-    VirtualMachineExecutionErrorWithTrace {
-        trace: String,
-        #[source]
-        source: CairoRunError,
-    },
 }
 
 #[derive(Debug, Error)]
@@ -186,7 +179,7 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     }
 
     let error_stack_str = error_stack.join("\n");
-    error_stack_str[..min(10000, error_stack_str.len())].to_string()
+    error_stack_str[..min(15000, error_stack_str.len())].to_string()
 }
 
 #[cfg(test)]
@@ -340,8 +333,8 @@ fn extract_entry_point_execution_error_into_stack_trace(
     entry_point_error: &EntryPointExecutionError,
 ) {
     match entry_point_error {
-        EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { source, .. } => {
-            extract_cairo_run_error_into_stack_trace(error_stack, source)
+        EntryPointExecutionError::CairoRunError(cairo_run_error) => {
+            extract_cairo_run_error_into_stack_trace(error_stack, cairo_run_error)
         }
         _ => error_stack.push(format!("{}\n", entry_point_error)),
     }
