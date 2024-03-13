@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -183,7 +185,8 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
         }
     }
 
-    error_stack.join("\n")
+    let error_stack_str = error_stack.join("\n");
+    error_stack_str[..min(10000, error_stack_str.len())].to_string()
 }
 
 #[cfg(test)]
