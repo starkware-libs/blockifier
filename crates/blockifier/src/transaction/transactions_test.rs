@@ -428,8 +428,7 @@ fn test_invoke_tx(
         },
         None,
         std::iter::empty(),
-    )
-    .unwrap();
+    );
     let sender_address = invoke_tx.sender_address();
 
     let account_tx = AccountTransaction::Invoke(invoke_tx);
@@ -1143,8 +1142,7 @@ fn test_declare_tx(
         declare_expected_state_changes_count(tx_version),
         None,
         std::iter::empty(),
-    )
-    .unwrap();
+    );
 
     let account_tx = declare_tx(
         declare_tx_args! {
