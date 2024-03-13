@@ -174,6 +174,9 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             error_stack
                 .push(format!("Error in the called contract ({}):", *storage_address.0.key()));
             extract_entry_point_execution_error_into_stack_trace(&mut error_stack, error);
+            // Temp hack to match existing regression. This is to be deleted shortly.
+            #[cfg(test)]
+            fix_for_regression(&mut error_stack);
         }
         _ => {
             error_stack.push(error.to_string());
@@ -184,15 +187,7 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
 }
 
 #[cfg(test)]
-pub(crate) fn gen_error_stack_trace_for_testing(
-    error: &CairoRunError,
-    storage_address: StarkFelt,
-) -> String {
-    let mut error_stack: Vec<String> = Vec::new();
-    error_stack.push(format!("Error in the called contract ({}):", storage_address));
-    extract_cairo_run_error_into_stack_trace(&mut error_stack, error);
-
-    // TODO(Zuphit): Temp hack to match existing regression. This is to be deleted shortly.
+fn fix_for_regression(error_stack: &mut [String]) {
     if error_stack.last().unwrap_or(&String::new()).starts_with("Execution failed. Failure reason:")
     {
         let last_wrapping_hint_error_index = error_stack
@@ -206,8 +201,6 @@ pub(crate) fn gen_error_stack_trace_for_testing(
                 format!("{HINT_ERROR_STR}{}", error_stack.last().unwrap().trim_end());
         }
     }
-
-    error_stack.join("\n")
 }
 
 fn extract_cairo_run_error_into_stack_trace(error_stack: &mut Vec<String>, error: &CairoRunError) {
