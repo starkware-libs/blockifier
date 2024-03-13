@@ -192,7 +192,8 @@ fn test_call_contract(
 }
 
 #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
-// fails on negative flow data length exceeding limit. Might be worth splitting this test into four, one for each case, rather than having it all in one
+// fails on negative flow data length exceeding limit. Might be worth splitting this test into four,
+// one for each case, rather than having it all in one
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 82930; "VM")] // passes
 fn test_emit_event(test_contract: FeatureContract, expected_gas: u64) {
     let versioned_constants = VersionedConstants::create_for_testing();
@@ -671,18 +672,39 @@ fn test_library_call_assert_fails(test_contract: FeatureContract, expected_gas: 
         class_hash: Some(test_contract.get_class_hash()),
         ..trivial_external_entry_point_new(test_contract)
     };
-    // x != y in hex =
-    //
-    let retdata = retdata![stark_felt!(X_NOT_EQUAL_Y)];
 
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: expected_gas, failed: true, retdata, ..Default::default() }
-    );
+    // x != y in hex =
+    let retdata = retdata![stark_felt!(X_NOT_EQUAL_Y)];
+    let execution_result = entry_point_call.execute_directly(&mut state);
+
+    if let FeatureContract::TestContract(CairoVersion::Cairo1) = test_contract {
+        let execution_error = execution_result.unwrap_err();
+
+        assert_matches!(
+            execution_error,
+            EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { .. }
+        );
+
+        let error_trace = execution_error.try_to_vm_trace();
+        let expected_message = "x != y";
+
+        assert!(error_trace.contains(expected_message));
+    } else {
+        assert_eq!(
+            execution_result.unwrap().execution,
+            CallExecution {
+                gas_consumed: expected_gas,
+                failed: true,
+                retdata,
+                ..Default::default()
+            }
+        );
+    }
 }
 
 #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
-//fail, test specifies vm specific resource use, but also the inner_calls field is empty where it shouldn't be
+// fail, test specifies vm specific resource use, but also the inner_calls field is empty where it
+// shouldn't be
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 316180; "VM")] // pass
 fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
@@ -805,7 +827,8 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
 
 #[test]
 fn test_replace_class() {
-    // pass, but needs splitting into vm and native with asserts added that the right one is being used
+    // pass, but needs splitting into vm and native with asserts added that the right one is being
+    // used
     let mut state = create_deploy_test_state();
 
     // Negative flow.
@@ -869,7 +892,7 @@ fn test_replace_class() {
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] //including the relevant function causes failure due to gas processing
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // including the relevant function causes failure due to gas processing
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 17210900; "VM")] // pass
 fn test_secp256k1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
@@ -888,7 +911,8 @@ fn test_secp256k1(test_contract: FeatureContract, expected_gas: u64) {
     );
 }
 
-// #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // fails, not implemented in the NativeSyscallHandler (TODO)
+// #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // fails, not
+// implemented in the NativeSyscallHandler (TODO)
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 27650390; "VM")] // pass
 fn test_secp256r1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
