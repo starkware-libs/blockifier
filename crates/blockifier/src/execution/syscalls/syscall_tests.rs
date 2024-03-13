@@ -284,10 +284,12 @@ fn emit_events(
 mod test_get_block_hash {
     use self::test_case;
     use super::{assert_eq, *};
+    use crate::state::cached_state::CachedState;
+    use crate::test_utils::dict_state_reader::DictStateReader;
 
-    #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // pass
-    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 14250; "VM")] // unauthorised syscall get_block_hash in execution mode Validate
-    fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
+    fn initialize_state(
+        test_contract: FeatureContract,
+    ) -> (CachedState<DictStateReader>, StarkFelt, StarkFelt) {
         let chain_info = &ChainInfo::create_for_testing();
         let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
         assert_consistent_contract_version(test_contract, &state);
@@ -302,7 +304,14 @@ mod test_get_block_hash {
                 .unwrap();
         state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
 
-        // Positive flow.
+        (state, block_number, block_hash)
+    }
+
+    #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 14250; "VM")]
+    fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
+        let (mut state, block_number, block_hash) = initialize_state(test_contract);
+
         let calldata = calldata![block_number];
         let entry_point_call = CallEntryPoint {
             entry_point_selector: selector_from_name("test_get_block_hash"),
@@ -319,22 +328,10 @@ mod test_get_block_hash {
         );
     }
 
-    #[test_case(FeatureContract::SierraTestContract, false; "Native")]
-    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), true; "VM")]
-    fn negative_flow_execution_mode_validate(test_contract: FeatureContract, is_vm: bool) {
-        let chain_info = &ChainInfo::create_for_testing();
-        let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
-        assert_consistent_contract_version(test_contract, &state);
-
-        // Initialize block number -> block hash entry.
-        let upper_bound_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER;
-        let block_number = stark_felt!(upper_bound_block_number);
-        let block_hash = stark_felt!(66_u64);
-        let key = StorageKey::try_from(block_number).unwrap();
-        let block_hash_contract_address =
-            ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))
-                .unwrap();
-        state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn negative_flow_execution_mode_validate(test_contract: FeatureContract) {
+        let (mut state, block_number, _) = initialize_state(test_contract);
 
         let calldata = calldata![block_number];
         let entry_point_call = CallEntryPoint {
@@ -343,8 +340,7 @@ mod test_get_block_hash {
             ..trivial_external_entry_point_new(test_contract)
         };
 
-        // Negative flow. Execution mode is Validate.
-        if is_vm {
+        if let FeatureContract::TestContract(_) = test_contract {
             let execution_result =
                 entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
 
@@ -377,24 +373,11 @@ mod test_get_block_hash {
         }
     }
 
-    #[test_case(FeatureContract::SierraTestContract, false; "Native")]
-    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), true; "VM")]
-    fn negative_flow_block_number_out_of_range(test_contract: FeatureContract, is_vm: bool) {
-        let chain_info = &ChainInfo::create_for_testing();
-        let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
-        assert_consistent_contract_version(test_contract, &state);
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn negative_flow_block_number_out_of_range(test_contract: FeatureContract) {
+        let (mut state, _, _) = initialize_state(test_contract);
 
-        // Initialize block number -> block hash entry.
-        let upper_bound_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER;
-        let block_number = stark_felt!(upper_bound_block_number);
-        let block_hash = stark_felt!(66_u64);
-        let key = StorageKey::try_from(block_number).unwrap();
-        let block_hash_contract_address =
-            ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))
-                .unwrap();
-        state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
-
-        // Negative flow: Block number out of range.
         let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
         let block_number = stark_felt!(requested_block_number);
         let calldata = calldata![block_number];
@@ -404,15 +387,9 @@ mod test_get_block_hash {
             ..trivial_external_entry_point_new(test_contract)
         };
 
-        if is_vm {
+        if let FeatureContract::TestContract(_) = test_contract {
             let execution_result = entry_point_call.execute_directly(&mut state).unwrap_err();
 
-            // assert_eq!(
-            //     execution_result,
-            //     EntryPointExecutionError::ExecutionFailed {
-            //         error_data: vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]
-            //     }
-            // );
             if let EntryPointExecutionError::ExecutionFailed { error_data } = execution_result {
                 assert_eq!(error_data, vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]);
             } else {
