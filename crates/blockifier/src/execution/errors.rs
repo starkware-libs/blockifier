@@ -128,9 +128,6 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             error_stack
                 .push(format!("Error in the called contract ({}):", *storage_address.0.key()));
             extract_entry_point_execution_error_into_stack_trace(&mut error_stack, error);
-            // Temp hack to match existing regression. This is to be deleted shortly.
-            #[cfg(test)]
-            fix_for_regression(&mut error_stack);
         }
         _ => {
             error_stack.push(error.to_string());
@@ -139,24 +136,6 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
 
     let error_stack_str = error_stack.join("\n");
     error_stack_str[..min(15000, error_stack_str.len())].to_string()
-}
-
-#[cfg(test)]
-fn fix_for_regression(error_stack: &mut [String]) {
-    if error_stack.last().unwrap_or(&String::new()).starts_with("Execution failed. Failure reason:")
-    {
-        let last_wrapping_hint_error_index = error_stack
-            .iter()
-            .rposition(|s| s.starts_with("Got an exception while executing a hint."));
-        if last_wrapping_hint_error_index.is_some() {
-            let index = last_wrapping_hint_error_index.unwrap();
-            // replace error stack at index with the cairo 1 error that appears at the end of the
-            // stack.
-            use cairo_vm::vm::errors::vm_errors::HINT_ERROR_STR;
-            error_stack[index] =
-                format!("{HINT_ERROR_STR}{}", error_stack.last().unwrap().trim_end());
-        }
-    }
 }
 
 fn extract_cairo_run_error_into_stack_trace(error_stack: &mut Vec<String>, error: &CairoRunError) {
