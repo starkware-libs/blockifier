@@ -47,7 +47,8 @@ impl MessageL1CostInfo {
         let mut l2_to_l1_payload_lengths = Vec::new();
         for call_info in call_infos {
             println!("yael old calculate enter new call info");
-            l2_to_l1_payload_lengths.extend(call_info.get_sorted_l2_to_l1_payload_lengths());
+            l2_to_l1_payload_lengths
+                .extend(call_info.get_recursive_call_info_l2_to_l1_payload_lengths());
             println!("yael old calculate l2_to_l1_payload_lengths: {:?}", l2_to_l1_payload_lengths);
         }
 
@@ -178,7 +179,7 @@ impl CallInfo {
         CallInfoIter { call_infos }
     }
 
-    pub fn get_l2_to_l1_payload_lengths(&self) -> Vec<usize> {
+    pub fn get_call_info_l2_to_l1_payload_lengths(&self) -> Vec<usize> {
         self.execution
             .l2_to_l1_messages
             .iter()
@@ -216,6 +217,14 @@ impl CallInfo {
         )
     }
 
+    pub fn get_recursive_call_info_l2_to_l1_payload_lengths(&self) -> Vec<usize> {
+        let mut l2_to_l1_lengths = Vec::new();
+        for call_info in self.iter() {
+            l2_to_l1_lengths.extend(call_info.get_call_info_l2_to_l1_payload_lengths());
+        }
+        l2_to_l1_lengths
+    }
+
     pub fn summarize(&self) -> ExecutionSummary {
         let mut executed_class_hashes: HashSet<ClassHash> = HashSet::new();
         let mut visited_storage_entries: HashSet<StorageEntry> = HashSet::new();
@@ -236,7 +245,7 @@ impl CallInfo {
 
             n_events += call_info.execution.events.len();
 
-            l2_to_l1_payload_lengths.extend(call_info.get_l2_to_l1_payload_lengths());
+            l2_to_l1_payload_lengths.extend(call_info.get_call_info_l2_to_l1_payload_lengths());
             println!("yael new summarize l2_to_l1_payload_lengths: {:?}", l2_to_l1_payload_lengths);
         }
 

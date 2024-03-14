@@ -165,7 +165,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     let call_infos_iter = call_infos.iter();
     let l2_to_l1_payload_lengths: Vec<usize> = call_infos_iter
         .clone()
-        .flat_map(|call_info| call_info.get_sorted_l2_to_l1_payload_lengths())
+        .flat_map(|call_info| call_info.get_recursive_call_info_l2_to_l1_payload_lengths())
         .collect();
 
     let l2_to_l1_state_changes_count = StateChangesCount {
