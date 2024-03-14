@@ -25,6 +25,7 @@ use super::entry_point::{CallEntryPoint, EntryPointExecutionResult};
 use super::errors::EntryPointExecutionError;
 use super::native_syscall_handler::NativeSyscallHandler;
 use crate::execution::entry_point::EntryPointExecutionContext;
+use crate::execution::syscalls::secp::SecpHintProcessor;
 use crate::state::state_api::State;
 
 // An arbitrary number, chosen to avoid accidentally aligning with actually calculated gas
@@ -133,6 +134,8 @@ pub fn setup_syscall_handler<'state>(
     events: Vec<OrderedEvent>,
     l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     inner_calls: Vec<CallInfo>,
+    secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
+    secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
 ) -> NativeSyscallHandler<'state> {
     NativeSyscallHandler {
         state,
@@ -144,6 +147,8 @@ pub fn setup_syscall_handler<'state>(
         l2_to_l1_messages,
         execution_resources,
         inner_calls,
+        secp256k1_hint_processor,
+        secp256r1_hint_processor,
     }
 }
 

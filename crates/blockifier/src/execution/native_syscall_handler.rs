@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
+use ark_ff::BigInt;
+use cairo_felt::Felt252;
 use cairo_native::starknet::{
     BlockInfo, ExecutionInfoV2, Secp256k1Point, Secp256r1Point, StarkNetSyscallHandler,
     SyscallResult, TxInfo, TxV2Info, U256,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use num_bigint::BigUint;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, EthAddress,
     PatriciaKey,
@@ -28,13 +31,15 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::execute_deployment;
-use crate::execution::k1point::K1Point;
-use crate::execution::r1point::{scalar_from_u256_p256, R1Point};
 use crate::execution::syscalls::hint_processor::{
-    execute_inner_call_raw, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_CALCULATE_CONTRACT_ADDRESS,
-    FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_READ_RESULT,
-    FAILED_TO_SET_CLASS_HASH, FAILED_TO_WRITE, FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT,
-    INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR, INVALID_SCALAR,
+    execute_inner_call_raw, SyscallExecutionError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
+    FAILED_TO_CALCULATE_CONTRACT_ADDRESS, FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS,
+    FAILED_TO_READ_RESULT, FAILED_TO_SET_CLASS_HASH, FAILED_TO_WRITE, FORBIDDEN_CLASS_REPLACEMENT,
+    INVALID_ARGUMENT, INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
+};
+use crate::execution::syscalls::secp::{
+    SecpAddRequest, SecpAddResponse, SecpGetPointFromXRequest, SecpGetPointFromXResponse,
+    SecpHintProcessor, SecpMulRequest, SecpMulResponse, SecpNewRequest, SecpNewResponse,
 };
 use crate::state::state_api::State;
 
@@ -48,6 +53,43 @@ pub struct NativeSyscallHandler<'state> {
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     pub inner_calls: Vec<CallInfo>,
+
+    // Secp hint processors.
+    pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
+    pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
+}
+impl NativeSyscallHandler<'_> {
+    fn allocate_point_k1(&mut self, point_x: U256, point_y: U256) -> SyscallResult<usize> {
+        let request = SecpNewRequest { x: u256_to_biguint(point_x), y: u256_to_biguint(point_y) };
+
+        let response = self.secp256k1_hint_processor.secp_new_unchecked(request);
+
+        self._parse_allocate_point_response(response)
+    }
+
+    fn allocate_point_r1(&mut self, point_x: U256, point_y: U256) -> SyscallResult<usize> {
+        let request = SecpNewRequest { x: u256_to_biguint(point_x), y: u256_to_biguint(point_y) };
+
+        let response = self.secp256r1_hint_processor.secp_new_unchecked(request);
+
+        self._parse_allocate_point_response(response)
+    }
+
+    fn _parse_allocate_point_response(
+        &mut self,
+        response: crate::execution::syscalls::SyscallResult<SecpNewResponse>,
+    ) -> SyscallResult<usize> {
+        match response {
+            Ok(SecpNewResponse { optional_ec_point_id: Some(id) }) => Ok(id),
+            Ok(SecpNewResponse { optional_ec_point_id: None }) => {
+                Err(vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
+    }
 }
 
 impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
@@ -432,12 +474,28 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         p1: Secp256k1Point,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Secp256k1Point> {
-        let p0 = K1Point::try_from(p0)?;
-        let p1 = K1Point::try_from(p1)?;
+        let p_p0 = self.allocate_point_k1(p0.x, p0.y)?;
+        let p_p1 = self.allocate_point_k1(p1.x, p1.y)?;
+        let request = SecpAddRequest { lhs_id: Felt252::from(p_p0), rhs_id: Felt252::from(p_p1) };
 
-        let result = K1Point::new(p0.point + p1.point);
+        match self.secp256k1_hint_processor.secp_add(request) {
+            Ok(SecpAddResponse { ec_point_id: id }) => {
+                let id = Felt252::from(id);
 
-        Ok(result.try_into()?)
+                let point = self
+                    .secp256k1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Secp256k1Point { x, y })
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
     }
 
     fn secp256k1_get_point_from_x(
@@ -446,9 +504,27 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         y_parity: bool,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Option<Secp256k1Point>> {
-        let point = K1Point::try_from((x, y_parity))?;
+        let request = SecpGetPointFromXRequest { x: u256_to_biguint(x), y_parity };
 
-        Ok(Some(point.try_into()?))
+        match self.secp256k1_hint_processor.secp_get_point_from_x(request) {
+            Ok(SecpGetPointFromXResponse { optional_ec_point_id: Some(id) }) => {
+                let id = Felt252::from(id);
+
+                let point = self
+                    .secp256k1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Some(Secp256k1Point { x, y }))
+            }
+            Ok(SecpGetPointFromXResponse { optional_ec_point_id: None }) => Ok(None),
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
     }
 
     fn secp256k1_get_xy(
@@ -465,12 +541,28 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         m: U256,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Secp256k1Point> {
-        let p = K1Point::try_from(p)?;
-        let m = scalar_from_u256_k256(m)?;
+        let p_id = self.allocate_point_k1(p.x, p.y)?;
+        let request =
+            SecpMulRequest { ec_point_id: Felt252::from(p_id), multiplier: u256_to_biguint(m) };
 
-        let result = K1Point::new(p.point * m);
+        match self.secp256k1_hint_processor.secp_mul(request) {
+            Ok(SecpMulResponse { ec_point_id: id }) => {
+                let id = Felt252::from(id);
 
-        Ok(result.try_into()?)
+                let point = self
+                    .secp256k1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Secp256k1Point { x, y })
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
     }
 
     fn secp256k1_new(
@@ -479,10 +571,18 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         y: U256,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Option<Secp256k1Point>> {
-        let point = Secp256k1Point { x, y };
-        let guard = K1Point::try_from(point);
+        let request = SecpNewRequest { x: u256_to_biguint(x), y: u256_to_biguint(y) };
 
-        if guard.is_ok() { Ok(Some(point)) } else { Ok(None) }
+        match self.secp256k1_hint_processor.secp_new(request) {
+            Ok(SecpNewResponse { optional_ec_point_id: Some(_) }) => {
+                Ok(Some(Secp256k1Point { x, y }))
+            }
+            Ok(SecpNewResponse { optional_ec_point_id: None }) => Ok(None),
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
     }
 
     fn secp256r1_add(
@@ -491,12 +591,28 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         p1: Secp256r1Point,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Secp256r1Point> {
-        let p0 = R1Point::try_from(p0)?;
-        let p1 = R1Point::try_from(p1)?;
+        let p_p0 = self.allocate_point_r1(p0.x, p0.y)?;
+        let p_p1 = self.allocate_point_r1(p1.x, p1.y)?;
+        let request = SecpAddRequest { lhs_id: Felt252::from(p_p0), rhs_id: Felt252::from(p_p1) };
 
-        let result = R1Point::new(p0.point + p1.point);
+        match self.secp256r1_hint_processor.secp_add(request) {
+            Ok(SecpAddResponse { ec_point_id: id }) => {
+                let id = Felt252::from(id);
 
-        Ok(result.try_into()?)
+                let point = self
+                    .secp256r1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Secp256r1Point { x, y })
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
     }
 
     fn secp256r1_get_point_from_x(
@@ -505,9 +621,27 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         y_parity: bool,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Option<Secp256r1Point>> {
-        let point = R1Point::try_from((x, y_parity))?;
+        let request = SecpGetPointFromXRequest { x: u256_to_biguint(x), y_parity };
 
-        Ok(Some(point.try_into()?))
+        match self.secp256r1_hint_processor.secp_get_point_from_x(request) {
+            Ok(SecpGetPointFromXResponse { optional_ec_point_id: Some(id) }) => {
+                let id = Felt252::from(id);
+
+                let point = self
+                    .secp256r1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Some(Secp256r1Point { x, y }))
+            }
+            Ok(SecpGetPointFromXResponse { optional_ec_point_id: None }) => Ok(None),
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
     }
 
     fn secp256r1_get_xy(
@@ -524,12 +658,31 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         m: U256,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Secp256r1Point> {
-        let p = R1Point::try_from(p)?;
-        let m = scalar_from_u256_p256(m)?;
+        let p_id = self.allocate_point_r1(p.x, p.y)?;
+        let request =
+            SecpMulRequest { ec_point_id: Felt252::from(p_id), multiplier: u256_to_biguint(m) };
 
-        let result = R1Point::new(p.point * m);
+        match self.secp256r1_hint_processor.secp_mul(request) {
+            Ok(SecpMulResponse { ec_point_id: id }) => {
+                let id = Felt252::from(id);
 
-        Ok(result.try_into()?)
+                let point = self
+                    .secp256r1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                println!("#response x: {:?}", x);
+                println!("#response y: {:?}", y);
+
+                Ok(Secp256r1Point { x, y })
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
     }
 
     fn secp256r1_new(
@@ -538,10 +691,18 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         y: U256,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Option<Secp256r1Point>> {
-        let point = Secp256r1Point { x, y };
-        let guard = R1Point::try_from(point);
+        let request = SecpNewRequest { x: u256_to_biguint(x), y: u256_to_biguint(y) };
 
-        if guard.is_ok() { Ok(Some(point)) } else { Ok(None) }
+        match self.secp256r1_hint_processor.secp_new(request) {
+            Ok(SecpNewResponse { optional_ec_point_id: Some(_) }) => {
+                Ok(Some(Secp256r1Point { x, y }))
+            }
+            Ok(SecpNewResponse { optional_ec_point_id: None }) => Ok(None),
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(_) => Err(vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]),
+        }
     }
 
     fn pop_log(&mut self) {
@@ -597,14 +758,18 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
     }
 }
 
-pub fn scalar_from_u256_k256(scalar: U256) -> Result<k256::Scalar, Vec<Felt>> {
-    let mut bytes = [0u8; 32];
-    bytes[0..16].copy_from_slice(&scalar.hi.to_be_bytes());
-    bytes[16..32].copy_from_slice(&scalar.lo.to_be_bytes());
+pub fn u256_to_biguint(u256: U256) -> BigUint {
+    let lo = BigUint::from(u256.lo);
+    let hi = BigUint::from(u256.hi);
 
-    let scalar: k256::Scalar = k256::elliptic_curve::ScalarPrimitive::from_slice(&bytes)
-        .map_err(|_| vec![Felt::from_hex(INVALID_SCALAR).unwrap()])?
-        .into();
+    hi + (lo << 128) // 128 is the size of lo
+}
 
-    Ok(scalar)
+pub fn big4int_to_u256(b_int: BigInt<4>) -> U256 {
+    let [a, b, c, d] = b_int.0;
+
+    let hi = (a as u128) | ((b as u128) << 64);
+    let lo = (c as u128) | ((d as u128) << 64);
+
+    U256 { lo, hi }
 }

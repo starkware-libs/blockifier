@@ -1,7 +1,9 @@
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_starknet_classes::contract_class::ContractEntryPoints;
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ClassHash;
 
+use super::entry_point::EntryPointExecutionResult;
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::SierraContractClassV1;
 use crate::execution::entry_point::{CallEntryPoint, EntryPointExecutionContext};
@@ -12,9 +14,6 @@ use crate::execution::sierra_utils::{
     run_native_executor, setup_syscall_handler, wrap_syscall_handler,
 };
 use crate::state::state_api::State;
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-
-use super::entry_point::EntryPointExecutionResult;
 
 pub fn execute_entry_point_call(
     call: CallEntryPoint,
@@ -40,11 +39,14 @@ pub fn execute_entry_point_call(
         call.caller_address,
         call.storage_address,
         call.entry_point_selector,
-        resources, // TODO, no longer supports clone, do we add it or can we get away with using mut refs
+        resources, /* TODO, no longer supports clone, do we add it or can we get away with using
+                    * mut refs */
         context,
         Vec::new(),
         Vec::new(),
         Vec::new(),
+        Default::default(),
+        Default::default(),
     );
 
     let syscall_handler_meta = wrap_syscall_handler(&mut syscall_handler);
