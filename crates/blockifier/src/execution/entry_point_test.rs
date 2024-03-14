@@ -646,44 +646,43 @@ fn test_stack_trace(
     let account_entry_point_location = account_entry_point_offset.0 - 8;
 
     let expected_trace_cairo0 = format!(
-        "Transaction execution has failed: Error in the called contract ({account_address_felt}):
+        "Transaction execution has failed:
+0: Error in the called contract (storage address: {account_address_felt}):
 Error at pc=0:7:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_call_location})
 Unknown location (pc=0:{account_entry_point_location})
 
-Error in the called contract ({test_contract_address_felt}):
+1: Error in the called contract (storage address: {test_contract_address_felt}):
 Error at pc=0:37:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-Error in the called contract ({test_contract_address_2_felt}):
+2: Error in the called contract (storage address: {test_contract_address_2_felt}):
 Error at pc=0:1184:
-An ASSERT_EQ instruction failed: 1 != 0.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:1188)
+
+An ASSERT_EQ instruction failed: 1 != 0.
 "
     );
 
     let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
     let pc_location = entry_point_offset.0 + 82;
     let expected_trace_cairo1 = format!(
-        "Transaction execution has failed: Error in the called contract ({account_address_felt}):
+        "Transaction execution has failed:
+0: Error in the called contract (storage address: {account_address_felt}):
 Error at pc=0:797:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_pc_location})
 
-Error in the called contract ({test_contract_address_felt}):
+1: Error in the called contract (storage address: {test_contract_address_felt}):
 Error at pc=0:4992:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-Error in the called contract ({test_contract_address_2_felt}):
+2: Error in the called contract (storage address: {test_contract_address_2_felt}):
 Execution failed. Failure reason: 0x6661696c ('fail').
 "
     );
@@ -764,27 +763,26 @@ fn test_trace_callchain_ends_with_regular_call(
             // Final invocation locations.
             let (expected_pc0, expected_pc1) = expected_pc_locations;
             format!(
-                "Transaction execution has failed: Error in the called contract \
-                 ({account_address_felt}):
+                "Transaction execution has failed:
+0: Error in the called contract (storage address: {account_address_felt}):
 Error at pc=0:7:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_call_location})
 Unknown location (pc=0:{account_entry_point_location})
 
-Error in the called contract ({contract_address_felt}):
+1: Error in the called contract (storage address: {contract_address_felt}):
 Error at pc=0:37:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-Error in the called contract ({contract_address_felt}):
+2: Error in the called contract (storage address: {contract_address_felt}):
 Error at pc=0:{expected_pc0}:
-{expected_error}
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{expected_pc1})
+
+{expected_error}
 "
             )
         }
@@ -792,20 +790,18 @@ Unknown location (pc=0:{expected_pc1})
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
             let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
             format!(
-                "Transaction execution has failed: Error in the called contract \
-                 ({account_address_felt}):
+                "Transaction execution has failed:
+0: Error in the called contract (storage address: {account_address_felt}):
 Error at pc=0:797:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_pc_location})
 
-Error in the called contract ({contract_address_felt}):
+1: Error in the called contract (storage address: {contract_address_felt}):
 Error at pc=0:8010:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-Error in the called contract ({contract_address_felt}):
+2: Error in the called contract (storage address: {contract_address_felt}):
 Execution failed. Failure reason: {expected_error}.
 "
             )
@@ -890,6 +886,15 @@ fn test_trace_call_chain_with_syscalls(
     let entry_point_offset =
         get_entry_point_offset(&test_contract.get_class(), invoke_call_chain_selector);
 
+    let last_call_preamble = if call_type == 0 {
+        format!("Error in the called contract (storage address: {address_felt})")
+    } else {
+        format!(
+            "Error in a library call (storage address: {address_felt}, class hash: \
+             {test_contract_hash})"
+        )
+    };
+
     let expected_trace = match cairo_version {
         CairoVersion::Cairo0 => {
             let call_location = entry_point_offset.0 + 12;
@@ -899,33 +904,31 @@ fn test_trace_call_chain_with_syscalls(
             let account_entry_point_location = account_entry_point_offset.0 - 8;
             let (expected_pc0, expected_pc1, expected_pc2, expected_pc3) = expected_pcs;
             format!(
-                "Transaction execution has failed: Error in the called contract \
-                 ({account_address_felt}):
+                "Transaction execution has failed:
+0: Error in the called contract (storage address: {account_address_felt}):
 Error at pc=0:7:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_call_location})
 Unknown location (pc=0:{account_entry_point_location})
 
-Error in the called contract ({address_felt}):
+1: Error in the called contract (storage address: {address_felt}):
 Error at pc=0:37:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-Error in the called contract ({address_felt}):
+2: Error in the called contract (storage address: {address_felt}):
 Error at pc=0:{expected_pc0}:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{expected_pc1})
 
-Error in the called contract ({address_felt}):
+3: {last_call_preamble}:
 Error at pc=0:{expected_pc2}:
-{expected_error}
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{expected_pc3})
+
+{expected_error}
 "
             )
         }
@@ -934,26 +937,23 @@ Unknown location (pc=0:{expected_pc3})
             let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
             let expected_pc = expected_pcs.0;
             format!(
-                "Transaction execution has failed: Error in the called contract \
-                 ({account_address_felt}):
+                "Transaction execution has failed:
+0: Error in the called contract (storage address: {account_address_felt}):
 Error at pc=0:797:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_pc_location})
 
-Error in the called contract ({address_felt}):
+1: Error in the called contract (storage address: {address_felt}):
 Error at pc=0:8010:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-Error in the called contract ({address_felt}):
+2: Error in the called contract (storage address: {address_felt}):
 Error at pc=0:{expected_pc}:
-Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-Error in the called contract ({address_felt}):
+3: {last_call_preamble}:
 Execution failed. Failure reason: {expected_error}.
 "
             )

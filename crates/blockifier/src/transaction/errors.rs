@@ -64,7 +64,7 @@ pub enum TransactionExecutionError {
     },
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
-    #[error("Transaction execution has failed: {}", gen_transaction_execution_error_trace(self))]
+    #[error("Transaction execution has failed:\n{}", gen_transaction_execution_error_trace(self))]
     ExecutionError { error: EntryPointExecutionError, storage_address: ContractAddress },
     #[error(transparent)]
     FeeCheckError(#[from] FeeCheckError),
