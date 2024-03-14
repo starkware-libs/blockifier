@@ -9,7 +9,9 @@ use num_traits::Pow;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use rstest::{fixture, rstest};
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey};
+use starknet_api::core::{
+    ChainId, ClassHash, CompiledClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey,
+};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
@@ -1145,7 +1147,7 @@ fn test_declare_tx(
         std::iter::empty(),
     )
     .unwrap();
-
+    state.set_compiled_class_hash(class_hash, CompiledClassHash(stark_felt!("0x1"))).unwrap();
     let account_tx = declare_tx(
         declare_tx_args! {
             max_fee: Fee(MAX_FEE),
