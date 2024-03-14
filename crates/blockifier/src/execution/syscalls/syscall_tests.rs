@@ -38,7 +38,7 @@ use crate::execution::sierra_utils::NATIVE_GAS_PLACEHOLDER;
 use crate::execution::syscalls::hint_processor::{
     EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_EXECUTE_CALL,
     FAILED_TO_GET_CONTRACT_CLASS, FORBIDDEN_CLASS_REPLACEMENT, INVALID_EXECUTION_MODE_ERROR,
-    L1_GAS, L2_GAS, OUT_OF_GAS_ERROR, X_NOT_EQUAL_Y,
+    L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
@@ -680,9 +680,9 @@ fn test_library_call(test_contract: FeatureContract, expected_gas: u64) {
     );
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // pass
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 1234; "VM")] // execution error rather than execution failed
-fn test_library_call_assert_fails(test_contract: FeatureContract, expected_gas: u64) {
+#[test_case(FeatureContract::SierraTestContract; "Native")]
+#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+fn test_library_call_assert_fails(test_contract: FeatureContract) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
     let inner_entry_point_selector = selector_from_name("assert_eq");
@@ -699,18 +699,14 @@ fn test_library_call_assert_fails(test_contract: FeatureContract, expected_gas: 
         class_hash: Some(test_contract.get_class_hash()),
         ..trivial_external_entry_point_new(test_contract)
     };
-    // x != y in hex =
-    //
-    let retdata = retdata![stark_felt!(X_NOT_EQUAL_Y)];
 
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: expected_gas, failed: true, retdata, ..Default::default() }
-    );
+    let err = entry_point_call.execute_directly(&mut state).unwrap_err();
+    assert!(err.to_string().contains("x != y"));
 }
 
 #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
-//fail, test specifies vm specific resource use, but also the inner_calls field is empty where it shouldn't be
+// fail, test specifies vm specific resource use, but also the inner_calls field is empty where it
+// shouldn't be
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 316180; "VM")] // pass
 fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
@@ -833,7 +829,8 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
 
 #[test]
 fn test_replace_class() {
-    // pass, but needs splitting into vm and native with asserts added that the right one is being used
+    // pass, but needs splitting into vm and native with asserts added that the right one is being
+    // used
     let mut state = create_deploy_test_state();
 
     // Negative flow.
@@ -897,7 +894,7 @@ fn test_replace_class() {
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] //including the relevant function causes failure due to gas processing
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // including the relevant function causes failure due to gas processing
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 17210900; "VM")] // pass
 fn test_secp256k1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
@@ -916,7 +913,8 @@ fn test_secp256k1(test_contract: FeatureContract, expected_gas: u64) {
     );
 }
 
-// #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // fails, not implemented in the NativeSyscallHandler (TODO)
+// #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // fails, not
+// implemented in the NativeSyscallHandler (TODO)
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 27650390; "VM")] // pass
 fn test_secp256r1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();

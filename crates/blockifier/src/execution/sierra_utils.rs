@@ -264,5 +264,5 @@ pub fn decode_felts_as_str(encoding: &[Felt]) -> String {
     let bytes_err: Vec<_> =
         encoding.iter().flat_map(|felt| felt.to_bytes_be()[1..32].to_vec()).collect();
 
-    String::from_utf8(bytes_err).unwrap().trim_end_matches('\0').to_owned()
+    String::from_utf8(bytes_err).unwrap().trim_matches('\0').to_owned()
 }

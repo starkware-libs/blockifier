@@ -140,7 +140,7 @@ pub enum EntryPointExecutionError {
         #[source]
         source: CairoRunError,
     },
-    #[error("{info}")]
+    #[error("Native execution error: {info}")]
     NativeExecutionError { info: String },
     #[error("Native unexpected error: {source}")]
     NativeUnexpectedError {
