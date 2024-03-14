@@ -68,11 +68,6 @@ pub enum TransactionExecutionError {
     ExecutionError { error: EntryPointExecutionError, storage_address: ContractAddress },
     #[error(transparent)]
     FeeCheckError(#[from] FeeCheckError),
-    #[error(
-        "Invalid order number for {object}. Order: {order} exceeds the maximum order limit: \
-         {max_order}."
-    )]
-    InvalidOrder { object: String, order: usize, max_order: usize },
     #[error("The `validate` entry point should return `VALID`. Got {actual:?}.")]
     InvalidValidateReturnData { actual: Retdata },
     #[error(
@@ -88,8 +83,6 @@ pub enum TransactionExecutionError {
     TransactionFeeError(#[from] TransactionFeeError),
     #[error(transparent)]
     TransactionPreValidationError(#[from] TransactionPreValidationError),
-    #[error("Unexpected holes in the {object} order. No object with the order: {order}.")]
-    UnexpectedHoles { object: String, order: usize },
     #[error(transparent)]
     TryFromIntError(#[from] std::num::TryFromIntError),
     // TODO(Zuphit): add `gen_transaction_execution_error_trace` if needed.

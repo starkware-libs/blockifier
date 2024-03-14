@@ -27,8 +27,7 @@ fn test_get_event_gas_cost(
     let call_infos = vec![CallInfo::default(), CallInfo::default(), CallInfo::default()];
     let call_infos_iter = call_infos.iter();
     let starknet_resources =
-        StarknetResources::new(0, 0, None, StateChangesCount::default(), None, call_infos_iter)
-            .unwrap();
+        StarknetResources::new(0, 0, None, StateChangesCount::default(), None, call_infos_iter);
     assert_eq!(
         GasVector::default(),
         starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
@@ -70,8 +69,7 @@ fn test_get_event_gas_cost(
         (data_word_cost * (event_key_factor * 4_u128 + 6_u128)).to_integer(),
     );
     let starknet_resources =
-        StarknetResources::new(0, 0, None, StateChangesCount::default(), None, call_infos_iter)
-            .unwrap();
+        StarknetResources::new(0, 0, None, StateChangesCount::default(), None, call_infos_iter);
     let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
     assert_eq!(expected, gas_vector);
     assert_ne!(GasVector::default(), gas_vector)

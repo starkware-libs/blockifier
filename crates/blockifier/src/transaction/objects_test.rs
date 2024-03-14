@@ -114,9 +114,9 @@ fn test_events_counter_in_transaction_execution_info_with_inner_call_info(
 
 #[rstest]
 #[case(
-    TestExecutionSummary::new(1, ClassHash(stark_felt!("0x1")), "0x1", "0x1"),
-    TestExecutionSummary::new(2, ClassHash(stark_felt!("0x2")), "0x2", "0x2"),
-    TestExecutionSummary::new(3, ClassHash(stark_felt!("0x3")), "0x3", "0x3")
+    TestExecutionSummary::new(1, 2, ClassHash(stark_felt!("0x1")), "0x1", "0x1"),
+    TestExecutionSummary::new(2, 3, ClassHash(stark_felt!("0x2")), "0x2", "0x2"),
+    TestExecutionSummary::new(3, 4, ClassHash(stark_felt!("0x3")), "0x3", "0x3")
 )]
 fn test_summarize(
     #[case] validate_params: TestExecutionSummary,
@@ -152,6 +152,12 @@ fn test_summarize(
         n_events: validate_params.num_of_events
             + execute_params.num_of_events
             + fee_transfer_params.num_of_events,
+        l2_to_l1_payload_lengths: vec![
+            1;
+            validate_params.num_of_messages
+                + execute_params.num_of_messages
+                + fee_transfer_params.num_of_messages
+        ],
     };
 
     // Call the summarize method
@@ -161,4 +167,5 @@ fn test_summarize(
     assert_eq!(actual_summary.executed_class_hashes, expected_summary.executed_class_hashes);
     assert_eq!(actual_summary.visited_storage_entries, expected_summary.visited_storage_entries);
     assert_eq!(actual_summary.n_events, expected_summary.n_events);
+    assert_eq!(actual_summary.l2_to_l1_payload_lengths, expected_summary.l2_to_l1_payload_lengths);
 }
