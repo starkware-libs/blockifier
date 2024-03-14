@@ -7,6 +7,7 @@ use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
 use crate::abi::constants;
+use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::{
     get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
 };
@@ -181,14 +182,14 @@ impl BuiltinCount {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct BouncerAuxiliaryInfo {
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Bouncer {
     pub auxiliary_info: BouncerAuxiliaryInfo,
     pub block_contains_keccak: bool,
@@ -209,7 +210,12 @@ impl Bouncer {
         Bouncer::new(bouncer_config.block_max_capacity, false)
     }
 
+    pub fn available_capacity(&self) -> BouncerWeights {
+        self.available_capacity
+    }
+
     pub fn merge(&mut self, other: Bouncer) {
+        println!("yael merge, old capcity {:?}", self.available_capacity);
         self.auxiliary_info
             .executed_class_hashes
             .extend(other.auxiliary_info.executed_class_hashes);
@@ -227,7 +233,7 @@ impl Bouncer {
         state: &mut TransactionalState<'_, S>,
         tx_execution_info: &TransactionExecutionInfo,
         l1_handler_payload_size: Option<usize>,
-    ) -> TransactionExecutorResult<()> {
+    ) -> TransactionExecutorResult<Bouncer> {
         // Creating a temporary transactional bouncer that will be merged into the Bouncer if
         // the update succeeds.
         let mut transactional_bouncer =
@@ -244,25 +250,52 @@ impl Bouncer {
         )?;
 
         if !transactional_bouncer.block_contains_keccak && tx_weights.builtin_count.keccak > 0 {
+            println!(
+                "yael update_available_capacity_with_keccak, old capcity {:?}",
+                transactional_bouncer.available_capacity
+            );
             transactional_bouncer.update_available_capacity_with_keccak(bouncer_config)?;
+            println!(
+                "yael update_available_capacity_with_keccak , new capcity {:?}",
+                transactional_bouncer.available_capacity
+            );
         }
 
+        println!("yael update before txtoobig, tx_weights {:?}", tx_weights);
+        println!(
+            "yael update before txtoobig, transactional_bouncer.available_capacity {:?}",
+            transactional_bouncer.available_capacity
+        );
         // Check if the transaction is too large to fit any block.
         let mut max_capacity = bouncer_config.block_max_capacity;
         if transactional_bouncer.block_contains_keccak {
             max_capacity = bouncer_config.block_max_capacity_with_keccak;
         }
+        println!(
+            "yael update before txtoobig, keccak {} max_capacity {:?}",
+            transactional_bouncer.block_contains_keccak, max_capacity
+        );
+
         max_capacity.checked_sub(tx_weights).ok_or(TransactionExecutionError::TxTooLarge)?;
 
         // Check if the transaction can fit the current block available capacity.
+        println!(
+            "yael update before sub_checked, old capcity {:?}",
+            transactional_bouncer.available_capacity
+        );
         transactional_bouncer.available_capacity = transactional_bouncer
             .available_capacity
             .checked_sub(tx_weights)
             .ok_or(TransactionExecutionError::BlockFull)?;
+        println!(
+            "yael update after sub_checked, old capcity {:?}",
+            transactional_bouncer.available_capacity
+        );
 
-        self.merge(transactional_bouncer);
+        self.merge(transactional_bouncer.clone());
+        println!("yael update after merge, old capcity {:?}", self.available_capacity);
 
-        Ok(())
+        Ok(transactional_bouncer)
     }
 
     fn update_available_capacity_with_keccak(
@@ -307,13 +340,16 @@ impl Bouncer {
             &self.auxiliary_info.visited_storage_entries,
             &tx_auxiliary_info.visited_storage_entries,
         )?;
+        println!("yael get_tx_weights additional_os_resources {:?}", additional_os_resources);
         let tx_execution_info_weights = Self::get_tx_execution_info_resources_weights(
             tx_execution_info,
             l1_handler_payload_size,
         )?;
+        println!("yael get_tx_weights tx_execution_info_weights {:?}", tx_execution_info_weights);
 
         let mut tx_weights =
             BouncerWeights::from(additional_os_resources) + tx_execution_info_weights;
+        println!("yael get_tx_weights tx_weights {:?}", tx_weights);
         tx_weights.state_diff_size =
             get_onchain_data_segment_length(&tx_auxiliary_info.state_changes_keys.count());
         Ok(tx_weights)
@@ -356,6 +392,173 @@ impl Bouncer {
             },
         };
         Ok(auxiliary_info)
+    }
+
+    // TODO : This is code for testing - remove before PR
+    pub fn compare_bouncer_results(
+        prev_bouncer: &Bouncer,
+        bouncer_info: &BouncerInfo,
+        bouncer_config: &BouncerConfig,
+        transaction_bouncer: &Bouncer,
+        tx_executed_class_hashes: &HashSet<ClassHash>,
+        tx_visited_storage_entries: &HashSet<StorageEntry>,
+        tx_unique_state_changes_keys: &StateChangesKeys,
+    ) {
+        println!("yael Bouncer Info {:?}", bouncer_info);
+        println!(
+            "yael Bouncer parent-transactional {:?}",
+            prev_bouncer.available_capacity - transaction_bouncer.available_capacity
+        );
+        println!(
+            "yael tx_executed_class_hashes {:?}, new : {:?}",
+            tx_executed_class_hashes, transaction_bouncer.auxiliary_info.executed_class_hashes
+        );
+        println!(
+            "yael tx_visited_storage_entries {:?}, new : {:?}",
+            tx_visited_storage_entries, transaction_bouncer.auxiliary_info.visited_storage_entries
+        );
+        println!(
+            "yael tx_unique_state_changes_keys {:?}, new : {:?}",
+            tx_unique_state_changes_keys, transaction_bouncer.auxiliary_info.state_changes_keys
+        );
+
+        assert_eq!(
+            tx_executed_class_hashes, &transaction_bouncer.auxiliary_info.executed_class_hashes,
+            "yael error in executed_class_hashes"
+        );
+        assert_eq!(
+            tx_visited_storage_entries, &transaction_bouncer.auxiliary_info.visited_storage_entries,
+            "yael error in visited_storage_entries"
+        );
+        assert_eq!(
+            tx_unique_state_changes_keys, &transaction_bouncer.auxiliary_info.state_changes_keys,
+            "yael error in state_changes_keys"
+        );
+
+        assert_eq!(
+            bouncer_info.gas_weight,
+            prev_bouncer.available_capacity.gas - transaction_bouncer.available_capacity.gas,
+            "yael error in gas_weight"
+        );
+        assert_eq!(
+            bouncer_info.message_segment_length,
+            prev_bouncer.available_capacity.message_segment_length
+                - transaction_bouncer.available_capacity.message_segment_length,
+            "yael error in message_segment_length"
+        );
+        assert_eq!(
+            bouncer_info.state_diff_size,
+            prev_bouncer.available_capacity.state_diff_size
+                - transaction_bouncer.available_capacity.state_diff_size,
+            "yael error in state_diff_size"
+        );
+        assert_eq!(
+            bouncer_info.n_events,
+            prev_bouncer.available_capacity.n_events
+                - transaction_bouncer.available_capacity.n_events,
+            "yael error in n_events"
+        );
+        assert_eq!(
+            bouncer_info.execution_resources.n_steps,
+            prev_bouncer.available_capacity.n_steps
+                - transaction_bouncer.available_capacity.n_steps,
+            "yael error in n_steps"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::bitwise.name())
+                .unwrap(),
+            prev_bouncer.available_capacity.builtin_count.bitwise
+                - transaction_bouncer.available_capacity.builtin_count.bitwise,
+            "yael error in bitwise"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::ecdsa.name())
+                .unwrap(),
+            prev_bouncer.available_capacity.builtin_count.ecdsa
+                - transaction_bouncer.available_capacity.builtin_count.ecdsa,
+            "yael error in ecdsa"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::ec_op.name())
+                .unwrap(),
+            prev_bouncer.available_capacity.builtin_count.ec_op
+                - transaction_bouncer.available_capacity.builtin_count.ec_op,
+            "yael error in ec_op"
+        );
+        if prev_bouncer.block_contains_keccak && transaction_bouncer.block_contains_keccak {
+            assert_eq!(
+                *bouncer_info
+                    .execution_resources
+                    .builtin_instance_counter
+                    .get(BuiltinName::keccak.name())
+                    .unwrap(),
+                prev_bouncer.available_capacity.builtin_count.keccak
+                    - transaction_bouncer.available_capacity.builtin_count.keccak,
+                "yael error in keccak"
+            );
+        } else if !prev_bouncer.block_contains_keccak && transaction_bouncer.block_contains_keccak {
+            let diff = bouncer_config.block_max_capacity_with_keccak.builtin_count.keccak
+                - bouncer_config.block_max_capacity.builtin_count.keccak;
+            assert_eq!(
+                *bouncer_info
+                    .execution_resources
+                    .builtin_instance_counter
+                    .get(BuiltinName::keccak.name())
+                    .unwrap(),
+                prev_bouncer.available_capacity.builtin_count.keccak + diff
+                    - transaction_bouncer.available_capacity.builtin_count.keccak,
+                "yael error in keccak"
+            );
+        } else {
+            assert_eq!(
+                *bouncer_info
+                    .execution_resources
+                    .builtin_instance_counter
+                    .get(BuiltinName::keccak.name())
+                    .unwrap(),
+                0
+            );
+            assert_eq!(transaction_bouncer.available_capacity.builtin_count.keccak, 0)
+        }
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::pedersen.name())
+                .unwrap(),
+            prev_bouncer.available_capacity.builtin_count.pedersen
+                - transaction_bouncer.available_capacity.builtin_count.pedersen,
+            "yael error in pedersen"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::poseidon.name())
+                .unwrap(),
+            prev_bouncer.available_capacity.builtin_count.poseidon
+                - transaction_bouncer.available_capacity.builtin_count.poseidon,
+            "yael error in poseidon"
+        );
+        assert_eq!(
+            *bouncer_info
+                .execution_resources
+                .builtin_instance_counter
+                .get(BuiltinName::range_check.name())
+                .unwrap(),
+            prev_bouncer.available_capacity.builtin_count.range_check
+                - transaction_bouncer.available_capacity.builtin_count.range_check,
+            "yael error in range_check"
+        );
     }
 }
 

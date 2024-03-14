@@ -63,6 +63,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         bouncer_config: BouncerConfig,
     ) -> Self {
         log::debug!("Initializing Transaction Executor...");
+        println!("yael TransactionExecutor::new  bouncer_config: {:?}", bouncer_config);
         let tx_executor = Self {
             block_context,
             bouncer: Bouncer::new_block_bouncer(bouncer_config),
@@ -75,6 +76,8 @@ impl<S: StateReader> TransactionExecutor<S> {
             state,
             staged_for_commit_state: None,
         };
+        println!("yael TransactionExecutor::new  bouncer_config: {:?}", tx_executor.bouncer_config);
+
         log::debug!("Initialized Transaction Executor.");
 
         tx_executor
@@ -87,7 +90,16 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: Transaction,
         charge_fee: bool,
-    ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo)> {
+    ) -> TransactionExecutorResult<(
+        TransactionExecutionInfo,
+        BouncerInfo,
+        HashMap<String, usize>,
+        i32,
+    )> {
+        println!(
+            "yael TransactionExecutor::execute , block number: {}, bouncer_config: {:?}",
+            self.block_context.block_info.block_number, self.bouncer_config
+        );
         // TODO(yael, 25/2/2024): consider moving the l1_handler_payload_size calc into
         // calc_message_segment_length(), this requires clone or copy of the tx.
         let l1_handler_payload_size: Option<usize> =
@@ -106,12 +118,14 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // New Bouncer code.
                 // TODO(Yael): Return the error and remove the old bouncer code in the following
                 // PRs.
-                let _ = self.bouncer.update(
+                let prev_bouncer = self.bouncer.clone();
+                let res = self.bouncer.update(
                     &self.bouncer_config,
                     &mut transactional_state,
                     &tx_execution_info,
                     l1_handler_payload_size,
                 );
+                println!("yael Bouncer res: {:?}", res);
 
                 // Prepare bouncer info; the countings here should be linear in the transactional
                 // state changes and execution info rather than the cumulative state attributes.
@@ -155,12 +169,45 @@ impl<S: StateReader> TransactionExecutor<S> {
                     tx_execution_summary.n_events,
                 )?;
                 self.staged_for_commit_state = Some(transactional_state.stage(
-                    tx_execution_summary.executed_class_hashes,
-                    tx_execution_summary.visited_storage_entries,
-                    tx_unique_state_changes_keys,
+                    tx_execution_summary.executed_class_hashes.clone(),
+                    tx_execution_summary.visited_storage_entries.clone(),
+                    tx_unique_state_changes_keys.clone(),
                 ));
 
-                Ok((tx_execution_info, bouncer_info))
+                // Code for testing the new bouncer.
+                let mut result = 0;
+                if let Ok(transaction_bouncer) = res {
+                    Bouncer::compare_bouncer_results(
+                        &prev_bouncer,
+                        &bouncer_info,
+                        &self.bouncer_config,
+                        &transaction_bouncer,
+                        &tx_execution_summary.executed_class_hashes,
+                        &tx_execution_summary.visited_storage_entries,
+                        &tx_unique_state_changes_keys,
+                    );
+                } else if matches!(
+                    res.as_ref().unwrap_err(),
+                    TransactionExecutorError::TransactionExecutionError(
+                        TransactionExecutionError::BlockFull
+                    )
+                ) {
+                    result = 1;
+                } else if matches!(
+                    res.as_ref().unwrap_err(),
+                    TransactionExecutorError::TransactionExecutionError(
+                        TransactionExecutionError::TxTooLarge
+                    )
+                ) {
+                    result = 2;
+                } else {
+                    panic!("Unexpected error: {:?}", res.unwrap_err());
+                }
+
+                let accumulated_weights: HashMap<String, usize> =
+                    self.bouncer.available_capacity().into();
+
+                Ok((tx_execution_info, bouncer_info, accumulated_weights, result))
             }
             Err(error) => {
                 transactional_state.abort();
