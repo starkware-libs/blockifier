@@ -13,7 +13,6 @@ use starknet_api::transaction::{EventContent, L2ToL1Payload};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::fee::gas_usage::get_message_segment_length;
 use crate::state::cached_state::StorageEntry;
-use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionResult;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]

@@ -72,7 +72,7 @@ fn test_events_counter_in_transaction_execution_info(
     };
 
     assert_eq!(
-        transaction_execution_info.summarize().unwrap().n_events,
+        transaction_execution_info.summarize().n_events,
         n_validate_events + n_execute_events + n_fee_transfer_events + n_inner_calls
     );
 }
@@ -103,7 +103,7 @@ fn test_events_counter_in_transaction_execution_info_with_inner_call_info(
     };
 
     assert_eq!(
-        transaction_execution_info.summarize().unwrap().n_events,
+        transaction_execution_info.summarize().n_events,
         n_execute_events
             + n_fee_transfer_events
             + n_execution_events
@@ -156,7 +156,7 @@ fn test_summarize(
     };
 
     // Call the summarize method
-    let actual_summary = transaction_execution_info.summarize().unwrap();
+    let actual_summary = transaction_execution_info.summarize();
 
     // Compare the actual result with the expected result
     assert_eq!(actual_summary.executed_class_hashes, expected_summary.executed_class_hashes);
