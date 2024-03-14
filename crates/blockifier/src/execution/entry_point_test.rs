@@ -679,7 +679,7 @@ Unknown location (pc=0:{account_pc_location})
 
 Error in the called contract ({test_contract_address_felt}):
 Error at pc=0:4992:
-Got an exception while executing a hint: Execution failed. Failure reason: 0x6661696c ('fail').
+Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
@@ -801,7 +801,7 @@ Unknown location (pc=0:{account_pc_location})
 
 Error in the called contract ({contract_address_felt}):
 Error at pc=0:8010:
-Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
+Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
@@ -949,7 +949,7 @@ Unknown location (pc=0:{pc_location})
 
 Error in the called contract ({address_felt}):
 Error at pc=0:{expected_pc}:
-Got an exception while executing a hint: Execution failed. Failure reason: {expected_error}.
+Got an exception while executing a hint.
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
