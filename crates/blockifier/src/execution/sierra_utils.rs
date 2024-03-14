@@ -204,10 +204,17 @@ pub fn run_native_executor(
     };
 
     match execution_result {
-        Ok(res) => Ok(res),
+        Ok(res) if res.failure_flag => Err(EntryPointExecutionError::NativeExecutionError {
+            info: if !res.return_values.is_empty() {
+                decode_felts_as_str(&res.return_values)
+            } else {
+                String::from("Unknown error")
+            },
+        }),
         Err(runner_err) => {
-            Err(EntryPointExecutionError::NativeExecutionError { source: runner_err })
+            Err(EntryPointExecutionError::NativeUnexpectedError { source: runner_err })
         }
+        Ok(res) => Ok(res),
     }
 }
 
@@ -238,4 +245,24 @@ pub fn create_callinfo(
         storage_read_values: vec![],
         accessed_storage_keys: HashSet::new(),
     })
+}
+
+pub fn encode_str_as_felts(msg: &str) -> Vec<Felt> {
+    const CHUNK_SIZE: usize = 32;
+
+    let data = msg.as_bytes().chunks(CHUNK_SIZE - 1);
+    let mut encoding = vec![Felt::default(); data.len()];
+    for (i, data_chunk) in data.enumerate() {
+        let mut chunk = [0_u8; CHUNK_SIZE];
+        chunk[1..data_chunk.len() + 1].copy_from_slice(&data_chunk);
+        encoding[i] = Felt::from_bytes_be(&chunk);
+    }
+    encoding
+}
+
+pub fn decode_felts_as_str(encoding: &[Felt]) -> String {
+    let bytes_err: Vec<_> =
+        encoding.iter().flat_map(|felt| felt.to_bytes_be()[1..32].to_vec()).collect();
+
+    String::from_utf8(bytes_err).unwrap().trim_end_matches('\0').to_owned()
 }

@@ -17,8 +17,10 @@ use starknet_api::transaction::{
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{
-    chain_id_to_felt, contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
+    chain_id_to_felt, contract_address_to_felt, encode_str_as_felts, felt_to_starkfelt,
+    starkfelt_to_felt,
 };
+use super::syscalls::exceeds_event_size_limit;
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
@@ -357,17 +359,22 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> SyscallResult<()> {
         let order = self.execution_context.n_emitted_events;
+        let event = EventContent {
+            keys: keys
+                .iter()
+                .map(|felt| EventKey(felt_to_starkfelt(*felt)))
+                .collect::<Vec<EventKey>>(),
+            data: EventData(data.iter().map(|felt| felt_to_starkfelt(*felt)).collect()),
+        };
 
-        self.events.push(OrderedEvent {
-            order,
-            event: EventContent {
-                keys: keys
-                    .iter()
-                    .map(|felt| EventKey(felt_to_starkfelt(*felt)))
-                    .collect::<Vec<EventKey>>(),
-                data: EventData(data.iter().map(|felt| felt_to_starkfelt(*felt)).collect()),
-            },
-        });
+        exceeds_event_size_limit(
+            self.execution_context.versioned_constants(),
+            self.execution_context.n_emitted_events + 1,
+            &event,
+        )
+        .map_err(|e| encode_str_as_felts(&e.to_string()))?;
+
+        self.events.push(OrderedEvent { order, event });
 
         self.execution_context.n_emitted_events += 1;
 

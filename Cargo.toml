@@ -13,6 +13,7 @@ license = "Apache-2.0"
 license-file = "LICENSE"
 
 [workspace.dependencies]
+
 anyhow = "1.0.0"
 ark-ec = "0.4.2"
 ark-ff = "0.4.0-alpha.7"
