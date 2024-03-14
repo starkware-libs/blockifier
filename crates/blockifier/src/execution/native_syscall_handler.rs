@@ -21,6 +21,7 @@ use super::sierra_utils::{
     starkfelt_to_felt,
 };
 use super::syscalls::exceeds_event_size_limit;
+use super::syscalls::hint_processor::SyscallExecutionError;
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
@@ -31,8 +32,7 @@ use crate::execution::entry_point::{
 use crate::execution::execution_utils::execute_deployment;
 use crate::execution::syscalls::hint_processor::{
     execute_inner_call_raw, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_CALCULATE_CONTRACT_ADDRESS,
-    FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_READ_RESULT,
-    FAILED_TO_SET_CLASS_HASH, FAILED_TO_WRITE, FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT,
+    FAILED_TO_EXECUTE_CALL, FAILED_TO_READ_RESULT, FAILED_TO_WRITE, INVALID_ARGUMENT,
     INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
 use crate::state::state_api::State;
@@ -224,14 +224,16 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let contract_class = self
             .state
             .get_compiled_contract_class(class_hash)
-            .map_err(|_| vec![Felt::from_hex(FAILED_TO_GET_CONTRACT_CLASS).unwrap()])?;
+            .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
         match contract_class {
-            ContractClass::V0(_) => Err(vec![Felt::from_hex(FORBIDDEN_CLASS_REPLACEMENT).unwrap()]),
+            ContractClass::V0(_) => Err(encode_str_as_felts(
+                &SyscallExecutionError::ForbiddenClassReplacement { class_hash }.to_string(),
+            )),
             ContractClass::V1(_) | ContractClass::V1Sierra(_) => {
                 self.state
                     .set_class_hash_at(self.contract_address, class_hash)
-                    .map_err(|_| vec![Felt::from_hex(FAILED_TO_SET_CLASS_HASH).unwrap()])?;
+                    .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
                 Ok(())
             }

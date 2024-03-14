@@ -7,6 +7,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1, SierraContractClassV1};
 use crate::state::cached_state::{CachedState, ContractClassMapping};
+use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::{
     ERC20_FULL_CONTRACT_PATH, LEGACY_TEST_CLASS_HASH, LEGACY_TEST_CONTRACT_CAIRO1_PATH,
@@ -32,9 +33,8 @@ pub fn deprecated_create_deploy_test_state() -> CachedState<DictStateReader> {
     let class_hash_to_class = get_class_hash_to_v0_class_mapping();
     create_deploy_test_state_from_classes(class_hash_to_class)
 }
-
-pub fn create_deploy_test_state() -> CachedState<DictStateReader> {
-    let class_hash_to_class = get_class_hash_to_v1_class_mapping();
+pub fn create_deploy_test_state(contract_type: FeatureContract) -> CachedState<DictStateReader> {
+    let class_hash_to_class = get_class_hash_to_v1_class_mapping(contract_type);
     create_deploy_test_state_from_classes(class_hash_to_class)
 }
 
@@ -92,16 +92,19 @@ fn get_class_hash_to_v0_class_mapping() -> ContractClassMapping {
     ])
 }
 
-fn get_class_hash_to_v1_class_mapping() -> ContractClassMapping {
+fn get_class_hash_to_v1_class_mapping(contract_type: FeatureContract) -> ContractClassMapping {
     HashMap::from([
-        // (
-        //     class_hash!(TEST_CLASS_HASH),
-        //     ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
-        // ),
-        (
-            class_hash!(TEST_CLASS_HASH),
-            SierraContractClassV1::from_file(TEST_CONTRACT_SIERRA_PATH).into(),
-        ),
+        match contract_type {
+            FeatureContract::TestContract(_) => (
+                class_hash!(TEST_CLASS_HASH),
+                ContractClassV1::from_file(TEST_CONTRACT_CAIRO1_PATH).into(),
+            ),
+            FeatureContract::SierraTestContract => (
+                class_hash!(TEST_CLASS_HASH),
+                SierraContractClassV1::from_file(TEST_CONTRACT_SIERRA_PATH).into(),
+            ),
+            _ => panic!("Unsupported contract type"),
+        },
         (
             class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),
             ContractClassV1::from_file(TEST_EMPTY_CONTRACT_CAIRO1_PATH).into(),

@@ -163,14 +163,6 @@ pub const INVALID_ARGUMENT: &str =
 pub const L1_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c315f474153";
 // "L2_GAS";
 pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
-// Forbidden Class Replacement
-pub const FORBIDDEN_CLASS_REPLACEMENT: &str =
-    "0x00466f7262696464656e20436c617373205265706c6163656d656e74";
-// Failed to set class hash
-pub const FAILED_TO_SET_CLASS_HASH: &str = "0x004661696c656420746f2073657420636c6173732068617368";
-// Failed to get contract class
-pub const FAILED_TO_GET_CONTRACT_CLASS: &str =
-    "0x004661696c656420746f2067657420636f6e747261637420636c617373";
 // Failed to execute call
 pub const FAILED_TO_EXECUTE_CALL: &str = "0x004661696c656420746f20657865637574652063616c6c";
 // Failed to calculate address
@@ -196,9 +188,6 @@ mod tests {
         assert!(Felt::from_hex(INVALID_ARGUMENT).is_ok());
         assert!(Felt::from_hex(L1_GAS).is_ok());
         assert!(Felt::from_hex(L2_GAS).is_ok());
-        assert!(Felt::from_hex(FORBIDDEN_CLASS_REPLACEMENT).is_ok());
-        assert!(Felt::from_hex(FAILED_TO_SET_CLASS_HASH).is_ok());
-        assert!(Felt::from_hex(FAILED_TO_GET_CONTRACT_CLASS).is_ok());
         assert!(Felt::from_hex(FAILED_TO_EXECUTE_CALL).is_ok());
         assert!(Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).is_ok());
         assert!(Felt::from_hex(FAILED_TO_PARSE).is_ok());
