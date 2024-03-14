@@ -101,13 +101,13 @@ impl TransactionInfoCreator for Transaction {
 
 impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
     fn execute_raw(
-        self,
+        &self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
         _charge_fee: bool,
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let tx_context = Arc::new(block_context.to_tx_context(&self));
+        let tx_context = Arc::new(block_context.to_tx_context(self));
 
         let mut execution_resources = ExecutionResources::default();
         let mut context = EntryPointExecutionContext::new_invoke(tx_context.clone(), true)?;
@@ -144,7 +144,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
 
 impl<S: StateReader> ExecutableTransaction<S> for Transaction {
     fn execute_raw(
-        self,
+        &self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
         charge_fee: bool,
