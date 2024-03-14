@@ -184,6 +184,12 @@ pub const FAILED_TO_PARSE: &str = "0x004661696c656420746f20706172736520";
 pub const FAILED_TO_READ_RESULT: &str = "0x004661696c656420746f207265616420726573756c7420";
 // Failed to write
 pub const FAILED_TO_WRITE: &str = "0x004661696c656420746f20777269746520";
+// Invalid point
+pub const INVALID_POINT: &str = "0x00496e76616c696420706f696e74";
+// Unreachable error
+pub const UNREACHABLE_ERROR: &str = "0x00556e726561636861626c65206572726f72";
+// Invalid scalar
+pub const INVALID_SCALAR: &str = "0x00496e76616c6964207363616c6172";
 
 #[cfg(test)]
 mod tests {
@@ -206,6 +212,10 @@ mod tests {
         assert!(Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).is_ok());
         assert!(Felt::from_hex(FAILED_TO_PARSE).is_ok());
         assert!(Felt::from_hex(FAILED_TO_READ_RESULT).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_WRITE).is_ok());
+        assert!(Felt::from_hex(INVALID_POINT).is_ok());
+        assert!(Felt::from_hex(UNREACHABLE_ERROR).is_ok());
+        assert!(Felt::from_hex(INVALID_SCALAR).is_ok());
     }
 }
 

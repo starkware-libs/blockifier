@@ -59,6 +59,8 @@ strum_macros = "0.24.3"
 tempfile = "3.7.0"
 test-case = "2.2.2"
 thiserror = "1.0.37"
+k256 = "0.13.3"
+p256 = "0.13.2"
 
 [workspace.lints.rust]
 warnings = "deny"

@@ -51,6 +51,8 @@ starknet-types-core.workspace = true
 strum.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
+k256.workspace = true
+p256.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use cairo_native::starknet::{
-    BlockInfo, ExecutionInfoV2, StarkNetSyscallHandler, SyscallResult, TxInfo, TxV2Info, U256,
+    BlockInfo, ExecutionInfoV2, Secp256k1Point, Secp256r1Point, StarkNetSyscallHandler,
+    SyscallResult, TxInfo, TxV2Info, U256,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{
@@ -27,11 +28,13 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::execute_deployment;
+use crate::execution::k1point::K1Point;
+use crate::execution::r1point::{scalar_from_u256_p256, R1Point};
 use crate::execution::syscalls::hint_processor::{
     execute_inner_call_raw, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_CALCULATE_CONTRACT_ADDRESS,
     FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_READ_RESULT,
     FAILED_TO_SET_CLASS_HASH, FAILED_TO_WRITE, FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT,
-    INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
+    INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR, INVALID_SCALAR,
 };
 use crate::state::state_api::State;
 
@@ -425,90 +428,120 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
     fn secp256k1_add(
         &mut self,
-        _p0: cairo_native::starknet::Secp256k1Point,
-        _p1: cairo_native::starknet::Secp256k1Point,
+        p0: Secp256k1Point,
+        p1: Secp256k1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::Secp256k1Point> {
-        todo!("Native syscall handler - secp256k1_add") // unimplemented in cairo native
+    ) -> SyscallResult<Secp256k1Point> {
+        let p0 = K1Point::try_from(p0)?;
+        let p1 = K1Point::try_from(p1)?;
+
+        let result = K1Point::new(p0.point + p1.point);
+
+        Ok(result.try_into()?)
     }
 
     fn secp256k1_get_point_from_x(
         &mut self,
-        _x: cairo_native::starknet::U256,
-        _y_parity: bool,
+        x: U256,
+        y_parity: bool,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
-        todo!("Native syscall handler - secp256k1_get_point_from_x") // unimplemented in cairo native
+    ) -> SyscallResult<Option<Secp256k1Point>> {
+        let point = K1Point::try_from((x, y_parity))?;
+
+        Ok(Some(point.try_into()?))
     }
 
     fn secp256k1_get_xy(
         &mut self,
-        _p: cairo_native::starknet::Secp256k1Point,
+        p: Secp256k1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<(cairo_native::starknet::U256, cairo_native::starknet::U256)> {
-        todo!("Native syscall handler - secp256k1_get_xy") // unimplemented in cairo native
+    ) -> SyscallResult<(U256, U256)> {
+        Ok((p.x, p.y))
     }
 
     fn secp256k1_mul(
         &mut self,
-        _p: cairo_native::starknet::Secp256k1Point,
-        _m: cairo_native::starknet::U256,
+        p: Secp256k1Point,
+        m: U256,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::Secp256k1Point> {
-        todo!("Native syscall handler - secp256k1_mul") // unimplemented in cairo native
+    ) -> SyscallResult<Secp256k1Point> {
+        let p = K1Point::try_from(p)?;
+        let m = scalar_from_u256_k256(m)?;
+
+        let result = K1Point::new(p.point * m);
+
+        Ok(result.try_into()?)
     }
 
     fn secp256k1_new(
         &mut self,
-        _x: cairo_native::starknet::U256,
-        _y: cairo_native::starknet::U256,
+        x: U256,
+        y: U256,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
-        todo!("Native syscall handler - secp256k1_new") // unimplemented in cairo native
+    ) -> SyscallResult<Option<Secp256k1Point>> {
+        let point = Secp256k1Point { x, y };
+        let guard = K1Point::try_from(point);
+
+        if guard.is_ok() { Ok(Some(point)) } else { Ok(None) }
     }
 
     fn secp256r1_add(
         &mut self,
-        _p0: cairo_native::starknet::Secp256r1Point,
-        _p1: cairo_native::starknet::Secp256r1Point,
+        p0: Secp256r1Point,
+        p1: Secp256r1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::Secp256r1Point> {
-        todo!("Native syscall handler - secp256r1_add") // unimplemented in cairo native
+    ) -> SyscallResult<Secp256r1Point> {
+        let p0 = R1Point::try_from(p0)?;
+        let p1 = R1Point::try_from(p1)?;
+
+        let result = R1Point::new(p0.point + p1.point);
+
+        Ok(result.try_into()?)
     }
 
     fn secp256r1_get_point_from_x(
         &mut self,
-        _x: cairo_native::starknet::U256,
-        _y_parity: bool,
+        x: U256,
+        y_parity: bool,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<Option<cairo_native::starknet::Secp256r1Point>> {
-        todo!("Native syscall handler - secp256r1_get_point_from_x") // unimplemented in cairo native
+    ) -> SyscallResult<Option<Secp256r1Point>> {
+        let point = R1Point::try_from((x, y_parity))?;
+
+        Ok(Some(point.try_into()?))
     }
 
     fn secp256r1_get_xy(
         &mut self,
-        _p: cairo_native::starknet::Secp256r1Point,
+        p: Secp256r1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<(cairo_native::starknet::U256, cairo_native::starknet::U256)> {
-        todo!("Native syscall handler - secp256r1_get_xy") // unimplemented in cairo native
+    ) -> SyscallResult<(U256, U256)> {
+        Ok((p.x, p.y))
     }
 
     fn secp256r1_mul(
         &mut self,
-        _p: cairo_native::starknet::Secp256r1Point,
-        _m: cairo_native::starknet::U256,
+        p: Secp256r1Point,
+        m: U256,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::Secp256r1Point> {
-        todo!("Native syscall handler - secp256r1_mul") // unimplemented in cairo native
+    ) -> SyscallResult<Secp256r1Point> {
+        let p = R1Point::try_from(p)?;
+        let m = scalar_from_u256_p256(m)?;
+
+        let result = R1Point::new(p.point * m);
+
+        Ok(result.try_into()?)
     }
 
     fn secp256r1_new(
         &mut self,
-        _x: cairo_native::starknet::U256,
-        _y: cairo_native::starknet::U256,
+        x: U256,
+        y: U256,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<Option<cairo_native::starknet::Secp256r1Point>> {
-        todo!("Native syscall handler - secp256r1_new") // unimplemented in cairo native
+    ) -> SyscallResult<Option<Secp256r1Point>> {
+        let point = Secp256r1Point { x, y };
+        let guard = R1Point::try_from(point);
+
+        if guard.is_ok() { Ok(Some(point)) } else { Ok(None) }
     }
 
     fn pop_log(&mut self) {
@@ -562,4 +595,16 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
     fn set_version(&mut self, _version: Felt) {
         todo!("Native syscall handler - set_version") // unimplemented in cairo native
     }
+}
+
+pub fn scalar_from_u256_k256(scalar: U256) -> Result<k256::Scalar, Vec<Felt>> {
+    let mut bytes = [0u8; 32];
+    bytes[0..16].copy_from_slice(&scalar.hi.to_be_bytes());
+    bytes[16..32].copy_from_slice(&scalar.lo.to_be_bytes());
+
+    let scalar: k256::Scalar = k256::elliptic_curve::ScalarPrimitive::from_slice(&bytes)
+        .map_err(|_| vec![Felt::from_hex(INVALID_SCALAR).unwrap()])?
+        .into();
+
+    Ok(scalar)
 }
