@@ -217,11 +217,10 @@ impl CallInfo {
     }
 
     pub fn get_recursive_call_info_l2_to_l1_payload_lengths(&self) -> Vec<usize> {
-        let mut l2_to_l1_lengths = Vec::new();
-        for call_info in self.iter() {
-            l2_to_l1_lengths.extend(call_info.get_call_info_l2_to_l1_payload_lengths());
-        }
-        l2_to_l1_lengths
+        self.iter().fold(Vec::new(), |mut acc, call_info| {
+            acc.extend(call_info.get_call_info_l2_to_l1_payload_lengths());
+            acc
+        })
     }
 
     pub fn summarize(&self) -> ExecutionSummary {
