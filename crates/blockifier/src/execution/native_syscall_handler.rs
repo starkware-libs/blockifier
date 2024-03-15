@@ -32,8 +32,7 @@ use crate::execution::entry_point::{
 use crate::execution::execution_utils::execute_deployment;
 use crate::execution::syscalls::hint_processor::{
     execute_inner_call_raw, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_CALCULATE_CONTRACT_ADDRESS,
-    FAILED_TO_EXECUTE_CALL, FAILED_TO_GET_CONTRACT_CLASS, FAILED_TO_READ_RESULT,
-    FAILED_TO_SET_CLASS_HASH, FAILED_TO_WRITE, FORBIDDEN_CLASS_REPLACEMENT, INVALID_ARGUMENT,
+    FAILED_TO_EXECUTE_CALL, FAILED_TO_READ_RESULT, FAILED_TO_WRITE, INVALID_ARGUMENT,
     INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
 use crate::state::state_api::State;
