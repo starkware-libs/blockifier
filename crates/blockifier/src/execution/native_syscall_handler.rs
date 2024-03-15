@@ -19,9 +19,10 @@ use starknet_api::transaction::{
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{
-    big4int_to_u256, chain_id_to_felt, contract_address_to_felt, felt_to_starkfelt,
-    starkfelt_to_felt, u256_to_biguint,
+    big4int_to_u256, chain_id_to_felt, contract_address_to_felt, encode_str_as_felts,
+    felt_to_starkfelt, starkfelt_to_felt, u256_to_biguint,
 };
+use super::syscalls::exceeds_event_size_limit;
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
@@ -266,14 +267,16 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let contract_class = self
             .state
             .get_compiled_contract_class(class_hash)
-            .map_err(|_| vec![Felt::from_hex(FAILED_TO_GET_CONTRACT_CLASS).unwrap()])?;
+            .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
         match contract_class {
-            ContractClass::V0(_) => Err(vec![Felt::from_hex(FORBIDDEN_CLASS_REPLACEMENT).unwrap()]),
+            ContractClass::V0(_) => Err(encode_str_as_felts(
+                &SyscallExecutionError::ForbiddenClassReplacement { class_hash }.to_string(),
+            )),
             ContractClass::V1(_) | ContractClass::V1Sierra(_) => {
                 self.state
                     .set_class_hash_at(self.contract_address, class_hash)
-                    .map_err(|_| vec![Felt::from_hex(FAILED_TO_SET_CLASS_HASH).unwrap()])?;
+                    .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
                 Ok(())
             }
@@ -401,17 +404,22 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> SyscallResult<()> {
         let order = self.execution_context.n_emitted_events;
+        let event = EventContent {
+            keys: keys
+                .iter()
+                .map(|felt| EventKey(felt_to_starkfelt(*felt)))
+                .collect::<Vec<EventKey>>(),
+            data: EventData(data.iter().map(|felt| felt_to_starkfelt(*felt)).collect()),
+        };
 
-        self.events.push(OrderedEvent {
-            order,
-            event: EventContent {
-                keys: keys
-                    .iter()
-                    .map(|felt| EventKey(felt_to_starkfelt(*felt)))
-                    .collect::<Vec<EventKey>>(),
-                data: EventData(data.iter().map(|felt| felt_to_starkfelt(*felt)).collect()),
-            },
-        });
+        exceeds_event_size_limit(
+            self.execution_context.versioned_constants(),
+            self.execution_context.n_emitted_events + 1,
+            &event,
+        )
+        .map_err(|e| encode_str_as_felts(&e.to_string()))?;
+
+        self.events.push(OrderedEvent { order, event });
 
         self.execution_context.n_emitted_events += 1;
 

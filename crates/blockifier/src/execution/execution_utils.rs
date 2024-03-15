@@ -35,6 +35,7 @@ use crate::state::state_api::State;
 use crate::transaction::objects::TransactionInfo;
 
 use super::contract_class::ContractClassV1;
+use super::errors::EntryPointExecutionError;
 
 pub type Args = Vec<CairoArg>;
 
@@ -87,8 +88,7 @@ pub fn execute_entry_point_call(
                 context,
             ) {
                 Ok(res) => Ok(res),
-                Err(e) if !fallback => Err(e),
-                Err(_) => {
+                Err(EntryPointExecutionError::NativeUnexpectedError { .. }) if fallback => {
                     // Fallback to VM execution in case of an Error
                     // TODO: proper error handling of this conversion from sierra class to casm
                     // class
@@ -103,6 +103,7 @@ pub fn execute_entry_point_call(
                         context,
                     )
                 }
+                Err(e) => Err(e),
             }
         }
     }
