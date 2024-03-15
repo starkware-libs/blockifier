@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use ark_ff::BigInt;
 use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_starknet_classes::contract_class::{ContractEntryPoint, ContractEntryPoints};
@@ -10,9 +11,11 @@ use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
 use cairo_native::executor::NativeExecutor;
 use cairo_native::metadata::syscall_handler::SyscallHandlerMeta;
+use cairo_native::starknet::U256;
 use cairo_native::OptLevel;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
+use num_bigint::BigUint;
 use num_traits::ToBytes;
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
@@ -243,4 +246,20 @@ pub fn create_callinfo(
         storage_read_values: vec![],
         accessed_storage_keys: HashSet::new(),
     })
+}
+
+pub fn u256_to_biguint(u256: U256) -> BigUint {
+    let lo = BigUint::from(u256.lo);
+    let hi = BigUint::from(u256.hi);
+
+    hi + (lo << 128) // 128 is the size of lo
+}
+
+pub fn big4int_to_u256(b_int: BigInt<4>) -> U256 {
+    let [a, b, c, d] = b_int.0;
+
+    let hi = (a as u128) | ((b as u128) << 64);
+    let lo = (c as u128) | ((d as u128) << 64);
+
+    U256 { lo, hi }
 }

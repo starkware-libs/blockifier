@@ -79,23 +79,13 @@ where
     }
 
     pub fn secp_new(&mut self, request: SecpNewRequest) -> SyscallResult<SecpNewResponse> {
-        let modulos = Curve::BaseField::MODULUS.into();
-        let (x, y) = (request.x, request.y);
-        if x >= modulos || y >= modulos {
-            return Err(SyscallExecutionError::SyscallError {
-                error_data: vec![
-                    StarkFelt::try_from(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
-                ],
-            });
-        }
-        let ec_point = if x.is_zero() && y.is_zero() {
-            short_weierstrass::Affine::<Curve>::identity()
-        } else {
-            short_weierstrass::Affine::<Curve>::new_unchecked(x.into(), y.into())
-        };
+        let ec_point = self.secp_new_unchecked(request)?;
+        let ec_point_id = ec_point.optional_ec_point_id.unwrap();
+        let ec_point = self.get_point_by_id(Felt252::from(ec_point_id))?;
+
         let optional_ec_point_id =
             if ec_point.is_on_curve() && ec_point.is_in_correct_subgroup_assuming_on_curve() {
-                Some(self.allocate_point(ec_point))
+                Some(ec_point_id)
             } else {
                 None
             };

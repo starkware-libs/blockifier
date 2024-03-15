@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
-use ark_ff::BigInt;
 use cairo_felt::Felt252;
 use cairo_native::starknet::{
     BlockInfo, ExecutionInfoV2, Secp256k1Point, Secp256r1Point, StarkNetSyscallHandler,
     SyscallResult, TxInfo, TxV2Info, U256,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use num_bigint::BigUint;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, EthAddress,
     PatriciaKey,
@@ -21,7 +19,8 @@ use starknet_api::transaction::{
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{
-    chain_id_to_felt, contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
+    big4int_to_u256, chain_id_to_felt, contract_address_to_felt, felt_to_starkfelt,
+    starkfelt_to_felt, u256_to_biguint,
 };
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
@@ -670,11 +669,9 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                     .secp256r1_hint_processor
                     .get_point_by_id(id)
                     .map_err(|_| vec![Felt::from_hex(INVALID_ARGUMENT).unwrap()])?;
+
                 let x = big4int_to_u256(point.x.0);
                 let y = big4int_to_u256(point.y.0);
-
-                println!("#response x: {:?}", x);
-                println!("#response y: {:?}", y);
 
                 Ok(Secp256r1Point { x, y })
             }
@@ -756,20 +753,4 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
     fn set_version(&mut self, _version: Felt) {
         todo!("Native syscall handler - set_version") // unimplemented in cairo native
     }
-}
-
-pub fn u256_to_biguint(u256: U256) -> BigUint {
-    let lo = BigUint::from(u256.lo);
-    let hi = BigUint::from(u256.hi);
-
-    hi + (lo << 128) // 128 is the size of lo
-}
-
-pub fn big4int_to_u256(b_int: BigInt<4>) -> U256 {
-    let [a, b, c, d] = b_int.0;
-
-    let hi = (a as u128) | ((b as u128) << 64);
-    let lo = (c as u128) | ((d as u128) << 64);
-
-    U256 { lo, hi }
 }
