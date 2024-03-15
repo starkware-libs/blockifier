@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 
 use cairo_felt::Felt252;
 use cairo_lang_runner::casm_run::format_next_item;
@@ -32,6 +33,9 @@ use crate::execution::{
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 use crate::transaction::objects::TransactionInfo;
+
+use super::contract_class::ContractClassV1;
+use super::errors::EntryPointExecutionError;
 
 pub type Args = Vec<CairoArg>;
 
@@ -74,13 +78,33 @@ pub fn execute_entry_point_call(
             context,
         ),
         ContractClass::V1Sierra(contract_class) => {
-            native_entry_point_execution::execute_entry_point_call(
-                call,
-                contract_class,
+            let fallback = env::var("FALLBACK_ENABLED").unwrap_or(String::from("0")) == "1";
+            match native_entry_point_execution::execute_entry_point_call(
+                // todo(rodro): can we do better than this clones
+                call.clone(),
+                contract_class.clone(),
                 state,
                 resources,
                 context,
-            )
+            ) {
+                Ok(res) => Ok(res),
+                Err(EntryPointExecutionError::NativeUnexpectedError { .. }) if fallback => {
+                    // Fallback to VM execution in case of an Error
+                    // TODO: proper error handling of this conversion from sierra class to casm
+                    // class
+                    let casm_contract_class = contract_class.to_casm_contract_class().unwrap();
+                    let contract_class_v1: ContractClassV1 =
+                        casm_contract_class.try_into().unwrap();
+                    entry_point_execution::execute_entry_point_call(
+                        call,
+                        contract_class_v1,
+                        state,
+                        resources,
+                        context,
+                    )
+                }
+                Err(e) => Err(e),
+            }
         }
     }
 }
@@ -295,7 +319,11 @@ pub fn format_panic_data(felts: &[StarkFelt]) -> String {
     while let Some(item) = format_next_item(&mut felts) {
         items.push(item.quote_if_string());
     }
-    if let [item] = &items[..] { item.clone() } else { format!("({})", items.join(", ")) }
+    if let [item] = &items[..] {
+        item.clone()
+    } else {
+        format!("({})", items.join(", "))
+    }
 }
 
 /// Returns the VM resources required for running `poseidon_hash_many` in the Starknet OS.

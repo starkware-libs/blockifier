@@ -1026,7 +1026,7 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.1.0"
-source = "git+https://github.com/NethermindEth/cairo_native?branch=Dom/versions#6e876cb8814fa3d4ce927e4c5f534627ce5b7483"
+source = "git+https://github.com/NethermindEth/cairo_native?branch=Dom/versions#7a910873aef3d2746843f118a89328d89b8b071c"
 dependencies = [
  "anyhow",
  "bumpalo",
@@ -1071,7 +1071,7 @@ dependencies = [
 [[package]]
 name = "cairo-native-runtime"
 version = "0.1.0"
-source = "git+https://github.com/NethermindEth/cairo_native?branch=Dom/versions#6e876cb8814fa3d4ce927e4c5f534627ce5b7483"
+source = "git+https://github.com/NethermindEth/cairo_native?branch=Dom/versions#7a910873aef3d2746843f118a89328d89b8b071c"
 dependencies = [
  "cairo-lang-runner",
  "lazy_static",

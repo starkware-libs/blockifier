@@ -4,18 +4,17 @@ use starknet_api::core::ClassHash;
 
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::SierraContractClassV1;
-use crate::execution::entry_point::{
-    CallEntryPoint, EntryPointExecutionContext,
-};
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::entry_point::{CallEntryPoint, EntryPointExecutionContext};
 use crate::execution::native_syscall_handler::NativeSyscallHandler;
 use crate::execution::sierra_utils::{
-    create_callinfo, get_code_class_hash, get_entrypoints, get_native_executor, get_program,
-    get_program_cache, get_sierra_entry_function_id, match_entrypoint, run_native_executor,
-    setup_syscall_handler, wrap_syscall_handler,
+    create_callinfo, get_code_class_hash, get_entrypoints, get_native_aot_program_cache,
+    get_native_executor, get_program, get_sierra_entry_function_id, match_entrypoint,
+    run_native_executor, setup_syscall_handler, wrap_syscall_handler,
 };
 use crate::state::state_api::State;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+
+use super::entry_point::EntryPointExecutionResult;
 
 pub fn execute_entry_point_call(
     call: CallEntryPoint,
@@ -23,15 +22,14 @@ pub fn execute_entry_point_call(
     state: &mut dyn State,
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
-) -> Result<CallInfo, EntryPointExecutionError> {
-    // println!("Executing through native");
+) -> EntryPointExecutionResult<CallInfo> {
     let sierra_program: &SierraProgram = get_program(&contract_class);
     let contract_entrypoints: &ContractEntryPoints = get_entrypoints(&contract_class);
 
     let matching_entrypoint =
         match_entrypoint(call.entry_point_type, call.entry_point_selector, contract_entrypoints);
 
-    let program_cache = get_program_cache();
+    let program_cache = get_native_aot_program_cache();
 
     let code_class_hash: ClassHash = get_code_class_hash(&call, state);
 
@@ -59,7 +57,7 @@ pub fn execute_entry_point_call(
         sierra_entry_function_id,
         &call,
         &syscall_handler_meta,
-    );
+    )?;
 
     create_callinfo(
         call,

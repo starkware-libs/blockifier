@@ -37,8 +37,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::sierra_utils::NATIVE_GAS_PLACEHOLDER;
 use crate::execution::syscalls::hint_processor::{
     EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_EXECUTE_CALL,
-    FAILED_TO_GET_CONTRACT_CLASS, FORBIDDEN_CLASS_REPLACEMENT, INVALID_EXECUTION_MODE_ERROR,
-    L1_GAS, L2_GAS, OUT_OF_GAS_ERROR, X_NOT_EQUAL_Y,
+    INVALID_EXECUTION_MODE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
@@ -191,93 +190,121 @@ fn test_call_contract(
     assert_consistent_contract_version(inner_contract, &state);
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
-// fails on negative flow data length exceeding limit. Might be worth splitting this test into four,
-// one for each case, rather than having it all in one
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 82930; "VM")] // passes
-fn test_emit_event(test_contract: FeatureContract, expected_gas: u64) {
-    let versioned_constants = VersionedConstants::create_for_testing();
-    // Positive flow.
-    let keys = vec![stark_felt!(2019_u16), stark_felt!(2020_u16)];
-    let data = vec![stark_felt!(2021_u16), stark_felt!(2022_u16), stark_felt!(2023_u16)];
-    // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
-    let n_emitted_events = vec![stark_felt!(1_u16)];
-    let call_info = emit_events(test_contract, &n_emitted_events, &keys, &data).unwrap();
-    let event = EventContent {
-        keys: keys.clone().into_iter().map(EventKey).collect(),
-        data: EventData(data.clone()),
-    };
-    assert_eq!(
-        call_info.execution,
-        CallExecution {
-            events: vec![OrderedEvent { order: 0, event }],
-            gas_consumed: expected_gas,
-            ..Default::default()
-        }
-    );
+#[cfg(test)]
+mod test_emit_event {
+    use self::test_case;
+    use super::{assert_eq, *};
 
-    // Negative flow, the data length exceeds the limit.
-    let max_event_data_length = versioned_constants.tx_event_limits.max_data_length;
-    let data_too_long = vec![stark_felt!(2_u16); max_event_data_length + 1];
-    let error = emit_events(test_contract, &n_emitted_events, &keys, &data_too_long).unwrap_err();
-    let expected_error = EmitEventError::ExceedsMaxDataLength {
-        data_length: max_event_data_length + 1,
-        max_data_length: max_event_data_length,
-    };
-    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+    const KEYS: [StarkFelt; 2] = [StarkFelt::from_u128(2019), StarkFelt::from_u128(2020)];
+    const DATA: [StarkFelt; 3] =
+        [StarkFelt::from_u128(2021), StarkFelt::from_u128(2022), StarkFelt::from_u128(2023)];
+    const N_EMITTED_EVENTS: [StarkFelt; 1] = [StarkFelt::from_u128(1)];
 
-    // Negative flow, the keys length exceeds the limit.
-    let max_event_keys_length = versioned_constants.tx_event_limits.max_keys_length;
-    let keys_too_long = vec![stark_felt!(1_u16); max_event_keys_length + 1];
-    let error = emit_events(test_contract, &n_emitted_events, &keys_too_long, &data).unwrap_err();
-    let expected_error = EmitEventError::ExceedsMaxKeysLength {
-        keys_length: max_event_keys_length + 1,
-        max_keys_length: max_event_keys_length,
-    };
-    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
+    #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 82930; "VM")]
+    fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
+        // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
+        // works.
+        let call_info = emit_events(test_contract, &N_EMITTED_EVENTS, &KEYS, &DATA).unwrap();
+        let event = EventContent {
+            keys: KEYS.clone().into_iter().map(EventKey).collect(),
+            data: EventData(DATA.to_vec()),
+        };
+        assert_eq!(
+            call_info.execution,
+            CallExecution {
+                events: vec![OrderedEvent { order: 0, event }],
+                gas_consumed: expected_gas,
+                ..Default::default()
+            }
+        );
+    }
 
-    // Negative flow, the number of events exceeds the limit.
-    let max_n_emitted_events = versioned_constants.tx_event_limits.max_n_emitted_events;
-    let n_emitted_events_too_big = vec![stark_felt!(
-        u16::try_from(max_n_emitted_events + 1).expect("Failed to convert usize to u16.")
-    )];
-    let error = emit_events(test_contract, &n_emitted_events_too_big, &keys, &data).unwrap_err();
-    let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
-        n_emitted_events: max_n_emitted_events + 1,
-        max_n_emitted_events,
-    };
-    assert!(error.to_string().contains(format!("{}", expected_error).as_str()));
-}
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn data_length_exceeds_limit(test_contract: FeatureContract) {
+        let versioned_constants = VersionedConstants::create_for_testing();
 
-fn emit_events(
-    test_contract: FeatureContract,
-    n_emitted_events: &[StarkFelt],
-    keys: &[StarkFelt],
-    data: &[StarkFelt],
-) -> Result<CallInfo, EntryPointExecutionError> {
-    let chain_info = &ChainInfo::create_for_testing();
-    let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
-    assert_consistent_contract_version(test_contract, &state);
-    let calldata = Calldata(
-        concat(vec![
-            n_emitted_events.to_owned(),
-            vec![stark_felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
-            keys.to_vec(),
-            vec![stark_felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
-            data.to_vec(),
-        ])
-        .into(),
-    );
+        let max_event_data_length = versioned_constants.tx_event_limits.max_data_length;
+        let data_too_long = vec![stark_felt!(2_u16); max_event_data_length + 1];
+        let error =
+            emit_events(test_contract, &N_EMITTED_EVENTS, &KEYS, &data_too_long).unwrap_err();
+        let expected_error = EmitEventError::ExceedsMaxDataLength {
+            data_length: max_event_data_length + 1,
+            max_data_length: max_event_data_length,
+        };
+        assert!(error.to_string().contains(&expected_error.to_string()));
+    }
 
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("test_emit_events"),
-        calldata,
-        ..trivial_external_entry_point_new(test_contract)
-    };
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn keys_length_exceeds_limit(test_contract: FeatureContract) {
+        let versioned_constants = VersionedConstants::create_for_testing();
 
-    let result = entry_point_call.execute_directly(&mut state);
-    assert_consistent_contract_version(test_contract, &state);
-    result
+        let max_event_keys_length = versioned_constants.tx_event_limits.max_keys_length;
+        let keys_too_long = vec![stark_felt!(1_u16); max_event_keys_length + 1];
+        let error =
+            emit_events(test_contract, &N_EMITTED_EVENTS, &keys_too_long, &DATA).unwrap_err();
+        let expected_error = EmitEventError::ExceedsMaxKeysLength {
+            keys_length: max_event_keys_length + 1,
+            max_keys_length: max_event_keys_length,
+        };
+
+        assert!(error.to_string().contains(&expected_error.to_string()));
+    }
+
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn event_number_exceeds_limit(test_contract: FeatureContract) {
+        let versioned_constants = VersionedConstants::create_for_testing();
+
+        let max_n_emitted_events = versioned_constants.tx_event_limits.max_n_emitted_events;
+        let n_emitted_events_too_big = vec![stark_felt!(
+            u16::try_from(max_n_emitted_events + 1).expect("Failed to convert usize to u16.")
+        )];
+        let error =
+            emit_events(test_contract, &n_emitted_events_too_big, &KEYS, &DATA).unwrap_err();
+        let expected_error = EmitEventError::ExceedsMaxNumberOfEmittedEvents {
+            n_emitted_events: max_n_emitted_events + 1,
+            max_n_emitted_events,
+        };
+        assert!(error.to_string().contains(&expected_error.to_string()));
+    }
+
+    fn emit_events(
+        test_contract: FeatureContract,
+        n_emitted_events: &[StarkFelt],
+        keys: &[StarkFelt],
+        data: &[StarkFelt],
+    ) -> Result<CallInfo, EntryPointExecutionError> {
+        let chain_info = &ChainInfo::create_for_testing();
+        let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
+        assert_consistent_contract_version(test_contract, &state);
+        let calldata = Calldata(
+            concat(vec![
+                n_emitted_events.to_owned(),
+                vec![stark_felt!(
+                    u16::try_from(keys.len()).expect("Failed to convert usize to u16.")
+                )],
+                keys.to_vec(),
+                vec![stark_felt!(
+                    u16::try_from(data.len()).expect("Failed to convert usize to u16.")
+                )],
+                data.to_vec(),
+            ])
+            .into(),
+        );
+
+        let entry_point_call = CallEntryPoint {
+            entry_point_selector: selector_from_name("test_emit_events"),
+            calldata,
+            ..trivial_external_entry_point_new(test_contract)
+        };
+
+        let result = entry_point_call.execute_directly(&mut state);
+        assert_consistent_contract_version(test_contract, &state);
+        result
+    }
 }
 
 #[cfg(test)]
@@ -721,9 +748,9 @@ fn test_library_call(test_contract: FeatureContract, expected_gas: u64) {
     );
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // pass
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 1234; "VM")] // execution error rather than execution failed
-fn test_library_call_assert_fails(test_contract: FeatureContract, expected_gas: u64) {
+#[test_case(FeatureContract::SierraTestContract; "Native")]
+#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+fn test_library_call_assert_fails(test_contract: FeatureContract) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
     let inner_entry_point_selector = selector_from_name("assert_eq");
@@ -740,14 +767,9 @@ fn test_library_call_assert_fails(test_contract: FeatureContract, expected_gas: 
         class_hash: Some(test_contract.get_class_hash()),
         ..trivial_external_entry_point_new(test_contract)
     };
-    // x != y in hex =
-    //
-    let retdata = retdata![stark_felt!(X_NOT_EQUAL_Y)];
 
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: expected_gas, failed: true, retdata, ..Default::default() }
-    );
+    let err = entry_point_call.execute_directly(&mut state).unwrap_err();
+    assert!(err.to_string().contains("x != y"));
 }
 
 #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
@@ -873,71 +895,65 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
     assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
 }
 
-#[test]
-fn test_replace_class() {
-    // pass, but needs splitting into vm and native with asserts added that the right one is being
-    // used
-    let mut state = create_deploy_test_state();
+#[cfg(test)]
+mod test_replace_class2 {
+    use self::test_case;
+    use super::{assert_eq, *};
 
-    // Negative flow.
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn undeclared_class_hash(test_contract: FeatureContract) {
+        let mut state = create_deploy_test_state(test_contract);
+        let entry_point_call = CallEntryPoint {
+            calldata: calldata![stark_felt!(1234_u16)],
+            entry_point_selector: selector_from_name("test_replace_class"),
+            ..trivial_external_entry_point()
+        };
 
-    // Replace with undeclared class hash.
-    let entry_point_call = CallEntryPoint {
-        calldata: calldata![stark_felt!(1234_u16)],
-        entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
-    };
-    let error = entry_point_call.execute_directly(&mut state).unwrap();
-    let retdata = Retdata(vec![stark_felt!(FAILED_TO_GET_CONTRACT_CLASS)]);
-    assert_eq!(
-        error.execution,
-        CallExecution {
-            gas_consumed: NATIVE_GAS_PLACEHOLDER,
-            retdata,
-            failed: true,
-            ..Default::default()
-        }
-    );
+        let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+        assert!(error.contains("is not declared"));
+    }
 
-    // Replace with Cairo 0 class hash.
-    let v0_class_hash = class_hash!(5678_u16);
-    let v0_contract_class = ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into();
-    state.set_contract_class(v0_class_hash, v0_contract_class).unwrap();
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn cairo0_class_hash(test_contract: FeatureContract) {
+        let mut state = create_deploy_test_state(test_contract);
 
-    let entry_point_call = CallEntryPoint {
-        calldata: calldata![v0_class_hash.0],
-        entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
-    };
-    let error = entry_point_call.execute_directly(&mut state);
-    let retdata = Retdata(vec![stark_felt!(FORBIDDEN_CLASS_REPLACEMENT)]);
+        let v0_class_hash = class_hash!(5678_u16);
+        let v0_contract_class = ContractClassV0::from_file(TEST_EMPTY_CONTRACT_CAIRO0_PATH).into();
+        state.set_contract_class(v0_class_hash, v0_contract_class).unwrap();
 
-    assert_eq!(
-        error.unwrap().execution,
-        CallExecution {
-            gas_consumed: NATIVE_GAS_PLACEHOLDER,
-            retdata,
-            failed: true,
-            ..Default::default()
-        }
-    );
+        let entry_point_call = CallEntryPoint {
+            calldata: calldata![v0_class_hash.0],
+            entry_point_selector: selector_from_name("test_replace_class"),
+            ..trivial_external_entry_point()
+        };
+        let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+        assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
+    }
 
-    // Positive flow.
-    let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
-    let old_class_hash = class_hash!(TEST_CLASS_HASH);
-    let new_class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
-    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), old_class_hash);
-    let entry_point_call = CallEntryPoint {
-        calldata: calldata![new_class_hash.0],
-        entry_point_selector: selector_from_name("test_replace_class"),
-        ..trivial_external_entry_point()
-    };
+    #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // pass
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 14450; "VM")] // pass
+    fn positive_flow(test_contract: FeatureContract, gas_consumed: u64) {
+        let mut state = create_deploy_test_state(test_contract);
+        let contract_address = contract_address!(TEST_CONTRACT_ADDRESS);
+        let current_class_hash = class_hash!(TEST_CLASS_HASH);
 
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: NATIVE_GAS_PLACEHOLDER, ..Default::default() }
-    );
-    assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
+        assert_eq!(state.get_class_hash_at(contract_address).unwrap(), current_class_hash);
+
+        let new_class_hash = class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH);
+        let entry_point_call = CallEntryPoint {
+            calldata: calldata![new_class_hash.0],
+            entry_point_selector: selector_from_name("test_replace_class"),
+            ..trivial_external_entry_point()
+        };
+
+        assert_eq!(
+            entry_point_call.execute_directly(&mut state).unwrap().execution,
+            CallExecution { gas_consumed, ..Default::default() }
+        );
+        assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);
+    }
 }
 
 #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // including the relevant function causes failure due to gas processing
@@ -959,7 +975,8 @@ fn test_secp256k1(test_contract: FeatureContract, expected_gas: u64) {
     );
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // fails, not implemented in the NativeSyscallHandler (TODO)
+// #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // fails, not
+// implemented in the NativeSyscallHandler (TODO)
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 27650390; "VM")] // pass
 fn test_secp256r1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
@@ -1084,7 +1101,7 @@ fn test_deploy(
     constructor_calldata: Calldata,
     expected_error: Option<&str>,
 ) {
-    let mut state = create_deploy_test_state();
+    let mut state = create_deploy_test_state(FeatureContract::SierraTestContract);
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,
