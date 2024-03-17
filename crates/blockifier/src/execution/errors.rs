@@ -119,16 +119,25 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     let mut error_stack: Vec<String> = Vec::new();
 
     match error {
-        TransactionExecutionError::ExecutionError { error, storage_address, .. }
-        | TransactionExecutionError::ValidateTransactionError { error, storage_address, .. }
-        | TransactionExecutionError::ContractConstructorExecutionFailed {
-            error,
-            storage_address,
-            ..
-        } => {
-            error_stack
-                .push(format!("Error in the called contract ({}):", *storage_address.0.key()));
-            extract_entry_point_execution_error_into_stack_trace(&mut error_stack, error);
+        TransactionExecutionError::ExecutionError { error, storage_address, selector } => {
+            // | TransactionExecutionError::ValidateTransactionError { error, storage_address, .. }
+            // | TransactionExecutionError::ContractConstructorExecutionFailed {
+            //     error,
+            //     storage_address,
+            //     ..
+            // } => {
+            let depth: usize = 0;
+            error_stack.push(format!(
+                "{}: Error in the called contract (contract address: {}, selector: {}):",
+                depth,
+                *storage_address.0.key(),
+                selector.0
+            ));
+            extract_entry_point_execution_error_into_stack_trace(
+                &mut error_stack,
+                depth + 1,
+                error,
+            );
         }
         _ => {
             error_stack.push(error.to_string());
@@ -136,44 +145,37 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     }
 
     let error_stack_str = error_stack.join("\n");
-    error_stack_str[..min(15000, error_stack_str.len())].to_string()
+    error_stack_str[..min(17000, error_stack_str.len())].to_string()
 }
 
-fn extract_cairo_run_error_into_stack_trace(error_stack: &mut Vec<String>, error: &CairoRunError) {
+fn extract_cairo_run_error_into_stack_trace(
+    error_stack: &mut Vec<String>,
+    depth: usize,
+    error: &CairoRunError,
+) {
     if let CairoRunError::VmException(vm_exception) = error {
-        return extract_vm_exception_into_stack_trace(error_stack, vm_exception);
+        return extract_vm_exception_into_stack_trace(error_stack, depth, vm_exception);
     }
     error_stack.push(error.to_string());
 }
 
 fn extract_vm_exception_into_stack_trace(
     error_stack: &mut Vec<String>,
+    depth: usize,
     vm_exception: &VmException,
 ) {
     let vm_exception_preamble = format!("Error at pc=0:{}:", vm_exception.pc);
     error_stack.push(vm_exception_preamble);
 
-    // TODO(Zuphit): This match is temporary, to match existing regression. To be deleted shortly.
-    // Specifically, this is a lookahead to add hint errors earlier than they should be in the
-    // recursive unravelling / add a hint error prefix, as currently exists.
-    match &vm_exception.inner_exc {
-        VirtualMachineError::Hint(_) => {
-            error_stack.push("Got an exception while executing a hint.".to_string());
-        }
-        VirtualMachineError::Other(_) => {}
-        _ => {
-            error_stack.push(vm_exception.inner_exc.to_string());
-        }
-    }
-
     if let Some(traceback) = &vm_exception.traceback {
         error_stack.push(traceback.to_string());
     }
-    extract_virtual_machine_error_into_stack_trace(error_stack, &vm_exception.inner_exc)
+    extract_virtual_machine_error_into_stack_trace(error_stack, depth, &vm_exception.inner_exc)
 }
 
 fn extract_virtual_machine_error_into_stack_trace(
     error_stack: &mut Vec<String>,
+    depth: usize,
     vm_error: &VirtualMachineError,
 ) {
     match vm_error {
@@ -181,6 +183,7 @@ fn extract_virtual_machine_error_into_stack_trace(
             if let HintError::Internal(internal_vm_error) = &boxed_hint_error.1 {
                 return extract_virtual_machine_error_into_stack_trace(
                     error_stack,
+                    depth,
                     internal_vm_error,
                 );
             }
@@ -189,47 +192,67 @@ fn extract_virtual_machine_error_into_stack_trace(
         VirtualMachineError::Other(anyhow_error) => {
             let syscall_exec_err = anyhow_error.downcast_ref::<SyscallExecutionError>();
             if let Some(downcast_anyhow) = syscall_exec_err {
-                extract_syscall_execution_error_into_stack_trace(error_stack, downcast_anyhow)
+                extract_syscall_execution_error_into_stack_trace(
+                    error_stack,
+                    depth,
+                    downcast_anyhow,
+                )
             } else {
                 let deprecated_syscall_exec_err =
                     anyhow_error.downcast_ref::<DeprecatedSyscallExecutionError>();
                 if let Some(downcast_anyhow) = deprecated_syscall_exec_err {
                     extract_deprecated_syscall_execution_error_into_stack_trace(
                         error_stack,
+                        depth,
                         downcast_anyhow,
                     )
                 }
             }
         }
         _ => {
-            // TODO(Zuphit): This default push should be reinstated shortly.
-            // error_stack.push(format!("{}\n", vm_error.to_string()));
+            error_stack.push(format!("{}\n", vm_error));
         }
     }
 }
 
 fn extract_syscall_execution_error_into_stack_trace(
     error_stack: &mut Vec<String>,
+    depth: usize,
     syscall_error: &SyscallExecutionError,
 ) {
     match syscall_error {
-        SyscallExecutionError::CallContractExecutionError { storage_address, error, .. } => {
-            let call_contract_preamble =
-                format!("Error in the called contract ({}):", storage_address.0.key());
+        SyscallExecutionError::CallContractExecutionError { storage_address, selector, error } => {
+            let call_contract_preamble = format!(
+                "{}: Error in the called contract (contract address: {}, selector: {}):",
+                depth,
+                storage_address.0.key(),
+                selector.0
+            );
             error_stack.push(call_contract_preamble);
-            extract_syscall_execution_error_into_stack_trace(error_stack, error)
+            extract_syscall_execution_error_into_stack_trace(error_stack, depth + 1, error)
         }
-        SyscallExecutionError::LibraryCallExecutionError { storage_address, error, .. } => {
-            // TODO(Zuphit): Change to this, or a similar string that includes the class hash.
-            // let libcall_preamble = format!("Error in the called contract (hash: {} storage:
-            // {}):", class_hash, storage_address.0.key());
-            let libcall_preamble =
-                format!("Error in the called contract ({}):", storage_address.0.key());
+        SyscallExecutionError::LibraryCallExecutionError {
+            class_hash,
+            storage_address,
+            selector,
+            error,
+        } => {
+            let libcall_preamble = format!(
+                "{}: Error in a library call (storage address: {}, class hash: {}, selector: {}):",
+                depth,
+                storage_address.0.key(),
+                class_hash,
+                selector.0
+            );
             error_stack.push(libcall_preamble);
-            extract_syscall_execution_error_into_stack_trace(error_stack, error);
+            extract_syscall_execution_error_into_stack_trace(error_stack, depth + 1, error);
         }
         SyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
-            extract_entry_point_execution_error_into_stack_trace(error_stack, entry_point_error)
+            extract_entry_point_execution_error_into_stack_trace(
+                error_stack,
+                depth,
+                entry_point_error,
+            )
         }
         _ => {
             error_stack.push(syscall_error.to_string());
@@ -239,34 +262,54 @@ fn extract_syscall_execution_error_into_stack_trace(
 
 fn extract_deprecated_syscall_execution_error_into_stack_trace(
     error_stack: &mut Vec<String>,
+    depth: usize,
     syscall_error: &DeprecatedSyscallExecutionError,
 ) {
     match syscall_error {
         DeprecatedSyscallExecutionError::CallContractExecutionError {
             storage_address,
+            selector,
             error,
-            ..
         } => {
-            let call_contract_preamble =
-                format!("Error in the called contract ({}):", storage_address.0.key());
+            let call_contract_preamble = format!(
+                "{}: Error in the called contract (contract address: {}, selector: {}):",
+                depth,
+                storage_address.0.key(),
+                selector.0
+            );
             error_stack.push(call_contract_preamble);
-            extract_deprecated_syscall_execution_error_into_stack_trace(error_stack, error)
+            extract_deprecated_syscall_execution_error_into_stack_trace(
+                error_stack,
+                depth + 1,
+                error,
+            )
         }
         DeprecatedSyscallExecutionError::LibraryCallExecutionError {
+            class_hash,
             storage_address,
+            selector,
             error,
-            ..
         } => {
-            // TODO(Zuphit): Change to this, or a similar string that includes the class hash.
-            // let libcall_preamble = format!("Error in the called contract (hash: {} storage:
-            // {}):", class_hash, storage_address.0.key());
-            let libcall_preamble =
-                format!("Error in the called contract ({}):", storage_address.0.key());
+            let libcall_preamble = format!(
+                "{}: Error in a library call (storage address: {}, class hash: {}, selector: {}):",
+                depth,
+                storage_address.0.key(),
+                class_hash,
+                selector.0
+            );
             error_stack.push(libcall_preamble);
-            extract_deprecated_syscall_execution_error_into_stack_trace(error_stack, error)
+            extract_deprecated_syscall_execution_error_into_stack_trace(
+                error_stack,
+                depth + 1,
+                error,
+            )
         }
         DeprecatedSyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
-            extract_entry_point_execution_error_into_stack_trace(error_stack, entry_point_error)
+            extract_entry_point_execution_error_into_stack_trace(
+                error_stack,
+                depth,
+                entry_point_error,
+            )
         }
         _ => error_stack.push(syscall_error.to_string()),
     }
@@ -274,11 +317,12 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
 
 fn extract_entry_point_execution_error_into_stack_trace(
     error_stack: &mut Vec<String>,
+    depth: usize,
     entry_point_error: &EntryPointExecutionError,
 ) {
     match entry_point_error {
         EntryPointExecutionError::CairoRunError(cairo_run_error) => {
-            extract_cairo_run_error_into_stack_trace(error_stack, cairo_run_error)
+            extract_cairo_run_error_into_stack_trace(error_stack, depth, cairo_run_error)
         }
         _ => error_stack.push(format!("{}\n", entry_point_error)),
     }
