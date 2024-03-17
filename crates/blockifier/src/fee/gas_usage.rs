@@ -199,6 +199,8 @@ pub fn estimate_minimal_gas_vector(
     };
     let GasVector { l1_gas: gas_cost, l1_data_gas: blob_gas_cost } =
         get_da_gas_cost(&state_changes_by_account_transaction, block_info.use_kzg_da);
+        println!("&&&&&&&2 ({:?})", gas_cost);
+        println!("&&&&&&&2 ({:?})", blob_gas_cost);
 
     let data_segment_length =
         get_onchain_data_segment_length(&state_changes_by_account_transaction);
