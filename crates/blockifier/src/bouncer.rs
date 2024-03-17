@@ -111,49 +111,34 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
-#[derive(Clone)]
-pub struct Bouncer {
+#[derive(Clone, Default)]
+pub struct BouncerAuxiliaryInfo {
     pub executed_class_hashes: HashSet<ClassHash>,
     pub visited_storage_entries: HashSet<StorageEntry>,
     pub state_changes_keys: StateChangesKeys,
+}
+
+#[derive(Clone)]
+pub struct Bouncer {
+    pub auxiliary_info: BouncerAuxiliaryInfo,
     // The capacity is calculated based of the values of the other Bouncer fields.
     capacity: BouncerWeights,
 }
 
 impl Bouncer {
     pub fn new(capacity: BouncerWeights) -> Self {
-        Bouncer {
-            executed_class_hashes: HashSet::new(),
-            state_changes_keys: StateChangesKeys::default(),
-            visited_storage_entries: HashSet::new(),
-            capacity,
-        }
-    }
-
-    pub fn create_transactional(self) -> TransactionalBouncer {
-        TransactionalBouncer::new(self)
+        Bouncer { auxiliary_info: BouncerAuxiliaryInfo::default(), capacity }
     }
 
     pub fn merge(&mut self, other: Bouncer) {
-        self.executed_class_hashes.extend(other.executed_class_hashes);
-        self.state_changes_keys.extend(&other.state_changes_keys);
-        self.visited_storage_entries.extend(other.visited_storage_entries);
+        self.auxiliary_info
+            .executed_class_hashes
+            .extend(other.auxiliary_info.executed_class_hashes);
+        self.auxiliary_info.state_changes_keys.extend(&other.auxiliary_info.state_changes_keys);
+        self.auxiliary_info
+            .visited_storage_entries
+            .extend(other.auxiliary_info.visited_storage_entries);
         self.capacity = other.capacity;
-    }
-}
-
-#[derive(Clone)]
-pub struct TransactionalBouncer {
-    // The bouncer can be modified only through the merge method.
-    bouncer: Bouncer,
-    // The transactional bouncer can be modified only through the update method.
-    transactional: Bouncer,
-}
-
-impl TransactionalBouncer {
-    pub fn new(parent: Bouncer) -> TransactionalBouncer {
-        let capacity = parent.capacity;
-        TransactionalBouncer { bouncer: parent, transactional: Bouncer::new(capacity) }
     }
 
     // TODO update function (in the next PRs)
@@ -163,16 +148,17 @@ impl TransactionalBouncer {
         state: &mut TransactionalState<'_, S>,
         tx_execution_summary: &ExecutionSummary,
         bouncer_resources: &ResourcesMapping,
+        tx_auxiliary_info: &BouncerAuxiliaryInfo,
         l1_handler_payload_size: Option<usize>,
     ) -> TransactionExecutorResult<BouncerWeights> {
         let mut additional_os_resources = get_casm_hash_calculation_resources(
             state,
-            &self.bouncer.executed_class_hashes,
-            &self.transactional.executed_class_hashes,
+            &self.auxiliary_info.executed_class_hashes,
+            &tx_auxiliary_info.executed_class_hashes,
         )?;
         additional_os_resources += &get_particia_update_resources(
-            &self.bouncer.visited_storage_entries,
-            &self.transactional.visited_storage_entries,
+            &self.auxiliary_info.visited_storage_entries,
+            &tx_auxiliary_info.visited_storage_entries,
         )?;
 
         let execution_info_weights = Self::get_tx_execution_info_resources_weights(
@@ -183,7 +169,7 @@ impl TransactionalBouncer {
 
         let mut tx_weights = BouncerWeights::from(additional_os_resources) + execution_info_weights;
         tx_weights.state_diff_size =
-            get_onchain_data_segment_length(&self.transactional.state_changes_keys.count());
+            get_onchain_data_segment_length(&tx_auxiliary_info.state_changes_keys.count());
         Ok(tx_weights)
     }
 
@@ -224,30 +210,21 @@ impl TransactionalBouncer {
         Ok(weights)
     }
 
-    pub fn update_auxiliary_info<S: StateReader>(
+    pub fn get_auxiliary_info<S: StateReader>(
         &mut self,
         tx_execution_summary: &ExecutionSummary,
         state: &mut TransactionalState<'_, S>,
-    ) -> TransactionExecutorResult<()> {
-        self.transactional
-            .executed_class_hashes
-            .extend(&tx_execution_summary.executed_class_hashes);
-        self.transactional
-            .visited_storage_entries
-            .extend(&tx_execution_summary.visited_storage_entries);
-        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
-        self.transactional.state_changes_keys =
-            tx_state_changes_keys.difference(&self.bouncer.state_changes_keys);
-        Ok(())
-    }
-
-    pub fn commit(mut self) -> Bouncer {
-        self.bouncer.merge(self.transactional);
-        self.bouncer
-    }
-
-    pub fn abort(self) -> Bouncer {
-        self.bouncer
+    ) -> TransactionExecutorResult<BouncerAuxiliaryInfo> {
+        Ok(BouncerAuxiliaryInfo {
+            // TODO(yael): delete the auxiliary_info from the bouncer and use execution_summary
+            // instead.
+            executed_class_hashes: tx_execution_summary.executed_class_hashes.clone(),
+            visited_storage_entries: tx_execution_summary.visited_storage_entries.clone(),
+            state_changes_keys: {
+                let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+                tx_state_changes_keys.difference(&self.auxiliary_info.state_changes_keys)
+            },
+        })
     }
 }
 
