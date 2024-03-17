@@ -688,9 +688,10 @@ impl ValidatableTransaction for AccountTransaction {
         }
 
         let storage_address = tx_info.sender_address();
+        let validate_selector = self.validate_entry_point_selector();
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
-            entry_point_selector: self.validate_entry_point_selector(),
+            entry_point_selector: validate_selector,
             calldata: self.validate_entrypoint_calldata(),
             class_hash: None,
             code_address: None,
@@ -702,7 +703,11 @@ impl ValidatableTransaction for AccountTransaction {
 
         let validate_call_info =
             validate_call.execute(state, resources, &mut context).map_err(|error| {
-                TransactionExecutionError::ValidateTransactionError { error, storage_address }
+                TransactionExecutionError::ValidateTransactionError {
+                    error,
+                    storage_address,
+                    selector: validate_selector,
+                }
             })?;
 
         // Validate return data.

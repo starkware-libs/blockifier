@@ -227,7 +227,7 @@ macro_rules! check_entry_point_execution_error_for_custom_hint {
 macro_rules! check_transaction_execution_error_inner {
     ($error:expr, $expected_hint:expr, $variant:ident $(,)?) => {
         match $error {
-            TransactionExecutionError::$variant { error, storage_address: _ } => {
+            TransactionExecutionError::$variant { error, .. } => {
                 $crate::check_entry_point_execution_error!(error, $expected_hint)
             }
             _ => panic!("Unexpected structure for error: {:?}", $error),

@@ -1,4 +1,4 @@
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
@@ -65,7 +65,11 @@ pub enum TransactionExecutionError {
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
     #[error("Transaction execution has failed: {}", gen_transaction_execution_error_trace(self))]
-    ExecutionError { error: EntryPointExecutionError, storage_address: ContractAddress },
+    ExecutionError {
+        error: EntryPointExecutionError,
+        storage_address: ContractAddress,
+        selector: EntryPointSelector,
+    },
     #[error(transparent)]
     FeeCheckError(#[from] FeeCheckError),
     #[error("The `validate` entry point should return `VALID`. Got {actual:?}.")]
@@ -87,7 +91,11 @@ pub enum TransactionExecutionError {
     TryFromIntError(#[from] std::num::TryFromIntError),
     // TODO(Zuphit): add `gen_transaction_execution_error_trace` if needed.
     #[error("Transaction validation has failed: {error}")]
-    ValidateTransactionError { error: EntryPointExecutionError, storage_address: ContractAddress },
+    ValidateTransactionError {
+        error: EntryPointExecutionError,
+        storage_address: ContractAddress,
+        selector: EntryPointSelector,
+    },
     #[error(
         "Invalid segment structure: PC {0} was visited, but the beginning of the segment {1} was \
          not."
