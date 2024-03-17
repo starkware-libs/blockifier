@@ -61,13 +61,11 @@ pub fn calculate_l1_gas_by_vm_usage(
     if !vm_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
     };
-    let n_steps_gas_usage = u128_from_usize(vm_resource_usage.n_steps)
-        * vm_resource_fee_costs
-            .get(constants::N_STEPS_RESOURCE)
-            .cloned()
-            .unwrap_or_default()
-            .ceil()
-            .to_integer();
+    let n_steps_gas_usage =
+        (vm_resource_fee_costs.get(constants::N_STEPS_RESOURCE).cloned().unwrap_or_default()
+            * u128_from_usize(vm_resource_usage.n_steps))
+        .ceil()
+        .to_integer();
 
     // Convert Cairo usage to L1 gas usage.
     let vm_l1_gas_usage = vm_resource_fee_costs
