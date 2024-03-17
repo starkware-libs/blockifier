@@ -60,6 +60,7 @@ pub enum DeprecatedSyscallExecutionError {
     #[error("{error}")]
     CallContractExecutionError {
         storage_address: ContractAddress,
+        selector: EntryPointSelector,
         error: Box<DeprecatedSyscallExecutionError>,
     },
     #[error(transparent)]
@@ -68,6 +69,7 @@ pub enum DeprecatedSyscallExecutionError {
     LibraryCallExecutionError {
         class_hash: ClassHash,
         storage_address: ContractAddress,
+        selector: EntryPointSelector,
         error: Box<DeprecatedSyscallExecutionError>,
     },
     #[error("Invalid syscall input: {input:?}; {info}")]
@@ -97,9 +99,14 @@ impl From<DeprecatedSyscallExecutionError> for HintError {
 }
 
 impl DeprecatedSyscallExecutionError {
-    pub fn as_call_contract_execution_error(self, storage_address: ContractAddress) -> Self {
+    pub fn as_call_contract_execution_error(
+        self,
+        storage_address: ContractAddress,
+        selector: EntryPointSelector,
+    ) -> Self {
         DeprecatedSyscallExecutionError::CallContractExecutionError {
             storage_address,
+            selector,
             error: Box::new(self),
         }
     }
@@ -108,10 +115,12 @@ impl DeprecatedSyscallExecutionError {
         self,
         class_hash: ClassHash,
         storage_address: ContractAddress,
+        selector: EntryPointSelector,
     ) -> Self {
         DeprecatedSyscallExecutionError::LibraryCallExecutionError {
             class_hash,
             storage_address,
+            selector,
             error: Box::new(self),
         }
     }
@@ -496,7 +505,11 @@ pub fn execute_library_call(
     };
 
     execute_inner_call(entry_point, vm, syscall_handler).map_err(|error| {
-        error.as_lib_call_execution_error(class_hash, syscall_handler.storage_address)
+        error.as_lib_call_execution_error(
+            class_hash,
+            syscall_handler.storage_address,
+            entry_point_selector,
+        )
     })
 }
 

@@ -212,7 +212,7 @@ fn extract_syscall_execution_error_into_stack_trace(
     syscall_error: &SyscallExecutionError,
 ) {
     match syscall_error {
-        SyscallExecutionError::CallContractExecutionError { storage_address, error } => {
+        SyscallExecutionError::CallContractExecutionError { storage_address, error, .. } => {
             let call_contract_preamble =
                 format!("Error in the called contract ({}):", storage_address.0.key());
             error_stack.push(call_contract_preamble);
@@ -241,7 +241,11 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
     syscall_error: &DeprecatedSyscallExecutionError,
 ) {
     match syscall_error {
-        DeprecatedSyscallExecutionError::CallContractExecutionError { storage_address, error } => {
+        DeprecatedSyscallExecutionError::CallContractExecutionError {
+            storage_address,
+            error,
+            ..
+        } => {
             let call_contract_preamble =
                 format!("Error in the called contract ({}):", storage_address.0.key());
             error_stack.push(call_contract_preamble);
