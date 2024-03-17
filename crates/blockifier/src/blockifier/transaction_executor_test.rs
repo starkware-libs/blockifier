@@ -6,6 +6,7 @@ use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::TransactionExecutor;
+use crate::bouncer::BouncerConfig;
 use crate::context::BlockContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
@@ -31,7 +32,8 @@ fn tx_executor_test_body<S: StateReader>(
     charge_fee: bool,
     expected_bouncer_info: BouncerInfo,
 ) {
-    let mut tx_executor = TransactionExecutor::new(state, block_context);
+    let mut tx_executor =
+        TransactionExecutor::new(state, block_context, BouncerConfig::create_for_testing());
     // TODO(Arni, 30/03/2024): Consider adding a test for the transaction execution info. If A test
     // should not be added, rename the test to `test_bouncer_info`.
     // TODO(Arni, 30/03/2024): Test all fields of bouncer info.

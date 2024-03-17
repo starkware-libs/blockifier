@@ -16,7 +16,7 @@ use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::{
     into_block_context_args, PyGeneralConfig, ThinTransactionExecutionInfo,
 };
-use crate::py_state_diff::PyBlockInfo;
+use crate::py_state_diff::{PyBlockInfo, PyBouncerConfig};
 use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
@@ -31,12 +31,15 @@ pub struct PyValidator {
 
 #[pymethods]
 impl PyValidator {
+    // TODO(yael 12/3/2024): refactor to reduce the number of arguments.
+    #![allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, bouncer_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
+        bouncer_config: PyBouncerConfig,
         validate_max_n_steps: u32,
         max_recursion_depth: usize,
         global_contract_cache_size: usize,
@@ -52,7 +55,7 @@ impl PyValidator {
         // TODO(Yael 24/01/24): calc block_context using pre_process_block
         let block_context =
             BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
-        let tx_executor = TransactionExecutor::new(state, block_context);
+        let tx_executor = TransactionExecutor::new(state, block_context, bouncer_config.into());
 
         let validator = Self {
             max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
@@ -110,12 +113,13 @@ impl PyValidator {
     }
 
     #[cfg(any(feature = "testing", test))]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, bouncer_config))]
     #[staticmethod]
     fn create_for_testing(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
+        bouncer_config: PyBouncerConfig,
     ) -> NativeBlockifierResult<Self> {
         use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         use blockifier::versioned_constants::VersionedConstants;
@@ -131,7 +135,7 @@ impl PyValidator {
             VersionedConstants::latest_constants(),
         );
         // TODO(Yael 24/01/24): calc block_context using pre_process_block
-        let tx_executor = TransactionExecutor::new(state, block_context);
+        let tx_executor = TransactionExecutor::new(state, block_context, bouncer_config.into());
 
         Ok(Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor })
     }
