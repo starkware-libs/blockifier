@@ -119,11 +119,12 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     let mut error_stack: Vec<String> = Vec::new();
 
     match error {
-        TransactionExecutionError::ExecutionError { error, storage_address }
-        | TransactionExecutionError::ValidateTransactionError { error, storage_address }
+        TransactionExecutionError::ExecutionError { error, storage_address, .. }
+        | TransactionExecutionError::ValidateTransactionError { error, storage_address, .. }
         | TransactionExecutionError::ContractConstructorExecutionFailed {
             error,
             storage_address,
+            ..
         } => {
             error_stack
                 .push(format!("Error in the called contract ({}):", *storage_address.0.key()));

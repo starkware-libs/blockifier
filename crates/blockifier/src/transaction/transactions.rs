@@ -410,7 +410,11 @@ impl<S: State> Executable<S> for InvokeTransaction {
         };
 
         let call_info = execute_call.execute(state, resources, context).map_err(|error| {
-            TransactionExecutionError::ExecutionError { error, storage_address }
+            TransactionExecutionError::ExecutionError {
+                error,
+                storage_address,
+                selector: entry_point_selector,
+            }
         })?;
         update_remaining_gas(remaining_gas, &call_info);
 
@@ -508,9 +512,10 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let tx = &self.tx;
         let storage_address = tx.contract_address;
+        let selector = tx.entry_point_selector;
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::L1Handler,
-            entry_point_selector: tx.entry_point_selector,
+            entry_point_selector: selector,
             calldata: Calldata(Arc::clone(&tx.calldata.0)),
             class_hash: None,
             code_address: None,
@@ -520,10 +525,9 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             initial_gas: *remaining_gas,
         };
 
-        execute_call
-            .execute(state, resources, context)
-            .map(Some)
-            .map_err(|error| TransactionExecutionError::ExecutionError { error, storage_address })
+        execute_call.execute(state, resources, context).map(Some).map_err(|error| {
+            TransactionExecutionError::ExecutionError { error, storage_address, selector }
+        })
     }
 }
 
