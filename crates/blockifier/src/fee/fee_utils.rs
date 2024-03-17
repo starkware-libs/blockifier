@@ -97,6 +97,8 @@ pub fn calculate_tx_gas_vector(
     versioned_constants: &VersionedConstants,
 ) -> TransactionFeeResult<GasVector> {
     let (l1_gas_usage, vm_resources) = extract_l1_gas_and_vm_usage(resources);
+    println!("&&&&&&&3.1 ({:?})", l1_gas_usage);
+    println!("&&&&&&&3.2 ({:?})", vm_resources);
     let (l1_blob_gas_usage, vm_resources) = extract_l1_blob_gas_usage(&vm_resources);
     let (n_steps, vm_resources) = extract_n_steps(&vm_resources);
     // Memory holes are always zero at this point, it's counted as n_steps when `resources` were
@@ -107,6 +109,8 @@ pub fn calculate_tx_gas_vector(
     let vm_usage_gas_vector =
         calculate_l1_gas_by_vm_usage(versioned_constants, &execution_resources)?;
 
+    println!("&&&&&&&3.3 ({:?})", l1_gas_usage);
+    println!("&&&&&&&3.3 ({:?})", u128_from_usize(l1_gas_usage));
     Ok(GasVector {
         l1_gas: u128_from_usize(l1_gas_usage),
         l1_data_gas: u128_from_usize(l1_blob_gas_usage),
