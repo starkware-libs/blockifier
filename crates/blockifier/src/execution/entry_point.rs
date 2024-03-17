@@ -15,6 +15,7 @@ use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::execution::common_hints::ExecutionMode;
+use crate::execution::contract_class::ContractClass;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::state_api::State;
@@ -99,12 +100,13 @@ impl CallEntryPoint {
     }
 }
 
-pub struct ConstructorContext {
+pub struct ConstructorContext<'a> {
     pub class_hash: ClassHash,
     // Only relevant in deploy syscall.
     pub code_address: Option<ContractAddress>,
     pub storage_address: ContractAddress,
     pub caller_address: ContractAddress,
+    pub contract_class: &'a ContractClass,
 }
 
 #[derive(Debug)]
@@ -289,13 +291,11 @@ pub fn execute_constructor_entry_point(
     state: &mut dyn State,
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
-    ctor_context: ConstructorContext,
+    ctor_context: ConstructorContext<'_>,
     calldata: Calldata,
     remaining_gas: u64,
 ) -> EntryPointExecutionResult<CallInfo> {
-    // Ensure the class is declared (by reading it).
-    let contract_class = state.get_compiled_contract_class(ctor_context.class_hash)?;
-    let Some(constructor_selector) = contract_class.constructor_selector() else {
+    let Some(constructor_selector) = ctor_context.contract_class.constructor_selector() else {
         // Contract has no constructor.
         return handle_empty_constructor(ctor_context, calldata, remaining_gas);
     };
@@ -316,7 +316,7 @@ pub fn execute_constructor_entry_point(
 }
 
 pub fn handle_empty_constructor(
-    ctor_context: ConstructorContext,
+    ctor_context: ConstructorContext<'_>,
     calldata: Calldata,
     remaining_gas: u64,
 ) -> EntryPointExecutionResult<CallInfo> {

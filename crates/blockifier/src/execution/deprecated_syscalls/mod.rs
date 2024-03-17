@@ -328,6 +328,7 @@ pub fn deploy(
         code_address: Some(deployed_contract_address),
         storage_address: deployed_contract_address,
         caller_address: deployer_address,
+        contract_class: &syscall_handler.state.get_compiled_contract_class(request.class_hash)?,
     };
     let call_info = execute_deployment(
         syscall_handler.state,

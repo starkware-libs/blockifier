@@ -17,6 +17,7 @@ use crate::execution::contract_class::{ClassInfo, ContractClass};
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::errors::StateError;
@@ -298,6 +299,12 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             code_address: None,
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
+            contract_class: &state.get_compiled_contract_class(class_hash).map_err(
+                |state_error| TransactionExecutionError::ContractConstructorExecutionFailed {
+                    error: EntryPointExecutionError::from(state_error),
+                    storage_address: self.contract_address,
+                },
+            )?,
         };
         let deployment_result = execute_deployment(
             state,
