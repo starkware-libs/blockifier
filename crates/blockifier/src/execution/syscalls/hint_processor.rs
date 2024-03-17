@@ -66,12 +66,14 @@ pub enum SyscallExecutionError {
     #[error("{error}")]
     CallContractExecutionError {
         storage_address: ContractAddress,
+        selector: EntryPointSelector,
         error: Box<SyscallExecutionError>,
     },
     #[error("{error}")]
     LibraryCallExecutionError {
         class_hash: ClassHash,
         storage_address: ContractAddress,
+        selector: EntryPointSelector,
         error: Box<SyscallExecutionError>,
     },
     #[error("Invalid syscall input: {input:?}; {info}")]
@@ -124,18 +126,28 @@ impl From<SyscallExecutionError> for HintError {
 }
 
 impl SyscallExecutionError {
-    pub fn as_call_contract_execution_error(self, storage_address: ContractAddress) -> Self {
-        SyscallExecutionError::CallContractExecutionError { storage_address, error: Box::new(self) }
+    pub fn as_call_contract_execution_error(
+        self,
+        storage_address: ContractAddress,
+        selector: EntryPointSelector,
+    ) -> Self {
+        SyscallExecutionError::CallContractExecutionError {
+            storage_address,
+            selector,
+            error: Box::new(self),
+        }
     }
 
     pub fn as_lib_call_execution_error(
         self,
         class_hash: ClassHash,
         storage_address: ContractAddress,
+        selector: EntryPointSelector,
     ) -> Self {
         SyscallExecutionError::LibraryCallExecutionError {
             class_hash,
             storage_address,
+            selector,
             error: Box::new(self),
         }
     }
@@ -774,7 +786,11 @@ pub fn execute_library_call(
     };
 
     execute_inner_call(entry_point, vm, syscall_handler, remaining_gas).map_err(|error| {
-        error.as_lib_call_execution_error(class_hash, syscall_handler.storage_address())
+        error.as_lib_call_execution_error(
+            class_hash,
+            syscall_handler.storage_address(),
+            entry_point_selector,
+        )
     })
 }
 
