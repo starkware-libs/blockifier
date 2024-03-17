@@ -218,7 +218,7 @@ pub fn execute_deployment(
     state: &mut dyn State,
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
-    ctor_context: ConstructorContext,
+    ctor_context: ConstructorContext<'_>,
     constructor_calldata: Calldata,
     remaining_gas: u64,
 ) -> EntryPointExecutionResult<CallInfo> {
