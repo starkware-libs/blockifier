@@ -26,7 +26,7 @@ use crate::versioned_constants::VersionedConstants;
 
 fn get_vm_resource_usage() -> ExecutionResources {
     ExecutionResources {
-        n_steps: 1800,
+        n_steps: 10000,
         n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([
             (HASH_BUILTIN_NAME.to_string(), 10),
@@ -39,15 +39,29 @@ fn get_vm_resource_usage() -> ExecutionResources {
 }
 
 #[test]
-fn test_calculate_l1_gas_by_vm_usage() {
+fn test_simple_calculate_l1_gas_by_vm_usage() {
     let versioned_constants = VersionedConstants::create_for_account_testing();
-    let vm_resource_usage = get_vm_resource_usage();
+    let mut vm_resource_usage = get_vm_resource_usage();
 
     // Positive flow.
     // Verify calculation - in our case, n_steps is the heaviest resource.
-    let l1_gas_by_vm_usage = vm_resource_usage.n_steps;
+    let l1_gas_by_vm_usage =
+        (*versioned_constants.vm_resource_fee_cost().get(constants::N_STEPS_RESOURCE).unwrap()
+            * u128_from_usize(vm_resource_usage.n_steps))
+        .ceil()
+        .to_integer();
     assert_eq!(
-        GasVector::from_l1_gas(u128_from_usize(l1_gas_by_vm_usage)),
+        GasVector::from_l1_gas(l1_gas_by_vm_usage),
+        calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage).unwrap()
+    );
+
+    // Another positive flow, this time the heaviest resource is range_check_builtin.
+    vm_resource_usage.n_steps =
+        vm_resource_usage.builtin_instance_counter.get(RANGE_CHECK_BUILTIN_NAME).unwrap() - 1;
+    let l1_gas_by_vm_usage =
+        vm_resource_usage.builtin_instance_counter.get(RANGE_CHECK_BUILTIN_NAME).unwrap();
+    assert_eq!(
+        GasVector::from_l1_gas(u128_from_usize(*l1_gas_by_vm_usage)),
         calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage).unwrap()
     );
 
@@ -60,6 +74,39 @@ fn test_calculate_l1_gas_by_vm_usage() {
     let error =
         calculate_l1_gas_by_vm_usage(&versioned_constants, &invalid_vm_resource_usage).unwrap_err();
     assert_matches!(error, TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
+}
+
+#[test]
+fn test_float_calculate_l1_gas_by_vm_usage() {
+    let versioned_constants = VersionedConstants::create_float_for_testing();
+    let mut vm_resource_usage = get_vm_resource_usage();
+
+    // Positive flow.
+    // Verify calculation - in our case, n_steps is the heaviest resource.
+    let l1_gas_by_vm_usage =
+        ((*versioned_constants.vm_resource_fee_cost().get(constants::N_STEPS_RESOURCE).unwrap())
+            * u128_from_usize(vm_resource_usage.n_steps))
+        .ceil()
+        .to_integer();
+    assert_eq!(
+        GasVector::from_l1_gas(l1_gas_by_vm_usage),
+        calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage).unwrap()
+    );
+
+    // Another positive flow, this time the heaviest resource is ecdsa_builtin.
+    vm_resource_usage.n_steps = 200;
+    let l1_gas_by_vm_usage =
+        ((*versioned_constants.vm_resource_fee_cost().get(SIGNATURE_BUILTIN_NAME).unwrap())
+            * u128_from_usize(
+                *vm_resource_usage.builtin_instance_counter.get(SIGNATURE_BUILTIN_NAME).unwrap(),
+            ))
+        .ceil()
+        .to_integer();
+
+    assert_eq!(
+        GasVector::from_l1_gas(l1_gas_by_vm_usage),
+        calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage).unwrap()
+    );
 }
 
 /// Test the L1 gas limit bound, as applied to the case where both gas and data gas are consumed.
