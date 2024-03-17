@@ -126,18 +126,18 @@ impl BlockContext {
         }
     }
 
-    pub fn create_for_account_testing() -> Self {
+    pub fn create_simple_for_account_testing() -> Self {
         Self {
             block_info: BlockInfo::create_for_testing(),
             chain_info: ChainInfo::create_for_testing(),
-            versioned_constants: VersionedConstants::create_for_account_testing(),
+            versioned_constants: VersionedConstants::create_simple_for_account_testing(),
         }
     }
 
-    pub fn create_for_account_testing_with_kzg(use_kzg_da: bool) -> Self {
+    pub fn create_simple_for_account_testing_with_kzg(use_kzg_da: bool) -> Self {
         Self {
             block_info: BlockInfo::create_for_testing_with_kzg(use_kzg_da),
-            ..Self::create_for_account_testing()
+            ..Self::create_simple_for_account_testing()
         }
     }
 }

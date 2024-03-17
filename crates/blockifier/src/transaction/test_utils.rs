@@ -74,7 +74,7 @@ pub fn max_resource_bounds() -> ResourceBoundsMapping {
 
 #[fixture]
 pub fn block_context() -> BlockContext {
-    BlockContext::create_for_account_testing()
+    BlockContext::create_simple_for_account_testing()
 }
 
 /// Struct containing the data usually needed to initialize a test.
