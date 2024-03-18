@@ -57,4 +57,8 @@ where
     pub fn set_initial_value(&mut self, key: K, value: V) {
         self.cached_initial_values.insert(key, value);
     }
+
+    pub(crate) fn get_writes(&self) -> &HashMap<K, BTreeMap<TxIndex, V>> {
+        &self.writes
+    }
 }

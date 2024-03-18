@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -8,7 +8,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{ContractClassMapping, StateMaps};
+use crate::state::cached_state::{CachedState, ContractClassMapping, StateCache, StateMaps};
 use crate::state::state_api::{State, StateReader, StateResult};
 
 #[cfg(test)]
@@ -39,6 +39,55 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: VersionedStorage::default(),
             compiled_class_hashes: VersionedStorage::default(),
             compiled_contract_classes: VersionedStorage::default(),
+        }
+    }
+
+    pub fn get_writes(&mut self, from_index: TxIndex) -> StateMaps {
+        let mut storage = HashMap::default();
+        let mut nonces = HashMap::default();
+        let mut class_hashes = HashMap::default();
+        let mut compiled_class_hashes = HashMap::default();
+
+        // Storage.
+        for &(contract_address, storage_key) in self.storage.get_writes().keys() {
+            let value =
+                self.storage.read(from_index + 1, (contract_address, storage_key)).expect(READ_ERR);
+            storage.insert((contract_address, storage_key), value);
+        }
+
+        // Nonce
+        for &contract_address in self.nonces.get_writes().keys() {
+            let value = self.nonces.read(from_index + 1, contract_address).expect(READ_ERR);
+            nonces.insert(contract_address, value);
+        }
+        // Class hash
+        for &contract_address in self.class_hashes.get_writes().keys() {
+            let value = self.class_hashes.read(from_index + 1, contract_address).expect(READ_ERR);
+            class_hashes.insert(contract_address, value);
+        }
+
+        // Compiled class hash
+        for &class_hash in self.compiled_class_hashes.get_writes().keys() {
+            let value =
+                self.compiled_class_hashes.read(from_index + 1, class_hash).expect(READ_ERR);
+            compiled_class_hashes.insert(class_hash, value);
+        }
+
+        StateMaps { storage, nonces, class_hashes, compiled_class_hashes, ..Default::default() }
+    }
+
+    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
+    where
+        T: StateReader,
+    {
+        let writes = StateCache { writes: self.get_writes(from_index), ..Default::default() };
+        parent_state.update_cache(writes);
+
+        // Compiled contract class
+        for &class_hash in self.compiled_contract_classes.get_writes().keys() {
+            let value =
+                self.compiled_contract_classes.read(from_index + 1, class_hash).expect(READ_ERR);
+            parent_state.set_contract_class(class_hash, value).unwrap();
         }
     }
 
