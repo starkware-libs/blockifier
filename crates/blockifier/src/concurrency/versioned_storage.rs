@@ -57,4 +57,19 @@ where
     pub fn set_initial_value(&mut self, key: K, value: V) {
         self.cached_initial_values.insert(key, value);
     }
+
+    pub(crate) fn get_writes(&self) -> &HashMap<K, BTreeMap<TxIndex, V>> {
+        &self.writes
+    }
+
+    pub(crate) fn get_writes_from_index(&self, from_index: TxIndex) -> HashMap<K, V> {
+        let mut writes = HashMap::default();
+        for &key in self.get_writes().keys() {
+            let value = self
+                .read(from_index + 1, key)
+                .expect("Error: read value missing in the versioned storage");
+            writes.insert(key, value);
+        }
+        writes
+    }
 }
