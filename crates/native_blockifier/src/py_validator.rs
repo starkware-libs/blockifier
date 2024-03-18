@@ -1,32 +1,31 @@
+use blockifier::blockifier::block::BlockInfo;
+use blockifier::blockifier::bouncer::BouncerInfo;
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
-use blockifier::context::{BlockContext, TransactionContext};
+use blockifier::context::{BlockContext, ChainInfo, TransactionContext};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::fee::actual_cost::ActualCost;
 use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::{TransactionExecutionResult, TransactionInfo};
+use blockifier::transaction::objects::{
+    TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
+};
 use blockifier::transaction::transaction_execution::Transaction;
 use pyo3::{pyclass, pymethods, PyAny};
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_block_executor::{
-    into_block_context_args, PyGeneralConfig, ThinTransactionExecutionInfo,
-};
+use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
-use crate::py_transaction_execution_info::PyBouncerInfo;
+use crate::py_transaction::{py_account_tx, PyClassInfo};
 use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::py_state_reader::PyStateReader;
 
-/// Manages transaction validation for pre-execution flows.
 #[pyclass]
 pub struct PyValidator {
-    pub max_nonce_for_validation_skip: Nonce,
-    pub tx_executor: TransactionExecutor<PyStateReader>,
+    pub validator: Validator<PyStateReader>,
 }
 
 #[pymethods]
@@ -42,24 +41,21 @@ impl PyValidator {
         global_contract_cache_size: usize,
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
-        let versioned_constants =
-            versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
-        let global_contract_cache = GlobalContractCache::new(global_contract_cache_size);
         let state_reader = PyStateReader::new(state_reader_proxy);
-        let state = CachedState::new(state_reader, global_contract_cache);
-
         let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
-        // TODO(Yael 24/01/24): calc block_context using pre_process_block
-        let block_context =
-            BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
-        let tx_executor = TransactionExecutor::new(state, block_context);
 
-        let validator = Self {
-            max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
-            tx_executor,
-        };
+        let validator = Validator::create(
+            validate_max_n_steps,
+            max_recursion_depth,
+            global_contract_cache_size,
+            state_reader,
+            block_info,
+            chain_info,
+            Nonce(max_nonce_for_validation_skip.0),
+        )?;
+        let py_validator = Self { validator };
 
-        Ok(validator)
+        Ok(py_validator)
     }
 
     // Transaction Execution API.
@@ -72,13 +68,70 @@ impl PyValidator {
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
         let account_tx = py_account_tx(tx, optional_py_class_info)?;
+        let deploy_account_tx_hash = deploy_account_tx_hash.map(|hash| hash.0);
+        self.validator.perform_validations(account_tx, deploy_account_tx_hash)?;
+
+        Ok(())
+    }
+
+    #[cfg(any(feature = "testing", test))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info))]
+    #[staticmethod]
+    fn create_for_testing(
+        general_config: PyGeneralConfig,
+        state_reader_proxy: &PyAny,
+        next_block_info: PyBlockInfo,
+    ) -> NativeBlockifierResult<Self> {
+        let state_reader = PyStateReader::new(state_reader_proxy);
+        let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
+
+        Ok(Self { validator: Validator::create_for_testing(state_reader, block_info, chain_info)? })
+    }
+}
+
+// TODO(Arni, 19/04/2024): Move the Validator struct to a separate file.
+/// Manages transaction validation for pre-execution flows.
+pub struct Validator<S: StateReader> {
+    pub max_nonce_for_validation_skip: Nonce,
+    pub tx_executor: TransactionExecutor<S>,
+}
+
+impl<S: StateReader> Validator<S> {
+    pub fn create(
+        validate_max_n_steps: u32,
+        max_recursion_depth: usize,
+        global_contract_cache_size: usize,
+        state_reader: S,
+        block_info: BlockInfo,
+        chain_info: ChainInfo,
+        max_nonce_for_validation_skip: Nonce,
+    ) -> NativeBlockifierResult<Self> {
+        let versioned_constants =
+            versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
+        let global_contract_cache = GlobalContractCache::new(global_contract_cache_size);
+        let state = CachedState::new(state_reader, global_contract_cache);
+
+        // TODO(Arni, 30/04/2024): Get block_info and chain_info from the most logical place.
+        let block_context =
+            BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
+        let tx_executor = TransactionExecutor::new(state, block_context);
+
+        let validator = Self { max_nonce_for_validation_skip, tx_executor };
+
+        Ok(validator)
+    }
+
+    pub fn perform_validations(
+        &mut self,
+        account_tx: AccountTransaction,
+        deploy_account_tx_hash: Option<StarkFelt>,
+    ) -> NativeBlockifierResult<()> {
         let tx_context = self.tx_executor.block_context.to_tx_context(&account_tx);
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
-        if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
-            let sentinel_class_info = None;
-            let (_tx_execution_info, _py_bouncer_info) = self.execute(tx, sentinel_class_info)?;
+        if let AccountTransaction::DeployAccount(_) = account_tx {
+            let (_tx_execution_info, _py_bouncer_info) = self.execute(account_tx)?;
             // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());
@@ -100,7 +153,7 @@ impl PyValidator {
         // `__validate__` call.
         let versioned_constants = &tx_context.block_context.versioned_constants();
         let (_optional_call_info, actual_cost) =
-            self.validate(account_tx, versioned_constants.tx_initial_gas())?;
+            self.validate(&account_tx, versioned_constants.tx_initial_gas())?;
 
         // Post validations.
         // TODO(Ayelet, 09/11/2023): Check call succeeded.
@@ -109,22 +162,17 @@ impl PyValidator {
         Ok(())
     }
 
-    #[cfg(any(feature = "testing", test))]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info))]
-    #[staticmethod]
-    fn create_for_testing(
-        general_config: PyGeneralConfig,
-        state_reader_proxy: &PyAny,
-        next_block_info: PyBlockInfo,
+    pub fn create_for_testing(
+        state_reader: S,
+        block_info: BlockInfo,
+        chain_info: ChainInfo,
     ) -> NativeBlockifierResult<Self> {
         use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         use blockifier::versioned_constants::VersionedConstants;
 
-        let state_reader = PyStateReader::new(state_reader_proxy);
         let global_contract_cache = GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST);
         let state = CachedState::new(state_reader, global_contract_cache);
 
-        let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
         let block_context = BlockContext::new_unchecked(
             &block_info,
             &chain_info,
@@ -135,23 +183,11 @@ impl PyValidator {
 
         Ok(Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor })
     }
-}
-
-impl PyValidator {
-    /// Applicable solely to account deployment transactions: the execution of the constructor
-    /// is required before they can be validated.
     fn execute(
         &mut self,
-        tx: &PyAny,
-        optional_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(ThinTransactionExecutionInfo, PyBouncerInfo)> {
-        let limit_execution_steps_by_resource_bounds = true;
-        let tx: Transaction = py_tx(tx, optional_class_info)?;
-        let (tx_execution_info, bouncer_info) =
-            self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
-        let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
-
-        Ok((tx_execution_info.into(), py_bouncer_info))
+        tx: AccountTransaction,
+    ) -> NativeBlockifierResult<(TransactionExecutionInfo, BouncerInfo)> {
+        Ok(self.tx_executor.execute(Transaction::AccountTransaction(tx), true)?)
     }
 
     fn perform_pre_validation_stage(
@@ -178,7 +214,7 @@ impl PyValidator {
     fn skip_validate_due_to_unprocessed_deploy_account(
         &mut self,
         tx_info: &TransactionInfo,
-        deploy_account_tx_hash: Option<PyFelt>,
+        deploy_account_tx_hash: Option<StarkFelt>,
     ) -> NativeBlockifierResult<bool> {
         let nonce = self.tx_executor.state.get_nonce_at(tx_info.sender_address())?;
         let tx_nonce = tx_info.nonce();
@@ -195,16 +231,12 @@ impl PyValidator {
 
         Ok(skip_validate)
     }
-
     fn validate(
         &mut self,
-        account_tx: AccountTransaction,
+        tx: &AccountTransaction,
         remaining_gas: u64,
     ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
-        let (optional_call_info, actual_cost) =
-            self.tx_executor.validate(&account_tx, remaining_gas)?;
-
-        Ok((optional_call_info, actual_cost))
+        Ok(self.tx_executor.validate(tx, remaining_gas)?)
     }
 
     fn perform_post_validation_stage(
