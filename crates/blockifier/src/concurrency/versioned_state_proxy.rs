@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -8,7 +8,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{ContractClassMapping, StateMaps};
+use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
 use crate::state::state_api::{State, StateReader, StateResult};
 
 #[cfg(test)]
@@ -39,6 +39,31 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: VersionedStorage::default(),
             compiled_class_hashes: VersionedStorage::default(),
             compiled_contract_classes: VersionedStorage::default(),
+        }
+    }
+
+    pub fn get_writes(&mut self, from_index: TxIndex) -> StateMaps {
+        StateMaps {
+            storage: self.storage.get_writes_from_index(from_index),
+            nonces: self.nonces.get_writes_from_index(from_index),
+            class_hashes: self.class_hashes.get_writes_from_index(from_index),
+            compiled_class_hashes: self.compiled_class_hashes.get_writes_from_index(from_index),
+            declared_contracts: HashMap::new(),
+        }
+    }
+
+    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
+    where
+        T: StateReader,
+    {
+        let writes = self.get_writes(from_index);
+        parent_state.update_cache(writes);
+
+        // Compiled contract class
+        for (class_hash, contract_class) in
+            self.compiled_contract_classes.get_writes_from_index(from_index)
+        {
+            parent_state.set_contract_class(class_hash, contract_class).unwrap();
         }
     }
 
