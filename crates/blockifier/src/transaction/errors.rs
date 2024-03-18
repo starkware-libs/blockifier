@@ -56,7 +56,6 @@ pub enum TransactionExecutionError {
          version {cairo_version:?}."
     )]
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
-    // TODO(Zuphit): add `gen_transaction_execution_error_trace` if needed.
     #[error("Contract constructor execution has failed: {error}")]
     ContractConstructorExecutionFailed {
         error: EntryPointExecutionError,
@@ -64,7 +63,7 @@ pub enum TransactionExecutionError {
     },
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
-    #[error("Transaction execution has failed: {}", gen_transaction_execution_error_trace(self))]
+    #[error("Transaction execution has failed:\n{}", gen_transaction_execution_error_trace(self))]
     ExecutionError {
         error: EntryPointExecutionError,
         storage_address: ContractAddress,
@@ -89,7 +88,6 @@ pub enum TransactionExecutionError {
     TransactionPreValidationError(#[from] TransactionPreValidationError),
     #[error(transparent)]
     TryFromIntError(#[from] std::num::TryFromIntError),
-    // TODO(Zuphit): add `gen_transaction_execution_error_trace` if needed.
     #[error("Transaction validation has failed: {error}")]
     ValidateTransactionError {
         error: EntryPointExecutionError,
