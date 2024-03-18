@@ -68,9 +68,9 @@ impl<S: StateReader> CachedState<S> {
         })
     }
 
-    pub fn update_cache(&mut self, cache_updates: StateCache) {
+    pub fn update_cache(&mut self, write_updates: StateMaps) {
         let mut cache = self.cache.borrow_mut();
-        cache.writes.extend(&cache_updates.writes);
+        cache.writes.extend(&write_updates);
     }
 
     pub fn update_contract_class_cache(
@@ -545,7 +545,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
     pub fn commit(self) {
         let state = self.state.0;
         let child_cache = self.cache.into_inner();
-        state.update_cache(child_cache);
+        state.update_cache(child_cache.writes);
         state.update_contract_class_cache(self.class_hash_to_class.into_inner());
         state.update_visited_pcs_cache(&self.visited_pcs);
     }
