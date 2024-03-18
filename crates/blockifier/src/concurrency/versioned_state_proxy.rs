@@ -50,10 +50,58 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
+    pub fn commit_chunk<T>(&mut self, upper_version: Version, block_state: &mut CachedState<T>)
+    where
+        T: StateReader,
+    {
+        // Storage
+        for (&(contract_address, storage_key), _) in self.storage.get_writes().iter() {
+            let value = self.storage.read(upper_version, (contract_address, storage_key)).unwrap();
+            block_state.set_storage_at(contract_address, storage_key, value).unwrap();
+        }
+
+        // Nonce
+        for (&contract_address, map) in self.nonces.get_writes().iter() {
+            let n_versions: u64 = map.len().try_into().expect("Failed to convert usize to u64.");
+            let current_nonce = self.nonces.read(upper_version, contract_address).unwrap();
+            let current_nonce_as_u64: u64 = usize::try_from(current_nonce.0)
+                .unwrap()
+                .try_into()
+                .expect("Failed to convert usize to u64.");
+
+            for _ in 0..n_versions {
+                block_state.increment_nonce(contract_address).unwrap();
+            }
+            let actual_nonce = block_state.get_nonce_at(contract_address).unwrap();
+            let expected_nonce = Nonce(StarkFelt::from(current_nonce_as_u64 + n_versions));
+            if expected_nonce != actual_nonce {
+                panic!("Nonce mismatch: expected {:?}, got {:?}", expected_nonce, actual_nonce);
+            }
+        }
+
+        // Class hash
+        for (&contract_address, _) in self.class_hashes.get_writes().iter() {
+            let value = self.class_hashes.read(upper_version, contract_address).unwrap();
+            block_state.set_class_hash_at(contract_address, value).unwrap();
+        }
+
+        // Compiled class hash
+        for (&class_hash, _) in self.compiled_class_hashes.get_writes().iter() {
+            let value = self.compiled_class_hashes.read(upper_version, class_hash).unwrap();
+            block_state.set_compiled_class_hash(class_hash, value).unwrap();
+        }
+
+        // Compiled contract class
+        for (&class_hash, _) in self.compiled_contract_classes.get_writes().iter() {
+            let value = self.compiled_contract_classes.read(upper_version, class_hash).unwrap();
+            block_state.set_contract_class(class_hash, value).unwrap();
+        }
+    }
+
     pub fn validate_read_set(
         &mut self,
         version: Version,
-        transactional_state: &mut CachedState<VersionedStateProxy<CachedState<S>>>,
+        transactional_state: &mut CachedState<VersionedStateProxy<S>>,
     ) -> StateResult<bool> {
         let read_version = version - 1;
         let cache = transactional_state.cache.borrow();
@@ -116,7 +164,7 @@ impl<S: StateReader> VersionedState<S> {
     pub fn apply_writes(
         &mut self,
         version: Version,
-        transactional_state: &mut CachedState<VersionedStateProxy<CachedState<S>>>,
+        transactional_state: &mut CachedState<VersionedStateProxy<S>>,
     ) {
         let cache = transactional_state.cache.borrow();
 

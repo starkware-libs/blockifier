@@ -205,3 +205,98 @@ fn test_run_parallel_txs() {
         assert_eq!(ctor_storage_arg, read_storage_arg);
     });
 }
+
+fn versioned_state_for_testing(
+    contract_address: ContractAddress,
+    class_hash: ClassHash,
+) -> Arc<Mutex<VersionedState<CachedState<DictStateReader>>>> {
+    let mut address_to_class_hash = HashMap::new();
+    address_to_class_hash.insert(contract_address, class_hash);
+
+    let cached_state =
+        CachedState::from(DictStateReader { address_to_class_hash, ..Default::default() });
+    Arc::new(Mutex::new(VersionedState::new(cached_state)))
+}
+
+#[test]
+fn test_versioned_proxy_state_flow() {
+    let contract_address = contract_address!("0x1");
+    let init_class_hash = ClassHash(stark_felt!(27_u8));
+    let versioned_state = versioned_state_for_testing(contract_address, init_class_hash);
+    let unupdated_versioned_state: Arc<Mutex<VersionedState<CachedState<DictStateReader>>>> =
+        versioned_state_for_testing(contract_address!("0x2"), init_class_hash);
+
+    let mut block_state = CachedState::from(DictStateReader::default());
+    let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
+    let mut transactional_states: Vec<
+        CachedState<VersionedStateProxy<CachedState<DictStateReader>>>,
+    > = (0..4).map(|i| CachedState::from(safe_versioned_state.pin_version(i))).collect();
+
+    let _ = transactional_states[1].get_class_hash_at(contract_address);
+    let _ = transactional_states[1].get_nonce_at(contract_address);
+
+    assert!(
+        versioned_state.lock().unwrap().validate_read_set(1, &mut transactional_states[1]).unwrap()
+    );
+    assert!(
+        !unupdated_versioned_state
+            .lock()
+            .unwrap()
+            .validate_read_set(1, &mut transactional_states[1])
+            .unwrap()
+    );
+
+    // Clients class hash values.
+    let class_hash_1 = ClassHash(stark_felt!(76_u8));
+    let class_hash_2 = ClassHash(stark_felt!(234_u8));
+
+    let _ = transactional_states[1].set_class_hash_at(contract_address, class_hash_1);
+
+    // Validate Read set.
+    assert!(
+        versioned_state.lock().unwrap().validate_read_set(1, &mut transactional_states[1]).unwrap()
+    );
+    assert!(
+        !unupdated_versioned_state
+            .lock()
+            .unwrap()
+            .validate_read_set(1, &mut transactional_states[1])
+            .unwrap()
+    );
+
+    // TX 2 does not read the value written by TX 1 till TX 1 is committed.
+    assert!(
+        transactional_states[2].get_class_hash_at(contract_address).unwrap() == init_class_hash
+    );
+
+    versioned_state.lock().unwrap().apply_writes(1, &mut transactional_states[1]);
+    assert!(transactional_states[3].get_class_hash_at(contract_address).unwrap() == class_hash_1);
+
+    // TX 2 reads the value from its cache.
+    // To read the value written by TX 1 it needs to be re-executed.
+    assert!(
+        transactional_states[2].get_class_hash_at(contract_address).unwrap() == init_class_hash
+    );
+
+    // Re-execute TX 2.
+    transactional_states[2] = CachedState::from(safe_versioned_state.pin_version(2));
+    assert!(transactional_states[2].get_class_hash_at(contract_address).unwrap() == class_hash_1);
+
+    let _ = transactional_states[2].set_class_hash_at(contract_address, class_hash_2);
+    assert!(transactional_states[2].get_class_hash_at(contract_address).unwrap() == class_hash_2);
+
+    // Verify the versioning mechanism is working.
+    assert!(
+        transactional_states[0].get_class_hash_at(contract_address).unwrap() == init_class_hash
+    );
+
+    // Apply the changes.
+    for (i, transactional_state) in transactional_states.iter_mut().enumerate().take(4) {
+        versioned_state.lock().unwrap().apply_writes(i.try_into().unwrap(), transactional_state);
+    }
+
+    // Check the final state.
+    versioned_state.lock().unwrap().commit_chunk(4, &mut block_state);
+
+    assert!(block_state.get_class_hash_at(contract_address).unwrap() == class_hash_2);
+}
