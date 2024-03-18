@@ -8,7 +8,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{ContractClassMapping, StateMaps};
+use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
 use crate::state::state_api::{State, StateReader, StateResult};
 
 #[cfg(test)]
@@ -39,6 +39,30 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: VersionedStorage::default(),
             compiled_class_hashes: VersionedStorage::default(),
             compiled_contract_classes: VersionedStorage::default(),
+        }
+    }
+
+    pub fn get_writes(&mut self, from_index: TxIndex) -> StateMaps {
+        let storage = self.storage.get_writes_from_index(from_index);
+        let nonces = self.nonces.get_writes_from_index(from_index);
+        let class_hashes = self.class_hashes.get_writes_from_index(from_index);
+        let compiled_class_hashes = self.compiled_class_hashes.get_writes_from_index(from_index);
+
+        StateMaps { storage, nonces, class_hashes, compiled_class_hashes, ..Default::default() }
+    }
+
+    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
+    where
+        T: StateReader,
+    {
+        let writes = self.get_writes(from_index);
+        parent_state.update_cache(writes);
+
+        // Compiled contract class
+        for &class_hash in self.compiled_contract_classes.get_writes().keys() {
+            let value =
+                self.compiled_contract_classes.read(from_index + 1, class_hash).expect(READ_ERR);
+            parent_state.set_contract_class(class_hash, value).unwrap();
         }
     }
 
