@@ -42,7 +42,7 @@ fn fee_transfer_resources(
     account_contract_address: ContractAddress,
     fee_type: FeeType,
 ) -> ExecutionResources {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &BlockContext::create_simple_for_account_testing();
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[]);
     let token_address = chain_info.fee_token_address(&fee_type);

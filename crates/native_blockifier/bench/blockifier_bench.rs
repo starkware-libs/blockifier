@@ -28,7 +28,7 @@ const N_ACCOUNTS: u16 = 10000;
 
 pub fn transfers_benchmark(c: &mut Criterion) {
     let account_contract = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &BlockContext::create_simple_for_account_testing();
     let mut state =
         test_state(block_context.chain_info(), BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);
     let accounts = (0..N_ACCOUNTS)
