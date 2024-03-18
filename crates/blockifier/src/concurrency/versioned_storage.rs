@@ -57,4 +57,14 @@ where
     pub fn set_initial_value(&mut self, key: K, value: V) {
         self.cached_initial_values.insert(key, value);
     }
+
+    pub(crate) fn get_writes_from_index(&self, from_index: TxIndex) -> HashMap<K, V> {
+        let mut writes = HashMap::default();
+        for &key in self.writes.keys() {
+            if let Some(value) = self.read(from_index + 1, key) {
+                writes.insert(key, value);
+            }
+        }
+        writes
+    }
 }
