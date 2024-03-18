@@ -89,7 +89,7 @@ fn gas_and_fee(base_gas: u64, validate_mode: bool, fee_type: &FeeType) -> (u64, 
     (
         gas,
         get_fee_by_gas_vector(
-            &BlockContext::create_for_account_testing().block_info,
+            &BlockContext::create_simple_for_account_testing().block_info,
             GasVector::from_l1_gas(gas.into()),
             fee_type,
         ),
@@ -147,7 +147,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     #[case] fee_type: FeeType,
     #[case] is_deprecated: bool,
 ) {
-    let block_context = BlockContext::create_for_account_testing();
+    let block_context = BlockContext::create_simple_for_account_testing();
     let max_fee = Fee(MAX_FEE);
     let gas_price = block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let FlavorTestInitialState {
@@ -328,7 +328,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
 ) {
-    let block_context = BlockContext::create_for_account_testing();
+    let block_context = BlockContext::create_simple_for_account_testing();
     let max_fee = Fee(MAX_FEE);
 
     // Create a state with a contract that can fail validation on demand.
@@ -389,7 +389,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
 ) {
-    let block_context = BlockContext::create_for_account_testing();
+    let block_context = BlockContext::create_simple_for_account_testing();
     let chain_info = &block_context.chain_info;
     let gas_price = block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let FlavorTestInitialState {
@@ -552,7 +552,7 @@ fn test_simulate_validate_charge_fee_post_execution(
     #[case] fee_type: FeeType,
     #[case] is_deprecated: bool,
 ) {
-    let block_context = BlockContext::create_for_account_testing();
+    let block_context = BlockContext::create_simple_for_account_testing();
     let gas_price = block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let chain_info = &block_context.chain_info;
     let fee_token_address = chain_info.fee_token_address(&fee_type);

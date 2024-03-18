@@ -141,7 +141,7 @@ impl VersionedConstants {
     }
 
     #[cfg(any(feature = "testing", test))]
-    pub fn create_for_account_testing() -> Self {
+    pub fn create_simple_for_account_testing() -> Self {
         let vm_resource_fee_cost = Arc::new(HashMap::from([
             (crate::abi::constants::N_STEPS_RESOURCE.to_string(), ResourceCost::from_integer(1)),
             (
@@ -171,6 +171,44 @@ impl VersionedConstants {
             (
                 cairo_vm::vm::runners::builtin_runner::EC_OP_BUILTIN_NAME.to_string(),
                 ResourceCost::from_integer(1),
+            ),
+        ]));
+
+        Self { vm_resource_fee_cost, ..Self::create_for_testing() }
+    }
+
+    /// A more complicated instance to increase test coverage.
+    #[cfg(any(feature = "testing", test))]
+    pub fn create_float_for_account_testing() -> Self {
+        let vm_resource_fee_cost = Arc::new(HashMap::from([
+            (crate::abi::constants::N_STEPS_RESOURCE.to_string(), ResourceCost::new(25, 10000)),
+            (
+                cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME.to_string(),
+                ResourceCost::new(8, 100),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(),
+                ResourceCost::new(4, 100),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::SIGNATURE_BUILTIN_NAME.to_string(),
+                ResourceCost::new(512, 100),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::BITWISE_BUILTIN_NAME.to_string(),
+                ResourceCost::new(16, 100),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME.to_string(),
+                ResourceCost::new(8, 100),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME.to_string(),
+                ResourceCost::from_integer(0),
+            ),
+            (
+                cairo_vm::vm::runners::builtin_runner::EC_OP_BUILTIN_NAME.to_string(),
+                ResourceCost::new(256, 100),
             ),
         ]));
 
