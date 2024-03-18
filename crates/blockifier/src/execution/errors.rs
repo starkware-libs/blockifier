@@ -119,7 +119,12 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     let mut error_stack: Vec<String> = Vec::new();
 
     match error {
-        TransactionExecutionError::ExecutionError { error, storage_address, selector } => {
+        TransactionExecutionError::ExecutionError {
+            error,
+            class_hash,
+            storage_address,
+            selector,
+        } => {
             // TODO(zuphit): activate the match on these types once all selectors are available.
             // | TransactionExecutionError::ValidateTransactionError { error, storage_address, .. }
             // | TransactionExecutionError::ContractConstructorExecutionFailed {
@@ -129,9 +134,11 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             // } => {
             let depth: usize = 0;
             error_stack.push(format!(
-                "{}: Error in the called contract (contract address: {}, selector: {}):",
+                "{}: Error in the called contract (contract address: {}, class hash: {}, \
+                 selector: {}):",
                 depth,
                 *storage_address.0.key(),
+                class_hash,
                 selector.0
             ));
             extract_entry_point_execution_error_into_stack_trace(
@@ -146,7 +153,7 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     }
 
     let error_stack_str = error_stack.join("\n");
-    error_stack_str[..min(17000, error_stack_str.len())].to_string()
+    error_stack_str[..min(21000, error_stack_str.len())].to_string()
 }
 
 fn extract_cairo_run_error_into_stack_trace(
@@ -222,11 +229,18 @@ fn extract_syscall_execution_error_into_stack_trace(
     syscall_error: &SyscallExecutionError,
 ) {
     match syscall_error {
-        SyscallExecutionError::CallContractExecutionError { storage_address, selector, error } => {
+        SyscallExecutionError::CallContractExecutionError {
+            class_hash,
+            storage_address,
+            selector,
+            error,
+        } => {
             let call_contract_preamble = format!(
-                "{}: Error in the called contract (contract address: {}, selector: {}):",
+                "{}: Error in the called contract (contract address: {}, class hash: {}, \
+                 selector: {}):",
                 depth,
                 storage_address.0.key(),
+                class_hash,
                 selector.0
             );
             error_stack.push(call_contract_preamble);
@@ -268,14 +282,17 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
 ) {
     match syscall_error {
         DeprecatedSyscallExecutionError::CallContractExecutionError {
+            class_hash,
             storage_address,
             selector,
             error,
         } => {
             let call_contract_preamble = format!(
-                "{}: Error in the called contract (contract address: {}, selector: {}):",
+                "{}: Error in the called contract (contract address: {}, class hash: {}, \
+                 selector: {}):",
                 depth,
                 storage_address.0.key(),
+                class_hash,
                 selector.0
             );
             error_stack.push(call_contract_preamble);

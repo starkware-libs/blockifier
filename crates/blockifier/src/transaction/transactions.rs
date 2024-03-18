@@ -397,6 +397,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
             }
         };
         let storage_address = context.tx_context.tx_info.sender_address();
+        let class_hash = state.get_class_hash_at(storage_address)?;
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector,
@@ -412,6 +413,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
         let call_info = execute_call.execute(state, resources, context).map_err(|error| {
             TransactionExecutionError::ExecutionError {
                 error,
+                class_hash,
                 storage_address,
                 selector: entry_point_selector,
             }
@@ -512,6 +514,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let tx = &self.tx;
         let storage_address = tx.contract_address;
+        let class_hash = state.get_class_hash_at(storage_address)?;
         let selector = tx.entry_point_selector;
         let execute_call = CallEntryPoint {
             entry_point_type: EntryPointType::L1Handler,
@@ -526,7 +529,12 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
         };
 
         execute_call.execute(state, resources, context).map(Some).map_err(|error| {
-            TransactionExecutionError::ExecutionError { error, storage_address, selector }
+            TransactionExecutionError::ExecutionError {
+                error,
+                class_hash,
+                storage_address,
+                selector,
+            }
         })
     }
 }

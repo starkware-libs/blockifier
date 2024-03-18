@@ -160,13 +160,14 @@ pub fn call_contract(
     remaining_gas: &mut u64,
 ) -> SyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
+    let class_hash = syscall_handler.state.get_class_hash_at(storage_address)?;
     let selector = request.function_selector;
     if syscall_handler.is_validate_mode() && syscall_handler.storage_address() != storage_address {
         let error = SyscallExecutionError::InvalidSyscallInExecutionMode {
             syscall_name: "call_contract".to_string(),
             execution_mode: syscall_handler.execution_mode(),
         };
-        return Err(error.as_call_contract_execution_error(storage_address, selector));
+        return Err(error.as_call_contract_execution_error(class_hash, storage_address, selector));
     }
     let entry_point = CallEntryPoint {
         class_hash: None,
@@ -180,7 +181,9 @@ pub fn call_contract(
         initial_gas: *remaining_gas,
     };
     let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler, remaining_gas)
-        .map_err(|error| error.as_call_contract_execution_error(storage_address, selector))?;
+        .map_err(|error| {
+            error.as_call_contract_execution_error(class_hash, storage_address, selector)
+        })?;
 
     Ok(CallContractResponse { segment: retdata_segment })
 }

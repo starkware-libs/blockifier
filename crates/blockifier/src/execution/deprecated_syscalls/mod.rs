@@ -186,6 +186,7 @@ pub fn call_contract(
     syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<CallContractResponse> {
     let storage_address = request.contract_address;
+    let class_hash = syscall_handler.state.get_class_hash_at(storage_address)?;
     let selector = request.function_selector;
     // Check that the call is legal if in Validate execution mode.
     if syscall_handler.is_validate_mode() && syscall_handler.storage_address != storage_address {
@@ -193,7 +194,7 @@ pub fn call_contract(
             syscall_name: "call_contract".to_string(),
             execution_mode: syscall_handler.execution_mode(),
         };
-        return Err(error.as_call_contract_execution_error(storage_address, selector));
+        return Err(error.as_call_contract_execution_error(class_hash, storage_address, selector));
     }
     let entry_point = CallEntryPoint {
         class_hash: None,
@@ -206,8 +207,10 @@ pub fn call_contract(
         call_type: CallType::Call,
         initial_gas: syscall_handler.context.get_gas_cost("initial_gas_cost"),
     };
-    let retdata_segment = execute_inner_call(entry_point, vm, syscall_handler)
-        .map_err(|error| error.as_call_contract_execution_error(storage_address, selector))?;
+    let retdata_segment =
+        execute_inner_call(entry_point, vm, syscall_handler).map_err(|error| {
+            error.as_call_contract_execution_error(class_hash, storage_address, selector)
+        })?;
 
     Ok(CallContractResponse { segment: retdata_segment })
 }

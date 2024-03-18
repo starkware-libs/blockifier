@@ -602,6 +602,8 @@ fn test_stack_trace(
     let account_address_felt = *account_address.0.key();
     let test_contract_address_felt = *test_contract_address.0.key();
     let test_contract_address_2_felt = *test_contract_address_2.0.key();
+    let test_contract_hash = test_contract.get_class_hash().0;
+    let account_contract_hash = account.get_class_hash().0;
 
     // Nest calls: __execute__ -> test_call_contract -> assert_0_is_1.
     let call_contract_function_name = "test_call_contract";
@@ -649,22 +651,22 @@ fn test_stack_trace(
 
     let expected_trace_cairo0 = format!(
         "Transaction execution has failed:
-0: Error in the called contract (contract address: {account_address_felt}, selector: \
-         {execute_selector_felt}):
+0: Error in the called contract (contract address: {account_address_felt}, class hash: \
+         {account_contract_hash}, selector: {execute_selector_felt}):
 Error at pc=0:7:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_call_location})
 Unknown location (pc=0:{account_entry_point_location})
 
-1: Error in the called contract (contract address: {test_contract_address_felt}, selector: \
-         {external_entry_point_selector_felt}):
+1: Error in the called contract (contract address: {test_contract_address_felt}, class hash: \
+         {test_contract_hash}, selector: {external_entry_point_selector_felt}):
 Error at pc=0:37:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-2: Error in the called contract (contract address: {test_contract_address_2_felt}, selector: \
-         {inner_entry_point_selector_felt}):
+2: Error in the called contract (contract address: {test_contract_address_2_felt}, class hash: \
+         {test_contract_hash}, selector: {inner_entry_point_selector_felt}):
 Error at pc=0:1184:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:1188)
@@ -677,20 +679,20 @@ An ASSERT_EQ instruction failed: 1 != 0.
     let pc_location = entry_point_offset.0 + 82;
     let expected_trace_cairo1 = format!(
         "Transaction execution has failed:
-0: Error in the called contract (contract address: {account_address_felt}, selector: \
-         {execute_selector_felt}):
+0: Error in the called contract (contract address: {account_address_felt}, class hash: \
+         {account_contract_hash}, selector: {execute_selector_felt}):
 Error at pc=0:797:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_pc_location})
 
-1: Error in the called contract (contract address: {test_contract_address_felt}, selector: \
-         {external_entry_point_selector_felt}):
+1: Error in the called contract (contract address: {test_contract_address_felt}, class hash: \
+         {test_contract_hash}, selector: {external_entry_point_selector_felt}):
 Error at pc=0:4992:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-2: Error in the called contract (contract address: {test_contract_address_2_felt}, selector: \
-         {inner_entry_point_selector_felt}):
+2: Error in the called contract (contract address: {test_contract_address_2_felt}, class hash: \
+         {test_contract_hash}, selector: {inner_entry_point_selector_felt}):
 Execution failed. Failure reason: 0x6661696c ('fail').
 "
     );
@@ -724,6 +726,8 @@ fn test_trace_callchain_ends_with_regular_call(
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address_felt = *account_address.0.key();
     let contract_address_felt = *test_contract_address.0.key();
+    let test_contract_hash = test_contract.get_class_hash().0;
+    let account_contract_hash = account_contract.get_class_hash().0;
 
     // invoke_call_chain -> call_contract_syscall invoke_call_chain -> regular call to final func.
     let invoke_call_chain_selector = selector_from_name("invoke_call_chain");
@@ -774,22 +778,22 @@ fn test_trace_callchain_ends_with_regular_call(
             let (expected_pc0, expected_pc1) = expected_pc_locations;
             format!(
                 "Transaction execution has failed:
-0: Error in the called contract (contract address: {account_address_felt}, selector: \
-                 {execute_selector_felt}):
+0: Error in the called contract (contract address: {account_address_felt}, class hash: \
+                 {account_contract_hash}, selector: {execute_selector_felt}):
 Error at pc=0:7:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_call_location})
 Unknown location (pc=0:{account_entry_point_location})
 
-1: Error in the called contract (contract address: {contract_address_felt}, selector: \
-                 {invoke_call_chain_selector_felt}):
+1: Error in the called contract (contract address: {contract_address_felt}, class hash: \
+                 {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:37:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-2: Error in the called contract (contract address: {contract_address_felt}, selector: \
-                 {invoke_call_chain_selector_felt}):
+2: Error in the called contract (contract address: {contract_address_felt}, class hash: \
+                 {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:{expected_pc0}:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
@@ -804,20 +808,20 @@ Unknown location (pc=0:{expected_pc1})
             let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
             format!(
                 "Transaction execution has failed:
-0: Error in the called contract (contract address: {account_address_felt}, selector: \
-                 {execute_selector_felt}):
+0: Error in the called contract (contract address: {account_address_felt}, class hash: \
+                 {account_contract_hash}, selector: {execute_selector_felt}):
 Error at pc=0:797:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_pc_location})
 
-1: Error in the called contract (contract address: {contract_address_felt}, selector: \
-                 {invoke_call_chain_selector_felt}):
+1: Error in the called contract (contract address: {contract_address_felt}, class hash: \
+                 {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:8010:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-2: Error in the called contract (contract address: {contract_address_felt}, selector: \
-                 {invoke_call_chain_selector_felt}):
+2: Error in the called contract (contract address: {contract_address_felt}, class hash: \
+                 {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Execution failed. Failure reason: {expected_error}.
 "
             )
@@ -854,6 +858,7 @@ fn test_trace_call_chain_with_syscalls(
     let test_contract_address = test_contract.get_instance_address(0);
 
     let test_contract_hash = test_contract.get_class_hash().0;
+    let account_contract_hash = account_contract.get_class_hash().0;
     let account_address_felt = *account_address.0.key();
     let address_felt = *test_contract_address.0.key();
     let contract_id = if call_type == 0 { address_felt } else { test_contract_hash };
@@ -907,8 +912,8 @@ fn test_trace_call_chain_with_syscalls(
 
     let last_call_preamble = if call_type == 0 {
         format!(
-            "Error in the called contract (contract address: {address_felt}, selector: \
-             {last_func_selector_felt})"
+            "Error in the called contract (contract address: {address_felt}, class hash: \
+             {test_contract_hash}, selector: {last_func_selector_felt})"
         )
     } else {
         format!(
@@ -927,22 +932,22 @@ fn test_trace_call_chain_with_syscalls(
             let (expected_pc0, expected_pc1, expected_pc2, expected_pc3) = expected_pcs;
             format!(
                 "Transaction execution has failed:
-0: Error in the called contract (contract address: {account_address_felt}, selector: \
-                 {execute_selector_felt}):
+0: Error in the called contract (contract address: {account_address_felt}, class hash: \
+                 {account_contract_hash}, selector: {execute_selector_felt}):
 Error at pc=0:7:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_call_location})
 Unknown location (pc=0:{account_entry_point_location})
 
-1: Error in the called contract (contract address: {address_felt}, selector: \
-                 {invoke_call_chain_selector_felt}):
+1: Error in the called contract (contract address: {address_felt}, class hash: \
+                 {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:37:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
 Unknown location (pc=0:{entry_point_location})
 
-2: Error in the called contract (contract address: {address_felt}, selector: \
-                 {invoke_call_chain_selector_felt}):
+2: Error in the called contract (contract address: {address_felt}, class hash: \
+                 {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:{expected_pc0}:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{call_location})
@@ -963,20 +968,20 @@ Unknown location (pc=0:{expected_pc3})
             let expected_pc = expected_pcs.0;
             format!(
                 "Transaction execution has failed:
-0: Error in the called contract (contract address: {account_address_felt}, selector: \
-                 {execute_selector_felt}):
+0: Error in the called contract (contract address: {account_address_felt}, class hash: \
+                 {account_contract_hash}, selector: {execute_selector_felt}):
 Error at pc=0:797:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{account_pc_location})
 
-1: Error in the called contract (contract address: {address_felt}, selector: \
-                 {invoke_call_chain_selector_felt}):
+1: Error in the called contract (contract address: {address_felt}, class hash: \
+                 {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:8010:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
-2: Error in the called contract (contract address: {address_felt}, selector: \
-                 {invoke_call_chain_selector_felt}):
+2: Error in the called contract (contract address: {address_felt}, class hash: \
+                 {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:{expected_pc}:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
