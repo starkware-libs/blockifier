@@ -8,7 +8,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::Version;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{ContractClassMapping, StateCache};
+use crate::state::cached_state::{CachedState, ContractClassMapping, StateCache};
 use crate::state::state_api::{State, StateReader, StateResult};
 
 #[cfg(test)]
@@ -42,18 +42,67 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
+    pub fn commit_chunk<T>(&mut self, upper_version: Version, block_state: &mut CachedState<T>)
+    where
+        T: StateReader,
+    {
+        // Storage
+        for (&(contract_address, storage_key), _) in self.storage.get_writes().iter() {
+            let value = self.storage.read(upper_version, (contract_address, storage_key)).unwrap();
+            block_state.set_storage_at(contract_address, storage_key, value).unwrap();
+        }
+
+        // Nonce
+        for (&contract_address, map) in self.nonces.get_writes().iter() {
+            let n_versions: u64 = map.len().try_into().expect("Failed to convert usize to u64.");
+            let current_nonce = self.nonces.read(upper_version, contract_address).unwrap();
+            let current_nonce_as_u64: u64 = usize::try_from(current_nonce.0)
+                .unwrap()
+                .try_into()
+                .expect("Failed to convert usize to u64.");
+
+            for _ in 0..n_versions {
+                block_state.increment_nonce(contract_address).unwrap();
+            }
+            let actual_nonce = block_state.get_nonce_at(contract_address).unwrap();
+            let expected_nonce = Nonce(StarkFelt::from(current_nonce_as_u64 + n_versions));
+            if expected_nonce != actual_nonce {
+                panic!("Nonce mismatch: expected {:?}, got {:?}", expected_nonce, actual_nonce);
+            }
+        }
+
+        // Class hash
+        for (&contract_address, _) in self.class_hashes.get_writes().iter() {
+            let value = self.class_hashes.read(upper_version, contract_address).unwrap();
+            block_state.set_class_hash_at(contract_address, value).unwrap();
+        }
+
+        // Compiled class hash
+        for (&class_hash, _) in self.compiled_class_hashes.get_writes().iter() {
+            let value = self.compiled_class_hashes.read(upper_version, class_hash).unwrap();
+            block_state.set_compiled_class_hash(class_hash, value).unwrap();
+        }
+
+        // Compiled contract class
+        for (&class_hash, _) in self.compiled_contract_classes.get_writes().iter() {
+            let value = self.compiled_contract_classes.read(upper_version, class_hash).unwrap();
+            block_state.set_contract_class(class_hash, value).unwrap();
+        }
+    }
+
     // Note: Invoke this function after `update_initial_values_of_write_only_access`.
     // Transactions that overwrite previously written values are not charged. Hence, altering a
     // write-only cell can impact the fee calculation, leading to a re-execution.
     // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared
     // object (probabily `VersionedState`). As RefCell operations are not thread-safe. Therefore,
     // accessing this function should be protected by a mutex to ensure thread safety.
-    pub fn validate_read_set(&mut self, version: Version, state_cache: &mut StateCache) -> bool {
+    pub fn validate_read_set(&mut self, version: Version, state_cache: StateCache) -> bool {
         // If the version is 0, then the read set is valid. Since version 0 has no predecessors,
         // there's nothing to compare it to.
         if version == 0 {
             return true;
         }
+
         for (&(contract_address, storage_key), expected_value) in
             &state_cache.storage_initial_values
         {
@@ -100,7 +149,7 @@ impl<S: StateReader> VersionedState<S> {
     pub fn apply_writes(
         &mut self,
         version: Version,
-        state_cache: &mut StateCache,
+        state_cache: StateCache,
         class_hash_to_class: ContractClassMapping,
     ) {
         for (&key, &value) in &state_cache.storage_writes {
