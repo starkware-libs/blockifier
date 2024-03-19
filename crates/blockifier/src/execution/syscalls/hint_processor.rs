@@ -166,13 +166,12 @@ pub const FAILED_TO_EXECUTE_CALL: &str = "0x004661696c656420746f2065786563757465
 // Failed to calculate address
 pub const FAILED_TO_CALCULATE_CONTRACT_ADDRESS: &str =
     "0x004661696c656420746f2063616c63756c6174652061646472657373";
-// Failed to parse
-pub const FAILED_TO_PARSE: &str = "0x004661696c656420746f20706172736520";
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use starknet_types_core::felt::Felt;
+
+    use super::*;
 
     #[test]
     fn test_felt_from_hex() {
@@ -185,7 +184,6 @@ mod tests {
         assert!(Felt::from_hex(L2_GAS).is_ok());
         assert!(Felt::from_hex(FAILED_TO_EXECUTE_CALL).is_ok());
         assert!(Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).is_ok());
-        assert!(Felt::from_hex(FAILED_TO_PARSE).is_ok());
     }
 }
 

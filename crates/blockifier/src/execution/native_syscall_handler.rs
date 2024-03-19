@@ -2,8 +2,10 @@ use std::collections::HashSet;
 use std::hash::RandomState;
 use std::sync::Arc;
 
+use cairo_felt::Felt252;
 use cairo_native::starknet::{
-    BlockInfo, ExecutionInfoV2, StarkNetSyscallHandler, SyscallResult, TxInfo, TxV2Info, U256,
+    BlockInfo, ExecutionInfoV2, Secp256k1Point, Secp256r1Point, StarkNetSyscallHandler,
+    SyscallResult, TxInfo, TxV2Info, U256,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{
@@ -19,11 +21,10 @@ use starknet_api::transaction::{
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{
-    chain_id_to_felt, contract_address_to_felt, encode_str_as_felts, felt_to_starkfelt,
-    starkfelt_to_felt,
+    allocate_point, big4int_to_u256, chain_id_to_felt, contract_address_to_felt,
+    encode_str_as_felts, felt_to_starkfelt, starkfelt_to_felt, u256_to_biguint,
 };
 use super::syscalls::exceeds_event_size_limit;
-use super::syscalls::hint_processor::SyscallExecutionError;
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
@@ -33,8 +34,11 @@ use crate::execution::entry_point::{
 };
 use crate::execution::execution_utils::execute_deployment;
 use crate::execution::syscalls::hint_processor::{
-    BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_CALCULATE_CONTRACT_ADDRESS, FAILED_TO_EXECUTE_CALL,
-    INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
+    SyscallExecutionError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, INVALID_INPUT_LENGTH_ERROR,
+};
+use crate::execution::syscalls::secp::{
+    SecpAddRequest, SecpAddResponse, SecpGetPointFromXRequest, SecpGetPointFromXResponse,
+    SecpHintProcessor, SecpMulRequest, SecpMulResponse, SecpNewRequest, SecpNewResponse,
 };
 use crate::state::state_api::State;
 
@@ -48,6 +52,9 @@ pub struct NativeSyscallHandler<'state> {
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     pub inner_calls: Vec<CallInfo>,
+    // Secp hint processors.
+    pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
+    pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
     pub storage_read_values: Vec<StarkFelt>,
     pub accessed_storage_keys: HashSet<StorageKey, RandomState>,
 }
@@ -81,14 +88,14 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         }
 
         let key = StorageKey::try_from(StarkFelt::from(block_number))
-            .map_err(|e| vec![Felt::from_bytes_be_slice(e.to_string().as_bytes())])?;
+            .map_err(|e| encode_str_as_felts(&e.to_string()))?;
         let block_hash_address =
             ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))
-                .map_err(|e| vec![Felt::from_bytes_be_slice(e.to_string().as_bytes())])?;
+                .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
         match self.state.get_storage_at(block_hash_address, key) {
             Ok(value) => Ok(Felt::from_bytes_be_slice(value.bytes())),
-            Err(e) => Err(vec![Felt::from_bytes_be_slice(e.to_string().as_bytes())]),
+            Err(e) => Err(encode_str_as_felts(&e.to_string())),
         }
     }
 
@@ -194,7 +201,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             &wrapper_calldata,
             deployer_address,
         )
-        .map_err(|_| vec![Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).unwrap()])?;
+        .map_err(|err| encode_str_as_felts(&err.to_string()))?;
 
         let ctor_context = ConstructorContext {
             class_hash,
@@ -212,7 +219,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             // todo: handle gas properly
             *remaining_gas as u64,
         )
-        .map_err(|_| vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()])?;
+        .map_err(|error| encode_str_as_felts(&error.to_string()))?;
 
         let return_data =
             call_info.execution.retdata.0[..].iter().map(|felt| starkfelt_to_felt(*felt)).collect();
@@ -299,12 +306,17 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         remaining_gas: &mut u128,
     ) -> SyscallResult<Vec<Felt>> {
         let contract_address = ContractAddress::try_from(felt_to_starkfelt(address))
-            .map_err(|e| encode_str_as_felts(&e.to_string()))?;
+            .map_err(|error| encode_str_as_felts(&error.to_string()))?;
 
         if self.execution_context.execution_mode == ExecutionMode::Validate
             && self.contract_address != contract_address
         {
-            return Err(vec![Felt::from_hex(INVALID_EXECUTION_MODE_ERROR).unwrap()]);
+            let err = SyscallExecutionError::InvalidSyscallInExecutionMode {
+                syscall_name: "call_contract".to_string(),
+                execution_mode: ExecutionMode::Validate,
+            };
+
+            return Err(encode_str_as_felts(&err.to_string()));
         }
 
         let wrapper_calldata = Calldata(Arc::new(
@@ -462,90 +474,234 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
     fn secp256k1_add(
         &mut self,
-        _p0: cairo_native::starknet::Secp256k1Point,
-        _p1: cairo_native::starknet::Secp256k1Point,
+        p0: Secp256k1Point,
+        p1: Secp256k1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::Secp256k1Point> {
-        todo!("Native syscall handler - secp256k1_add") // unimplemented in cairo native
+    ) -> SyscallResult<Secp256k1Point> {
+        let p_p0 = allocate_point(p0.x, p0.y, &mut self.secp256k1_hint_processor)?;
+        let p_p1 = allocate_point(p1.x, p1.y, &mut self.secp256k1_hint_processor)?;
+        let request = SecpAddRequest { lhs_id: Felt252::from(p_p0), rhs_id: Felt252::from(p_p1) };
+
+        match self.secp256k1_hint_processor.secp_add(request) {
+            Ok(SecpAddResponse { ec_point_id: id }) => {
+                let id = Felt252::from(id);
+
+                let point = self
+                    .secp256k1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Secp256k1Point { x, y })
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(error) => Err(encode_str_as_felts(&error.to_string())),
+        }
     }
 
     fn secp256k1_get_point_from_x(
         &mut self,
-        _x: cairo_native::starknet::U256,
-        _y_parity: bool,
+        x: U256,
+        y_parity: bool,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
-        todo!("Native syscall handler - secp256k1_get_point_from_x") // unimplemented in cairo native
+    ) -> SyscallResult<Option<Secp256k1Point>> {
+        let request = SecpGetPointFromXRequest { x: u256_to_biguint(x), y_parity };
+
+        match self.secp256k1_hint_processor.secp_get_point_from_x(request) {
+            Ok(SecpGetPointFromXResponse { optional_ec_point_id: Some(id) }) => {
+                let id = Felt252::from(id);
+
+                let point = self
+                    .secp256k1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Some(Secp256k1Point { x, y }))
+            }
+            Ok(SecpGetPointFromXResponse { optional_ec_point_id: None }) => Ok(None),
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(error) => Err(encode_str_as_felts(&error.to_string())),
+        }
     }
 
     fn secp256k1_get_xy(
         &mut self,
-        _p: cairo_native::starknet::Secp256k1Point,
+        p: Secp256k1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<(cairo_native::starknet::U256, cairo_native::starknet::U256)> {
-        todo!("Native syscall handler - secp256k1_get_xy") // unimplemented in cairo native
+    ) -> SyscallResult<(U256, U256)> {
+        Ok((p.x, p.y))
     }
 
     fn secp256k1_mul(
         &mut self,
-        _p: cairo_native::starknet::Secp256k1Point,
-        _m: cairo_native::starknet::U256,
+        p: Secp256k1Point,
+        m: U256,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::Secp256k1Point> {
-        todo!("Native syscall handler - secp256k1_mul") // unimplemented in cairo native
+    ) -> SyscallResult<Secp256k1Point> {
+        let p_id = allocate_point(p.x, p.y, &mut self.secp256k1_hint_processor)?;
+        let request =
+            SecpMulRequest { ec_point_id: Felt252::from(p_id), multiplier: u256_to_biguint(m) };
+
+        match self.secp256k1_hint_processor.secp_mul(request) {
+            Ok(SecpMulResponse { ec_point_id: id }) => {
+                let id = Felt252::from(id);
+
+                let point = self
+                    .secp256k1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Secp256k1Point { x, y })
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(error) => Err(encode_str_as_felts(&error.to_string())),
+        }
     }
 
     fn secp256k1_new(
         &mut self,
-        _x: cairo_native::starknet::U256,
-        _y: cairo_native::starknet::U256,
+        x: U256,
+        y: U256,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<Option<cairo_native::starknet::Secp256k1Point>> {
-        todo!("Native syscall handler - secp256k1_new") // unimplemented in cairo native
+    ) -> SyscallResult<Option<Secp256k1Point>> {
+        let request = SecpNewRequest { x: u256_to_biguint(x), y: u256_to_biguint(y) };
+        match self.secp256k1_hint_processor.secp_new(request) {
+            Ok(SecpNewResponse { optional_ec_point_id }) => {
+                Ok(optional_ec_point_id.map(|_| Secp256k1Point { x, y }))
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(error) => Err(encode_str_as_felts(&error.to_string())),
+        }
     }
 
     fn secp256r1_add(
         &mut self,
-        _p0: cairo_native::starknet::Secp256r1Point,
-        _p1: cairo_native::starknet::Secp256r1Point,
+        p0: Secp256r1Point,
+        p1: Secp256r1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::Secp256r1Point> {
-        todo!("Native syscall handler - secp256r1_add") // unimplemented in cairo native
+    ) -> SyscallResult<Secp256r1Point> {
+        let p_p0 = allocate_point(p0.x, p0.y, &mut self.secp256r1_hint_processor)?;
+        let p_p1 = allocate_point(p1.x, p1.y, &mut self.secp256r1_hint_processor)?;
+        let request = SecpAddRequest { lhs_id: Felt252::from(p_p0), rhs_id: Felt252::from(p_p1) };
+
+        match self.secp256r1_hint_processor.secp_add(request) {
+            Ok(SecpAddResponse { ec_point_id: id }) => {
+                let id = Felt252::from(id);
+
+                let point = self
+                    .secp256r1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Secp256r1Point { x, y })
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(error) => Err(encode_str_as_felts(&error.to_string())),
+        }
     }
 
     fn secp256r1_get_point_from_x(
         &mut self,
-        _x: cairo_native::starknet::U256,
-        _y_parity: bool,
+        x: U256,
+        y_parity: bool,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<Option<cairo_native::starknet::Secp256r1Point>> {
-        todo!("Native syscall handler - secp256r1_get_point_from_x") // unimplemented in cairo native
+    ) -> SyscallResult<Option<Secp256r1Point>> {
+        let request = SecpGetPointFromXRequest { x: u256_to_biguint(x), y_parity };
+
+        match self.secp256r1_hint_processor.secp_get_point_from_x(request) {
+            Ok(SecpGetPointFromXResponse { optional_ec_point_id: Some(id) }) => {
+                let id = Felt252::from(id);
+
+                let point = self
+                    .secp256r1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Some(Secp256r1Point { x, y }))
+            }
+            Ok(SecpGetPointFromXResponse { optional_ec_point_id: None }) => Ok(None),
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(error) => Err(encode_str_as_felts(&error.to_string())),
+        }
     }
 
     fn secp256r1_get_xy(
         &mut self,
-        _p: cairo_native::starknet::Secp256r1Point,
+        p: Secp256r1Point,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<(cairo_native::starknet::U256, cairo_native::starknet::U256)> {
-        todo!("Native syscall handler - secp256r1_get_xy") // unimplemented in cairo native
+    ) -> SyscallResult<(U256, U256)> {
+        Ok((p.x, p.y))
     }
 
     fn secp256r1_mul(
         &mut self,
-        _p: cairo_native::starknet::Secp256r1Point,
-        _m: cairo_native::starknet::U256,
+        p: Secp256r1Point,
+        m: U256,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<cairo_native::starknet::Secp256r1Point> {
-        todo!("Native syscall handler - secp256r1_mul") // unimplemented in cairo native
+    ) -> SyscallResult<Secp256r1Point> {
+        let p_id = allocate_point(p.x, p.y, &mut self.secp256k1_hint_processor)?;
+        let request =
+            SecpMulRequest { ec_point_id: Felt252::from(p_id), multiplier: u256_to_biguint(m) };
+
+        match self.secp256r1_hint_processor.secp_mul(request) {
+            Ok(SecpMulResponse { ec_point_id: id }) => {
+                let id = Felt252::from(id);
+
+                let point = self
+                    .secp256r1_hint_processor
+                    .get_point_by_id(id)
+                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
+
+                let x = big4int_to_u256(point.x.0);
+                let y = big4int_to_u256(point.y.0);
+
+                Ok(Secp256r1Point { x, y })
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(error) => Err(encode_str_as_felts(&error.to_string())),
+        }
     }
 
     fn secp256r1_new(
         &mut self,
-        _x: cairo_native::starknet::U256,
-        _y: cairo_native::starknet::U256,
+        x: U256,
+        y: U256,
         _remaining_gas: &mut u128,
-    ) -> SyscallResult<Option<cairo_native::starknet::Secp256r1Point>> {
-        todo!("Native syscall handler - secp256r1_new") // unimplemented in cairo native
+    ) -> SyscallResult<Option<Secp256r1Point>> {
+        let request = SecpNewRequest { x: u256_to_biguint(x), y: u256_to_biguint(y) };
+
+        match self.secp256r1_hint_processor.secp_new(request) {
+            Ok(SecpNewResponse { optional_ec_point_id }) => {
+                Ok(optional_ec_point_id.map(|_| Secp256r1Point { x, y }))
+            }
+            Err(SyscallExecutionError::SyscallError { error_data }) => {
+                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+            }
+            Err(error) => Err(encode_str_as_felts(&error.to_string())),
+        }
     }
 
     fn pop_log(&mut self) {
