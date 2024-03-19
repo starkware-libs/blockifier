@@ -56,9 +56,11 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Felt> {
         if self.execution_context.execution_mode == ExecutionMode::Validate {
-            let execution_mode_err = Felt::from_hex(INVALID_EXECUTION_MODE_ERROR).unwrap();
+            let execution_mode_err = encode_str_as_felts(
+                "Unauthorized syscall get_block_hash in execution mode Validate",
+            );
 
-            return Err(vec![execution_mode_err]);
+            return Err(execution_mode_err);
         }
 
         let current_block_number =

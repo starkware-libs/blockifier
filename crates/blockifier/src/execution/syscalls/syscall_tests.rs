@@ -372,10 +372,9 @@ mod test_get_block_hash {
         println!("{}", execution_result.to_string());
 
         assert!(
-            execution_result.to_string().contains("Invalid execution mode")
-                || execution_result
-                    .to_string()
-                    .contains("Unauthorized syscall get_block_hash in execution mode Validate")
+            execution_result
+                .to_string()
+                .contains("Unauthorized syscall get_block_hash in execution mode Validate")
         );
     }
 
