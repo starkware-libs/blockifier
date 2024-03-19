@@ -10,8 +10,8 @@ use crate::context::{BlockContext, TransactionContext};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
-    ExecutionResourcesTraits, FeeType, GasVector, HasRelatedFeeType, TransactionFeeResult,
-    TransactionInfo, TransactionResources,
+    ExecutionResourcesTraits, FeeType, GasVector, TransactionFeeResult, TransactionInfo,
+    TransactionResources,
 };
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -90,10 +90,8 @@ pub fn get_balance_and_if_covers_fee(
     fee: Fee,
 ) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
     let tx_info = &tx_context.tx_info;
-    let (balance_low, balance_high) = state.get_fee_token_balance(
-        tx_info.sender_address(),
-        tx_context.block_context.chain_info.fee_token_address(&tx_info.fee_type()),
-    )?;
+    let (balance_low, balance_high) =
+        state.get_fee_token_balance(tx_info.sender_address(), tx_context.fee_token_address())?;
     Ok((
         balance_low,
         balance_high,
