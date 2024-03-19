@@ -176,6 +176,16 @@ impl VersionedConstants {
 
         Self { vm_resource_fee_cost, ..Self::create_for_testing() }
     }
+
+    pub fn versioned_constants_with_overrides(
+        validate_max_n_steps: u32,
+        max_recursion_depth: usize,
+    ) -> Self {
+        let mut versioned_constants = Self::latest_constants().clone();
+        versioned_constants.max_recursion_depth = max_recursion_depth;
+        versioned_constants.validate_max_n_steps = validate_max_n_steps;
+        versioned_constants
+    }
 }
 
 impl TryFrom<&Path> for VersionedConstants {

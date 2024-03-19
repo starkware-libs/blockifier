@@ -25,7 +25,7 @@ use crate::errors::{
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::{py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
-use crate::py_utils::{int_to_chain_id, versioned_constants_with_overrides, PyFelt};
+use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
 
@@ -98,8 +98,10 @@ impl PyBlockExecutor {
         log::debug!("Initializing Block Executor...");
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
-        let versioned_constants =
-            versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
+        let versioned_constants = VersionedConstants::versioned_constants_with_overrides(
+            validate_max_n_steps,
+            max_recursion_depth,
+        );
         log::debug!("Initialized Block Executor.");
 
         Self {
