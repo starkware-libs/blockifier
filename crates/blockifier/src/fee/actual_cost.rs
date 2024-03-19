@@ -156,14 +156,9 @@ impl<'a> ActualCostBuilder<'a> {
         let use_kzg_da = self.use_kzg_da();
 
         // State changes.
-        self.tx_resources.starknet_resources.state_changes_count =
-            self.state_changes.count_for_fee_charge(
-                self.sender_address,
-                self.tx_context
-                    .block_context
-                    .chain_info
-                    .fee_token_address(&self.tx_context.tx_info.fee_type()),
-            );
+        self.tx_resources.starknet_resources.state_changes_count = self
+            .state_changes
+            .count_for_fee_charge(self.sender_address, self.tx_context.fee_token_address());
 
         // Set the events and messages resources from the transaction's call infos.
         let non_optional_call_infos =
