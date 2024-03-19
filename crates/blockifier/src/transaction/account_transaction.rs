@@ -11,14 +11,14 @@ use super::objects::TransactionResources;
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
-use crate::execution::contract_class::ContractClass;
+use crate::execution::contract_class::{ClassInfo, ContractClass};
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
-use crate::fee::actual_cost::{ActualCost, ActualCostBuilder};
+use crate::fee::actual_cost::ActualCost;
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_bounds};
 use crate::fee::gas_usage::{compute_discounted_gas_from_gas_vector, estimate_minimal_gas_vector};
 use crate::retdata;
-use crate::state::cached_state::{CachedState, TransactionalState};
+use crate::state::cached_state::{CachedState, StateChanges, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::{
@@ -383,12 +383,15 @@ impl AccountTransaction {
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
         }
 
-        let (actual_cost, bouncer_resources) = self
-            .to_actual_cost_builder(tx_context.clone())
-            .with_validate_call_info(&validate_call_info)
-            .with_execute_call_info(&execute_call_info)
-            .try_add_state_changes(state)?
-            .build(&resources)?;
+        let actual_cost = ActualCost::of_account_tx(
+            self,
+            &tx_context,
+            &state.get_actual_state_changes()?,
+            &resources,
+            validate_call_info.iter().chain(execute_call_info.iter()),
+            0,
+        )?;
+        let bouncer_resources = actual_cost.actual_resources.clone();
 
         let post_execution_report =
             PostExecutionReport::new(state, &tx_context, &actual_cost, charge_fee)?;
@@ -432,10 +435,7 @@ impl AccountTransaction {
 
         // Save the state changes resulting from running `validate_tx`, to be used later for
         // resource and fee calculation.
-        let actual_cost_builder_with_validation_changes = self
-            .to_actual_cost_builder(tx_context.clone())
-            .with_validate_call_info(&validate_call_info)
-            .try_add_state_changes(state)?;
+        let validate_state_changes = state.get_actual_state_changes()?;
 
         // Create copies of state and resources for the execution.
         // Both will be rolled back if the execution is reverted or committed upon success.
@@ -452,22 +452,43 @@ impl AccountTransaction {
         // Pre-compute cost in case of revert.
         let execution_steps_consumed =
             n_allotted_execution_steps - execution_context.n_remaining_steps();
-        let (revert_cost, bouncer_revert_resources) = actual_cost_builder_with_validation_changes
-            .clone()
-            .with_reverted_steps(execution_steps_consumed)
-            .build(&resources)?;
+        let revert_cost = ActualCost::of_account_tx(
+            self,
+            &tx_context,
+            &validate_state_changes,
+            &resources,
+            validate_call_info.iter(),
+            execution_steps_consumed,
+        )?;
+        // TODO(Dori, 1/5/2024): Once TransactionResources contains the reverted steps in a separate
+        //   field, bouncer revert resources should not be computed by reconstructing the actual
+        //   cost.
+        let bouncer_revert_resources = ActualCost::of_account_tx(
+            self,
+            &tx_context,
+            &validate_state_changes,
+            &resources,
+            validate_call_info.iter(),
+            0,
+        )?
+        .actual_resources;
 
         match execution_result {
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
-                let (actual_cost, bouncer_resources) = actual_cost_builder_with_validation_changes
-                    .with_execute_call_info(&execute_call_info)
-                    // Fee is determined by the sum of `validate` and `execute` state changes.
-                    // Since `execute_state_changes` are not yet committed, we merge them manually
-                    // with `validate_state_changes` to count correctly.
-                    .try_add_state_changes(&mut execution_state)?
-                    .build(&execution_resources)?;
+                let actual_cost = ActualCost::of_account_tx(
+                    self,
+                    &tx_context,
+                    &StateChanges::merge(vec![
+                        validate_state_changes,
+                        execution_state.get_actual_state_changes()?,
+                    ]),
+                    &execution_resources,
+                    validate_call_info.iter().chain(execute_call_info.iter()),
+                    0,
+                )?;
+                let bouncer_resources = actual_cost.actual_resources.clone();
 
                 // Post-execution checks.
                 let post_execution_report = PostExecutionReport::new(
@@ -523,6 +544,10 @@ impl AccountTransaction {
         }
     }
 
+    pub(crate) fn class_info(&self) -> Option<ClassInfo> {
+        if let Self::Declare(tx) = self { Some(tx.class_info.clone()) } else { None }
+    }
+
     fn is_non_revertible(&self, tx_info: &TransactionInfo) -> bool {
         // Reverting a Declare or Deploy transaction is not currently supported in the OS.
         match self {
@@ -550,22 +575,6 @@ impl AccountTransaction {
         }
 
         self.run_revertible(state, tx_context, remaining_gas, validate, charge_fee)
-    }
-
-    pub fn to_actual_cost_builder(
-        &self,
-        tx_context: Arc<TransactionContext>,
-    ) -> ActualCostBuilder<'_> {
-        let mut actual_cost_builder = ActualCostBuilder::new(
-            tx_context,
-            self.tx_type(),
-            self.calldata_length(),
-            self.signature_length(),
-        );
-        if let Self::Declare(tx) = self {
-            actual_cost_builder = actual_cost_builder.with_class_info(tx.class_info.clone());
-        }
-        actual_cost_builder
     }
 }
 
