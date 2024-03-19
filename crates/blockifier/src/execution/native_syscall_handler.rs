@@ -19,8 +19,8 @@ use starknet_api::transaction::{
 use starknet_types_core::felt::Felt;
 
 use super::sierra_utils::{
-    big4int_to_u256, chain_id_to_felt, contract_address_to_felt, encode_str_as_felts,
-    felt_to_starkfelt, starkfelt_to_felt, u256_to_biguint,
+    allocate_point, big4int_to_u256, chain_id_to_felt, contract_address_to_felt,
+    encode_str_as_felts, felt_to_starkfelt, starkfelt_to_felt, u256_to_biguint,
 };
 use super::syscalls::exceeds_event_size_limit;
 use crate::abi::constants;
@@ -36,9 +36,8 @@ use crate::execution::syscalls::hint_processor::{
     INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
 use crate::execution::syscalls::secp::{
-    allocate_point, SecpAddRequest, SecpAddResponse, SecpGetPointFromXRequest,
-    SecpGetPointFromXResponse, SecpHintProcessor, SecpMulRequest, SecpMulResponse, SecpNewRequest,
-    SecpNewResponse,
+    SecpAddRequest, SecpAddResponse, SecpGetPointFromXRequest, SecpGetPointFromXResponse,
+    SecpHintProcessor, SecpMulRequest, SecpMulResponse, SecpNewRequest, SecpNewResponse,
 };
 use crate::state::state_api::State;
 

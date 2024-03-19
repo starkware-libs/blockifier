@@ -2,7 +2,6 @@ use ark_ec::short_weierstrass;
 use ark_ec::short_weierstrass::SWCurveConfig;
 use ark_ff::{BigInteger, PrimeField};
 use cairo_felt::Felt252;
-use cairo_native::starknet::U256;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
@@ -13,7 +12,6 @@ use crate::abi::sierra_types::{SierraType, SierraU256};
 use crate::execution::execution_utils::{
     felt_from_ptr, stark_felt_from_ptr, write_maybe_relocatable, write_u256,
 };
-use crate::execution::sierra_utils::{starkfelt_to_felt, u256_to_biguint};
 use crate::execution::syscalls::hint_processor::{
     felt_to_bool, SyscallHintProcessor, INVALID_ARGUMENT,
 };
@@ -364,28 +362,4 @@ pub fn secp256r1_new(
     _remaining_gas: &mut u64,
 ) -> SyscallResult<Secp256r1NewResponse> {
     syscall_handler.secp256r1_hint_processor.secp_new(request)
-}
-
-pub fn allocate_point<Curve: SWCurveConfig>(
-    point_x: U256,
-    point_y: U256,
-    hint_processor: &mut SecpHintProcessor<Curve>,
-) -> cairo_native::starknet::SyscallResult<usize>
-where
-    Curve::BaseField: PrimeField,
-{
-    let request = SecpNewRequest { x: u256_to_biguint(point_x), y: u256_to_biguint(point_y) };
-
-    let response = hint_processor.secp_new_unchecked(request);
-
-    match response {
-        // We can't receive None here, as the response is always Some from `secp_new_unchecked`.
-        Ok(SecpNewResponse { optional_ec_point_id: id }) => Ok(id.unwrap()),
-        Err(SyscallExecutionError::SyscallError { error_data }) => {
-            Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
-        }
-        Err(_) => unreachable!(
-            "Can't receive an error other than SyscallError from `secp_new_unchecked`."
-        ),
-    }
 }
