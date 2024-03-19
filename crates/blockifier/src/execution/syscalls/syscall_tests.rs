@@ -369,8 +369,6 @@ mod test_get_block_hash {
         let execution_result =
             entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
 
-        println!("{}", execution_result.to_string());
-
         assert!(
             execution_result
                 .to_string()
