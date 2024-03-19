@@ -1,7 +1,9 @@
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::blockifier::block::BlockInfo;
-use crate::transaction::objects::{FeeType, TransactionInfo, TransactionInfoCreator};
+use crate::transaction::objects::{
+    FeeType, HasRelatedFeeType, TransactionInfo, TransactionInfoCreator,
+};
 use crate::versioned_constants::VersionedConstants;
 
 /// Create via [`crate::blockifier::block::pre_process_block`] to ensure correctness.
@@ -9,6 +11,12 @@ use crate::versioned_constants::VersionedConstants;
 pub struct TransactionContext {
     pub block_context: BlockContext,
     pub tx_info: TransactionInfo,
+}
+
+impl TransactionContext {
+    pub fn fee_token_address(&self) -> ContractAddress {
+        self.block_context.chain_info.fee_token_address(&self.tx_info.fee_type())
+    }
 }
 
 #[derive(Clone, Debug)]
