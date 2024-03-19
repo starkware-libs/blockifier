@@ -59,6 +59,7 @@ pub enum DeprecatedSyscallExecutionError {
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error("{error}")]
     CallContractExecutionError {
+        class_hash: ClassHash,
         storage_address: ContractAddress,
         selector: EntryPointSelector,
         error: Box<DeprecatedSyscallExecutionError>,
@@ -101,10 +102,12 @@ impl From<DeprecatedSyscallExecutionError> for HintError {
 impl DeprecatedSyscallExecutionError {
     pub fn as_call_contract_execution_error(
         self,
+        class_hash: ClassHash,
         storage_address: ContractAddress,
         selector: EntryPointSelector,
     ) -> Self {
         DeprecatedSyscallExecutionError::CallContractExecutionError {
+            class_hash,
             storage_address,
             selector,
             error: Box::new(self),

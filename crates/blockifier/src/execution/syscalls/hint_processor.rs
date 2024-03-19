@@ -65,6 +65,7 @@ pub enum SyscallExecutionError {
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error("{error}")]
     CallContractExecutionError {
+        class_hash: ClassHash,
         storage_address: ContractAddress,
         selector: EntryPointSelector,
         error: Box<SyscallExecutionError>,
@@ -128,10 +129,12 @@ impl From<SyscallExecutionError> for HintError {
 impl SyscallExecutionError {
     pub fn as_call_contract_execution_error(
         self,
+        class_hash: ClassHash,
         storage_address: ContractAddress,
         selector: EntryPointSelector,
     ) -> Self {
         SyscallExecutionError::CallContractExecutionError {
+            class_hash,
             storage_address,
             selector,
             error: Box::new(self),

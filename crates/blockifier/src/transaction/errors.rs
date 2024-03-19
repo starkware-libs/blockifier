@@ -66,6 +66,7 @@ pub enum TransactionExecutionError {
     #[error("Transaction execution has failed:\n{}", gen_transaction_execution_error_trace(self))]
     ExecutionError {
         error: EntryPointExecutionError,
+        class_hash: ClassHash,
         storage_address: ContractAddress,
         selector: EntryPointSelector,
     },
