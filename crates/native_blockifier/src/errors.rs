@@ -1,4 +1,5 @@
 use blockifier::blockifier::transaction_executor::TransactionExecutorError;
+use blockifier::blockifier::validator::ValidatorError;
 use blockifier::execution::errors::ContractClassError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::{
@@ -73,6 +74,22 @@ native_blockifier_errors!(
     (TransactionExecutorError, TransactionExecutorError, PyTransactionExecutorError),
     (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError)
 );
+
+// TODO(Arni, 21/3/2024): Add ValidatorError to the enum NativeBlockifierError and remove this
+// implementation.
+impl From<ValidatorError> for NativeBlockifierError {
+    fn from(error: ValidatorError) -> Self {
+        match error {
+            ValidatorError::TransactionExecutorError(error) => {
+                NativeBlockifierError::TransactionExecutorError(error)
+            }
+            ValidatorError::StateError(error) => NativeBlockifierError::StateError(error),
+            ValidatorError::TransactionPreValidationError(error) => {
+                NativeBlockifierError::TransactionPreValidationError(error)
+            }
+        }
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
