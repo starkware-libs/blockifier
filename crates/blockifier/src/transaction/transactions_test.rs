@@ -404,7 +404,7 @@ fn test_invoke_tx(
     let starknet_resources = StarknetResources::new(
         calldata_length,
         signature_length,
-        None,
+        0,
         StateChangesCount {
             n_storage_updates: 1,
             n_modified_contracts: 1,
@@ -1123,7 +1123,7 @@ fn test_declare_tx(
     let starknet_resources = StarknetResources::new(
         0,
         0,
-        Some(&class_info),
+        StarknetResources::calculate_code_size(Some(&class_info)),
         declare_expected_state_changes_count(tx_version),
         None,
         std::iter::empty(),

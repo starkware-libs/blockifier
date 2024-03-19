@@ -56,7 +56,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
         let declare_tx_starknet_resources = StarknetResources::new(
             0,
             0,
-            Some(&class_info),
+            StarknetResources::calculate_code_size(Some(&class_info)),
             StateChangesCount::default(),
             None,
             std::iter::empty(),
@@ -89,7 +89,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     let deploy_account_tx_starknet_resources = StarknetResources::new(
         calldata_length,
         signature_length,
-        None,
+        0,
         deploy_account_state_changes_count,
         None,
         std::iter::empty(),
@@ -111,7 +111,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     let l1_handler_tx_starknet_resources = StarknetResources::new(
         l1_handler_payload_size,
         signature_length,
-        None,
+        0,
         StateChangesCount::default(),
         Some(l1_handler_payload_size),
         std::iter::empty(),
@@ -174,7 +174,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     let l2_to_l1_starknet_resources = StarknetResources::new(
         0,
         0,
-        None,
+        0,
         l2_to_l1_state_changes_count,
         None,
         call_infos_iter.clone(),
@@ -216,7 +216,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     let storage_writes_starknet_resources = StarknetResources::new(
         0,
         0,
-        None,
+        0,
         storage_writes_state_changes_count,
         None,
         std::iter::empty(),
@@ -242,7 +242,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
     let combined_cases_starknet_resources = StarknetResources::new(
         l1_handler_payload_size,
         signature_length,
-        None,
+        0,
         combined_state_changes_count,
         Some(l1_handler_payload_size),
         call_infos_iter.clone(),
@@ -313,7 +313,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let starknet_resources = StarknetResources::new(
         calldata_length,
         signature_length,
-        None,
+        0,
         state_changes_count,
         None,
         std::iter::empty(),
@@ -364,7 +364,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let starknet_resources = StarknetResources::new(
         calldata_length,
         signature_length,
-        None,
+        0,
         state_changes_count,
         None,
         std::iter::empty(),

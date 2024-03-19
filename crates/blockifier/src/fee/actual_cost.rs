@@ -73,7 +73,7 @@ impl<'a> ActualCostBuilder<'a> {
                 starknet_resources: StarknetResources::new(
                     calldata_length,
                     signature_length,
-                    None,
+                    0,
                     StateChangesCount::default(),
                     None,
                     iter::empty(),

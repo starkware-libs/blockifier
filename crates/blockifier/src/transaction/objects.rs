@@ -277,7 +277,7 @@ impl StarknetResources {
     pub fn new<'a>(
         calldata_length: usize,
         signature_length: usize,
-        class_info: Option<&ClassInfo>,
+        code_size: usize,
         state_changes_count: StateChangesCount,
         l1_handler_payload_size: Option<usize>,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
@@ -285,7 +285,7 @@ impl StarknetResources {
         let mut new = Self {
             calldata_length,
             signature_length,
-            code_size: StarknetResources::calculate_code_size(class_info),
+            code_size,
             state_changes_count,
             l1_handler_payload_size,
             ..Default::default()
@@ -403,16 +403,8 @@ impl StarknetResources {
     }
 
     /// Private and static method that calculates the code size from ClassInfo.
-    fn calculate_code_size(class_info: Option<&ClassInfo>) -> usize {
-        if let Some(class_info) = class_info {
-            (class_info.bytecode_length()
-                + class_info.sierra_program_length())
-                    // We assume each felt is a word.
-                    * eth_gas_constants::WORD_WIDTH
-                + class_info.abi_length()
-        } else {
-            0
-        }
+    pub fn calculate_code_size(class_info: Option<&ClassInfo>) -> usize {
+        if let Some(class_info) = class_info { class_info.code_size() } else { 0 }
     }
 }
 #[derive(Default, Clone, Debug, PartialEq)]
