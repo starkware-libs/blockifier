@@ -22,7 +22,6 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, Resource};
 use starknet_api::StarknetApiError;
-use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
 use crate::abi::sierra_types::SierraTypeError;
@@ -34,7 +33,6 @@ use crate::execution::execution_utils::{
     felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
     write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
 };
-use crate::execution::sierra_utils::{encode_str_as_felts, starkfelt_to_felt};
 use crate::execution::syscalls::secp::{
     secp256k1_add, secp256k1_get_point_from_x, secp256k1_get_xy, secp256k1_mul, secp256k1_new,
     secp256r1_add, secp256r1_get_point_from_x, secp256r1_get_xy, secp256r1_mul, secp256r1_new,
@@ -170,14 +168,11 @@ pub const FAILED_TO_CALCULATE_CONTRACT_ADDRESS: &str =
     "0x004661696c656420746f2063616c63756c6174652061646472657373";
 // Failed to parse
 pub const FAILED_TO_PARSE: &str = "0x004661696c656420746f20706172736520";
-// Failed to read result
-pub const FAILED_TO_READ_RESULT: &str = "0x004661696c656420746f207265616420726573756c7420";
-// Failed to write
-pub const FAILED_TO_WRITE: &str = "0x004661696c656420746f20777269746520";
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use starknet_types_core::felt::Felt;
 
     #[test]
     fn test_felt_from_hex() {
@@ -191,7 +186,6 @@ mod tests {
         assert!(Felt::from_hex(FAILED_TO_EXECUTE_CALL).is_ok());
         assert!(Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).is_ok());
         assert!(Felt::from_hex(FAILED_TO_PARSE).is_ok());
-        assert!(Felt::from_hex(FAILED_TO_READ_RESULT).is_ok());
     }
 }
 
@@ -772,28 +766,6 @@ pub fn execute_inner_call(
     syscall_handler.inner_calls.push(call_info);
 
     Ok(retdata_segment)
-}
-
-pub fn execute_inner_call_raw(
-    call: CallEntryPoint,
-    state: &mut dyn State,
-    execution_resources: &mut ExecutionResources,
-    context: &mut EntryPointExecutionContext,
-) -> cairo_native::starknet::SyscallResult<Vec<Felt>> {
-    // todo: remove execution resources?
-    let call_info = call
-        .execute(state, execution_resources, context)
-        .map_err(|e| encode_str_as_felts(&e.to_string()))?;
-
-    let retdata = call_info
-        .execution
-        .retdata
-        .0
-        .into_iter()
-        .map(|felt| starkfelt_to_felt(felt))
-        .collect::<Vec<Felt>>();
-
-    Ok(retdata)
 }
 
 pub fn create_retdata_segment(

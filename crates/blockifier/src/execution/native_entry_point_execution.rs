@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_starknet_classes::contract_class::ContractEntryPoints;
 use starknet_api::core::ClassHash;
@@ -45,6 +47,8 @@ pub fn execute_entry_point_call(
         Vec::new(),
         Vec::new(),
         Vec::new(),
+        Vec::new(),
+        HashSet::new(),
     );
 
     let syscall_handler_meta = wrap_syscall_handler(&mut syscall_handler);
@@ -65,5 +69,7 @@ pub fn execute_entry_point_call(
         syscall_handler.events,
         syscall_handler.l2_to_l1_messages,
         syscall_handler.inner_calls,
+        syscall_handler.storage_read_values,
+        syscall_handler.accessed_storage_keys,
     )
 }
