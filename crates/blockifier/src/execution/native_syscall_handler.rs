@@ -34,8 +34,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::execution_utils::execute_deployment;
 use crate::execution::syscalls::hint_processor::{
-    execute_inner_call_raw, SyscallExecutionError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR,
-    INVALID_EXECUTION_MODE_ERROR, INVALID_INPUT_LENGTH_ERROR,
+    SyscallExecutionError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
 use crate::execution::syscalls::secp::{
     SecpAddRequest, SecpAddResponse, SecpGetPointFromXRequest, SecpGetPointFromXResponse,
