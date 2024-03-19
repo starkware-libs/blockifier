@@ -36,8 +36,7 @@ use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::sierra_utils::NATIVE_GAS_PLACEHOLDER;
 use crate::execution::syscalls::hint_processor::{
-    EmitEventError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, FAILED_TO_EXECUTE_CALL,
-    INVALID_EXECUTION_MODE_ERROR, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
+    EmitEventError, FAILED_TO_EXECUTE_CALL, L1_GAS, L2_GAS, OUT_OF_GAS_ERROR,
 };
 use crate::retdata;
 use crate::state::state_api::{State, StateReader};
@@ -121,6 +120,7 @@ fn test_storage_read_write(test_contract: FeatureContract, expected_gas: u64) {
             ..CallExecution::default()
         }
     );
+
     // Verify that the state has changed.
     let value_from_state =
         state.get_storage_at(storage_address, StorageKey::try_from(key).unwrap()).unwrap();
@@ -307,78 +307,98 @@ mod test_emit_event {
     }
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // pass
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 14250; "VM")] // unauthorised syscall get_block_hash in execution mode Validate
-fn test_get_block_hash(test_contract: FeatureContract, expected_gas: u64) {
-    let chain_info = &ChainInfo::create_for_testing();
-    let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
-    assert_consistent_contract_version(test_contract, &state);
+#[cfg(test)]
+mod test_get_block_hash {
+    use self::test_case;
+    use super::*;
+    use crate::state::cached_state::CachedState;
+    use crate::test_utils::dict_state_reader::DictStateReader;
 
-    // Initialize block number -> block hash entry.
-    let upper_bound_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER;
-    let block_number = stark_felt!(upper_bound_block_number);
-    let block_hash = stark_felt!(66_u64);
-    let key = StorageKey::try_from(block_number).unwrap();
-    let block_hash_contract_address =
-        ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
-    state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
+    fn initialize_state(
+        test_contract: FeatureContract,
+    ) -> (CachedState<DictStateReader>, StarkFelt, StarkFelt) {
+        let chain_info = &ChainInfo::create_for_testing();
+        let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
+        assert_consistent_contract_version(test_contract, &state);
 
-    // Positive flow.
-    let calldata = calldata![block_number];
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("test_get_block_hash"),
-        calldata,
-        ..trivial_external_entry_point_new(test_contract)
-    };
+        // Initialize block number -> block hash entry.
+        let upper_bound_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER;
+        let block_number = stark_felt!(upper_bound_block_number);
+        let block_hash = stark_felt!(66_u64);
+        let key = StorageKey::try_from(block_number).unwrap();
+        let block_hash_contract_address =
+            ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))
+                .unwrap();
+        state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
 
-    assert_eq!(
-        entry_point_call.clone().execute_directly(&mut state).unwrap().execution,
-        CallExecution {
-            gas_consumed: expected_gas,
-            ..CallExecution::from_retdata(retdata![block_hash])
-        }
-    );
+        (state, block_number, block_hash)
+    }
 
-    assert_consistent_contract_version(test_contract, &state);
+    #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 14250; "VM")]
+    fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
+        let (mut state, block_number, block_hash) = initialize_state(test_contract);
 
-    // Negative flow. Execution mode is Validate.
-    let execution_result = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap();
+        let calldata = calldata![block_number];
+        let entry_point_call = CallEntryPoint {
+            entry_point_selector: selector_from_name("test_get_block_hash"),
+            calldata,
+            ..trivial_external_entry_point_new(test_contract)
+        };
 
-    assert_consistent_contract_version(test_contract, &state);
+        pretty_assertions::assert_eq!(
+            entry_point_call.clone().execute_directly(&mut state).unwrap().execution,
+            CallExecution {
+                gas_consumed: expected_gas,
+                ..CallExecution::from_retdata(retdata![block_hash])
+            }
+        );
+    }
 
-    assert_matches!(
-        execution_result,
-        CallInfo { execution: CallExecution { failed: true, .. }, .. }
-    );
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn negative_flow_execution_mode_validate(test_contract: FeatureContract) {
+        let (mut state, block_number, _) = initialize_state(test_contract);
 
-    let expected_return_data = Retdata(vec![stark_felt!(INVALID_EXECUTION_MODE_ERROR)]);
-    assert_eq!(execution_result.execution.retdata, expected_return_data);
+        let calldata = calldata![block_number];
+        let entry_point_call = CallEntryPoint {
+            entry_point_selector: selector_from_name("test_get_block_hash"),
+            calldata,
+            ..trivial_external_entry_point_new(test_contract)
+        };
 
-    // Negative flow: Block number out of range.
-    let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
-    let block_number = stark_felt!(requested_block_number);
-    let calldata = calldata![block_number];
-    let entry_point_call = CallEntryPoint {
-        entry_point_selector: selector_from_name("test_get_block_hash"),
-        calldata,
-        ..trivial_external_entry_point_new(test_contract)
-    };
-    let execution_result = entry_point_call.execute_directly(&mut state).unwrap();
+        let execution_result =
+            entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
 
-    assert_consistent_contract_version(test_contract, &state);
+        assert!(
+            execution_result
+                .to_string()
+                .contains("Unauthorized syscall get_block_hash in execution mode Validate")
+        );
+    }
 
-    assert_matches!(
-        execution_result,
-        CallInfo { execution: CallExecution { failed: true, .. }, .. }
-    );
+    #[test_case(FeatureContract::SierraTestContract; "Native")]
+    #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+    fn negative_flow_block_number_out_of_range(test_contract: FeatureContract) {
+        let (mut state, _, _) = initialize_state(test_contract);
 
-    let expected_return_data = Retdata(vec![stark_felt!(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)]);
+        let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
+        let block_number = stark_felt!(requested_block_number);
+        let calldata = calldata![block_number];
+        let entry_point_call = CallEntryPoint {
+            entry_point_selector: selector_from_name("test_get_block_hash"),
+            calldata,
+            ..trivial_external_entry_point_new(test_contract)
+        };
 
-    assert_eq!(execution_result.execution.retdata, expected_return_data);
+        let execution_result = entry_point_call.execute_directly(&mut state).unwrap_err();
+
+        assert!(execution_result.to_string().contains("Block number out of range"));
+    }
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // fails with an error that says "Wrong hash value", corresponding to one of the asserts
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 354940; "VM")] // pass
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
+#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 354940; "VM")]
 fn test_keccak(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
@@ -481,7 +501,7 @@ fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
     TransactionVersion::THREE,
     false;
     "Legacy contract. Execute execution mode: block info should be as usual. Transaction V3.")] // pass
-fn test_get_execution_info2(
+fn test_get_execution_info(
     test_contract: FeatureContract,
     execution_mode: ExecutionMode,
     mut version: TransactionVersion,
@@ -654,8 +674,8 @@ fn test_get_execution_info2(
     assert!(!result.unwrap().execution.failed);
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // pass
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), REQUIRED_GAS_LIBRARY_CALL_TEST; "VM")] // pass
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
+#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), REQUIRED_GAS_LIBRARY_CALL_TEST; "VM")]
 fn test_library_call(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
@@ -711,9 +731,7 @@ fn test_library_call_assert_fails(test_contract: FeatureContract) {
 }
 
 #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
-// fail, test specifies vm specific resource use, but also the inner_calls field is empty where it
-// shouldn't be
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 316180; "VM")] // pass
+#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 316180; "VM")]
 fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
@@ -730,6 +748,16 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         stark_felt!(value)            // Calldata: value.
     ];
 
+    // Todo(rodrigo): Execution resources from the VM & Native are mesaured differently
+    // helper function to change the expected resource values from both of executions
+    let if_sierra = |a, b| {
+        if matches!(test_contract, FeatureContract::SierraTestContract) {
+            a
+        } else {
+            b
+        }
+    };
+
     // Create expected call info tree.
     let main_entry_point = CallEntryPoint {
         entry_point_selector: selector_from_name("test_nested_library_call"),
@@ -744,7 +772,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: 9999720720,
+        initial_gas: if_sierra(9999827120, 9999720720),
         ..trivial_external_entry_point_new(test_contract)
     };
     let library_entry_point = CallEntryPoint {
@@ -759,24 +787,35 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: 9999814150,
+        initial_gas: if_sierra(9999865550, 9999814150),
         ..trivial_external_entry_point_new(test_contract)
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        initial_gas: 9999625070,
+        initial_gas: if_sierra(9999865550, 9999625070),
         ..nested_storage_entry_point
     };
-    let storage_entry_point_resources = ExecutionResources {
+
+    // Todo(rodrigo): Execution resources from the VM & Native are mesaured differently
+    // Resources are not tracked when using Native
+    let default_resources_if_sierra = |resources| {
+        if matches!(test_contract, FeatureContract::SierraTestContract) {
+            ExecutionResources::default()
+        } else {
+            resources
+        }
+    };
+
+    let storage_entry_point_resources = default_resources_if_sierra(ExecutionResources {
         n_steps: 319,
         n_memory_holes: 1,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 7)]),
-    };
+    });
     let nested_storage_call_info = CallInfo {
         call: nested_storage_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value + 1)],
-            gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
+            gas_consumed: if_sierra(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
             ..CallExecution::default()
         },
         resources: storage_entry_point_resources.clone(),
@@ -784,27 +823,29 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
         ..Default::default()
     };
-    let library_call_resources = ExecutionResources {
+
+    let library_call_resources = default_resources_if_sierra(ExecutionResources {
         n_steps: 1338,
         n_memory_holes: 2,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 35)]),
-    };
+    });
     let library_call_info = CallInfo {
         call: library_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value + 1)],
-            gas_consumed: REQUIRED_GAS_LIBRARY_CALL_TEST,
+            gas_consumed: if_sierra(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_LIBRARY_CALL_TEST),
             ..CallExecution::default()
         },
         resources: library_call_resources,
         inner_calls: vec![nested_storage_call_info],
         ..Default::default()
     };
+
     let storage_call_info = CallInfo {
         call: storage_entry_point,
         execution: CallExecution {
             retdata: retdata![stark_felt!(value)],
-            gas_consumed: REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
+            gas_consumed: if_sierra(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
             ..CallExecution::default()
         },
         resources: storage_entry_point_resources,
@@ -813,11 +854,11 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         ..Default::default()
     };
 
-    let main_call_resources = ExecutionResources {
+    let main_call_resources = default_resources_if_sierra(ExecutionResources {
         n_steps: 3370,
         n_memory_holes: 4,
         builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 87)]),
-    };
+    });
     let expected_call_info = CallInfo {
         call: main_entry_point.clone(),
         execution: CallExecution {

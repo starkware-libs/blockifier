@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+use std::hash::RandomState;
 use std::sync::Arc;
 
 use cairo_felt::Felt252;
@@ -54,6 +56,8 @@ pub struct NativeSyscallHandler<'state> {
     // Secp hint processors.
     pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
     pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
+    pub storage_read_values: Vec<StarkFelt>,
+    pub accessed_storage_keys: HashSet<StorageKey, RandomState>,
 }
 
 impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
@@ -63,9 +67,12 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Felt> {
         if self.execution_context.execution_mode == ExecutionMode::Validate {
-            let execution_mode_err = Felt::from_hex(INVALID_EXECUTION_MODE_ERROR).unwrap();
+            let err = SyscallExecutionError::InvalidSyscallInExecutionMode {
+                syscall_name: "get_block_hash".to_string(),
+                execution_mode: ExecutionMode::Validate,
+            };
 
-            return Err(vec![execution_mode_err]);
+            return Err(encode_str_as_felts(&err.to_string()));
         }
 
         let current_block_number =
@@ -275,12 +282,21 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             initial_gas: *remaining_gas as u64,
         };
 
-        execute_inner_call_raw(
-            entry_point,
-            self.state,
-            &mut self.execution_resources,
-            &mut self.execution_context,
-        )
+        let call_info = entry_point
+            .execute(self.state, &mut self.execution_resources, &mut self.execution_context)
+            .map_err(|e| encode_str_as_felts(&e.to_string()))?;
+
+        let retdata = call_info
+            .execution
+            .retdata
+            .0
+            .iter()
+            .map(|felt| starkfelt_to_felt(*felt))
+            .collect::<Vec<Felt>>();
+
+        self.inner_calls.push(call_info);
+
+        Ok(retdata)
     }
 
     fn call_contract(
@@ -322,12 +338,21 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             initial_gas: *remaining_gas as u64,
         };
 
-        execute_inner_call_raw(
-            entry_point,
-            self.state,
-            &mut self.execution_resources,
-            &mut self.execution_context,
-        )
+        let call_info = entry_point
+            .execute(self.state, &mut self.execution_resources, &mut self.execution_context)
+            .map_err(|e| encode_str_as_felts(&e.to_string()))?;
+
+        let retdata = call_info
+            .execution
+            .retdata
+            .0
+            .iter()
+            .map(|felt| starkfelt_to_felt(*felt))
+            .collect::<Vec<Felt>>();
+
+        self.inner_calls.push(call_info);
+
+        Ok(retdata)
     }
 
     fn storage_read(
@@ -336,16 +361,18 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         address: Felt,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Felt> {
-        // TODO - in progress - Dom
-        let storage_key = StorageKey(
+        let key = StorageKey(
             PatriciaKey::try_from(felt_to_starkfelt(address))
-                .map_err(|error| encode_str_as_felts(&error.to_string()))?,
+                .map_err(|e| encode_str_as_felts(&e.to_string()))?,
         );
-        let read_result = self.state.get_storage_at(self.contract_address, storage_key);
-        let unsafe_read_result =
-            read_result.map_err(|error| encode_str_as_felts(&error.to_string()))?;
 
-        Ok(starkfelt_to_felt(unsafe_read_result))
+        let read_result = self.state.get_storage_at(self.contract_address, key);
+        let value = read_result.map_err(|e| encode_str_as_felts(&e.to_string()))?;
+
+        self.accessed_storage_keys.insert(key);
+        self.storage_read_values.push(value);
+
+        Ok(starkfelt_to_felt(value))
     }
 
     fn storage_write(
@@ -355,14 +382,16 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         value: Felt,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<()> {
-        let storage_key = StorageKey(
+        let key = StorageKey(
             PatriciaKey::try_from(felt_to_starkfelt(address))
-                .map_err(|error| encode_str_as_felts(&error.to_string()))?,
+                .map_err(|e| encode_str_as_felts(&e.to_string()))?,
         );
+        self.accessed_storage_keys.insert(key);
 
         let write_result =
-            self.state.set_storage_at(self.contract_address, storage_key, felt_to_starkfelt(value));
-        write_result.map_err(|error| encode_str_as_felts(&error.to_string()))?;
+            self.state.set_storage_at(self.contract_address, key, felt_to_starkfelt(value));
+        write_result.map_err(|e| encode_str_as_felts(&e.to_string()))?;
+
         Ok(())
     }
 
@@ -407,7 +436,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             order,
             message: MessageToL1 {
                 to_address: EthAddress::try_from(felt_to_starkfelt(to_address))
-                    .map_err(|error| encode_str_as_felts(&error.to_string()))?,
+                    .map_err(|e| encode_str_as_felts(&e.to_string()))?,
                 payload: L2ToL1Payload(
                     payload.iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
                 ),
