@@ -16,7 +16,6 @@ use strum_macros::EnumIter;
 use crate::abi::constants::{BLOB_GAS_USAGE, L1_GAS_USAGE, N_STEPS_RESOURCE};
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
-use crate::execution::contract_class::ClassInfo;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, calculate_tx_fee};
@@ -277,7 +276,7 @@ impl StarknetResources {
     pub fn new<'a>(
         calldata_length: usize,
         signature_length: usize,
-        class_info: Option<&ClassInfo>,
+        code_size: usize,
         state_changes_count: StateChangesCount,
         l1_handler_payload_size: Option<usize>,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
@@ -285,7 +284,7 @@ impl StarknetResources {
         let mut new = Self {
             calldata_length,
             signature_length,
-            code_size: StarknetResources::calculate_code_size(class_info),
+            code_size,
             state_changes_count,
             l1_handler_payload_size,
             ..Default::default()
@@ -309,8 +308,8 @@ impl StarknetResources {
 
     /// Sets the code_size field from a ClassInfo from (Sierra, Casm and ABI). Each code felt costs
     /// a fixed and configurable amount of gas. The cost is 0 for non-Declare transactions.
-    pub fn set_code_size(&mut self, class_info: Option<&ClassInfo>) {
-        self.code_size = StarknetResources::calculate_code_size(class_info);
+    pub fn set_code_size(&mut self, code_size: usize) {
+        self.code_size = code_size;
     }
 
     /// Sets the l2_to_l1_payload_lengths, message_segment_length, total_event_keys,
@@ -401,20 +400,8 @@ impl StarknetResources {
     pub fn get_onchain_data_segment_length(&self) -> usize {
         get_onchain_data_segment_length(&self.state_changes_count)
     }
-
-    /// Private and static method that calculates the code size from ClassInfo.
-    fn calculate_code_size(class_info: Option<&ClassInfo>) -> usize {
-        if let Some(class_info) = class_info {
-            (class_info.bytecode_length()
-                + class_info.sierra_program_length())
-                    // We assume each felt is a word.
-                    * eth_gas_constants::WORD_WIDTH
-                + class_info.abi_length()
-        } else {
-            0
-        }
-    }
 }
+
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct TransactionResources {
     pub starknet_resources: StarknetResources,
