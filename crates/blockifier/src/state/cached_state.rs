@@ -753,24 +753,23 @@ impl StateChanges {
     }
 
     pub fn count_for_fee_charge(
-        self,
+        &self,
         sender_address: Option<ContractAddress>,
         fee_token_address: ContractAddress,
     ) -> StateChangesCount {
         let mut modified_contracts = self.get_modified_contracts();
-        let mut storage_updates = self.storage_updates;
 
         // For account transactions, we need to compute the transaction fee before we can execute
         // the fee transfer, and the fee should cover the state changes that happen in the
         // fee transfer. The fee transfer is going to update the balance of the sequencer
         // and the balance of the sender contract, but we don't charge the sender for the
         // sequencer balance change as it is amortized across the block.
+        let mut n_storage_updates = self.storage_updates.len();
         if let Some(sender_address) = sender_address {
             let sender_balance_key = get_fee_token_var_address(sender_address);
-            // StarkFelt::default() value is zero, which must be different from the initial balance,
-            // otherwise the transaction would have failed the "max fee lower than
-            // balance" validation.
-            storage_updates.insert((fee_token_address, sender_balance_key), StarkFelt::default());
+            if !self.storage_updates.contains_key(&(fee_token_address, sender_balance_key)) {
+                n_storage_updates += 1;
+            }
         }
 
         // Exclude the fee token contract modification, since it’s charged once throughout the
@@ -778,7 +777,7 @@ impl StateChanges {
         modified_contracts.remove(&fee_token_address);
 
         StateChangesCount {
-            n_storage_updates: storage_updates.len(),
+            n_storage_updates,
             n_class_hash_updates: self.class_hash_updates.len(),
             n_compiled_class_hash_updates: self.compiled_class_hash_updates.len(),
             n_modified_contracts: modified_contracts.len(),
