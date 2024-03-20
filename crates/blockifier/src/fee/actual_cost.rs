@@ -68,7 +68,7 @@ impl ActualCost {
             call_infos,
         );
 
-        let mut vm_resources = (execution_resources
+        let vm_resources = (execution_resources
             + &tx_context.block_context.versioned_constants.get_additional_os_tx_resources(
                 tx_type,
                 &starknet_resources,
@@ -77,9 +77,13 @@ impl ActualCost {
             .filter_unused_builtins();
         // TODO(Dori, 1/5/2024): Once TransactionResources keeps reverted steps separately, do not
         //   add them to the VM resources.
-        vm_resources.n_steps += reverted_steps;
+        // vm_resources.n_steps += reverted_steps;
 
-        let tx_resources = TransactionResources { starknet_resources, vm_resources };
+        let tx_resources = TransactionResources {
+            starknet_resources,
+            vm_resources,
+            n_reverted_steps: reverted_steps,
+        };
 
         // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
         let actual_fee =
