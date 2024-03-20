@@ -206,7 +206,7 @@ pub fn estimate_minimal_gas_vector(
 
     let resources = ExecutionResources { n_steps: os_steps_for_type, ..Default::default() };
     Ok(get_da_gas_cost(&state_changes_by_account_transaction, block_info.use_kzg_da)
-        + calculate_l1_gas_by_vm_usage(versioned_constants, &resources)?)
+        + calculate_l1_gas_by_vm_usage(versioned_constants, &resources, 0)?)
 }
 
 /// Compute l1_gas estimation from gas_vector using the following formula:
