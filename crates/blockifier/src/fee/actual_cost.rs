@@ -68,19 +68,19 @@ impl TransactionReceipt {
             call_infos,
         );
 
-        let mut cairo_resources = (execution_resources
+        let cairo_resources = (execution_resources
             + &tx_context.block_context.versioned_constants.get_additional_os_tx_resources(
                 tx_type,
                 &starknet_resources,
                 tx_context.block_context.block_info.use_kzg_da,
             )?)
             .filter_unused_builtins();
-        // TODO(Dori, 1/5/2024): Once TransactionResources keeps reverted steps separately, do not
-        //   add them to the VM resources.
-        cairo_resources.n_steps += reverted_steps;
 
-        let tx_resources =
-            TransactionResources { starknet_resources, vm_resources: cairo_resources };
+        let tx_resources = TransactionResources {
+            starknet_resources,
+            vm_resources: cairo_resources,
+            n_reverted_steps: reverted_steps,
+        };
 
         // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
         let fee = if tx_context.tx_info.enforce_fee()? || tx_type == TransactionType::L1Handler {
