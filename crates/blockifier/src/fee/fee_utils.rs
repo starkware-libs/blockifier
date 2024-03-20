@@ -27,9 +27,10 @@ pub mod test;
 pub fn calculate_l1_gas_by_vm_usage(
     versioned_constants: &VersionedConstants,
     vm_resource_usage: &ExecutionResources,
+    n_reverted_steps: usize,
 ) -> TransactionFeeResult<GasVector> {
     let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
-    let total_n_steps = vm_resource_usage.total_n_steps();
+    let total_n_steps = vm_resource_usage.total_n_steps() + n_reverted_steps;
 
     // Validate used builtins.
     let mut vm_builtin_names =
