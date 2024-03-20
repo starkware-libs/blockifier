@@ -1,5 +1,3 @@
-use std::cmp::min;
-
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -114,6 +112,9 @@ pub enum ContractClassError {
 
 // A set of functions used to extract error trace from a recursive error object.
 
+pub const TRACE_LENGTH_CAP: usize = 15000;
+pub const TRACE_EXTRA_CHARS_SLACK: usize = 100;
+
 /// Extracts the error trace from a `TransactionExecutionError`. This is a top level function.
 pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) -> String {
     let mut error_stack: Vec<String> = Vec::new();
@@ -153,7 +154,15 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     }
 
     let error_stack_str = error_stack.join("\n");
-    error_stack_str[..min(21000, error_stack_str.len())].to_string()
+
+    // When the trace string is too long, trim it in a way that keeps both the beginning and end.
+    if error_stack_str.len() > TRACE_LENGTH_CAP + TRACE_EXTRA_CHARS_SLACK {
+        error_stack_str[..(TRACE_LENGTH_CAP / 2)].to_string()
+            + "\n\n...\n\n"
+            + &error_stack_str[(error_stack_str.len() - TRACE_LENGTH_CAP / 2)..]
+    } else {
+        error_stack_str
+    }
 }
 
 fn extract_cairo_run_error_into_stack_trace(
