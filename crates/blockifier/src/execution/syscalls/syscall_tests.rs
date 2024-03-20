@@ -370,11 +370,9 @@ mod test_get_block_hash {
         let execution_result =
             entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
 
-        assert!(
-            execution_result
-                .to_string()
-                .contains("Unauthorized syscall get_block_hash in execution mode Validate")
-        );
+        assert!(execution_result
+            .to_string()
+            .contains("Unauthorized syscall get_block_hash in execution mode Validate"));
     }
 
     #[test_case(FeatureContract::SierraTestContract; "Native")]
@@ -935,8 +933,8 @@ mod test_replace_class2 {
     }
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // including the relevant function causes failure due to gas processing
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 17210900; "VM")] // pass
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
+#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 17210900; "VM")]
 fn test_secp256k1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
@@ -954,8 +952,8 @@ fn test_secp256k1(test_contract: FeatureContract, expected_gas: u64) {
     );
 }
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // pass
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 27650390; "VM")] // pass
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
+#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 27650390; "VM")]
 fn test_secp256r1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);

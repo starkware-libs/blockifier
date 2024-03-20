@@ -61,7 +61,7 @@ pub fn match_entrypoint(
     entrypoints
         .iter()
         .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
-        .expect("entrypoint not found")
+        .expect(&format!("entrypoint selector {0} not found", entrypoint_selector.0))
 }
 
 fn cmp_selector_to_entrypoint(
