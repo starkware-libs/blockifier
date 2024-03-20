@@ -460,17 +460,17 @@ fn test_invoke_tx(
         calldata_length,
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
+    let actual_resources =
+        get_actual_resources(expected_cairo_resources, da_gas + calldata_and_signature_gas);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         da_gas,
-        actual_resources: get_actual_resources(
-            expected_cairo_resources,
-            da_gas + calldata_and_signature_gas,
-        ),
+        actual_resources: actual_resources.clone(),
         revert_error: None,
+        bouncer_resources: actual_resources,
     };
 
     // Test execution info result.
@@ -1138,6 +1138,7 @@ fn test_declare_tx(
         vec![&expected_validate_call_info],
     );
 
+    let actual_resources = get_actual_resources(expected_cairo_resources, code_gas + da_gas);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
@@ -1145,7 +1146,8 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: get_actual_resources(expected_cairo_resources, code_gas + da_gas),
+        actual_resources: actual_resources.clone(),
+        bouncer_resources: actual_resources,
     };
 
     // Test execution info result.
@@ -1267,6 +1269,7 @@ fn test_deploy_account_tx(
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
 
+    let actual_resources = get_actual_resources(expected_cairo_resources, da_gas);
     let expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -1274,7 +1277,8 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: get_actual_resources(expected_cairo_resources, da_gas),
+        actual_resources: actual_resources.clone(),
+        bouncer_resources: actual_resources,
     };
 
     // Test execution info result.
@@ -1707,8 +1711,9 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
         da_gas: expected_da_gas,
-        actual_resources: expected_resource_mapping,
+        actual_resources: expected_resource_mapping.clone(),
         revert_error: None,
+        bouncer_resources: expected_resource_mapping,
     };
 
     // Check the actual returned execution info.
