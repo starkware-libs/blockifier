@@ -330,27 +330,6 @@ fn add_kzg_da_resources_to_resources_mapping(
     });
 }
 
-// TODO(Yoni, 1/4/2024): merge this with `get_expected_cairo_resources`.
-fn add_kzg_da_resources(
-    tx_execution_info: &mut TransactionExecutionInfo,
-    state_changes_count: &StateChangesCount,
-    versioned_constants: &VersionedConstants,
-    use_kzg_da: bool,
-) {
-    add_kzg_da_resources_to_resources_mapping(
-        &mut tx_execution_info.actual_resources.vm_resources,
-        state_changes_count,
-        versioned_constants,
-        use_kzg_da,
-    );
-    add_kzg_da_resources_to_resources_mapping(
-        &mut tx_execution_info.bouncer_resources.vm_resources,
-        state_changes_count,
-        versioned_constants,
-        use_kzg_da,
-    );
-}
-
 #[rstest]
 #[case::with_cairo0_account(
     ExpectedResultTestInvokeTx{
@@ -487,21 +466,23 @@ fn test_invoke_tx(
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
     let state_changes_count = starknet_resources.state_changes_count;
-    let expected_actual_resources =
-        TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
+    let expected_actual_resources = TransactionResources {
+        starknet_resources,
+        vm_resources: expected_cairo_resources,
+        ..Default::default()
+    };
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         da_gas,
-        actual_resources: expected_actual_resources.clone(),
+        actual_resources: expected_actual_resources,
         revert_error: None,
-        bouncer_resources: expected_actual_resources,
     };
 
-    add_kzg_da_resources(
-        &mut expected_execution_info,
+    add_kzg_da_resources_to_resources_mapping(
+        &mut expected_execution_info.actual_resources.vm_resources,
         &state_changes_count,
         versioned_constants,
         use_kzg_da,
@@ -1177,8 +1158,11 @@ fn test_declare_tx(
         vec![&expected_validate_call_info],
     );
     let state_changes_count = starknet_resources.state_changes_count;
-    let expected_actual_resources =
-        TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
+    let expected_actual_resources = TransactionResources {
+        starknet_resources,
+        vm_resources: expected_cairo_resources,
+        ..Default::default()
+    };
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
@@ -1186,12 +1170,11 @@ fn test_declare_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: expected_actual_resources.clone(),
-        bouncer_resources: expected_actual_resources,
+        actual_resources: expected_actual_resources,
     };
 
-    add_kzg_da_resources(
-        &mut expected_execution_info,
+    add_kzg_da_resources_to_resources_mapping(
+        &mut expected_execution_info.actual_resources.vm_resources,
         &state_changes_count,
         versioned_constants,
         use_kzg_da,
@@ -1319,8 +1302,11 @@ fn test_deploy_account_tx(
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
 
-    let actual_resources =
-        TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
+    let actual_resources = TransactionResources {
+        starknet_resources,
+        vm_resources: expected_cairo_resources,
+        ..Default::default()
+    };
     let mut expected_execution_info = TransactionExecutionInfo {
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
@@ -1328,12 +1314,11 @@ fn test_deploy_account_tx(
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
-        actual_resources: actual_resources.clone(),
-        bouncer_resources: actual_resources,
+        actual_resources,
     };
 
-    add_kzg_da_resources(
-        &mut expected_execution_info,
+    add_kzg_da_resources_to_resources_mapping(
+        &mut expected_execution_info.actual_resources.vm_resources,
         &state_changes_count,
         versioned_constants,
         use_kzg_da,
@@ -1775,6 +1760,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let expected_tx_resources = TransactionResources {
         starknet_resources: actual_execution_info.actual_resources.starknet_resources.clone(),
         vm_resources: expected_execution_resources,
+        ..Default::default()
     };
     assert_eq!(
         expected_gas,
@@ -1790,9 +1776,8 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
         da_gas: expected_da_gas,
-        actual_resources: expected_tx_resources.clone(),
+        actual_resources: expected_tx_resources,
         revert_error: None,
-        bouncer_resources: expected_tx_resources,
     };
 
     // Check the actual returned execution info.

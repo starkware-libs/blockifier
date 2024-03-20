@@ -139,7 +139,6 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             actual_fee: Fee::default(),
             da_gas,
             revert_error: None,
-            bouncer_resources: actual_resources.clone(),
             actual_resources,
         })
     }
