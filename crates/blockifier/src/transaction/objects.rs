@@ -210,13 +210,10 @@ pub struct TransactionExecutionInfo {
     /// including L1 gas and additional OS resources estimation.
     pub actual_resources: TransactionResources,
     /// Error string for reverted transactions; [None] if transaction execution was successful.
+    /// If not None, contains the resources to account for in the bouncer.
     // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
     //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
     pub revert_error: Option<String>,
-    /// If not None, contains the resources to account for in the bouncer.
-    // TODO(Nimrod, 1/5/2024): Remove this field, add n_reverted_steps to TransactionResources and
-    // implement a cast from TransactionResources to BouncerInfo.
-    pub bouncer_resources: TransactionResources,
 }
 
 impl TransactionExecutionInfo {
@@ -406,6 +403,7 @@ impl StarknetResources {
 pub struct TransactionResources {
     pub starknet_resources: StarknetResources,
     pub vm_resources: ExecutionResources,
+    pub n_reverted_steps: usize,
 }
 
 impl TransactionResources {
@@ -418,13 +416,18 @@ impl TransactionResources {
         use_kzg_da: bool,
     ) -> TransactionFeeResult<GasVector> {
         Ok(self.starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
-            + calculate_l1_gas_by_vm_usage(versioned_constants, &self.vm_resources)?)
+            + calculate_l1_gas_by_vm_usage(
+                versioned_constants,
+                &self.vm_resources,
+                self.n_reverted_steps,
+            )?)
     }
 
     pub fn to_resources_mapping(
         &self,
         versioned_constants: &VersionedConstants,
         use_kzg_da: bool,
+        with_reverted_steps: bool,
     ) -> ResourcesMapping {
         let GasVector { l1_gas, l1_data_gas } =
             self.starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
@@ -441,6 +444,8 @@ impl TransactionResources {
                     .expect("This conversion should not fail as the value is a converted usize."),
             ),
         ]));
+        let revrted_steps_to_add = if with_reverted_steps { self.n_reverted_steps } else { 0 };
+        *resources.0.get_mut(N_STEPS_RESOURCE).unwrap_or(&mut 0) += revrted_steps_to_add;
         resources
     }
 }

@@ -43,6 +43,7 @@ impl PyTransactionExecutionInfo {
                 .to_resources_mapping(
                     block_context.versioned_constants(),
                     block_context.block_info().use_kzg_da,
+                    true,
                 )
                 .0,
             revert_error: info.revert_error,

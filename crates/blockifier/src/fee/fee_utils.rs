@@ -26,6 +26,7 @@ pub mod test;
 pub fn calculate_l1_gas_by_vm_usage(
     versioned_constants: &VersionedConstants,
     vm_resource_usage: &ExecutionResources,
+    n_reverted_steps: usize,
 ) -> TransactionFeeResult<GasVector> {
     let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
     let vm_builtin_names =
@@ -33,7 +34,7 @@ pub fn calculate_l1_gas_by_vm_usage(
     if !vm_builtin_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())) {
         return Err(TransactionFeeError::CairoResourcesNotContainedInFeeCosts);
     };
-    let total_n_steps = vm_resource_usage.total_n_steps();
+    let total_n_steps = vm_resource_usage.total_n_steps() + n_reverted_steps;
     let n_steps_gas_usage =
         (vm_resource_fee_costs.get(constants::N_STEPS_RESOURCE).cloned().unwrap_or_default()
             * u128_from_usize(total_n_steps))
