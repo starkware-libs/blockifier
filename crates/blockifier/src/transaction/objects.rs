@@ -14,6 +14,8 @@ use starknet_api::transaction::{
 use strum_macros::EnumIter;
 
 use crate::abi::constants::{BLOB_GAS_USAGE, L1_GAS_USAGE, N_STEPS_RESOURCE};
+use crate::blockifier::bouncer::BouncerInfo;
+use crate::bouncer::calculate_message_l1_resources;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -213,10 +215,6 @@ pub struct TransactionExecutionInfo {
     // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
     //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
     pub revert_error: Option<String>,
-    /// If not None, contains the resources to account for in the bouncer.
-    // TODO(Nimrod, 1/5/2024): Remove this field, add n_reverted_steps to TransactionResources and
-    // implement a cast from TransactionResources to BouncerInfo.
-    pub bouncer_resources: TransactionResources,
 }
 
 impl TransactionExecutionInfo {
@@ -266,6 +264,7 @@ pub struct StarknetResources {
     pub state_changes_count: StateChangesCount,
     pub message_cost_info: MessageL1CostInfo,
     pub l1_handler_payload_size: Option<usize>,
+    pub n_events: usize,
     signature_length: usize,
     code_size: usize,
     total_event_keys: u128,
@@ -319,24 +318,41 @@ impl StarknetResources {
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
     ) {
         let tuple_add = |(a, b): (u128, u128), (c, d): (u128, u128)| (a + c, b + d);
-        let (total_event_keys, total_event_data_size) = call_infos
+        let triplet_add = |((a, b), c): ((u128, u128), usize),
+                           ((d, e), f): ((u128, u128), usize)| {
+            ((a + d, b + e), c + f)
+        };
+        let ((total_event_keys, total_event_data_size), n_events) = call_infos
             .clone()
             .map(|call_info| {
                 call_info
-                    .execution
-                    .events
                     .iter()
-                    .map(|OrderedEvent { event, .. }| {
-                        // TODO(barak: 18/03/2024): Once we start charging per byte change to
-                        // num_bytes_keys and num_bytes_data.
-                        (u128_from_usize(event.keys.len()), u128_from_usize(event.data.0.len()))
+                    .map(|call_i| {
+                        (
+                            call_i
+                                .execution
+                                .events
+                                .iter()
+                                .map(|OrderedEvent { event, .. }| {
+                                    // TODO(barak: 18/03/2024): Once we start charging per byte
+                                    // change to num_bytes_keys
+                                    // and num_bytes_data.
+                                    (
+                                        u128_from_usize(event.keys.len()),
+                                        u128_from_usize(event.data.0.len()),
+                                    )
+                                })
+                                .fold((0, 0), tuple_add),
+                            call_i.execution.events.len(),
+                        )
                     })
-                    .fold((0, 0), tuple_add)
+                    .fold(((0, 0), 0), triplet_add)
             })
-            .fold((0, 0), tuple_add);
+            .fold(((0, 0), 0), triplet_add);
 
         self.total_event_keys = total_event_keys;
         self.total_event_data_size = total_event_data_size;
+        self.n_events = n_events;
 
         self.message_cost_info =
             MessageL1CostInfo::calculate(call_infos, self.l1_handler_payload_size);
@@ -406,6 +422,7 @@ impl StarknetResources {
 pub struct TransactionResources {
     pub starknet_resources: StarknetResources,
     pub vm_resources: ExecutionResources,
+    pub n_reverted_steps: usize,
 }
 
 impl TransactionResources {
@@ -418,13 +435,18 @@ impl TransactionResources {
         use_kzg_da: bool,
     ) -> TransactionFeeResult<GasVector> {
         Ok(self.starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
-            + calculate_l1_gas_by_vm_usage(versioned_constants, &self.vm_resources)?)
+            + calculate_l1_gas_by_vm_usage(
+                versioned_constants,
+                &self.vm_resources,
+                self.n_reverted_steps,
+            )?)
     }
 
     pub fn to_resources_mapping(
         &self,
         versioned_constants: &VersionedConstants,
         use_kzg_da: bool,
+        with_reverted_steps: bool,
     ) -> ResourcesMapping {
         let GasVector { l1_gas, l1_data_gas } =
             self.starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
@@ -441,7 +463,41 @@ impl TransactionResources {
                     .expect("This conversion should not fail as the value is a converted usize."),
             ),
         ]));
+        let revrted_steps_to_add = if with_reverted_steps { self.n_reverted_steps } else { 0 };
+        *resources.0.get_mut(N_STEPS_RESOURCE).unwrap_or(&mut 0) += revrted_steps_to_add;
         resources
+    }
+
+    pub fn to_bouncer_info(
+        &self,
+        versioned_constants: &VersionedConstants,
+        use_kzg_da: bool,
+        additional_os_resources: ExecutionResources,
+        state_diff_size: usize,
+    ) -> TransactionExecutionResult<BouncerInfo> {
+        // Count message to L1 resources.
+        // let message_segment_length = get_message_segment_length(
+        //     &self.starknet_resources.message_cost_info.l2_to_l1_payload_lengths,
+        //     self.starknet_resources.l1_handler_payload_size,
+        // );
+        // let gas_usage = usize_from_u128(self.starknet_resources.get_messages_cost().l1_gas)
+        //     .expect("This conversion should not fail as the value is a converted usize.");
+        let (message_segment_length, gas_usage) = calculate_message_l1_resources(
+            &self.starknet_resources.message_cost_info.l2_to_l1_payload_lengths,
+            self.starknet_resources.l1_handler_payload_size,
+        );
+        BouncerInfo::calculate(
+            &self.to_resources_mapping(versioned_constants, use_kzg_da, false),
+            gas_usage,
+            additional_os_resources,
+            message_segment_length,
+            state_diff_size,
+            self.starknet_resources.n_events,
+        )
+    }
+
+    pub fn total_charged_steps(&self) -> usize {
+        self.n_reverted_steps + self.vm_resources.n_steps
     }
 }
 

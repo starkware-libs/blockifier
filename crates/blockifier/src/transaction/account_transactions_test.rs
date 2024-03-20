@@ -465,17 +465,8 @@ fn test_revert_invoke(
     );
     assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
 
-    // Check that the bouncer resources have less cairo steps, and are identical to actual resources
-    // apart from that.
-    let mut bouncer_resources = tx_execution_info.bouncer_resources.clone();
-    let mut actual_resources = tx_execution_info.actual_resources.clone();
-    let bouncer_steps = bouncer_resources.vm_resources.n_steps;
-    let actual_steps = actual_resources.vm_resources.n_steps;
-    assert!(bouncer_steps < actual_steps, "Expected {} < {}.", bouncer_steps, actual_steps);
-    // Bouncer resources and actual resources should be identical apart from n_steps.
-    bouncer_resources.vm_resources.n_steps = 0;
-    actual_resources.vm_resources.n_steps = 0;
-    assert_eq!(bouncer_resources, actual_resources);
+    // Check that reverted steps are taken into account.
+    assert!(tx_execution_info.actual_resources.n_reverted_steps > 0);
 
     // Check that execution state changes were reverted.
     assert_eq!(
@@ -629,7 +620,7 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_0 = result.actual_resources.vm_resources.n_steps;
+    let n_steps_0 = result.actual_resources.total_charged_steps();
     let actual_fee_0 = result.actual_fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
@@ -645,7 +636,7 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_1 = result.actual_resources.vm_resources.n_steps;
+    let n_steps_1 = result.actual_resources.total_charged_steps();
     let actual_fee_1 = result.actual_fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
@@ -672,7 +663,7 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_fail = result.actual_resources.vm_resources.n_steps;
+    let n_steps_fail = result.actual_resources.total_charged_steps();
     let actual_fee_fail: u128 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -693,7 +684,7 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_fail_next = result.actual_resources.vm_resources.n_steps;
+    let n_steps_fail_next = result.actual_resources.total_charged_steps();
     let actual_fee_fail_next: u128 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -734,7 +725,7 @@ fn test_n_reverted_steps(
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
     let mut actual_resources_0 = result.actual_resources.clone();
-    let n_steps_0 = result.actual_resources.vm_resources.n_steps;
+    let n_steps_0 = result.actual_resources.total_charged_steps();
     let actual_fee_0 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 1 iterations. This call should fail.
@@ -751,7 +742,7 @@ fn test_n_reverted_steps(
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
     let actual_resources_1 = result.actual_resources;
-    let n_steps_1 = actual_resources_1.vm_resources.n_steps;
+    let n_steps_1 = actual_resources_1.total_charged_steps();
     let actual_fee_1 = result.actual_fee.0;
 
     // Invoke the `recursive_fail` function with 2 iterations. This call should fail.
@@ -765,7 +756,7 @@ fn test_n_reverted_steps(
         },
     )
     .unwrap();
-    let n_steps_2 = result.actual_resources.vm_resources.n_steps;
+    let n_steps_2 = result.actual_resources.total_charged_steps();
     let actual_fee_2 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
@@ -782,7 +773,7 @@ fn test_n_reverted_steps(
 
     // Make sure the resources in block of invocation 0 and 1 are the same, except for the number
     // of cairo steps.
-    actual_resources_0.vm_resources.n_steps = n_steps_0 + single_call_steps_delta;
+    actual_resources_0.n_reverted_steps += single_call_steps_delta;
     assert_eq!(actual_resources_0, actual_resources_1);
     actual_resources_0.vm_resources.n_steps = n_steps_0;
 
@@ -797,7 +788,7 @@ fn test_n_reverted_steps(
         },
     )
     .unwrap();
-    let n_steps_100 = result.actual_resources.vm_resources.n_steps;
+    let n_steps_100 = result.actual_resources.total_charged_steps();
     let actual_fee_100 = result.actual_fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
