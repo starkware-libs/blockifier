@@ -1,5 +1,3 @@
-use std::cmp::min;
-
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -153,7 +151,17 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
     }
 
     let error_stack_str = error_stack.join("\n");
-    error_stack_str[..min(21000, error_stack_str.len())].to_string()
+
+    // When the trace string is too long, trim it in a way that keeps both the beginning and end.
+    let length_cap = 15000;
+    let graced_length = 100;
+    if error_stack_str.len() > length_cap + graced_length {
+        error_stack_str[..(length_cap / 2)].to_string()
+            + "\n\n...\n\n"
+            + &error_stack_str[(error_stack_str.len() - length_cap / 2)..]
+    } else {
+        error_stack_str
+    }
 }
 
 fn extract_cairo_run_error_into_stack_trace(
