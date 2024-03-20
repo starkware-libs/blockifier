@@ -38,7 +38,7 @@ use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
-use crate::execution::execution_utils::{execute_deployment, felt_to_stark_felt}; //TODO rename to felt252_to_stark_felt
+use crate::execution::execution_utils::{execute_deployment, felt_to_stark_felt}; /* TODO rename to felt252_to_stark_felt */
 use crate::execution::sierra_utils::{
     contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
 };

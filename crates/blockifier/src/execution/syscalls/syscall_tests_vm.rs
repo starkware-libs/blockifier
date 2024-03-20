@@ -9,8 +9,8 @@
 // use num_traits::Pow;
 // use pretty_assertions::assert_eq;
 // use starknet_api::core::{
-//     calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey,
-// };
+//     calculate_contract_address, ChainId, ClassHash, ContractAddress, EthAddress, Nonce,
+// PatriciaKey, };
 // use starknet_api::data_availability::DataAvailabilityMode;
 // use starknet_api::hash::{StarkFelt, StarkHash};
 // use starknet_api::state::StorageKey;
@@ -150,8 +150,8 @@
 //     let block_hash = stark_felt!(66_u64);
 //     let key = StorageKey::try_from(block_number).unwrap();
 //     let block_hash_contract_address =
-//         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
-//     state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
+//         ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).
+// unwrap();     state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
 
 //     // Positive flow.
 //     let calldata = calldata![block_number];
@@ -163,8 +163,8 @@
 
 //     assert_eq!(
 //         entry_point_call.clone().execute_directly(&mut state).unwrap().execution,
-//         CallExecution { gas_consumed: 14250, ..CallExecution::from_retdata(retdata![block_hash]) }
-//     );
+//         CallExecution { gas_consumed: 14250, ..CallExecution::from_retdata(retdata![block_hash])
+// }     );
 
 //     // Negative flow. Execution mode is Validate.
 //     let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
@@ -366,8 +366,8 @@
 //                 StarkFelt::ZERO,                   // Max price per unit.
 //             ];
 //         }
-//         account_tx_context = AccountTransactionContext::Current(CurrentAccountTransactionContext {
-//             common_fields: CommonAccountFields {
+//         account_tx_context = AccountTransactionContext::Current(CurrentAccountTransactionContext
+// {             common_fields: CommonAccountFields {
 //                 transaction_hash: tx_hash,
 //                 version: TransactionVersion::THREE,
 //                 nonce,
@@ -482,8 +482,8 @@
 
 //     assert_matches!(
 //         entry_point_call.execute_directly(&mut state).unwrap_err(),
-//         EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. } if trace.contains("x != y")
-//     );
+//         EntryPointExecutionError::VirtualMachineExecutionErrorWithTrace { trace, .. } if
+// trace.contains("x != y")     );
 // }
 
 // #[test]
@@ -690,8 +690,8 @@
 //     let to_address = stark_felt!(1234_u16);
 //     let payload = vec![stark_felt!(2019_u16), stark_felt!(2020_u16), stark_felt!(2021_u16)];
 //     let calldata = Calldata(
-//         concat(vec![vec![to_address, stark_felt!(payload.len() as u64)], payload.clone()]).into(),
-//     );
+//         concat(vec![vec![to_address, stark_felt!(payload.len() as u64)],
+// payload.clone()]).into(),     );
 //     let entry_point_call = CallEntryPoint {
 //         entry_point_selector: selector_from_name("test_send_message_to_l1"),
 //         calldata,

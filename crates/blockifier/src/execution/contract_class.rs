@@ -111,7 +111,7 @@ impl ContractClassV0 {
             + self.n_builtins()
             + self.bytecode_length()
             + 1; // Hinted class hash.
-                 // The hashed data size is approximately the number of hashes (invoked in hash chains).
+        // The hashed data size is approximately the number of hashes (invoked in hash chains).
         let n_steps = constants::N_STEPS_PER_PEDERSEN * hashed_data_size;
 
         ExecutionResources {

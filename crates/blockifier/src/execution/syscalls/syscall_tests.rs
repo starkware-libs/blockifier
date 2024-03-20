@@ -370,9 +370,11 @@ mod test_get_block_hash {
         let execution_result =
             entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
 
-        assert!(execution_result
-            .to_string()
-            .contains("Unauthorized syscall get_block_hash in execution mode Validate"));
+        assert!(
+            execution_result
+                .to_string()
+                .contains("Unauthorized syscall get_block_hash in execution mode Validate")
+        );
     }
 
     #[test_case(FeatureContract::SierraTestContract; "Native")]
@@ -766,7 +768,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: if_sierra(9999827120, 9999720720),
+        initial_gas: if_sierra(9999831220, 9999720720),
         ..trivial_external_entry_point_new(test_contract)
     };
     let library_entry_point = CallEntryPoint {
@@ -781,12 +783,12 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: if_sierra(9999865550, 9999814150),
+        initial_gas: if_sierra(9999866550, 9999814150),
         ..trivial_external_entry_point_new(test_contract)
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![stark_felt!(key), stark_felt!(value)],
-        initial_gas: if_sierra(9999865550, 9999625070),
+        initial_gas: if_sierra(9999866550, 9999625070),
         ..nested_storage_entry_point
     };
 

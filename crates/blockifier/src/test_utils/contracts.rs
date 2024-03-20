@@ -2,7 +2,9 @@ use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
-use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1, SierraContractClassV1};
+use crate::execution::contract_class::{
+    ContractClass, ContractClassV0, ContractClassV1, SierraContractClassV1,
+};
 use crate::test_utils::{get_raw_contract_class, CairoVersion};
 
 // Bit to set on class hashes and addresses of feature contracts to indicate the Cairo1 variant.
@@ -110,12 +112,14 @@ impl FeatureContract {
                 CairoVersion::Cairo1 => "1",
             },
             contract_name,
-            match self { // TODO replace with a vm vs native flag when expanding native tests to use all the cairo 1 contracts
+            match self {
+                // TODO replace with a vm vs native flag when expanding native tests to use all the
+                // cairo 1 contracts
                 Self::SierraTestContract => ".sierra",
                 _ => match cairo_version {
                     CairoVersion::Cairo0 => "_compiled",
                     CairoVersion::Cairo1 => ".casm",
-                }
+                },
             }
         )
     }
@@ -147,14 +151,20 @@ impl FeatureContract {
     }
 
     pub fn get_class(&self) -> ContractClass {
-        match self { // TODO replace once vm/native is a flag
-            Self::SierraTestContract => SierraContractClassV1::from_file(&self.get_compiled_path()).into(),
-            _ => match self.cairo_version() {
-                CairoVersion::Cairo0 => ContractClassV0::from_file(&self.get_compiled_path()).into(),
-                CairoVersion::Cairo1 => ContractClassV1::from_file(&self.get_compiled_path()).into(),
+        match self {
+            // TODO replace once vm/native is a flag
+            Self::SierraTestContract => {
+                SierraContractClassV1::from_file(&self.get_compiled_path()).into()
             }
+            _ => match self.cairo_version() {
+                CairoVersion::Cairo0 => {
+                    ContractClassV0::from_file(&self.get_compiled_path()).into()
+                }
+                CairoVersion::Cairo1 => {
+                    ContractClassV1::from_file(&self.get_compiled_path()).into()
+                }
+            },
         }
-        
     }
 
     pub fn get_raw_class(&self) -> String {

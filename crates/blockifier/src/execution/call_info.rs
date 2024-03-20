@@ -23,7 +23,6 @@ macro_rules! retdata {
     };
 }
 
-
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct OrderedEvent {
     pub order: usize,

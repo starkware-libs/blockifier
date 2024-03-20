@@ -20,6 +20,8 @@ use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
+use super::contract_class::ContractClassV1;
+use super::errors::EntryPointExecutionError;
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
@@ -33,9 +35,6 @@ use crate::execution::{
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
 use crate::transaction::objects::TransactionInfo;
-
-use super::contract_class::ContractClassV1;
-use super::errors::EntryPointExecutionError;
 
 pub type Args = Vec<CairoArg>;
 
@@ -319,11 +318,7 @@ pub fn format_panic_data(felts: &[StarkFelt]) -> String {
     while let Some(item) = format_next_item(&mut felts) {
         items.push(item.quote_if_string());
     }
-    if let [item] = &items[..] {
-        item.clone()
-    } else {
-        format!("({})", items.join(", "))
-    }
+    if let [item] = &items[..] { item.clone() } else { format!("({})", items.join(", ")) }
 }
 
 /// Returns the VM resources required for running `poseidon_hash_many` in the Starknet OS.

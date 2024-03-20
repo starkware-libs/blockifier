@@ -95,7 +95,7 @@ impl TransactionInfo {
             TransactionInfo::Current(context) => {
                 let l1_bounds = context.l1_resource_bounds()?;
                 Ok(Fee(l1_bounds.max_amount as u128 * l1_bounds.max_price_per_unit))
-            },
+            }
             TransactionInfo::Deprecated(context) => Ok(context.max_fee),
         }
     }

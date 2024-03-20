@@ -567,8 +567,17 @@ fn get_entry_point_offset(
                 .unwrap()
                 .offset
         }
-        ContractClass::V1(_) => panic!("Expected contract class V0, got V1."),
-        ContractClass::V1Sierra(_) => panic!("Expected contract class V0, got V1Sierra."),
+        ContractClass::V1(class) => {
+            class
+                .entry_points_by_type
+                .get(&EntryPointType::External)
+                .unwrap()
+                .iter()
+                .find(|ep| ep.selector == entry_point_selector)
+                .unwrap()
+                .offset
+        }
+        ContractClass::V1Sierra(_) => panic!("Expected V0 or V1, got V1Sierra."),
     }
 }
 
