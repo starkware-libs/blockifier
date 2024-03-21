@@ -10,7 +10,7 @@ use crate::blockifier::bouncer::BouncerInfo;
 use crate::bouncer::calculate_message_l1_resources;
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
-use crate::fee::actual_cost::ActualCost;
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{
     CachedState, CommitmentStateDiff, StagedTransactionalState, StateChangesKeys, StorageEntry,
@@ -162,7 +162,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         account_tx: &AccountTransaction,
         mut remaining_gas: u64,
-    ) -> TransactionExecutorResult<(Option<CallInfo>, ActualCost)> {
+    ) -> TransactionExecutorResult<(Option<CallInfo>, TransactionReceipt)> {
         let mut execution_resources = ExecutionResources::default();
         let tx_context = Arc::new(self.block_context.to_tx_context(account_tx));
         let tx_info = &tx_context.tx_info;
@@ -183,7 +183,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             limit_steps_by_resources,
         )?;
 
-        let actual_cost = ActualCost::of_account_tx(
+        let tx_receipt = TransactionReceipt::from_account_tx(
             account_tx,
             &tx_context,
             &self.state.get_actual_state_changes()?,
@@ -192,7 +192,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             0,
         )?;
 
-        Ok((validate_call_info, actual_cost))
+        Ok((validate_call_info, tx_receipt))
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of

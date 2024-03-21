@@ -3,7 +3,7 @@ use starknet_api::transaction::Fee;
 use thiserror::Error;
 
 use crate::context::TransactionContext;
-use crate::fee::actual_cost::ActualCost;
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_utils::{get_balance_and_if_covers_fee, get_fee_by_gas_vector};
 use crate::fee::gas_usage::compute_discounted_gas_from_gas_vector;
 use crate::state::state_api::StateReader;
@@ -86,9 +86,9 @@ impl FeeCheckReport {
     /// error.
     fn check_actual_cost_within_bounds(
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        tx_receipt: &TransactionReceipt,
     ) -> TransactionExecutionResult<()> {
-        let ActualCost { actual_fee, actual_gas_cost, .. } = actual_cost;
+        let TransactionReceipt { fee, gas, .. } = tx_receipt;
         let TransactionContext { tx_info, .. } = tx_context;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
@@ -103,7 +103,7 @@ impl FeeCheckReport {
                 //   bounds, check it here as well (separately, with a different error variant if
                 //   limit exceeded).
                 let total_discounted_gas_used =
-                    compute_discounted_gas_from_gas_vector(actual_gas_cost, tx_context);
+                    compute_discounted_gas_from_gas_vector(gas, tx_context);
 
                 if total_discounted_gas_used > max_l1_gas {
                     return Err(FeeCheckError::MaxL1GasAmountExceeded {
@@ -115,11 +115,8 @@ impl FeeCheckReport {
             TransactionInfo::Deprecated(context) => {
                 // Check max fee.
                 let max_fee = context.max_fee;
-                if actual_fee > &max_fee {
-                    return Err(FeeCheckError::MaxFeeExceeded {
-                        max_fee,
-                        actual_fee: *actual_fee,
-                    })?;
+                if fee > &max_fee {
+                    return Err(FeeCheckError::MaxFeeExceeded { max_fee, actual_fee: *fee })?;
                 }
             }
         }
@@ -131,19 +128,15 @@ impl FeeCheckReport {
     fn check_can_pay_fee<S: StateReader>(
         state: &mut S,
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        tx_receipt: &TransactionReceipt,
     ) -> TransactionExecutionResult<()> {
-        let ActualCost { actual_fee, .. } = *actual_cost;
+        let TransactionReceipt { fee, .. } = *tx_receipt;
         let (balance_low, balance_high, can_pay) =
-            get_balance_and_if_covers_fee(state, tx_context, actual_fee)?;
+            get_balance_and_if_covers_fee(state, tx_context, fee)?;
         if can_pay {
             return Ok(());
         }
-        Err(FeeCheckError::InsufficientFeeTokenBalance {
-            fee: actual_fee,
-            balance_low,
-            balance_high,
-        })?
+        Err(FeeCheckError::InsufficientFeeTokenBalance { fee, balance_low, balance_high })?
     }
 }
 
@@ -170,17 +163,17 @@ impl_report_fields!(PostExecutionReport);
 impl PostValidationReport {
     /// Verifies that the actual cost of validation is within sender bounds.
     /// Note: the balance cannot be changed in `__validate__` (which cannot call other contracts),
-    /// so there is no need to recheck that balance >= actual_cost.
+    /// so there is no need to recheck that balance >= actual cost.
     pub fn verify(
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        tx_receipt: &TransactionReceipt,
     ) -> TransactionExecutionResult<()> {
         // If fee is not enforced, no need to check post-execution.
         if !tx_context.tx_info.enforce_fee()? {
             return Ok(());
         }
 
-        FeeCheckReport::check_actual_cost_within_bounds(tx_context, actual_cost)
+        FeeCheckReport::check_actual_cost_within_bounds(tx_context, tx_receipt)
     }
 }
 
@@ -190,25 +183,25 @@ impl PostExecutionReport {
     pub fn new<S: StateReader>(
         state: &mut S,
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        tx_receipt: &TransactionReceipt,
         charge_fee: bool,
     ) -> TransactionExecutionResult<Self> {
-        let ActualCost { actual_fee, .. } = actual_cost;
+        let TransactionReceipt { fee, .. } = tx_receipt;
 
         // If fee is not enforced, no need to check post-execution.
         if !charge_fee || !tx_context.tx_info.enforce_fee()? {
-            return Ok(Self(FeeCheckReport::success_report(*actual_fee)));
+            return Ok(Self(FeeCheckReport::success_report(*fee)));
         }
 
         // First, compare the actual resources used against the upper bound(s) defined by the
         // sender.
         let cost_with_bounds_result =
-            FeeCheckReport::check_actual_cost_within_bounds(tx_context, actual_cost);
+            FeeCheckReport::check_actual_cost_within_bounds(tx_context, tx_receipt);
 
         // Next, verify the actual cost is covered by the account balance, which may have changed
         // after execution. If the above check passes, the pre-execution balance covers the actual
         // cost for sure.
-        let can_pay_fee_result = FeeCheckReport::check_can_pay_fee(state, tx_context, actual_cost);
+        let can_pay_fee_result = FeeCheckReport::check_can_pay_fee(state, tx_context, tx_receipt);
 
         for fee_check_result in [cost_with_bounds_result, can_pay_fee_result] {
             match fee_check_result {
@@ -217,7 +210,7 @@ impl PostExecutionReport {
                     // Found an error; set the recommended fee based on the error variant and
                     // current context, and return the report.
                     return Ok(Self(FeeCheckReport::from_fee_check_error(
-                        *actual_fee,
+                        *fee,
                         fee_check_error,
                         tx_context,
                     )?));
@@ -226,6 +219,6 @@ impl PostExecutionReport {
             }
         }
 
-        Ok(Self(FeeCheckReport::success_report(*actual_fee)))
+        Ok(Self(FeeCheckReport::success_report(*fee)))
     }
 }
