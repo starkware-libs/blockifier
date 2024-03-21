@@ -116,11 +116,13 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         let l1_handler_payload_size = self.payload_size();
 
-        let (ActualCost { actual_fee, da_gas, actual_resources, .. }, bouncer_resources) =
-            ActualCost::builder_for_l1_handler(tx_context, l1_handler_payload_size)
-                .with_execute_call_info(&execute_call_info)
-                .try_add_state_changes(state)?
-                .build(&execution_resources)?;
+        let ActualCost { actual_fee, da_gas, actual_resources, .. } = ActualCost::of_l1_handler(
+            &tx_context,
+            l1_handler_payload_size,
+            execute_call_info.iter(),
+            &state.get_actual_state_changes()?,
+            &execution_resources,
+        )?;
 
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.
@@ -136,7 +138,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             actual_fee: Fee::default(),
             da_gas,
             revert_error: None,
-            bouncer_resources,
+            bouncer_resources: actual_resources.clone(),
             actual_resources,
         })
     }

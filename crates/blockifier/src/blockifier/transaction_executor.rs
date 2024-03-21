@@ -183,11 +183,14 @@ impl<S: StateReader> TransactionExecutor<S> {
             limit_steps_by_resources,
         )?;
 
-        let (actual_cost, _bouncer_resources) = account_tx
-            .to_actual_cost_builder(tx_context)
-            .with_validate_call_info(&validate_call_info)
-            .try_add_state_changes(&mut self.state)?
-            .build(&execution_resources)?;
+        let actual_cost = ActualCost::of_account_tx(
+            account_tx,
+            &tx_context,
+            &self.state.get_actual_state_changes()?,
+            &execution_resources,
+            validate_call_info.iter(),
+            0,
+        )?;
 
         Ok((validate_call_info, actual_cost))
     }
