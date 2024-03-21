@@ -3,7 +3,7 @@ use starknet_api::transaction::Fee;
 use thiserror::Error;
 
 use crate::context::TransactionContext;
-use crate::fee::actual_cost::ActualCost;
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_utils::{get_balance_and_if_covers_fee, get_fee_by_gas_vector};
 use crate::fee::gas_usage::compute_discounted_gas_from_gas_vector;
 use crate::state::state_api::StateReader;
@@ -86,9 +86,9 @@ impl FeeCheckReport {
     /// error.
     fn check_actual_cost_within_bounds(
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        actual_cost: &TransactionReceipt,
     ) -> TransactionExecutionResult<()> {
-        let ActualCost { actual_fee, actual_gas_cost, .. } = actual_cost;
+        let TransactionReceipt { fee: actual_fee, gas: actual_gas_cost, .. } = actual_cost;
         let TransactionContext { tx_info, .. } = tx_context;
 
         // First, compare the actual resources used against the upper bound(s) defined by the
@@ -131,9 +131,9 @@ impl FeeCheckReport {
     fn check_can_pay_fee<S: StateReader>(
         state: &mut S,
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        actual_cost: &TransactionReceipt,
     ) -> TransactionExecutionResult<()> {
-        let ActualCost { actual_fee, .. } = *actual_cost;
+        let TransactionReceipt { fee: actual_fee, .. } = *actual_cost;
         let (balance_low, balance_high, can_pay) =
             get_balance_and_if_covers_fee(state, tx_context, actual_fee)?;
         if can_pay {
@@ -173,7 +173,7 @@ impl PostValidationReport {
     /// so there is no need to recheck that balance >= actual_cost.
     pub fn verify(
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        actual_cost: &TransactionReceipt,
     ) -> TransactionExecutionResult<()> {
         // If fee is not enforced, no need to check post-execution.
         if !tx_context.tx_info.enforce_fee()? {
@@ -190,10 +190,10 @@ impl PostExecutionReport {
     pub fn new<S: StateReader>(
         state: &mut S,
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        actual_cost: &TransactionReceipt,
         charge_fee: bool,
     ) -> TransactionExecutionResult<Self> {
-        let ActualCost { actual_fee, .. } = actual_cost;
+        let TransactionReceipt { fee: actual_fee, .. } = actual_cost;
 
         // If fee is not enforced, no need to check post-execution.
         if !charge_fee || !tx_context.tx_info.enforce_fee()? {

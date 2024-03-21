@@ -1,7 +1,7 @@
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, TransactionContext};
 use blockifier::execution::call_info::CallInfo;
-use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::actual_cost::TransactionReceipt;
 use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::StateReader;
@@ -206,7 +206,7 @@ impl PyValidator {
         &mut self,
         account_tx: AccountTransaction,
         remaining_gas: u64,
-    ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
+    ) -> NativeBlockifierResult<(Option<CallInfo>, TransactionReceipt)> {
         let (optional_call_info, actual_cost) =
             self.tx_executor.validate(&account_tx, remaining_gas)?;
 
@@ -216,7 +216,7 @@ impl PyValidator {
     fn perform_post_validation_stage(
         &mut self,
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        actual_cost: &TransactionReceipt,
     ) -> TransactionExecutionResult<()> {
         PostValidationReport::verify(tx_context, actual_cost)
     }

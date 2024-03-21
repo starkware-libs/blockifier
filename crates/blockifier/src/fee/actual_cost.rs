@@ -17,7 +17,7 @@ use crate::transaction::transaction_types::TransactionType;
 pub mod test;
 
 /// Parameters required to compute actual cost of a transaction.
-struct ActualCostParameters<'a, T: Iterator<Item = &'a CallInfo> + Clone> {
+struct TransactionReceiptParameters<'a, T: Iterator<Item = &'a CallInfo> + Clone> {
     tx_context: &'a TransactionContext,
     calldata_length: usize,
     signature_length: usize,
@@ -34,18 +34,18 @@ struct ActualCostParameters<'a, T: Iterator<Item = &'a CallInfo> + Clone> {
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
 #[derive(Default)]
-pub struct ActualCost {
-    pub actual_fee: Fee,
+pub struct TransactionReceipt {
+    pub fee: Fee,
+    pub gas: GasVector,
     pub da_gas: GasVector,
-    pub actual_resources: TransactionResources,
-    pub actual_gas_cost: GasVector,
+    pub resources: TransactionResources,
 }
 
-impl ActualCost {
+impl TransactionReceipt {
     fn from_params<'a, T: Iterator<Item = &'a CallInfo> + Clone>(
-        actual_cost_params: ActualCostParameters<'a, T>,
+        actual_cost_params: TransactionReceiptParameters<'a, T>,
     ) -> TransactionExecutionResult<Self> {
-        let ActualCostParameters {
+        let TransactionReceiptParameters {
             tx_context,
             calldata_length,
             signature_length,
@@ -68,7 +68,7 @@ impl ActualCost {
             call_infos,
         );
 
-        let mut vm_resources = (execution_resources
+        let mut cairo_resources = (execution_resources
             + &tx_context.block_context.versioned_constants.get_additional_os_tx_resources(
                 tx_type,
                 &starknet_resources,
@@ -77,9 +77,10 @@ impl ActualCost {
             .filter_unused_builtins();
         // TODO(Dori, 1/5/2024): Once TransactionResources keeps reverted steps separately, do not
         //   add them to the VM resources.
-        vm_resources.n_steps += reverted_steps;
+        cairo_resources.n_steps += reverted_steps;
 
-        let tx_resources = TransactionResources { starknet_resources, vm_resources };
+        let tx_resources =
+            TransactionResources { starknet_resources, vm_resources: cairo_resources };
 
         // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
         let actual_fee =
@@ -96,7 +97,7 @@ impl ActualCost {
             &tx_context.block_context.versioned_constants,
             tx_context.block_context.block_info.use_kzg_da,
         )?;
-        Ok(Self { actual_resources: tx_resources, actual_gas_cost, da_gas, actual_fee })
+        Ok(Self { resources: tx_resources, gas: actual_gas_cost, da_gas, fee: actual_fee })
     }
 
     /// Computes actual cost of an L1 handler transaction.
@@ -107,7 +108,7 @@ impl ActualCost {
         state_changes: &'a StateChanges,
         execution_resources: &'a ExecutionResources,
     ) -> TransactionExecutionResult<Self> {
-        Self::from_params(ActualCostParameters {
+        Self::from_params(TransactionReceiptParameters {
             tx_context,
             calldata_length: l1_handler_payload_size,
             signature_length: 0, // Signature is validated on L1.
@@ -131,7 +132,7 @@ impl ActualCost {
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
         reverted_steps: usize,
     ) -> TransactionExecutionResult<Self> {
-        Self::from_params(ActualCostParameters {
+        Self::from_params(TransactionReceiptParameters {
             tx_context,
             calldata_length: account_tx.calldata_length(),
             signature_length: account_tx.signature_length(),
