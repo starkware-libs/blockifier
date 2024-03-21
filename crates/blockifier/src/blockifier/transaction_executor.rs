@@ -24,6 +24,7 @@ use crate::transaction::objects::TransactionExecutionInfo;
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
 
+<<<<<<< HEAD:crates/blockifier/src/blockifier/transaction_executor.rs
 #[cfg(test)]
 #[path = "transaction_executor_test.rs"]
 pub mod transaction_executor_test;
@@ -39,6 +40,11 @@ pub enum TransactionExecutorError {
 pub type TransactionExecutorResult<T> = Result<T, TransactionExecutorError>;
 pub type VisitedSegmentsMapping = Vec<(ClassHash, Vec<usize>)>;
 
+||||||| a8460971:crates/native_blockifier/src/transaction_executor.rs
+pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
+
+=======
+>>>>>>> origin/main-v0.13.1:crates/native_blockifier/src/transaction_executor.rs
 // TODO(Gilad): make this hold TransactionContext instead of BlockContext.
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
@@ -133,11 +139,17 @@ impl<S: StateReader> TransactionExecutor<S> {
 
                 // Finalize counting logic.
                 let bouncer_info = BouncerInfo::calculate(
+<<<<<<< HEAD:crates/blockifier/src/blockifier/transaction_executor.rs
                     &tx_execution_info.bouncer_resources.to_resources_mapping(
                         &self.block_context.versioned_constants,
                         self.block_context.block_info.use_kzg_da,
                     ),
                     gas_usage,
+||||||| a8460971:crates/native_blockifier/src/transaction_executor.rs
+                    actual_resources,
+=======
+                    &tx_execution_info.bouncer_resources,
+>>>>>>> origin/main-v0.13.1:crates/native_blockifier/src/transaction_executor.rs
                     additional_os_resources,
                     message_segment_length,
                     state_diff_size,
@@ -183,6 +195,7 @@ impl<S: StateReader> TransactionExecutor<S> {
             limit_steps_by_resources,
         )?;
 
+<<<<<<< HEAD:crates/blockifier/src/blockifier/transaction_executor.rs
         let tx_receipt = TransactionReceipt::from_account_tx(
             account_tx,
             &tx_context,
@@ -191,6 +204,19 @@ impl<S: StateReader> TransactionExecutor<S> {
             validate_call_info.iter(),
             0,
         )?;
+||||||| a8460971:crates/native_blockifier/src/transaction_executor.rs
+        let actual_cost = account_tx
+            .to_actual_cost_builder(tx_context)
+            .with_validate_call_info(&validate_call_info)
+            .try_add_state_changes(&mut self.state)?
+            .build(&execution_resources)?;
+=======
+        let (actual_cost, _bouncer_resources) = account_tx
+            .to_actual_cost_builder(tx_context)
+            .with_validate_call_info(&validate_call_info)
+            .try_add_state_changes(&mut self.state)?
+            .build(&execution_resources)?;
+>>>>>>> origin/main-v0.13.1:crates/native_blockifier/src/transaction_executor.rs
 
         Ok((validate_call_info, tx_receipt))
     }

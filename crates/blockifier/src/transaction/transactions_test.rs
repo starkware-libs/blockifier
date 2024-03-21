@@ -486,18 +486,40 @@ fn test_invoke_tx(
         &starknet_resources,
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
+<<<<<<< HEAD
     let state_changes_count = starknet_resources.state_changes_count;
     let expected_actual_resources =
         TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
     let mut expected_execution_info = TransactionExecutionInfo {
+||||||| a8460971
+    let expected_execution_info = TransactionExecutionInfo {
+=======
+    let actual_resources =
+        get_actual_resources(expected_cairo_resources, da_gas + calldata_and_signature_gas);
+    let expected_execution_info = TransactionExecutionInfo {
+>>>>>>> origin/main-v0.13.1
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         da_gas,
+<<<<<<< HEAD
         actual_resources: expected_actual_resources.clone(),
+||||||| a8460971
+        actual_resources: get_actual_resources(
+            expected_cairo_resources,
+            da_gas + calldata_and_signature_gas,
+        ),
+=======
+        actual_resources: actual_resources.clone(),
+>>>>>>> origin/main-v0.13.1
         revert_error: None,
+<<<<<<< HEAD
         bouncer_resources: expected_actual_resources,
+||||||| a8460971
+=======
+        bouncer_resources: actual_resources,
+>>>>>>> origin/main-v0.13.1
     };
 
     add_kzg_da_resources(
@@ -1176,18 +1198,34 @@ fn test_declare_tx(
         &starknet_resources,
         vec![&expected_validate_call_info],
     );
+<<<<<<< HEAD
     let state_changes_count = starknet_resources.state_changes_count;
     let expected_actual_resources =
         TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
     let mut expected_execution_info = TransactionExecutionInfo {
+||||||| a8460971
+
+    let expected_execution_info = TransactionExecutionInfo {
+=======
+
+    let actual_resources = get_actual_resources(expected_cairo_resources, code_gas + da_gas);
+    let expected_execution_info = TransactionExecutionInfo {
+>>>>>>> origin/main-v0.13.1
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
         actual_fee: expected_actual_fee,
         da_gas,
         revert_error: None,
+<<<<<<< HEAD
         actual_resources: expected_actual_resources.clone(),
         bouncer_resources: expected_actual_resources,
+||||||| a8460971
+        actual_resources: get_actual_resources(expected_cairo_resources, code_gas + da_gas),
+=======
+        actual_resources: actual_resources.clone(),
+        bouncer_resources: actual_resources,
+>>>>>>> origin/main-v0.13.1
     };
 
     add_kzg_da_resources(
@@ -1319,9 +1357,16 @@ fn test_deploy_account_tx(
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
 
+<<<<<<< HEAD
     let actual_resources =
         TransactionResources { starknet_resources, vm_resources: expected_cairo_resources };
     let mut expected_execution_info = TransactionExecutionInfo {
+||||||| a8460971
+    let expected_execution_info = TransactionExecutionInfo {
+=======
+    let actual_resources = get_actual_resources(expected_cairo_resources, da_gas);
+    let expected_execution_info = TransactionExecutionInfo {
+>>>>>>> origin/main-v0.13.1
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
@@ -1790,9 +1835,20 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         fee_transfer_call_info: None,
         actual_fee: Fee(0),
         da_gas: expected_da_gas,
+<<<<<<< HEAD
         actual_resources: expected_tx_resources.clone(),
+||||||| a8460971
+        actual_resources: expected_resource_mapping,
+=======
+        actual_resources: expected_resource_mapping.clone(),
+>>>>>>> origin/main-v0.13.1
         revert_error: None,
+<<<<<<< HEAD
         bouncer_resources: expected_tx_resources,
+||||||| a8460971
+=======
+        bouncer_resources: expected_resource_mapping,
+>>>>>>> origin/main-v0.13.1
     };
 
     // Check the actual returned execution info.

@@ -12,6 +12,8 @@ use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionE
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
+use pyo3::types::PyBytes;
+use pyo3::{FromPyObject, PyAny, PyResult, Python};
 use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -28,9 +30,15 @@ use crate::py_transaction_execution_info::PyBouncerInfo;
 use crate::py_utils::{int_to_chain_id, versioned_constants_with_overrides, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
+<<<<<<< HEAD
 
 pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
 pub(crate) type PyVisitedSegmentsMapping = Vec<(PyFelt, Vec<usize>)>;
+||||||| a8460971
+use crate::transaction_executor::{RawTransactionExecutionInfo, TransactionExecutor};
+=======
+use crate::transaction_executor::TransactionExecutor;
+>>>>>>> origin/main-v0.13.1
 
 #[cfg(test)]
 #[path = "py_block_executor_test.rs"]
@@ -39,6 +47,7 @@ mod py_block_executor_test;
 const MAX_STEPS_PER_TX: u32 = 4_000_000;
 const MAX_VALIDATE_STEPS_PER_TX: u32 = 1_000_000;
 
+<<<<<<< HEAD
 /// Stripped down `TransactionExecutionInfo` for Python serialization, containing only the required
 /// fields.
 #[derive(Debug, Serialize)]
@@ -72,6 +81,36 @@ impl ThinTransactionExecutionInfo {
     }
 }
 
+||||||| a8460971
+=======
+/// Stripped down `TransactionExecutionInfo` for Python serialization, containing only the required
+/// fields.
+#[derive(Debug, Serialize)]
+pub(crate) struct ThinTransactionExecutionInfo {
+    pub validate_call_info: Option<CallInfo>,
+    pub execute_call_info: Option<CallInfo>,
+    pub fee_transfer_call_info: Option<CallInfo>,
+    pub actual_fee: Fee,
+    pub da_gas: GasVector,
+    pub actual_resources: ResourcesMapping,
+    pub revert_error: Option<String>,
+}
+
+impl From<TransactionExecutionInfo> for ThinTransactionExecutionInfo {
+    fn from(tx_execution_info: TransactionExecutionInfo) -> Self {
+        Self {
+            validate_call_info: tx_execution_info.validate_call_info,
+            execute_call_info: tx_execution_info.execute_call_info,
+            fee_transfer_call_info: tx_execution_info.fee_transfer_call_info,
+            actual_fee: tx_execution_info.actual_fee,
+            da_gas: tx_execution_info.da_gas,
+            actual_resources: tx_execution_info.actual_resources,
+            revert_error: tx_execution_info.revert_error,
+        }
+    }
+}
+
+>>>>>>> origin/main-v0.13.1
 #[pyclass]
 #[derive(Debug, Serialize)]
 pub(crate) struct TypedTransactionExecutionInfo {
@@ -152,11 +191,12 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(Py<PyBytes>, PyBouncerInfo)> {
         let charge_fee = true;
         let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
         let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
+<<<<<<< HEAD
         let typed_tx_execution_info = TypedTransactionExecutionInfo {
             info: ThinTransactionExecutionInfo::from_tx_execution_info(
                 &self.tx_executor().block_context,
@@ -165,6 +205,22 @@ impl PyBlockExecutor {
             tx_type,
         };
         let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+||||||| a8460971
+        let typed_tx_execution_info =
+            TypedTransactionExecutionInfo { info: tx_execution_info, tx_type: tx_type.to_string() };
+        let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+=======
+        let typed_tx_execution_info = TypedTransactionExecutionInfo {
+            info: tx_execution_info.into(),
+            tx_type: tx_type.to_string(),
+        };
+
+        // Convert to PyBytes:
+        let raw_tx_execution_info = Python::with_gil(|py| {
+            let bytes_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info).unwrap();
+            PyBytes::new(py, &bytes_tx_execution_info).into()
+        });
+>>>>>>> origin/main-v0.13.1
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
         Ok((raw_tx_execution_info, py_bouncer_info))
