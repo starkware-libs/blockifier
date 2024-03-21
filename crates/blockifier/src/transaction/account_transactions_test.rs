@@ -19,13 +19,6 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
-<<<<<<< HEAD
-||||||| a8460971
-use crate::abi::constants as abi_constants;
-=======
-use crate::abi::constants as abi_constants;
-use crate::abi::constants::N_STEPS_RESOURCE;
->>>>>>> origin/main-v0.13.1
 use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
@@ -472,7 +465,6 @@ fn test_revert_invoke(
     );
     assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
 
-<<<<<<< HEAD
     // Check that the bouncer resources have less cairo steps, and are identical to actual resources
     // apart from that.
     let mut bouncer_resources = tx_execution_info.bouncer_resources.clone();
@@ -485,20 +477,6 @@ fn test_revert_invoke(
     actual_resources.vm_resources.n_steps = 0;
     assert_eq!(bouncer_resources, actual_resources);
 
-||||||| a8460971
-=======
-    // Check that the bouncer resources have less cairo steps, and are identical to actual resources
-    // apart from that.
-    let mut bouncer_resources = tx_execution_info.bouncer_resources.clone();
-    let mut actual_resources = tx_execution_info.actual_resources.clone();
-    let bouncer_steps = bouncer_resources.0.remove(N_STEPS_RESOURCE).unwrap();
-    let actual_steps = actual_resources.0.remove(N_STEPS_RESOURCE).unwrap();
-    if bouncer_steps >= actual_steps {
-        panic!("Expected {} < {}.", bouncer_steps, actual_steps);
-    }
-    assert_eq!(bouncer_resources.0, actual_resources.0);
-
->>>>>>> origin/main-v0.13.1
     // Check that execution state changes were reverted.
     assert_eq!(
         stark_felt!(0_u8),

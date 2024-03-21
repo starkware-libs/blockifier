@@ -49,205 +49,16 @@ impl TransactionReceipt {
             tx_context,
             calldata_length,
             signature_length,
-<<<<<<< HEAD
             code_size,
             state_changes,
             sender_address,
             l1_handler_payload_size,
             call_infos,
-||||||| a8460971
-            class_info: None,
-        }
-    }
-
-    pub fn without_sender_address(mut self) -> Self {
-        self.sender_address = None;
-        self
-    }
-
-    // Call the `build` method to construct the actual cost object, after feeding the builder
-    // using the setters below.
-    pub fn build(
-        self,
-        execution_resources: &ExecutionResources,
-    ) -> TransactionExecutionResult<ActualCost> {
-        self.calculate_actual_fee_and_resources(execution_resources)
-    }
-
-    // Setters.
-
-    pub fn with_validate_call_info(mut self, validate_call_info: &'a Option<CallInfo>) -> Self {
-        self.validate_call_info = validate_call_info.as_ref();
-        self
-    }
-
-    pub fn with_execute_call_info(mut self, execute_call_info: &'a Option<CallInfo>) -> Self {
-        self.execute_call_info = execute_call_info.as_ref();
-        self
-    }
-
-    pub fn with_class_info(mut self, class_info: ClassInfo) -> Self {
-        self.class_info = Some(class_info);
-        self
-    }
-
-    pub fn try_add_state_changes(
-        mut self,
-        state: &mut CachedState<impl StateReader>,
-    ) -> StateResult<Self> {
-        let new_state_changes = state.get_actual_state_changes()?;
-        self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
-        Ok(self)
-    }
-
-    pub fn with_l1_payload_size(mut self, l1_payload_size: usize) -> Self {
-        self.l1_payload_size = Some(l1_payload_size);
-        self
-    }
-
-    pub fn with_reverted_steps(mut self, n_reverted_steps: usize) -> Self {
-        self.n_reverted_steps = n_reverted_steps;
-        self
-    }
-
-    // Private methods.
-
-    fn use_kzg_da(&self) -> bool {
-        self.tx_context.block_context.block_info.use_kzg_da
-    }
-
-    // Construct the actual cost object using all fields that were set in the builder.
-    fn calculate_actual_fee_and_resources(
-        self,
-        execution_resources: &ExecutionResources,
-    ) -> TransactionExecutionResult<ActualCost> {
-        let use_kzg_da = self.use_kzg_da();
-        let state_changes_count = self.state_changes.count_for_fee_charge(
-            self.sender_address,
-            self.tx_context
-                .block_context
-                .chain_info
-                .fee_token_address(&self.tx_context.tx_info.fee_type()),
-        );
-        let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
-        let non_optional_call_infos =
-            self.validate_call_info.into_iter().chain(self.execute_call_info);
-        // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
-        // availability.
-        let gas_usage_vector = Self::calculate_tx_gas_usage_vector(
-            &self.tx_context.block_context.versioned_constants,
-            non_optional_call_infos,
-            state_changes_count,
-            self.calldata_length,
-            self.signature_length,
-            self.l1_payload_size,
-            self.class_info,
-            use_kzg_da,
-        )?;
-
-        let mut actual_resources = calculate_tx_resources(
-            &self.tx_context.block_context.versioned_constants,
-=======
-            class_info: None,
-        }
-    }
-
-    pub fn without_sender_address(mut self) -> Self {
-        self.sender_address = None;
-        self
-    }
-
-    /// Calls the `build` method to construct the actual cost object, after feeding the builder
-    /// using the setters below.
-    /// In addition to actual cost, the method returns the resources the bouncer should take into
-    /// account when adding the transaction to the block.
-    pub fn build(
-        self,
-        execution_resources: &ExecutionResources,
-    ) -> TransactionExecutionResult<(ActualCost, ResourcesMapping)> {
-        self.calculate_actual_fee_and_resources(execution_resources)
-    }
-
-    // Setters.
-
-    pub fn with_validate_call_info(mut self, validate_call_info: &'a Option<CallInfo>) -> Self {
-        self.validate_call_info = validate_call_info.as_ref();
-        self
-    }
-
-    pub fn with_execute_call_info(mut self, execute_call_info: &'a Option<CallInfo>) -> Self {
-        self.execute_call_info = execute_call_info.as_ref();
-        self
-    }
-
-    pub fn with_class_info(mut self, class_info: ClassInfo) -> Self {
-        self.class_info = Some(class_info);
-        self
-    }
-
-    pub fn try_add_state_changes(
-        mut self,
-        state: &mut CachedState<impl StateReader>,
-    ) -> StateResult<Self> {
-        let new_state_changes = state.get_actual_state_changes()?;
-        self.state_changes = StateChanges::merge(vec![self.state_changes, new_state_changes]);
-        Ok(self)
-    }
-
-    pub fn with_l1_payload_size(mut self, l1_payload_size: usize) -> Self {
-        self.l1_payload_size = Some(l1_payload_size);
-        self
-    }
-
-    pub fn with_reverted_steps(mut self, n_reverted_steps: usize) -> Self {
-        self.n_reverted_steps = n_reverted_steps;
-        self
-    }
-
-    // Private methods.
-
-    fn use_kzg_da(&self) -> bool {
-        self.tx_context.block_context.block_info.use_kzg_da
-    }
-
-    // Construct the actual cost object using all fields that were set in the builder.
-    fn calculate_actual_fee_and_resources(
-        self,
-        execution_resources: &ExecutionResources,
-    ) -> TransactionExecutionResult<(ActualCost, ResourcesMapping)> {
-        let use_kzg_da = self.use_kzg_da();
-        let state_changes_count = self.state_changes.count_for_fee_charge(
-            self.sender_address,
-            self.tx_context
-                .block_context
-                .chain_info
-                .fee_token_address(&self.tx_context.tx_info.fee_type()),
-        );
-        let da_gas = get_da_gas_cost(state_changes_count, use_kzg_da);
-        let non_optional_call_infos =
-            self.validate_call_info.into_iter().chain(self.execute_call_info);
-        // Gas usage for SHARP costs and Starknet L1-L2 messages. Includes gas usage for data
-        // availability.
-        let gas_usage_vector = Self::calculate_tx_gas_usage_vector(
-            &self.tx_context.block_context.versioned_constants,
-            non_optional_call_infos,
-            state_changes_count,
-            self.calldata_length,
-            self.signature_length,
-            self.l1_payload_size,
-            self.class_info,
-            use_kzg_da,
-        )?;
-
-        let mut actual_resources = calculate_tx_resources(
-            &self.tx_context.block_context.versioned_constants,
->>>>>>> origin/main-v0.13.1
             execution_resources,
             tx_type,
             reverted_steps,
         } = tx_receipt_params;
 
-<<<<<<< HEAD
         let starknet_resources = StarknetResources::new(
             calldata_length,
             signature_length,
@@ -270,18 +81,6 @@ impl TransactionReceipt {
 
         let tx_resources =
             TransactionResources { starknet_resources, vm_resources: cairo_resources };
-||||||| a8460971
-        // Add reverted steps to actual_resources' n_steps for correct fee charge.
-        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
-            self.n_reverted_steps;
-=======
-        // Bouncer resources should not include reverted steps; should include the rest, though.
-        let bouncer_resources = actual_resources.clone();
-
-        // Add reverted steps to actual_resources' n_steps for correct fee charge.
-        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
-            self.n_reverted_steps;
->>>>>>> origin/main-v0.13.1
 
         // L1 handler transactions are not charged an L2 fee but it is compared to the L1 fee.
         let fee = if tx_context.tx_info.enforce_fee()? || tx_type == TransactionType::L1Handler {
@@ -293,17 +92,11 @@ impl TransactionReceipt {
             .starknet_resources
             .get_state_changes_cost(tx_context.block_context.block_info.use_kzg_da);
 
-<<<<<<< HEAD
         let gas = tx_resources.to_gas_vector(
             &tx_context.block_context.versioned_constants,
             tx_context.block_context.block_info.use_kzg_da,
         )?;
         Ok(Self { resources: tx_resources, gas, da_gas, fee })
-||||||| a8460971
-        Ok(ActualCost { actual_fee, da_gas, actual_resources })
-=======
-        Ok((ActualCost { actual_fee, da_gas, actual_resources }, bouncer_resources))
->>>>>>> origin/main-v0.13.1
     }
 
     /// Computes actual cost of an L1 handler transaction.

@@ -213,16 +213,10 @@ pub struct TransactionExecutionInfo {
     // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
     //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
     pub revert_error: Option<String>,
-<<<<<<< HEAD
     /// If not None, contains the resources to account for in the bouncer.
     // TODO(Nimrod, 1/5/2024): Remove this field, add n_reverted_steps to TransactionResources and
     // implement a cast from TransactionResources to BouncerInfo.
     pub bouncer_resources: TransactionResources,
-||||||| a8460971
-=======
-    /// If not None, contains the resources to account for in the bouncer.
-    pub bouncer_resources: ResourcesMapping,
->>>>>>> origin/main-v0.13.1
 }
 
 impl TransactionExecutionInfo {

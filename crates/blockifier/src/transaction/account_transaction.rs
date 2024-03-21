@@ -25,8 +25,8 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-    HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
-    TransactionInfo, TransactionInfoCreator, TransactionPreValidationResult,
+    HasRelatedFeeType, TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
+    TransactionInfoCreator, TransactionPreValidationResult,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::update_remaining_gas;
@@ -383,7 +383,6 @@ impl AccountTransaction {
                 self.run_execute(state, &mut resources, &mut execution_context, remaining_gas)?;
         }
 
-<<<<<<< HEAD
         let tx_receipt = TransactionReceipt::from_account_tx(
             self,
             &tx_context,
@@ -393,21 +392,6 @@ impl AccountTransaction {
             0,
         )?;
         let bouncer_resources = tx_receipt.resources.clone();
-||||||| a8460971
-        let actual_cost = self
-            .to_actual_cost_builder(tx_context.clone())
-            .with_validate_call_info(&validate_call_info)
-            .with_execute_call_info(&execute_call_info)
-            .try_add_state_changes(state)?
-            .build(&resources)?;
-=======
-        let (actual_cost, bouncer_resources) = self
-            .to_actual_cost_builder(tx_context.clone())
-            .with_validate_call_info(&validate_call_info)
-            .with_execute_call_info(&execute_call_info)
-            .try_add_state_changes(state)?
-            .build(&resources)?;
->>>>>>> origin/main-v0.13.1
 
         let post_execution_report =
             PostExecutionReport::new(state, &tx_context, &tx_receipt, charge_fee)?;
@@ -416,15 +400,8 @@ impl AccountTransaction {
             None => Ok(ValidateExecuteCallInfo::new_accepted(
                 validate_call_info,
                 execute_call_info,
-<<<<<<< HEAD
                 tx_receipt,
                 bouncer_resources,
-||||||| a8460971
-                actual_cost,
-=======
-                actual_cost,
-                bouncer_resources,
->>>>>>> origin/main-v0.13.1
             )),
         }
     }
@@ -475,7 +452,6 @@ impl AccountTransaction {
         // Pre-compute cost in case of revert.
         let execution_steps_consumed =
             n_allotted_execution_steps - execution_context.n_remaining_steps();
-<<<<<<< HEAD
         let revert_cost = TransactionReceipt::from_account_tx(
             self,
             &tx_context,
@@ -496,23 +472,11 @@ impl AccountTransaction {
             0,
         )?
         .resources;
-||||||| a8460971
-        let revert_cost = actual_cost_builder_with_validation_changes
-            .clone()
-            .with_reverted_steps(execution_steps_consumed)
-            .build(&resources)?;
-=======
-        let (revert_cost, bouncer_revert_resources) = actual_cost_builder_with_validation_changes
-            .clone()
-            .with_reverted_steps(execution_steps_consumed)
-            .build(&resources)?;
->>>>>>> origin/main-v0.13.1
 
         match execution_result {
             Ok(execute_call_info) => {
                 // When execution succeeded, calculate the actual required fee before committing the
                 // transactional state. If max_fee is insufficient, revert the `run_execute` part.
-<<<<<<< HEAD
                 let tx_receipt = TransactionReceipt::from_account_tx(
                     self,
                     &tx_context,
@@ -525,23 +489,6 @@ impl AccountTransaction {
                     0,
                 )?;
                 let bouncer_resources = tx_receipt.resources.clone();
-||||||| a8460971
-                let actual_cost = actual_cost_builder_with_validation_changes
-                    .with_execute_call_info(&execute_call_info)
-                    // Fee is determined by the sum of `validate` and `execute` state changes.
-                    // Since `execute_state_changes` are not yet committed, we merge them manually
-                    // with `validate_state_changes` to count correctly.
-                    .try_add_state_changes(&mut execution_state)?
-                    .build(&execution_resources)?;
-=======
-                let (actual_cost, bouncer_resources) = actual_cost_builder_with_validation_changes
-                    .with_execute_call_info(&execute_call_info)
-                    // Fee is determined by the sum of `validate` and `execute` state changes.
-                    // Since `execute_state_changes` are not yet committed, we merge them manually
-                    // with `validate_state_changes` to count correctly.
-                    .try_add_state_changes(&mut execution_state)?
-                    .build(&execution_resources)?;
->>>>>>> origin/main-v0.13.1
 
                 // Post-execution checks.
                 let post_execution_report = PostExecutionReport::new(
@@ -573,15 +520,8 @@ impl AccountTransaction {
                         Ok(ValidateExecuteCallInfo::new_accepted(
                             validate_call_info,
                             execute_call_info,
-<<<<<<< HEAD
                             tx_receipt,
                             bouncer_resources,
-||||||| a8460971
-                            actual_cost,
-=======
-                            actual_cost,
-                            bouncer_resources,
->>>>>>> origin/main-v0.13.1
                         ))
                     }
                 }
@@ -708,30 +648,16 @@ struct ValidateExecuteCallInfo {
     validate_call_info: Option<CallInfo>,
     execute_call_info: Option<CallInfo>,
     revert_error: Option<String>,
-<<<<<<< HEAD
     final_cost: TransactionReceipt,
     bouncer_resources: TransactionResources,
-||||||| a8460971
-    final_cost: ActualCost,
-=======
-    final_cost: ActualCost,
-    bouncer_resources: ResourcesMapping,
->>>>>>> origin/main-v0.13.1
 }
 
 impl ValidateExecuteCallInfo {
     pub fn new_accepted(
         validate_call_info: Option<CallInfo>,
         execute_call_info: Option<CallInfo>,
-<<<<<<< HEAD
         final_cost: TransactionReceipt,
         bouncer_resources: TransactionResources,
-||||||| a8460971
-        final_cost: ActualCost,
-=======
-        final_cost: ActualCost,
-        bouncer_resources: ResourcesMapping,
->>>>>>> origin/main-v0.13.1
     ) -> Self {
         Self {
             validate_call_info,
@@ -745,15 +671,8 @@ impl ValidateExecuteCallInfo {
     pub fn new_reverted(
         validate_call_info: Option<CallInfo>,
         revert_error: String,
-<<<<<<< HEAD
         final_cost: TransactionReceipt,
         bouncer_resources: TransactionResources,
-||||||| a8460971
-        final_cost: ActualCost,
-=======
-        final_cost: ActualCost,
-        bouncer_resources: ResourcesMapping,
->>>>>>> origin/main-v0.13.1
     ) -> Self {
         Self {
             validate_call_info,
