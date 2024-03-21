@@ -12,6 +12,8 @@ use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionE
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
+use pyo3::types::PyBytes;
+use pyo3::{FromPyObject, PyAny, Python};
 use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
@@ -152,7 +154,7 @@ impl PyBlockExecutor {
         &mut self,
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(RawTransactionExecutionInfo, PyBouncerInfo)> {
+    ) -> NativeBlockifierResult<(Py<PyBytes>, PyBouncerInfo)> {
         let charge_fee = true;
         let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
@@ -164,7 +166,12 @@ impl PyBlockExecutor {
             ),
             tx_type,
         };
-        let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
+
+        // Convert to PyBytes:
+        let raw_tx_execution_info = Python::with_gil(|py| {
+            let bytes_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info).unwrap();
+            PyBytes::new(py, &bytes_tx_execution_info).into()
+        });
         let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
 
         Ok((raw_tx_execution_info, py_bouncer_info))
