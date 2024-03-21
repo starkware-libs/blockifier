@@ -33,7 +33,17 @@ impl Scheduler {
     }
 
     pub fn check_done(&self) {
-        todo!()
+        let observed_decrease_counter = self.decrease_counter.load(Ordering::Acquire);
+        let validation_idx = self.validation_idx.load(Ordering::Acquire);
+        let execution_idx = self.execution_idx.load(Ordering::Acquire);
+        let n_active_tasks = self.n_active_tasks.load(Ordering::Acquire);
+
+        if min(validation_idx, execution_idx) >= self.n_transactions
+            && n_active_tasks == 0
+            && observed_decrease_counter == self.decrease_counter.load(Ordering::Acquire)
+        {
+            self.done_marker.store(true, Ordering::Release);
+        }
     }
 
     /// Return the next task to run. Prioritize validations tasks.
