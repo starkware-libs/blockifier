@@ -243,6 +243,6 @@ impl<'a> Iterator for CallInfoIter<'a> {
 
         // Push order is right to left.
         self.call_infos.extend(call_info.inner_calls.iter().rev());
-        Some(call_info)
+        Some(call_info) 
     }
 }
