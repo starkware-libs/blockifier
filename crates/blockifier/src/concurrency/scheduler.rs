@@ -1,4 +1,5 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::cmp::min;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use crate::concurrency::Version;
 
@@ -18,6 +19,9 @@ pub struct Scheduler {
     decrease_counter: AtomicU32,
     n_active_tasks: AtomicU32,
     chunk_size: u32,
+    /// Updated by the `check_done` procedure, providing a cheap way for all threads to exit their
+    /// main loops.
+    done_marker: AtomicBool,
 }
 
 // TODO(Avi, 01/04/2024): Remove dead_code attribute.
@@ -29,7 +33,7 @@ impl Scheduler {
 
     /// Returns the done marker.
     pub fn done(&self) -> bool {
-        todo!()
+        self.done_marker.load(Ordering::Acquire)
     }
 
     /// Checks if all transactions have been executed and validated.
@@ -37,8 +41,27 @@ impl Scheduler {
         todo!()
     }
 
-    pub fn next_task() -> Task {
-        todo!()
+    pub fn next_task(&self) -> Task {
+        loop {
+            if self.done() {
+                return Task::Done;
+            }
+
+            let index_to_validate = self.validation_index.load(Ordering::Acquire);
+            let index_to_execute = self.execution_index.load(Ordering::Acquire);
+
+            if min(index_to_validate, index_to_execute) >= self.chunk_size {
+                return Task::NoTask;
+            }
+
+            if index_to_validate < index_to_execute {
+                if let Some(tx_index) = self.next_version_to_validate() {
+                    return Task::ValidationTask(tx_index.into());
+                }
+            } else if let Some(tx_index) = self.next_version_to_execute() {
+                return Task::ExecutionTask(tx_index.into());
+            }
+        }
     }
 
     // TODO(barak, 01/04/2024): Ensure documentation matches logic.
