@@ -50,7 +50,17 @@ impl Scheduler {
 
     /// Checks if all transactions have been executed and validated.
     fn check_done(&self) {
-        todo!()
+        let observed_decrease_counter = self.decrease_counter.load(Ordering::Acquire);
+
+        if min(
+            self.validation_index.load(Ordering::Acquire),
+            self.execution_index.load(Ordering::Acquire),
+        ) >= self.chunk_size
+            && self.n_active_tasks.load(Ordering::Acquire) == 0
+            && observed_decrease_counter == self.decrease_counter.load(Ordering::Acquire)
+        {
+            self.done_marker.store(true, Ordering::Release);
+        }
     }
 
     pub fn next_task(&self) -> Task {
