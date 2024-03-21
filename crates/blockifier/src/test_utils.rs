@@ -299,7 +299,7 @@ pub fn get_syscall_resources(syscall_selector: SyscallSelector) -> ExecutionReso
 pub fn get_tx_resources(tx_type: TransactionType) -> ExecutionResources {
     let versioned_constants = VersionedConstants::create_for_testing();
     let starknet_resources =
-        StarknetResources::new(1, 0, None, StateChangesCount::default(), None, std::iter::empty());
+        StarknetResources::new(1, 0, 0, StateChangesCount::default(), None, std::iter::empty());
 
     versioned_constants.get_additional_os_tx_resources(tx_type, &starknet_resources, false).unwrap()
 }

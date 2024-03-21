@@ -73,7 +73,7 @@ impl<'a> ActualCostBuilder<'a> {
                 starknet_resources: StarknetResources::new(
                     calldata_length,
                     signature_length,
-                    None,
+                    0,
                     StateChangesCount::default(),
                     None,
                     iter::empty(),
@@ -119,7 +119,7 @@ impl<'a> ActualCostBuilder<'a> {
     }
 
     pub fn with_class_info(mut self, class_info: ClassInfo) -> Self {
-        self.tx_resources.starknet_resources.set_code_size(Some(&class_info));
+        self.tx_resources.starknet_resources.set_code_size(class_info.code_size());
         self
     }
 

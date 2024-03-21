@@ -30,6 +30,7 @@ use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::{ContractClassError, PreExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
+use crate::fee::eth_gas_constants;
 use crate::transaction::errors::TransactionExecutionError;
 
 #[cfg(test)]
@@ -486,6 +487,13 @@ impl ClassInfo {
 
     pub fn abi_length(&self) -> usize {
         self.abi_length
+    }
+
+    pub fn code_size(&self) -> usize {
+        (self.bytecode_length() + self.sierra_program_length())
+            // We assume each felt is a word.
+            * eth_gas_constants::WORD_WIDTH
+            + self.abi_length()
     }
 
     pub fn new(
