@@ -7,7 +7,7 @@ use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, Tran
 use crate::context::BlockContext;
 use crate::execution::contract_class::ClassInfo;
 use crate::execution::entry_point::EntryPointExecutionContext;
-use crate::fee::actual_cost::ActualCost;
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
@@ -116,13 +116,14 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         let l1_handler_payload_size = self.payload_size();
 
-        let ActualCost { actual_fee, da_gas, actual_resources, .. } = ActualCost::of_l1_handler(
-            &tx_context,
-            l1_handler_payload_size,
-            execute_call_info.iter(),
-            &state.get_actual_state_changes()?,
-            &execution_resources,
-        )?;
+        let TransactionReceipt { fee: actual_fee, da_gas, resources: actual_resources, .. } =
+            TransactionReceipt::from_l1_handler(
+                &tx_context,
+                l1_handler_payload_size,
+                execute_call_info.iter(),
+                &state.get_actual_state_changes()?,
+                &execution_resources,
+            )?;
 
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.

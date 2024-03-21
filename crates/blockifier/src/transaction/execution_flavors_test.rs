@@ -643,7 +643,7 @@ fn test_simulate_validate_charge_fee_post_execution(
         validate,
         &fee_type,
     );
-    let (fail_actual_gas, fail_actual_cost) = gas_and_fee(
+    let (fail_actual_gas, fail_actual_fee) = gas_and_fee(
         u64_from_usize(get_tx_resources(TransactionType::InvokeFunction).n_steps + 2252),
         validate,
         &fee_type,
@@ -691,7 +691,7 @@ fn test_simulate_validate_charge_fee_post_execution(
         // reverted.
         if charge_fee { fail_actual_gas } else { success_actual_gas },
         actual_fee,
-        if charge_fee { fail_actual_cost } else { actual_fee },
+        if charge_fee { fail_actual_fee } else { actual_fee },
     );
     check_balance(
         current_balance,
