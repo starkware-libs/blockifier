@@ -116,7 +116,6 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         let l1_handler_payload_size = self.payload_size();
 
-<<<<<<< HEAD
         let TransactionReceipt { fee: actual_fee, da_gas, resources: actual_resources, .. } =
             TransactionReceipt::from_l1_handler(
                 &tx_context,
@@ -125,19 +124,6 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
                 &state.get_actual_state_changes()?,
                 &execution_resources,
             )?;
-||||||| a8460971
-        let ActualCost { actual_fee, da_gas, actual_resources } =
-            ActualCost::builder_for_l1_handler(tx_context, l1_handler_payload_size)
-                .with_execute_call_info(&execute_call_info)
-                .try_add_state_changes(state)?
-                .build(&execution_resources)?;
-=======
-        let (ActualCost { actual_fee, da_gas, actual_resources }, _bouncer_resources) =
-            ActualCost::builder_for_l1_handler(tx_context, l1_handler_payload_size)
-                .with_execute_call_info(&execute_call_info)
-                .try_add_state_changes(state)?
-                .build(&execution_resources)?;
->>>>>>> origin/main-v0.13.1
 
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.
@@ -152,20 +138,9 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
             fee_transfer_call_info: None,
             actual_fee: Fee::default(),
             da_gas,
-<<<<<<< HEAD
-||||||| a8460971
-            actual_resources,
-=======
-            actual_resources: actual_resources.clone(),
->>>>>>> origin/main-v0.13.1
             revert_error: None,
-<<<<<<< HEAD
             bouncer_resources: actual_resources.clone(),
             actual_resources,
-||||||| a8460971
-=======
-            bouncer_resources: actual_resources,
->>>>>>> origin/main-v0.13.1
         })
     }
 }
