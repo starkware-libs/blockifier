@@ -324,3 +324,123 @@ where
         ),
     }
 }
+
+#[cfg(test)]
+mod sierra_tests {
+    use num_traits::Num;
+    use starknet_api::core::PatriciaKey;
+    use starknet_api::hash::StarkHash;
+    use starknet_api::{contract_address, patricia_key};
+
+    use super::*;
+
+    #[test]
+    fn test_chain_id_to_felt() {
+        const CHAIN_ID: &str = "SN_GOERLI";
+
+        let chain_id = ChainId(String::from(CHAIN_ID));
+        let expected_felt = Felt::from_bytes_be_slice(CHAIN_ID.as_bytes());
+
+        let actual_felt = chain_id_to_felt(&chain_id).unwrap();
+
+        assert_eq!(actual_felt, expected_felt);
+    }
+
+    #[test]
+    fn test_parse_starknet_string() {
+        const EXPECTED_STRING: &str = "Hello StarkNet!";
+        let expected_string_hex: String = {
+            let mut hex = String::new();
+            for byte in EXPECTED_STRING.as_bytes() {
+                hex.push_str(&format!("{:02x}", byte));
+            }
+            hex
+        };
+
+        let starkfelt_str = StarkFelt::try_from(expected_string_hex.as_str()).unwrap();
+        let actual_string = parse_starkfelt_string(starkfelt_str);
+
+        assert_eq!(actual_string.trim_matches('\0'), EXPECTED_STRING);
+    }
+
+    #[test]
+    fn test_starkfelts_to_felts() {
+        let starkfelts = vec![
+            StarkFelt::try_from("0x01").unwrap(),
+            StarkFelt::try_from("0x02").unwrap(),
+            StarkFelt::try_from("0x03").unwrap(),
+        ];
+        let expected_felts = vec![Felt::from(1_u64), Felt::from(2_u64), Felt::from(3_u64)];
+
+        let actual_felts = starkfelts_to_felts(&starkfelts);
+
+        assert_eq!(actual_felts, expected_felts);
+    }
+
+    #[test]
+    fn test_u256_to_biguint() {
+        let u256 = U256 { lo: 0x1234_5678, hi: 0x9abc_def0 };
+
+        let expected_biguint =
+            BigUint::from_str_radix("123456780000000000000000000000009abcdef0", 16).unwrap();
+
+        let actual_biguint = u256_to_biguint(u256);
+
+        assert_eq!(actual_biguint, expected_biguint);
+    }
+
+    #[test]
+    fn test_encode_decode_str() {
+        const STR: &str = "Hello StarkNet!";
+
+        let encoded_felt_array = encode_str_as_felts(STR);
+
+        let decoded_felt_array = decode_felts_as_str(encoded_felt_array.as_slice());
+
+        assert_eq!(STR, &decoded_felt_array);
+    }
+
+    #[test]
+    fn test_felt_to_starkfelt() {
+        const NUM: u128 = 123;
+
+        let felt = Felt::from(NUM);
+        let expected_starkfelt = StarkFelt::from_u128(NUM);
+        let actual_starkfelt = felt_to_starkfelt(felt);
+
+        assert_eq!(expected_starkfelt, actual_starkfelt);
+    }
+
+    #[test]
+    fn test_starkfelt_to_felt() {
+        const NUM: u128 = 123;
+
+        let starkfelt = StarkFelt::from_u128(NUM);
+        let expected_felt = Felt::from(NUM);
+        let actual_felt = starkfelt_to_felt(starkfelt);
+
+        assert_eq!(expected_felt, actual_felt);
+    }
+
+    #[test]
+    fn test_contract_address_to_felt() {
+        const NUM: u128 = 1234;
+
+        let contract_address = contract_address!({ NUM });
+        let expected_felt = Felt::from(NUM);
+        let actual_felt = contract_address_to_felt(contract_address);
+
+        assert_eq!(expected_felt, actual_felt);
+    }
+
+    #[test]
+    fn test_contract_entrypoint_to_entrypoint_selector() {
+        const NUM: u128 = 123;
+
+        let entrypoint = ContractEntryPoint { selector: BigUint::from(NUM), function_idx: 0 };
+        let expected_entrypoint_selector = EntryPointSelector(StarkFelt::from_u128(NUM));
+        let actual_entrypoint_selector = contract_entrypoint_to_entrypoint_selector(&entrypoint);
+
+        assert_eq!(expected_entrypoint_selector, actual_entrypoint_selector);
+    }
+}
