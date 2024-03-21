@@ -1,4 +1,5 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::cmp::min;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use crate::concurrency::Version;
 
@@ -11,6 +12,7 @@ pub struct Scheduler {
     pub validation_idx: AtomicU32,
     pub decrease_counter: AtomicU32,
     pub n_active_tasks: AtomicU32,
+    pub done_marker: AtomicBool,
     pub n_transactions: u32,
 }
 
@@ -21,21 +23,42 @@ impl Scheduler {
             validation_idx: AtomicU32::new(0),
             decrease_counter: AtomicU32::new(0),
             n_active_tasks: AtomicU32::new(0),
+            done_marker: AtomicBool::new(false),
             n_transactions,
         }
     }
 
     pub fn done(&self) -> bool {
-        todo!()
+        self.done_marker.load(Ordering::Acquire)
     }
 
     pub fn check_done(&self) {
         todo!()
     }
 
-    /// Return the next task to run. Prioratize validations tasks.
-    pub fn next_task() -> Task {
-        todo!()
+    /// Return the next task to run. Prioritize validations tasks.
+    pub fn next_task(&self) -> Task {
+        loop {
+            if self.done() {
+                return Task::Done;
+            }
+
+            let idx_to_validate = self.validation_idx.load(Ordering::Acquire);
+            let idx_to_execute = self.execution_idx.load(Ordering::Acquire);
+
+            if min(idx_to_validate, idx_to_execute) >= self.n_transactions {
+                return Task::NoTask;
+            }
+
+            if idx_to_validate < idx_to_execute {
+                if let Some(tx_idx) = self.next_version_to_validate() {
+                    return Task::ValidationTask(tx_idx.into());
+                }
+            }
+            if let Some(tx_idx) = self.next_version_to_execute() {
+                return Task::ExecutionTask(tx_idx.into());
+            }
+        }
     }
 
     // TODO(barak, 01/04/2024): Ensure documentation matches logic.
