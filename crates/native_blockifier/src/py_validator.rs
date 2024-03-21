@@ -1,7 +1,7 @@
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, TransactionContext};
 use blockifier::execution::call_info::CallInfo;
-use blockifier::fee::actual_cost::ActualCost;
+use blockifier::fee::actual_cost::TransactionReceipt;
 use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::StateReader;
@@ -99,12 +99,12 @@ impl PyValidator {
 
         // `__validate__` call.
         let versioned_constants = &tx_context.block_context.versioned_constants();
-        let (_optional_call_info, actual_cost) =
+        let (_optional_call_info, tx_receipt) =
             self.validate(account_tx, versioned_constants.tx_initial_gas())?;
 
         // Post validations.
         // TODO(Ayelet, 09/11/2023): Check call succeeded.
-        self.perform_post_validation_stage(&tx_context, &actual_cost)?;
+        self.perform_post_validation_stage(&tx_context, &tx_receipt)?;
 
         Ok(())
     }
@@ -206,18 +206,18 @@ impl PyValidator {
         &mut self,
         account_tx: AccountTransaction,
         remaining_gas: u64,
-    ) -> NativeBlockifierResult<(Option<CallInfo>, ActualCost)> {
-        let (optional_call_info, actual_cost) =
+    ) -> NativeBlockifierResult<(Option<CallInfo>, TransactionReceipt)> {
+        let (optional_call_info, tx_receipt) =
             self.tx_executor.validate(&account_tx, remaining_gas)?;
 
-        Ok((optional_call_info, actual_cost))
+        Ok((optional_call_info, tx_receipt))
     }
 
     fn perform_post_validation_stage(
         &mut self,
         tx_context: &TransactionContext,
-        actual_cost: &ActualCost,
+        tx_receipt: &TransactionReceipt,
     ) -> TransactionExecutionResult<()> {
-        PostValidationReport::verify(tx_context, actual_cost)
+        PostValidationReport::verify(tx_context, tx_receipt)
     }
 }

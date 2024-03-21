@@ -12,7 +12,7 @@ use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::abi::constants::N_STEPS_RESOURCE;
 use crate::context::BlockContext;
-use crate::fee::actual_cost::ActualCost;
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_checks::{FeeCheckError, FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::calculate_l1_gas_by_vm_usage;
 use crate::invoke_tx_args;
@@ -140,9 +140,9 @@ fn test_discounted_gas_overdraft(
         version: TransactionVersion::THREE
     });
 
-    let actual_cost = ActualCost {
-        actual_fee: Fee(7),
-        actual_gas_cost: GasVector {
+    let tx_receipt = TransactionReceipt {
+        fee: Fee(7),
+        gas: GasVector {
             l1_gas: u128_from_usize(l1_gas_used),
             l1_data_gas: u128_from_usize(l1_data_gas_used),
         },
@@ -152,7 +152,7 @@ fn test_discounted_gas_overdraft(
     let report = PostExecutionReport::new(
         &mut state,
         &block_context.to_tx_context(&tx),
-        &actual_cost,
+        &tx_receipt,
         charge_fee,
     )
     .unwrap();
