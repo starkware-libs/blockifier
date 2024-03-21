@@ -4,9 +4,10 @@ use blockifier::block::{
     pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::State;
-use blockifier::transaction::objects::TransactionExecutionInfo;
+use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionInfo};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
@@ -16,6 +17,7 @@ use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::Fee;
 
 use crate::errors::{
     InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
@@ -36,11 +38,38 @@ mod py_block_executor_test;
 const MAX_STEPS_PER_TX: u32 = 4_000_000;
 const MAX_VALIDATE_STEPS_PER_TX: u32 = 1_000_000;
 
+/// Stripped down `TransactionExecutionInfo` for Python serialization, containing only the required
+/// fields.
+#[derive(Debug, Serialize)]
+pub(crate) struct ThinTransactionExecutionInfo {
+    pub validate_call_info: Option<CallInfo>,
+    pub execute_call_info: Option<CallInfo>,
+    pub fee_transfer_call_info: Option<CallInfo>,
+    pub actual_fee: Fee,
+    pub da_gas: GasVector,
+    pub actual_resources: ResourcesMapping,
+    pub revert_error: Option<String>,
+}
+
+impl From<TransactionExecutionInfo> for ThinTransactionExecutionInfo {
+    fn from(tx_execution_info: TransactionExecutionInfo) -> Self {
+        Self {
+            validate_call_info: tx_execution_info.validate_call_info,
+            execute_call_info: tx_execution_info.execute_call_info,
+            fee_transfer_call_info: tx_execution_info.fee_transfer_call_info,
+            actual_fee: tx_execution_info.actual_fee,
+            da_gas: tx_execution_info.da_gas,
+            actual_resources: tx_execution_info.actual_resources,
+            revert_error: tx_execution_info.revert_error,
+        }
+    }
+}
+
 #[pyclass]
 #[derive(Debug, Serialize)]
 pub(crate) struct TypedTransactionExecutionInfo {
     #[serde(flatten)]
-    pub info: TransactionExecutionInfo,
+    pub info: ThinTransactionExecutionInfo,
     pub tx_type: String,
 }
 
@@ -121,8 +150,10 @@ impl PyBlockExecutor {
         let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
         let (tx_execution_info, bouncer_info) = self.tx_executor().execute(tx, charge_fee)?;
-        let typed_tx_execution_info =
-            TypedTransactionExecutionInfo { info: tx_execution_info, tx_type: tx_type.to_string() };
+        let typed_tx_execution_info = TypedTransactionExecutionInfo {
+            info: tx_execution_info.into(),
+            tx_type: tx_type.to_string(),
+        };
 
         // Convert to PyBytes:
         let raw_tx_execution_info = Python::with_gil(|py| {
