@@ -5,13 +5,15 @@ use std::sync::Arc;
 use cairo_felt::Felt252;
 use cairo_native::starknet::{
     BlockInfo, ExecutionInfoV2, Secp256k1Point, Secp256r1Point, StarkNetSyscallHandler,
-    SyscallResult, TxInfo, TxV2Info, U256,
+    SyscallResult, TxV2Info, U256,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use num_traits::ToPrimitive;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, EthAddress,
     PatriciaKey,
 };
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
@@ -20,8 +22,9 @@ use starknet_api::transaction::{
 };
 use starknet_types_core::felt::Felt;
 
+use super::execution_utils::max_fee_for_execution_info;
 use super::sierra_utils::{
-    allocate_point, big4int_to_u256, chain_id_to_felt, contract_address_to_felt,
+    allocate_point, big4int_to_u256, calculate_resource_bounds, contract_address_to_felt,
     encode_str_as_felts, felt_to_starkfelt, starkfelt_to_felt, u256_to_biguint,
 };
 use super::syscalls::exceeds_event_size_limit;
@@ -41,6 +44,7 @@ use crate::execution::syscalls::secp::{
     SecpHintProcessor, SecpMulRequest, SecpMulResponse, SecpNewRequest, SecpNewResponse,
 };
 use crate::state::state_api::State;
+use crate::transaction::objects::TransactionInfo;
 
 pub struct NativeSyscallHandler<'state> {
     pub state: &'state mut dyn State,
@@ -103,78 +107,102 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         &mut self,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<cairo_native::starknet::ExecutionInfo> {
-        let block_context = &self.execution_context.tx_context.block_context.block_info;
-        let account_tx_context = &self.execution_context.tx_context.tx_info;
-
-        let block_info: BlockInfo = BlockInfo {
-            block_number: block_context.block_number.0,
-            block_timestamp: block_context.block_timestamp.0,
-            sequencer_address: contract_address_to_felt(block_context.sequencer_address),
-        };
-
-        let signature =
-            account_tx_context.signature().0.into_iter().map(starkfelt_to_felt).collect();
-
-        let tx_info = TxInfo {
-            version: starkfelt_to_felt(account_tx_context.version().0),
-            account_contract_address: contract_address_to_felt(account_tx_context.sender_address()),
-            // todo(rodro): it is ok to unwrap as default? Also, will this be deprecated soon?
-            max_fee: account_tx_context.max_fee().unwrap_or_default().0,
-            signature,
-            transaction_hash: starkfelt_to_felt(account_tx_context.transaction_hash().0),
-            chain_id: chain_id_to_felt(
-                &self.execution_context.tx_context.block_context.chain_info.chain_id,
-            )
-            .unwrap(),
-            nonce: starkfelt_to_felt(account_tx_context.nonce().0),
-        };
-
-        let caller_address = contract_address_to_felt(self.caller_address);
-        let contract_address = contract_address_to_felt(self.contract_address);
-        let entry_point_selector = starkfelt_to_felt(self.entry_point_selector);
-
-        Ok(cairo_native::starknet::ExecutionInfo {
-            block_info,
-            tx_info,
-            caller_address,
-            contract_address,
-            entry_point_selector,
-        })
+        panic!("Blockifier doesn't use this syscall")
     }
 
     fn get_execution_info_v2(
         &mut self,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<ExecutionInfoV2> {
-        let block_context = &self.execution_context.tx_context.block_context.block_info;
-        let account_tx_context = &self.execution_context.tx_context.tx_info;
+        // Get Block Info
+        let block_info = &self.execution_context.tx_context.block_context.block_info;
+        let native_block_info: BlockInfo = if self.execution_context.execution_mode
+            == ExecutionMode::Validate
+        {
+            let versioned_constants = self.execution_context.versioned_constants();
+            let block_number = block_info.block_number.0;
+            let block_timestamp = block_info.block_timestamp.0;
+            // Round down to the nearest multiple of validate_block_number_rounding.
+            let validate_block_number_rounding =
+                versioned_constants.get_validate_block_number_rounding();
+            let rounded_block_number =
+                (block_number / validate_block_number_rounding) * validate_block_number_rounding;
+            // Round down to the nearest multiple of validate_timestamp_rounding.
+            let validate_timestamp_rounding = versioned_constants.get_validate_timestamp_rounding();
+            let rounded_timestamp =
+                (block_timestamp / validate_timestamp_rounding) * validate_timestamp_rounding;
+            BlockInfo {
+                block_number: rounded_block_number,
+                block_timestamp: rounded_timestamp,
+                sequencer_address: Felt::ZERO,
+            }
+        } else {
+            BlockInfo {
+                block_number: block_info.block_number.0,
+                block_timestamp: block_info.block_timestamp.0,
+                sequencer_address: contract_address_to_felt(block_info.sequencer_address),
+            }
+        };
+
+        // Get Transaction Info
+        let tx_info = &self.execution_context.tx_context.tx_info;
+        let mut native_tx_info = TxV2Info {
+            version: starkfelt_to_felt(tx_info.signed_version().0),
+            account_contract_address: contract_address_to_felt(tx_info.sender_address()),
+            max_fee: max_fee_for_execution_info(tx_info).to_u128().unwrap(),
+            signature: tx_info.signature().0.into_iter().map(starkfelt_to_felt).collect(),
+            transaction_hash: starkfelt_to_felt(tx_info.transaction_hash().0),
+            chain_id: Felt::from_hex(
+                &self.execution_context.tx_context.block_context.chain_info.chain_id.as_hex(),
+            )
+            .unwrap(),
+            nonce: starkfelt_to_felt(tx_info.nonce().0),
+            // This values are only required for TransactionInfo::Current
+            // todo(rodrigo): it would be nice for TxV2Info to implement the Default trait
+            resource_bounds: Vec::new(),
+            tip: 0,
+            paymaster_data: Vec::new(),
+            nonce_data_availability_mode: 0,
+            fee_data_availability_mode: 0,
+            account_deployment_data: Vec::new(),
+        };
+        // If handling V3 transaction fill the "default" fields
+        if let TransactionInfo::Current(context) = tx_info {
+            let to_u32 = |x| match x {
+                DataAvailabilityMode::L1 => 0,
+                DataAvailabilityMode::L2 => 1,
+            };
+            native_tx_info = TxV2Info {
+                resource_bounds: calculate_resource_bounds(&context)?,
+                tip: context.tip.0.into(),
+                paymaster_data: context
+                    .paymaster_data
+                    .0
+                    .iter()
+                    .map(|f| starkfelt_to_felt(*f))
+                    .collect(),
+                nonce_data_availability_mode: to_u32(context.nonce_data_availability_mode),
+                fee_data_availability_mode: to_u32(context.fee_data_availability_mode),
+                account_deployment_data: context
+                    .account_deployment_data
+                    .0
+                    .iter()
+                    .map(|f| starkfelt_to_felt(*f))
+                    .collect(),
+                ..native_tx_info
+            };
+        }
+
+        let caller_address = contract_address_to_felt(self.caller_address);
+        let contract_address = contract_address_to_felt(self.contract_address);
+        let entry_point_selector = starkfelt_to_felt(self.entry_point_selector);
 
         Ok(ExecutionInfoV2 {
-            block_info: BlockInfo {
-                block_number: block_context.block_number.0,
-                block_timestamp: block_context.block_timestamp.0,
-                sequencer_address: contract_address_to_felt(block_context.sequencer_address),
-            },
-            tx_info: TxV2Info {
-                version: starkfelt_to_felt(account_tx_context.version().0),
-                account_contract_address: contract_address_to_felt(
-                    account_tx_context.sender_address(),
-                ),
-                max_fee: account_tx_context.max_fee().unwrap_or_default().0,
-                signature: vec![],
-                transaction_hash: Default::default(),
-                chain_id: Default::default(),
-                nonce: Default::default(),
-                resource_bounds: vec![],
-                tip: 0,
-                paymaster_data: vec![],
-                nonce_data_availability_mode: 0,
-                fee_data_availability_mode: 0,
-                account_deployment_data: vec![],
-            },
-            caller_address: contract_address_to_felt(self.caller_address),
-            contract_address: contract_address_to_felt(self.contract_address),
-            entry_point_selector: starkfelt_to_felt(self.entry_point_selector),
+            block_info: native_block_info,
+            tx_info: native_tx_info,
+            caller_address,
+            contract_address,
+            entry_point_selector,
         })
     }
 

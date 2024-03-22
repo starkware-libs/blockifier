@@ -370,11 +370,9 @@ mod test_get_block_hash {
         let execution_result =
             entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
 
-        assert!(
-            execution_result
-                .to_string()
-                .contains("Unauthorized syscall get_block_hash in execution mode Validate")
-        );
+        assert!(execution_result
+            .to_string()
+            .contains("Unauthorized syscall get_block_hash in execution mode Validate"));
     }
 
     #[test_case(FeatureContract::SierraTestContract; "Native")]
@@ -434,73 +432,73 @@ fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
     ExecutionMode::Validate,
     TransactionVersion::ONE,
     false;
-    "Native. Validate execution mode: block info fields should be zeroed. Transaction V1.")] // transaction fails
+    "Native. Validate execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
-    FeatureContract::SierraTestContract,
-    ExecutionMode::Execute,
-    TransactionVersion::ONE,
-    false;
-    "Native. Execute execution mode: block info fields should be zeroed. Transaction V1.")] // transaction fails
+     FeatureContract::SierraTestContract,
+     ExecutionMode::Execute,
+     TransactionVersion::ONE,
+     false;
+     "Native. Execute execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
     FeatureContract::SierraTestContract,
     ExecutionMode::Validate,
     TransactionVersion::THREE,
     false;
-    "Native. Validate execution mode: block info fields should be zeroed. Transaction V3.")] // transaction fails
+    "Native. Validate execution mode: block info fields should be zeroed. Transaction V3.")]
 #[test_case(
     FeatureContract::SierraTestContract,
     ExecutionMode::Execute,
     TransactionVersion::THREE,
     false;
-    "Native. Execute execution mode: block info fields should be zeroed. Transaction V3.")] // transaction fails
+    "Native. Execute execution mode: block info fields should be zeroed. Transaction V3.")]
 #[test_case(
     FeatureContract::SierraTestContract,
     ExecutionMode::Execute,
     TransactionVersion::THREE,
     true;
-    "Native. Execute execution mode: block info should be as usual. Transaction V3. Query.")] // transaction fails
+    "Native. Execute execution mode: block info should be as usual. Transaction V3. Query.")]
 #[test_case(
     FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Validate,
     TransactionVersion::ONE,
     false;
-    "Validate execution mode: block info fields should be zeroed. Transaction V1.")] // pass
+    "Validate execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
     FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Execute,
     TransactionVersion::ONE,
     false;
-    "Execute execution mode: block info fields should be zeroed. Transaction V1.")] // pass
+    "Execute execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
     FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Validate,
     TransactionVersion::THREE,
     false;
-    "Validate execution mode: block info fields should be zeroed. Transaction V3.")] // pass
+    "Validate execution mode: block info fields should be zeroed. Transaction V3.")]
 #[test_case(
     FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Execute,
     TransactionVersion::THREE,
     false;
-    "Execute execution mode: block info fields should be zeroed. Transaction V3.")] // pass
+    "Execute execution mode: block info fields should be zeroed. Transaction V3.")]
 #[test_case(
     FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Execute,
     TransactionVersion::THREE,
     true;
-    "Execute execution mode: block info should be as usual. Transaction V3. Query.")] // pass
+    "Execute execution mode: block info should be as usual. Transaction V3. Query.")]
 #[test_case(
     FeatureContract::LegacyTestContract,
     ExecutionMode::Execute,
     TransactionVersion::ONE,
     false;
-    "Legacy contract. Execute execution mode: block info should be as usual. Transaction V1.")] // pass
+    "Legacy contract. Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
     FeatureContract::LegacyTestContract,
     ExecutionMode::Execute,
     TransactionVersion::THREE,
     false;
-    "Legacy contract. Execute execution mode: block info should be as usual. Transaction V3.")] // pass
+    "Legacy contract. Execute execution mode: block info should be as usual. Transaction V3.")]
 fn test_get_execution_info(
     test_contract: FeatureContract,
     execution_mode: ExecutionMode,
@@ -751,7 +749,11 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
     // Todo(rodrigo): Execution resources from the VM & Native are mesaured differently
     // helper function to change the expected resource values from both of executions
     let if_sierra = |a, b| {
-        if matches!(test_contract, FeatureContract::SierraTestContract) { a } else { b }
+        if matches!(test_contract, FeatureContract::SierraTestContract) {
+            a
+        } else {
+            b
+        }
     };
 
     // Create expected call info tree.
