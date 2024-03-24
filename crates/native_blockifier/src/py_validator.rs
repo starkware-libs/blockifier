@@ -8,6 +8,7 @@ use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::objects::{TransactionExecutionResult, TransactionInfo};
 use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::versioned_constants::VersionedConstants;
 use pyo3::{pyclass, pymethods, PyAny};
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
@@ -19,7 +20,7 @@ use crate::py_block_executor::{
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
 use crate::py_transaction_execution_info::PyBouncerInfo;
-use crate::py_utils::{versioned_constants_with_overrides, PyFelt};
+use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 
 /// Manages transaction validation for pre-execution flows.
@@ -42,8 +43,10 @@ impl PyValidator {
         global_contract_cache_size: usize,
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
-        let versioned_constants =
-            versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
+        let versioned_constants = VersionedConstants::latest_constants_with_overrides(
+            validate_max_n_steps,
+            max_recursion_depth,
+        );
         let global_contract_cache = GlobalContractCache::new(global_contract_cache_size);
         let state_reader = PyStateReader::new(state_reader_proxy);
         let state = CachedState::new(state_reader, global_contract_cache);
