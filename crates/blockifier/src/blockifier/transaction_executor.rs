@@ -7,7 +7,6 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::bouncer::BouncerInfo;
-use crate::bouncer::calculate_message_l1_resources;
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -84,12 +83,6 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: Transaction,
         charge_fee: bool,
     ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo)> {
-        let l1_handler_payload_size: Option<usize> =
-            if let Transaction::L1HandlerTransaction(l1_handler_tx) = &tx {
-                Some(l1_handler_tx.payload_size())
-            } else {
-                None
-            };
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
@@ -103,13 +96,8 @@ impl<S: StateReader> TransactionExecutor<S> {
                 // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
                 let tx_execution_summary = tx_execution_info.summarize();
 
-                // Count message to L1 resources.
-                let (message_segment_length, gas_usage) = calculate_message_l1_resources(
-                    &tx_execution_summary.l2_to_l1_payload_lengths,
-                    l1_handler_payload_size,
-                );
-
                 // Count additional OS resources.
+                // TODO(Nimrod, 1/5/2024): Move this computation to TransactionResources.
                 let mut additional_os_resources = get_casm_hash_calculation_resources(
                     &mut transactional_state,
                     &self.executed_class_hashes,
@@ -132,16 +120,11 @@ impl<S: StateReader> TransactionExecutor<S> {
                     get_onchain_data_segment_length(&tx_unique_state_changes_keys.count());
 
                 // Finalize counting logic.
-                let bouncer_info = BouncerInfo::calculate(
-                    &tx_execution_info.bouncer_resources.to_resources_mapping(
-                        &self.block_context.versioned_constants,
-                        self.block_context.block_info.use_kzg_da,
-                    ),
-                    gas_usage,
+                let bouncer_info = tx_execution_info.actual_resources.to_bouncer_info(
+                    &self.block_context.versioned_constants,
+                    self.block_context.block_info.use_kzg_da,
                     additional_os_resources,
-                    message_segment_length,
                     state_diff_size,
-                    tx_execution_summary.n_events,
                 )?;
                 self.staged_for_commit_state = Some(transactional_state.stage(
                     tx_execution_summary.executed_class_hashes,

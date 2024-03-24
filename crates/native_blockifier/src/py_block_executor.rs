@@ -68,6 +68,7 @@ impl ThinTransactionExecutionInfo {
             actual_resources: tx_execution_info.actual_resources.to_resources_mapping(
                 block_context.versioned_constants(),
                 block_context.block_info().use_kzg_da,
+                true,
             ),
             revert_error: tx_execution_info.revert_error,
         }
