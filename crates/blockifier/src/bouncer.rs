@@ -5,18 +5,14 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
-use crate::abi::constants;
 use crate::blockifier::transaction_executor::{
     get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
 };
-use crate::execution::call_info::{ExecutionSummary, MessageL1CostInfo};
-use crate::fee::gas_usage::{
-    get_message_segment_length, get_messages_gas_usage, get_onchain_data_segment_length,
-};
+use crate::execution::call_info::ExecutionSummary;
+use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
-use crate::transaction::objects::ResourcesMapping;
-use crate::utils::usize_from_u128;
+use crate::transaction::objects::TransactionResources;
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -162,8 +158,7 @@ impl TransactionalBouncer {
         &mut self,
         state: &mut TransactionalState<'_, S>,
         tx_execution_summary: &ExecutionSummary,
-        bouncer_resources: &ResourcesMapping,
-        l1_handler_payload_size: Option<usize>,
+        transaction_resources: &TransactionResources,
     ) -> TransactionExecutorResult<BouncerWeights> {
         let mut additional_os_resources = get_casm_hash_calculation_resources(
             state,
@@ -177,8 +172,7 @@ impl TransactionalBouncer {
 
         let execution_info_weights = Self::get_tx_execution_info_resources_weights(
             tx_execution_summary,
-            bouncer_resources,
-            l1_handler_payload_size,
+            transaction_resources,
         )?;
 
         let mut tx_weights = BouncerWeights::from(additional_os_resources) + execution_info_weights;
@@ -189,35 +183,18 @@ impl TransactionalBouncer {
 
     pub fn get_tx_execution_info_resources_weights(
         tx_execution_summary: &ExecutionSummary,
-        bouncer_resources: &ResourcesMapping,
-        l1_handler_payload_size: Option<usize>,
+        transaction_resources: &TransactionResources,
     ) -> TransactionExecutorResult<BouncerWeights> {
-        let mut execution_info_resources = bouncer_resources.0.clone();
-
-        let (message_segment_length, gas_usage) = calculate_message_l1_resources(
-            &tx_execution_summary.l2_to_l1_payload_lengths,
-            l1_handler_payload_size,
-        );
-
-        // The blob gas is not being limited by the bouncer, thus we don't use it here.
-        // The gas is determined by the state diff size, which is limited by the bouncer.
-        execution_info_resources.remove(constants::BLOB_GAS_USAGE);
-
-        // TODO(Avi, 30/03/2024): Consider removing "l1_gas_usage" from actual resources.
-        // This value is not used, instead we use the value from calc_message_l1_resources() below.
-        execution_info_resources.remove(constants::L1_GAS_USAGE);
+        let (message_segment_length, gas_usage) =
+            transaction_resources.starknet_resources.calculate_message_l1_resources();
+        let vm_resources = &transaction_resources.vm_resources;
 
         let weights = BouncerWeights {
             gas: gas_usage,
             message_segment_length,
             n_events: tx_execution_summary.n_events,
-            n_steps: execution_info_resources
-                .remove(constants::N_STEPS_RESOURCE)
-                .expect("n_steps must be present in the execution info")
-                + execution_info_resources
-                    .remove(constants::N_MEMORY_HOLES)
-                    .expect("n_memory_hols must be present in the execution info"),
-            builtin_count: BuiltinCount::from(execution_info_resources),
+            n_steps: vm_resources.n_steps + vm_resources.n_memory_holes,
+            builtin_count: BuiltinCount::from(vm_resources.builtin_instance_counter.clone()),
             state_diff_size: 0,
         };
 
@@ -249,25 +226,4 @@ impl TransactionalBouncer {
     pub fn abort(self) -> Bouncer {
         self.bouncer
     }
-}
-
-/// Calculates the L1 resources used by L1<>L2 messages.
-/// Returns the total message segment length and the gas weight.
-pub fn calculate_message_l1_resources(
-    l2_to_l1_payload_lengths: &[usize],
-    l1_handler_payload_size: Option<usize>,
-) -> (usize, usize) {
-    let message_segment_length =
-        get_message_segment_length(l2_to_l1_payload_lengths, l1_handler_payload_size);
-    let gas_usage = get_messages_gas_usage(
-        &MessageL1CostInfo {
-            l2_to_l1_payload_lengths: l2_to_l1_payload_lengths.to_owned(),
-            message_segment_length,
-        },
-        l1_handler_payload_size,
-    );
-    // TODO(Avi, 30/03/2024): Consider removing "l1_gas_usage" from actual resources.
-    let gas_weight = usize_from_u128(gas_usage.l1_gas)
-        .expect("This conversion should not fail as the value is a converted usize.");
-    (message_segment_length, gas_weight)
 }

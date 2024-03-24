@@ -3,7 +3,6 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use super::fee_utils::calculate_l1_gas_by_vm_usage;
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
-use crate::execution::call_info::MessageL1CostInfo;
 use crate::fee::eth_gas_constants;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
@@ -16,28 +15,6 @@ pub mod test;
 
 // Returns an estimation of the gas usage of the Starknet contract when processing L1<>L2 messages
 // on L1.
-pub fn get_messages_gas_usage(
-    message_cost_info: &MessageL1CostInfo,
-    l1_handler_payload_size: Option<usize>,
-) -> GasVector {
-    let n_l2_to_l1_messages = message_cost_info.l2_to_l1_payload_lengths.len();
-    let n_l1_to_l2_messages = usize::from(l1_handler_payload_size.is_some());
-
-    GasVector::from_l1_gas(
-        // Starknet's updateState gets the message segment as an argument.
-        u128_from_usize(
-            message_cost_info.message_segment_length * eth_gas_constants::GAS_PER_MEMORY_WORD
-            // Starknet's updateState increases a (storage) counter for each L2-to-L1 message.
-            + n_l2_to_l1_messages * eth_gas_constants::GAS_PER_ZERO_TO_NONZERO_STORAGE_SET
-            // Starknet's updateState decreases a (storage) counter for each L1-to-L2 consumed
-            // message (note that we will probably get a refund of 15,000 gas for each consumed
-            // message but we ignore it since refunded gas cannot be used for the current
-            // transaction execution).
-            + n_l1_to_l2_messages * eth_gas_constants::GAS_PER_COUNTER_DECREASE,
-        ),
-    ) + get_consumed_message_to_l2_emissions_cost(l1_handler_payload_size)
-        + get_log_message_to_l1_emissions_cost(&message_cost_info.l2_to_l1_payload_lengths)
-}
 
 /// Returns the number of felts added to the output data availability segment as a result of adding
 /// a transaction to a batch. Note that constant cells - such as the one that holds the number of
