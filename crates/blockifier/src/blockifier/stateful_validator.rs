@@ -104,26 +104,22 @@ impl<S: StateReader> StatefulValidator<S> {
         Ok(())
     }
 
-    // TODO(Arni, 30/04/2024): Use the create method to implement create_for_testing.
     #[cfg(any(feature = "testing", test))]
     pub fn create_for_testing(
         state_reader: S,
         block_info: BlockInfo,
         chain_info: ChainInfo,
     ) -> Self {
-        use crate::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
-
-        let global_contract_cache = GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST);
-        let state = CachedState::new(state_reader, global_contract_cache);
-
-        let block_context = BlockContext::new_unchecked(
-            &block_info,
-            &chain_info,
-            VersionedConstants::latest_constants(),
-        );
-        let tx_executor = TransactionExecutor::new(state, block_context);
-
-        Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor }
+        let versioned_constants = VersionedConstants::latest_constants();
+        Self::create(
+            state_reader,
+            block_info,
+            chain_info,
+            versioned_constants.validate_max_n_steps,
+            versioned_constants.max_recursion_depth,
+            crate::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST,
+            Nonce(StarkFelt::ONE),
+        )
     }
 
     fn execute(
