@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
+// Compatible with OpenZeppelin Contracts for Cairo ^0.10.0
 
 #[starknet::contract]
-mod OZ_ERC20 {
+mod Native {
     use openzeppelin::token::erc20::ERC20Component;
     use openzeppelin::token::erc20::interface;
     use openzeppelin::security::pausable::PausableComponent;
@@ -58,13 +59,13 @@ mod OZ_ERC20 {
 
     #[constructor]
     fn constructor(ref self: ContractState, recipient: ContractAddress, owner: ContractAddress) {
-        self.erc20.initializer('Native', 'MTK');
+        self.erc20.initializer("Native", "MTK");
         self.ownable.initializer(owner);
 
         self.erc20._mint(recipient, 10000000000000000000000);
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl ERC20Impl of interface::IERC20<ContractState> {
         fn total_supply(self: @ContractState) -> u256 {
             self.erc20.total_supply()
@@ -99,7 +100,7 @@ mod OZ_ERC20 {
         }
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl ERC20CamelOnlyImpl of interface::IERC20CamelOnly<ContractState> {
         fn totalSupply(self: @ContractState) -> u256 {
             self.total_supply()
@@ -120,51 +121,29 @@ mod OZ_ERC20 {
         }
     }
 
-    #[external(v0)]
-    impl SafeAllowanceImpl of interface::ISafeAllowance<ContractState> {
-        fn increase_allowance(ref self: ContractState, spender: ContractAddress, added_value: u256) -> bool {
-            self.pausable.assert_not_paused();
-            self.erc20.increase_allowance(spender, added_value)
-        }
-
-        fn decrease_allowance(ref self: ContractState, spender: ContractAddress, subtracted_value: u256) -> bool {
-            self.pausable.assert_not_paused();
-            self.erc20.decrease_allowance(spender, subtracted_value)
-        }
-    }
-
-    #[external(v0)]
-    impl SafeAllowanceCamelImpl of interface::ISafeAllowanceCamel<ContractState> {
-        fn increaseAllowance(ref self: ContractState, spender: ContractAddress, addedValue: u256) -> bool {
-            self.pausable.assert_not_paused();
-            self.increase_allowance(spender, addedValue)
-        }
-
-        fn decreaseAllowance(ref self: ContractState, spender: ContractAddress, subtractedValue: u256) -> bool {
-            self.pausable.assert_not_paused();
-            self.decrease_allowance(spender, subtractedValue)
-        }
-    }
-
     #[generate_trait]
-    #[external(v0)]
+    #[abi(per_item)]
     impl ExternalImpl of ExternalTrait {
+        #[external(v0)]
         fn pause(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.pausable._pause();
         }
 
+        #[external(v0)]
         fn unpause(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.pausable._unpause();
         }
 
+        #[external(v0)]
         fn burn(ref self: ContractState, value: u256) {
             self.pausable.assert_not_paused();
             let caller = get_caller_address();
             self.erc20._burn(caller, value);
         }
 
+        #[external(v0)]
         fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
             self.ownable.assert_only_owner();
             self.pausable.assert_not_paused();
@@ -172,7 +151,7 @@ mod OZ_ERC20 {
         }
     }
 
-    #[external(v0)]
+    #[abi(embed_v0)]
     impl UpgradeableImpl of IUpgradeable<ContractState> {
         fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
             self.ownable.assert_only_owner();

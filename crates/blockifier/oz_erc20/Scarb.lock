@@ -3,8 +3,8 @@ version = 1
 
 [[package]]
 name = "openzeppelin"
-version = "0.8.1"
-source = "git+https://github.com/NethermindEth/oz-cairo-contracts?branch=Dom%2Fevents#d0a1b4c5883eba97c7d47429a64f1bf013f5ce02"
+version = "0.10.0"
+source = "git+https://github.com/OpenZeppelin/cairo-contracts?branch=release-v0.10.0#671ee9c2aa567b52f684765a54ff1f243bad3ef4"
 
 [[package]]
 name = "oz_erc20"

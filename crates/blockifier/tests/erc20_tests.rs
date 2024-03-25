@@ -136,12 +136,14 @@ mod transfer_tests {
             vec![Felt::from(0u128), Felt::from(0u128)]
         );
 
-        assert_eq!(
-            context.call_entry_point(
-                "transfer",
-                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
-            ),
-            vec![Felt::from_hex(U256_SUB_OVERFLOW).unwrap()]
+        assert!(
+            context
+                .call_entry_point_raw(
+                    "transfer",
+                    vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                )
+                .unwrap_err()
+                .contains("u256_sub Overflow")
         );
 
         assert_eq!(
@@ -233,75 +235,6 @@ mod allowance_tests {
         assert_eq!(
             context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
             vec![starkfelt_to_felt(balance_to_transfer), Felt::from(0u128)]
-        );
-    }
-
-    #[test]
-    fn test_increase_allowance() {
-        let address_from = Signers::Alice;
-        let address_to = Signers::Bob;
-
-        let balance_to_transfer = felt_to_starkfelt(Felt::from(BALANCE_TO_TRANSFER));
-
-        let mut context = TestContext::new().with_caller(address_from.into());
-
-        assert_eq!(
-            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
-            vec![Felt::from(0u128), Felt::from(0u128)]
-        );
-
-        assert_eq!(
-            context.call_entry_point(
-                "increase_allowance",
-                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
-            ),
-            vec![Felt::from(true)]
-        );
-
-        assert_eq!(
-            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
-            vec![starkfelt_to_felt(balance_to_transfer), Felt::from(0u128)]
-        );
-    }
-
-    #[test]
-    fn test_decrease_allowance() {
-        let address_from = Signers::Alice;
-        let address_to = Signers::Bob;
-
-        let balance_to_transfer = felt_to_starkfelt(Felt::from(BALANCE_TO_TRANSFER));
-
-        let mut context = TestContext::new().with_caller(address_from.into());
-
-        assert_eq!(
-            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
-            vec![Felt::from(0u128), Felt::from(0u128)]
-        );
-
-        assert_eq!(
-            context.call_entry_point(
-                "approve",
-                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
-            ),
-            vec![Felt::from(true)]
-        );
-
-        assert_eq!(
-            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
-            vec![starkfelt_to_felt(balance_to_transfer), Felt::from(0u128)]
-        );
-
-        assert_eq!(
-            context.call_entry_point(
-                "decrease_allowance",
-                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
-            ),
-            vec![Felt::from(true)]
-        );
-
-        assert_eq!(
-            context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
-            vec![Felt::from(0u128), Felt::from(0u128)]
         );
     }
 
@@ -433,17 +366,19 @@ mod transfer_from_tests {
 
         let mut context = context.with_caller(address_spender.into());
 
-        assert_eq!(
-            context.call_entry_point(
-                "transfer_from",
-                vec![
-                    address_from.into(),
-                    address_to.into(),
-                    felt_to_starkfelt(Felt::from(BALANCE_TO_TRANSFER + 1)),
-                    StarkFelt::from(0u128)
-                ],
-            ),
-            vec![Felt::from_hex(U256_SUB_OVERFLOW).unwrap()]
+        assert!(
+            context
+                .call_entry_point_raw(
+                    "transfer_from",
+                    vec![
+                        address_from.into(),
+                        address_to.into(),
+                        felt_to_starkfelt(Felt::from(BALANCE_TO_TRANSFER + 1)),
+                        StarkFelt::from(0u128)
+                    ],
+                )
+                .unwrap_err()
+                .contains("u256_sub Overflow")
         );
 
         assert_eq!(
@@ -488,17 +423,19 @@ mod transfer_from_tests {
 
         let mut context = context.with_caller(address_spender.into());
 
-        assert_eq!(
-            context.call_entry_point(
-                "transfer_from",
-                vec![
-                    address_from.into(),
-                    address_to.into(),
-                    balance_to_transfer,
-                    StarkFelt::from(0u128)
-                ],
-            ),
-            vec![Felt::from_hex(U256_SUB_OVERFLOW).unwrap()]
+        assert!(
+            context
+                .call_entry_point_raw(
+                    "transfer_from",
+                    vec![
+                        address_from.into(),
+                        address_to.into(),
+                        balance_to_transfer,
+                        StarkFelt::from(0u128)
+                    ],
+                )
+                .unwrap_err()
+                .contains("u256_sub Overflow")
         );
 
         assert_eq!(
@@ -585,7 +522,10 @@ mod metadata_tests {
         let mut context = TestContext::new();
         let result = context.call_entry_point("name", vec![]);
 
-        assert_eq!(result, vec![Felt::from_bytes_be_slice(NAME.as_bytes())]);
+        assert_eq!(
+            result,
+            vec![Felt::from(0), Felt::from_bytes_be_slice(NAME.as_bytes()), Felt::from(NAME.len())]
+        );
     }
 
     #[test]
@@ -593,7 +533,14 @@ mod metadata_tests {
         let mut context = TestContext::new();
         let result = context.call_entry_point("symbol", vec![]);
 
-        assert_eq!(result, vec![Felt::from_bytes_be_slice(SYMBOL.as_bytes())]);
+        assert_eq!(
+            result,
+            vec![
+                Felt::from(0),
+                Felt::from_bytes_be_slice(SYMBOL.as_bytes()),
+                Felt::from(SYMBOL.len())
+            ]
+        );
     }
 
     #[test]
@@ -655,16 +602,18 @@ pub mod mintable_tests {
             vec![Felt::from(0u128), Felt::from(0u128)]
         );
 
-        assert_eq!(
-            context.call_entry_point(
-                "mint",
-                vec![
-                    address_to_mint_to.into(),
-                    StarkFelt::from(BALANCE_TO_TRANSFER),
-                    StarkFelt::from(0u128)
-                ]
-            ),
-            vec![Felt::from_hex(CALLER_IS_NOT_THE_OWNER).unwrap()]
+        assert!(
+            context
+                .call_entry_point_raw(
+                    "mint",
+                    vec![
+                        address_to_mint_to.into(),
+                        StarkFelt::from(BALANCE_TO_TRANSFER),
+                        StarkFelt::from(0u128)
+                    ]
+                )
+                .unwrap_err()
+                .contains("Caller is not the owner"),
         );
 
         assert_eq!(
@@ -750,12 +699,14 @@ pub mod burnable_tests {
     fn test_cannot_burn_insufficient_amount() {
         let mut context = TestContext::new();
 
-        assert_eq!(
-            context.call_entry_point(
-                "burn",
-                vec![StarkFelt::from(TOTAL_SUPPLY + 1), StarkFelt::from(0u128)]
-            ),
-            vec![Felt::from_hex(U256_SUB_OVERFLOW).unwrap()]
+        assert!(
+            context
+                .call_entry_point_raw(
+                    "burn",
+                    vec![StarkFelt::from(TOTAL_SUPPLY + 1), StarkFelt::from(0u128)]
+                )
+                .unwrap_err()
+                .contains("u256_sub Overflow")
         );
 
         assert_eq!(
@@ -820,9 +771,11 @@ pub mod ownable_tests {
 
         assert_eq!(context.call_entry_point("owner", vec![]), vec![current_owner.into()]);
 
-        assert_eq!(
-            context.call_entry_point("transfer_ownership", vec![new_owner.into()]),
-            vec![Felt::from_hex(CALLER_IS_NOT_THE_OWNER).unwrap()]
+        assert!(
+            context
+                .call_entry_point_raw("transfer_ownership", vec![new_owner.into()])
+                .unwrap_err()
+                .contains("Caller is not the owner"),
         );
 
         assert_eq!(context.call_entry_point("owner", vec![]), vec![current_owner.into()]);
@@ -839,7 +792,7 @@ pub mod ownable_tests {
 
         let event = context.get_event(0).unwrap();
 
-        let event = (event.data[0], event.data[1]);
+        let event = (event.keys[1], event.keys[2]);
 
         assert_eq!(event, (current_owner.into(), new_owner.into()));
     }

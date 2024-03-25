@@ -111,7 +111,7 @@ pub const TEST_FAULTY_ACCOUNT_CONTRACT_CAIRO0_PATH: &str =
 pub const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 pub const ERC20_FULL_CONTRACT_PATH: &str =
-    "./oz_erc20/target/dev/oz_erc20_OZ_ERC20.contract_class.json";
+    "./oz_erc20/target/dev/oz_erc20_Native.contract_class.json";
 
 #[derive(Clone, Copy, Debug)]
 pub enum CairoVersion {
@@ -580,7 +580,7 @@ impl TestContext {
         entry_point_name: &str,
         calldata: Vec<StarkFelt>,
     ) -> Vec<Felt> {
-        let result = self.call_entry_point_raw(entry_point_name, calldata);
+        let result = self.call_entry_point_raw(entry_point_name, calldata).unwrap();
         result.execution.retdata.0.iter().map(|felt| starkfelt_to_felt(*felt)).collect()
     }
 
@@ -588,7 +588,7 @@ impl TestContext {
         &mut self,
         entry_point_name: &str,
         calldata: Vec<StarkFelt>,
-    ) -> CallInfo {
+    ) -> Result<CallInfo, String> {
         let entry_point_selector = selector_from_name(entry_point_name);
         let calldata = Calldata(Arc::new(calldata));
 
@@ -601,13 +601,14 @@ impl TestContext {
             ..erc20_external_entry_point()
         };
 
-        let result = entry_point_call.execute_directly(&mut self.state).unwrap();
+        let result =
+            entry_point_call.execute_directly(&mut self.state).map_err(|e| e.to_string())?;
 
         let events = result.execution.events.clone();
 
         self.events.extend(events.iter().map(|e| e.clone().into()));
 
-        result
+        Ok(result)
     }
 
     pub fn get_event(&self, index: usize) -> Option<TestEvent> {
