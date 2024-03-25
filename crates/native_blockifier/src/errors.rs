@@ -72,27 +72,9 @@ native_blockifier_errors!(
     (StorageError, papyrus_storage::StorageError, PyStorageError),
     (TransactionExecutionError, TransactionExecutionError, PyTransactionExecutionError),
     (TransactionExecutorError, TransactionExecutorError, PyTransactionExecutorError),
-    (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError)
+    (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError),
+    (StatefulValidatorError, StatefulValidatorError, PyStatefulValidatorError)
 );
-
-// TODO(Arni, 21/3/2024): Add ValidatorError to the enum NativeBlockifierError and remove this
-// implementation.
-impl From<StatefulValidatorError> for NativeBlockifierError {
-    fn from(error: StatefulValidatorError) -> Self {
-        match error {
-            StatefulValidatorError::StateError(error) => NativeBlockifierError::StateError(error),
-            StatefulValidatorError::TransactionExecutorError(error) => {
-                NativeBlockifierError::TransactionExecutorError(error)
-            }
-            StatefulValidatorError::TransactionExecutionError(error) => {
-                NativeBlockifierError::TransactionExecutionError(error)
-            }
-            StatefulValidatorError::TransactionPreValidationError(error) => {
-                NativeBlockifierError::TransactionPreValidationError(error)
-            }
-        }
-    }
-}
 
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
