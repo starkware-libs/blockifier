@@ -167,7 +167,7 @@ pub fn call_contract(
             syscall_name: "call_contract".to_string(),
             execution_mode: syscall_handler.execution_mode(),
         };
-        return Err(error.as_call_contract_execution_error(class_hash, storage_address, selector));
+        return Err(error);
     }
     let entry_point = CallEntryPoint {
         class_hash: None,
