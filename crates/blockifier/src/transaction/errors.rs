@@ -89,9 +89,10 @@ pub enum TransactionExecutionError {
     TransactionPreValidationError(#[from] TransactionPreValidationError),
     #[error(transparent)]
     TryFromIntError(#[from] std::num::TryFromIntError),
-    #[error("Transaction validation has failed: {error}")]
+    #[error("Transaction validation has failed:\n{}", gen_transaction_execution_error_trace(self))]
     ValidateTransactionError {
         error: EntryPointExecutionError,
+        class_hash: ClassHash,
         storage_address: ContractAddress,
         selector: EntryPointSelector,
     },
