@@ -111,33 +111,6 @@ impl PyValidator {
 
         Ok(())
     }
-
-    #[cfg(any(feature = "testing", test))]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info))]
-    #[staticmethod]
-    fn create_for_testing(
-        general_config: PyGeneralConfig,
-        state_reader_proxy: &PyAny,
-        next_block_info: PyBlockInfo,
-    ) -> NativeBlockifierResult<Self> {
-        use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
-        use blockifier::versioned_constants::VersionedConstants;
-
-        let state_reader = PyStateReader::new(state_reader_proxy);
-        let global_contract_cache = GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST);
-        let state = CachedState::new(state_reader, global_contract_cache);
-
-        let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
-        let block_context = BlockContext::new_unchecked(
-            &block_info,
-            &chain_info,
-            VersionedConstants::latest_constants(),
-        );
-        // TODO(Yael 24/01/24): calc block_context using pre_process_block
-        let tx_executor = TransactionExecutor::new(state, block_context);
-
-        Ok(Self { max_nonce_for_validation_skip: Nonce(StarkFelt::ONE), tx_executor })
-    }
 }
 
 impl PyValidator {
