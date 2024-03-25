@@ -669,6 +669,7 @@ impl ValidatableTransaction for AccountTransaction {
         }
 
         let storage_address = tx_info.sender_address();
+        let class_hash = state.get_class_hash_at(storage_address)?;
         let validate_selector = self.validate_entry_point_selector();
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
@@ -686,13 +687,13 @@ impl ValidatableTransaction for AccountTransaction {
             validate_call.execute(state, resources, &mut context).map_err(|error| {
                 TransactionExecutionError::ValidateTransactionError {
                     error,
+                    class_hash,
                     storage_address,
                     selector: validate_selector,
                 }
             })?;
 
         // Validate return data.
-        let class_hash = state.get_class_hash_at(storage_address)?;
         let contract_class = state.get_compiled_contract_class(class_hash)?;
         if let ContractClass::V1(_) = contract_class {
             // The account contract class is a Cairo 1.0 contract; the `validate` entry point should

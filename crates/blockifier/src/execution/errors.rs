@@ -125,9 +125,14 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             class_hash,
             storage_address,
             selector,
+        }
+        | TransactionExecutionError::ValidateTransactionError {
+            error,
+            class_hash,
+            storage_address,
+            selector,
         } => {
-            // TODO(zuphit): activate the match on these types once all selectors are available.
-            // | TransactionExecutionError::ValidateTransactionError { error, storage_address, .. }
+            // TODO(zuphit): activate the match on this type once all selectors are available.
             // | TransactionExecutionError::ContractConstructorExecutionFailed {
             //     error,
             //     storage_address,
