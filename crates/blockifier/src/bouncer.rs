@@ -157,9 +157,11 @@ impl TransactionalBouncer {
     pub fn get_tx_weights<S: StateReader>(
         &mut self,
         state: &mut TransactionalState<'_, S>,
-        tx_execution_summary: &ExecutionSummary,
-        transaction_resources: &TransactionResources,
+        tx_resources: &TransactionResources,
     ) -> TransactionExecutorResult<BouncerWeights> {
+        let (message_segment_length, gas_usage) =
+            tx_resources.starknet_resources.calculate_message_l1_resources();
+
         let mut additional_os_resources = get_casm_hash_calculation_resources(
             state,
             &self.bouncer.executed_class_hashes,
@@ -170,35 +172,18 @@ impl TransactionalBouncer {
             &self.transactional.visited_storage_entries,
         )?;
 
-        let execution_info_weights = Self::get_tx_execution_info_resources_weights(
-            tx_execution_summary,
-            transaction_resources,
-        )?;
+        let vm_resources = &additional_os_resources + &tx_resources.vm_resources;
 
-        let mut tx_weights = BouncerWeights::from(additional_os_resources) + execution_info_weights;
-        tx_weights.state_diff_size =
-            get_onchain_data_segment_length(&self.transactional.state_changes_keys.count());
-        Ok(tx_weights)
-    }
-
-    pub fn get_tx_execution_info_resources_weights(
-        tx_execution_summary: &ExecutionSummary,
-        transaction_resources: &TransactionResources,
-    ) -> TransactionExecutorResult<BouncerWeights> {
-        let (message_segment_length, gas_usage) =
-            transaction_resources.starknet_resources.calculate_message_l1_resources();
-        let vm_resources = &transaction_resources.vm_resources;
-
-        let weights = BouncerWeights {
+        Ok(BouncerWeights {
             gas: gas_usage,
             message_segment_length,
-            n_events: tx_execution_summary.n_events,
+            n_events: tx_resources.starknet_resources.n_events,
             n_steps: vm_resources.n_steps + vm_resources.n_memory_holes,
             builtin_count: BuiltinCount::from(vm_resources.builtin_instance_counter.clone()),
-            state_diff_size: 0,
-        };
-
-        Ok(weights)
+            state_diff_size: get_onchain_data_segment_length(
+                &self.transactional.state_changes_keys.count(),
+            ),
+        })
     }
 
     pub fn update_auxiliary_info<S: StateReader>(
