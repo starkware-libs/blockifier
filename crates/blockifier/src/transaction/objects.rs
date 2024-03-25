@@ -261,7 +261,7 @@ impl ResourcesMapping {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct StarknetResources {
     pub calldata_length: usize,
-    pub state_changes_count: StateChangesCount,
+    pub state_changes_for_fee: StateChangesCount,
     pub message_cost_info: MessageL1CostInfo,
     pub l1_handler_payload_size: Option<usize>,
     pub n_events: usize,
@@ -284,7 +284,7 @@ impl StarknetResources {
             calldata_length,
             signature_length,
             code_size,
-            state_changes_count,
+            state_changes_for_fee: state_changes_count,
             l1_handler_payload_size,
             ..Default::default()
         };
@@ -412,7 +412,7 @@ impl StarknetResources {
     /// Returns the gas cost of the transaction's state changes.
     pub fn get_state_changes_cost(&self, use_kzg_da: bool) -> GasVector {
         // TODO(Nimrod, 29/3/2024): delete `get_da_gas_cost` and move it's logic here.
-        get_da_gas_cost(&self.state_changes_count, use_kzg_da)
+        get_da_gas_cost(&self.state_changes_for_fee, use_kzg_da)
     }
 
     /// Returns the gas cost of the transaction's emmited events.
@@ -428,7 +428,7 @@ impl StarknetResources {
     }
 
     pub fn get_onchain_data_segment_length(&self) -> usize {
-        get_onchain_data_segment_length(&self.state_changes_count)
+        get_onchain_data_segment_length(&self.state_changes_for_fee)
     }
 }
 
