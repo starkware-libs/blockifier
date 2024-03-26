@@ -54,12 +54,11 @@ impl<S: StateReader> VersionedState<S> {
         if version == 0 {
             return true;
         }
-        let prev_version = version - 1;
         for (&(contract_address, storage_key), expected_value) in
             &state_cache.storage_initial_values
         {
             let value =
-                self.storage.read(prev_version, (contract_address, storage_key)).expect(READ_ERR);
+                self.storage.read(version, (contract_address, storage_key)).expect(READ_ERR);
 
             if &value != expected_value {
                 return false;
@@ -67,7 +66,7 @@ impl<S: StateReader> VersionedState<S> {
         }
 
         for (&contract_address, expected_value) in &state_cache.nonce_initial_values {
-            let value = self.nonces.read(prev_version, contract_address).expect(READ_ERR);
+            let value = self.nonces.read(version, contract_address).expect(READ_ERR);
 
             if &value != expected_value {
                 return false;
@@ -75,7 +74,7 @@ impl<S: StateReader> VersionedState<S> {
         }
 
         for (&contract_address, expected_value) in &state_cache.class_hash_initial_values {
-            let value = self.class_hashes.read(prev_version, contract_address).expect(READ_ERR);
+            let value = self.class_hashes.read(version, contract_address).expect(READ_ERR);
 
             if &value != expected_value {
                 return false;
@@ -84,7 +83,7 @@ impl<S: StateReader> VersionedState<S> {
 
         // Added for symmetry. We currently do not update this initial mapping.
         for (&class_hash, expected_value) in &state_cache.compiled_class_hash_initial_values {
-            let value = self.compiled_class_hashes.read(prev_version, class_hash).expect(READ_ERR);
+            let value = self.compiled_class_hashes.read(version, class_hash).expect(READ_ERR);
 
             if &value != expected_value {
                 return false;
@@ -141,6 +140,7 @@ impl<S: StateReader> VersionedStateProxy<S> {
     }
 }
 
+// TODO: Remove.
 impl<S: StateReader> State for VersionedStateProxy<S> {
     fn set_storage_at(
         &mut self,
