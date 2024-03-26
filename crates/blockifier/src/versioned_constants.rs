@@ -443,7 +443,7 @@ pub struct GasCosts {
 #[serde(try_from = "OsConstantsRawJson")]
 pub struct OsConstants {
     pub gas_costs: GasCosts,
-    validate_rounding_consts: ValidateRoundingConsts,
+    pub validate_rounding_consts: ValidateRoundingConsts,
 }
 
 impl OsConstants {
@@ -662,7 +662,7 @@ impl TryFrom<ResourceParamsRaw> for ResourcesParams {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct ValidateRoundingConsts {
+pub struct ValidateRoundingConsts {
     // Flooring factor for block number in validate mode.
     pub validate_block_number_rounding: u64,
     // Flooring factor for timestamp in validate mode.
