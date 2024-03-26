@@ -465,7 +465,7 @@ fn test_invoke_tx(
         &starknet_resources,
         vec![&expected_validate_call_info, &expected_execute_call_info],
     );
-    let state_changes_count = starknet_resources.state_changes_count;
+    let state_changes_count = starknet_resources.state_changes_for_fee;
     let expected_actual_resources = TransactionResources {
         starknet_resources,
         vm_resources: expected_cairo_resources,
@@ -1157,7 +1157,7 @@ fn test_declare_tx(
         &starknet_resources,
         vec![&expected_validate_call_info],
     );
-    let state_changes_count = starknet_resources.state_changes_count;
+    let state_changes_count = starknet_resources.state_changes_for_fee;
     let expected_actual_resources = TransactionResources {
         starknet_resources,
         vm_resources: expected_cairo_resources,
