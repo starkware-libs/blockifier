@@ -52,7 +52,7 @@ pub struct VersionedConstants {
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
-    os_constants: Arc<OSConstants>,
+    pub os_constants: Arc<OSConstants>,
 
     // Resources.
     os_resources: Arc<OsResources>,
@@ -418,20 +418,57 @@ impl<'de> Deserialize<'de> for OsResources {
 // conversion into actual values.
 // Assumption: if the json has a value that contains the expression "FOO * 2", then the key `FOO`
 // must appear before this value in the JSON.
-// FIXME: JSON doesn't guarantee order, serde seems to work for this use-case, buit there is no
-// guarantee that it will stay that way. Seriously consider switching to serde_yaml/other format.
-// FIXME FOLLOWUP: if we switch from JSON, we can switch to strongly typed fields, instead of an
-// internal indexmap: using strongly typed fields breaks the order under serialization, making
-// testing very difficult.
 // TODO: consider encoding the * and + operations inside the json file, instead of hardcoded below
 // in the `try_from`.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 #[serde(try_from = "OsConstantsRawJson")]
 pub struct OSConstants {
+    pub gas_costs_struct: GasCosts,
     validate_rounding_consts: ValidateRoundingConsts,
 
     // Invariant: fixed keys.
     gas_costs: IndexMap<String, u64>,
+}
+
+/// Gas cost constants. For more documentation see in core/os/constants.cairo.
+#[derive(Debug, Default, Deserialize)]
+pub struct GasCosts {
+    pub step_gas_cost: u64,
+    pub range_check_gas_cost: u64,
+    pub memory_hole_gas_cost: u64,
+    // An estimation of the initial gas for a transaction to run with. This solution is
+    // temporary and this value will be deduced from the transaction's fields.
+    pub initial_gas_cost: u64,
+    // Compiler gas costs.
+    pub entry_point_initial_budget: u64,
+    pub syscall_base_gas_cost: u64,
+    // OS gas costs.
+    pub entry_point_gas_cost: u64,
+    pub fee_transfer_gas_cost: u64,
+    pub transaction_gas_cost: u64,
+    // Syscall gas costs.
+    pub call_contract_gas_cost: u64,
+    pub deploy_gas_cost: u64,
+    pub get_block_hash_gas_cost: u64,
+    pub get_execution_info_gas_cost: u64,
+    pub library_call_gas_cost: u64,
+    pub replace_class_gas_cost: u64,
+    pub storage_read_gas_cost: u64,
+    pub storage_write_gas_cost: u64,
+    pub emit_event_gas_cost: u64,
+    pub send_message_to_l1_gas_cost: u64,
+    pub secp256k1_add_gas_cost: u64,
+    pub secp256k1_get_point_from_x_gas_cost: u64,
+    pub secp256k1_get_xy_gas_cost: u64,
+    pub secp256k1_mul_gas_cost: u64,
+    pub secp256k1_new_gas_cost: u64,
+    pub secp256r1_add_gas_cost: u64,
+    pub secp256r1_get_point_from_x_gas_cost: u64,
+    pub secp256r1_get_xy_gas_cost: u64,
+    pub secp256r1_mul_gas_cost: u64,
+    pub secp256r1_new_gas_cost: u64,
+    pub keccak_gas_cost: u64,
+    pub keccak_round_cost_gas_cost: u64,
 }
 
 impl OSConstants {
@@ -498,9 +535,12 @@ impl TryFrom<OsConstantsRawJson> for OSConstants {
     type Error = OsConstantsSerdeError;
 
     fn try_from(raw_json_data: OsConstantsRawJson) -> Result<Self, Self::Error> {
-        let gas_costs = raw_json_data.get_gas_costs()?;
+        // TODO(Ori, 15/03/2024): Move these two lines to an implementation of TryFrom for GasCosts.
+        let gas_costs = raw_json_data.parse_gas_costs()?;
+        let gas_costs_struct: GasCosts =
+            serde_json::to_value(&gas_costs).and_then(serde_json::from_value)?;
         let validate_rounding_consts = raw_json_data.validate_rounding_consts;
-        let os_constants = OSConstants { gas_costs, validate_rounding_consts };
+        let os_constants = OSConstants { gas_costs, gas_costs_struct, validate_rounding_consts };
 
         // Skip validation in testing: to test validation run validate manually.
         #[cfg(not(test))]
@@ -521,7 +561,7 @@ struct OsConstantsRawJson {
 }
 
 impl OsConstantsRawJson {
-    fn get_gas_costs(&self) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
+    fn parse_gas_costs(&self) -> Result<IndexMap<String, u64>, OsConstantsSerdeError> {
         let mut gas_costs = IndexMap::new();
         let gas_cost_whitelist: IndexSet<_> =
             OSConstants::ALLOWED_GAS_COST_NAMES.iter().copied().collect();
@@ -621,6 +661,10 @@ pub enum OsConstantsSerdeError {
          into u64"
     )]
     OutOfRangeFactor { key: String, value: Value },
+    #[error(
+        "Failed to convert OSConstantsRawJson to serde_json::Value and then to GasCosts : {0}"
+    )]
+    ParseError(#[from] serde_json::Error),
     #[error("Unhandled value type: {0}")]
     UnhandledValueType(Value),
     #[error("Validation failed: {0}")]
