@@ -5,7 +5,7 @@ use super::*;
 // TODO: Test Starknet OS validation.
 
 #[test]
-fn test_successful_parsing() {
+fn test_successful_gas_constants_parsing() {
     let json_data = r#"
     {
         "step_gas_cost": 2,
@@ -21,7 +21,8 @@ fn test_successful_parsing() {
         "ignore the gas string": "GAS!",
         "I look like a gas cost but my name is all wrong": 0
     }"#;
-    let os_constants: Arc<OSConstants> = serde_json::from_str(json_data).unwrap();
+    let os_constants: Arc<OSConstants> =
+        Arc::new(OSConstants::create_for_testing_from_subset(json_data));
     let versioned_constants = VersionedConstants { os_constants, ..Default::default() };
 
     assert_eq!(versioned_constants.gas_cost("step_gas_cost"), 2);
@@ -30,8 +31,10 @@ fn test_successful_parsing() {
     // entry_point_intial_budget * 4 + step_gas_cost * 5.
     assert_eq!(versioned_constants.gas_cost("entry_point_gas_cost"), 6 * 4 + 2 * 5);
 
-    // Only the 3 values asserted against should be present, the rest are ignored.
-    assert_eq!(versioned_constants.os_constants.gas_costs.len(), 3);
+    assert_eq!(
+        versioned_constants.os_constants.gas_costs.len(),
+        OSConstants::ALLOWED_GAS_COST_NAMES.len()
+    );
 }
 
 #[test]

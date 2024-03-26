@@ -375,3 +375,12 @@ pub fn create_trivial_calldata(test_contract_address: ContractAddress) -> Callda
 pub fn u64_from_usize(val: usize) -> u64 {
     val.try_into().unwrap()
 }
+
+pub fn update_json_value(base: &mut serde_json::Value, update: serde_json::Value) {
+    match (base, update) {
+        (serde_json::Value::Object(base_map), serde_json::Value::Object(update_map)) => {
+            base_map.extend(update_map);
+        }
+        _ => panic!("Both base and update should be of type serde_json::Value::Object."),
+    }
+}
