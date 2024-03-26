@@ -37,8 +37,7 @@ fn test_successful_gas_constants_parsing() {
     );
 }
 
-#[test]
-fn test_default_values() {
+fn get_json_value_without_dafaults() -> serde_json::Value {
     let json_data = r#"
     {
         "invoke_tx_max_n_steps": 2,
@@ -75,7 +74,30 @@ fn test_default_values() {
         "vm_resource_fee_cost": {},
         "max_recursion_depth": 2
     }"#;
-    let versioned_constants: VersionedConstants = serde_json::from_str(json_data).unwrap();
+    // Fill the os constants with the gas cost values (do not have a default value).
+    let mut os_constants: Value = serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON)
+        .unwrap()
+        .get("os_constants")
+        .unwrap()
+        .clone();
+    // Remove defaults from OSConstants.
+    os_constants.as_object_mut().unwrap().remove("validate_rounding_consts");
+
+    let mut json_value_without_defualts: Value = serde_json::from_str(json_data).unwrap();
+    json_value_without_defualts
+        .as_object_mut()
+        .unwrap()
+        .insert("os_constants".to_string(), os_constants);
+
+    json_value_without_defualts
+}
+
+#[test]
+fn test_default_values() {
+    let json_value_without_defualts = get_json_value_without_dafaults();
+
+    let versioned_constants: VersionedConstants =
+        serde_json::from_value(json_value_without_defualts).unwrap();
 
     assert_eq!(versioned_constants.get_validate_block_number_rounding(), 1);
     assert_eq!(versioned_constants.get_validate_timestamp_rounding(), 1);
