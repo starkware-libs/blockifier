@@ -21,8 +21,8 @@ fn test_successful_gas_constants_parsing() {
         "validate_block_number_rounding": 111,
         "validate_timestamp_rounding": 222
     }"#;
-    let os_constants: Arc<OSConstants> =
-        Arc::new(OSConstants::create_for_testing_from_subset(json_data));
+    let os_constants: Arc<OsConstants> =
+        Arc::new(OsConstants::create_for_testing_from_subset(json_data));
     let versioned_constants = VersionedConstants { os_constants, ..Default::default() };
 
     assert_eq!(versioned_constants.os_constants.gas_costs.step_gas_cost, 2);
@@ -75,7 +75,7 @@ fn get_json_value_without_dafaults() -> serde_json::Value {
         .get("os_constants")
         .unwrap()
         .clone();
-    // Remove defaults from OSConstants.
+    // Remove defaults from OsConstants.
     os_constants.as_object_mut().unwrap().remove("validate_rounding_consts");
 
     let mut json_value_without_defualts: Value = serde_json::from_str(json_data).unwrap();
@@ -141,7 +141,7 @@ fn check_constants_serde_error(json_data: &str, expected_error_message: &str) {
 
     let json_data = &serde_json::to_string(&json_data_raw).unwrap();
 
-    let error = serde_json::from_str::<OSConstants>(json_data).unwrap_err();
+    let error = serde_json::from_str::<OsConstants>(json_data).unwrap_err();
     assert_eq!(error.to_string(), expected_error_message);
 }
 
