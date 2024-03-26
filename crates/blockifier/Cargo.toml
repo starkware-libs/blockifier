@@ -39,6 +39,7 @@ num-traits.workspace = true
 num-rational.workspace = true
 once_cell.workspace = true
 phf.workspace = true
+regex.workspace = true
 rstest = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
