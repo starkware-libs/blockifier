@@ -562,13 +562,13 @@ impl AccountTransaction {
 
 impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
     fn execute_raw(
-        self,
+        &self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        let tx_context = Arc::new(block_context.to_tx_context(&self));
+        let tx_context = Arc::new(block_context.to_tx_context(self));
         self.verify_tx_version(tx_context.tx_info.version())?;
 
         // Nonce and fee check should be done before running user code.

@@ -45,7 +45,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
     /// Executes the transaction in a transactional manner
     /// (if it fails, given state does not modify).
     fn execute(
-        self,
+        &self,
         state: &mut CachedState<S>,
         block_context: &BlockContext,
         charge_fee: bool,
@@ -75,7 +75,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
     /// changes, you should call `state.abort()`. Alternatively, consider using `execute`
     /// for automatic handling of such cases.
     fn execute_raw(
-        self,
+        &self,
         state: &mut TransactionalState<'_, S>,
         block_context: &BlockContext,
         charge_fee: bool,
