@@ -39,7 +39,9 @@ where
     V: Clone + Debug,
 {
     pub fn read(&self, version: Version, key: K) -> Option<V> {
-        let value = self.writes.get(&key).and_then(|cell| cell.range(..=version).next_back());
+        // Ignore the writes in the current transaction (may contain an `ESTIMATE` value). Reading
+        // the value written in this transaction should be handled by the state.
+        let value = self.writes.get(&key).and_then(|cell| cell.range(..version).next_back());
         value.map(|(_, value)| value).or_else(|| self.cached_initial_values.get(&key)).cloned()
     }
 
