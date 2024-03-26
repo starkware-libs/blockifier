@@ -6,7 +6,7 @@ use super::*;
 // TODO: Add an unallowed field scenario for GasCost parsing.
 
 #[test]
-fn test_successful_gas_constants_parsing() {
+fn test_successful_gas_costs_parsing() {
     let json_data = r#"
     {
         "step_gas_cost": 2,
@@ -17,12 +17,10 @@ fn test_successful_gas_constants_parsing() {
             "entry_point_initial_budget": 4,
             "step_gas_cost": 5
         },
-        "error_out_of_gas": "An additional field in GasCosts::ADDITIONAL_ALLOWED_NAMES, ignored.",
-        "validate_block_number_rounding": 111,
-        "validate_timestamp_rounding": 222
+        "error_out_of_gas": "An additional field in GasCosts::ADDITIONAL_ALLOWED_NAMES, ignored."
     }"#;
-    let os_constants: Arc<OsConstants> =
-        Arc::new(OsConstants::create_for_testing_from_subset(json_data));
+    let gas_costs = GasCosts::create_for_testing_from_subset(json_data);
+    let os_constants: Arc<OsConstants> = Arc::new(OsConstants { gas_costs, ..Default::default() });
     let versioned_constants = VersionedConstants { os_constants, ..Default::default() };
 
     assert_eq!(versioned_constants.os_constants.gas_costs.step_gas_cost, 2);
