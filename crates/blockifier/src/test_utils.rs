@@ -40,7 +40,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::execution_utils::{execute_deployment, felt_to_stark_felt}; /* TODO rename to felt252_to_stark_felt */
 use crate::execution::sierra_utils::{
-    contract_address_to_felt, felt_to_starkfelt, starkfelt_to_felt,
+    contract_address_to_felt, native_felt_to_stark_felt, stark_felt_to_native_felt,
 };
 use crate::execution::syscalls::hint_processor::{
     FAILED_TO_CALCULATE_CONTRACT_ADDRESS, FAILED_TO_EXECUTE_CALL,
@@ -444,13 +444,13 @@ pub fn deploy_contract(
 ) -> SyscallResult<(Felt, Vec<Felt>)> {
     let deployer_address = ContractAddress::default();
 
-    let class_hash = ClassHash(felt_to_starkfelt(class_hash));
+    let class_hash = ClassHash(native_felt_to_stark_felt(class_hash));
 
     let wrapper_calldata =
-        Calldata(Arc::new(calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect()));
+        Calldata(Arc::new(calldata.iter().map(|felt| native_felt_to_stark_felt(*felt)).collect()));
 
     let calculated_contract_address = calculate_contract_address(
-        ContractAddressSalt(felt_to_starkfelt(contract_address_salt)),
+        ContractAddressSalt(native_felt_to_stark_felt(contract_address_salt)),
         class_hash,
         &wrapper_calldata,
         deployer_address,
@@ -482,8 +482,9 @@ pub fn deploy_contract(
     )
     .map_err(|_| vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()])?;
 
-    let return_data = call_info.execution.retdata.0.into_iter().map(starkfelt_to_felt).collect();
-    let contract_address_felt = starkfelt_to_felt(*calculated_contract_address.0.key());
+    let return_data =
+        call_info.execution.retdata.0.into_iter().map(stark_felt_to_native_felt).collect();
+    let contract_address_felt = stark_felt_to_native_felt(*calculated_contract_address.0.key());
     Ok((contract_address_felt, return_data))
 }
 
@@ -503,8 +504,9 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
     )
     .unwrap();
 
-    let contract_address =
-        ContractAddress(PatriciaKey::try_from(felt_to_starkfelt(contract_address)).unwrap());
+    let contract_address = ContractAddress(
+        PatriciaKey::try_from(native_felt_to_stark_felt(contract_address)).unwrap(),
+    );
 
     (contract_address, state)
 }
@@ -540,7 +542,7 @@ impl From<Signers> for Felt {
 
 impl From<Signers> for StarkFelt {
     fn from(val: Signers) -> Self {
-        felt_to_starkfelt(contract_address_to_felt(val.get_address()))
+        native_felt_to_stark_felt(contract_address_to_felt(val.get_address()))
     }
 }
 
@@ -552,8 +554,8 @@ pub struct TestEvent {
 
 impl From<OrderedEvent> for TestEvent {
     fn from(value: OrderedEvent) -> Self {
-        let event_data = value.event.data.0.iter().map(|e| starkfelt_to_felt(*e)).collect();
-        let event_keys = value.event.keys.iter().map(|e| starkfelt_to_felt(e.0)).collect();
+        let event_data = value.event.data.0.iter().map(|e| stark_felt_to_native_felt(*e)).collect();
+        let event_keys = value.event.keys.iter().map(|e| stark_felt_to_native_felt(e.0)).collect();
         Self { data: event_data, keys: event_keys }
     }
 }
@@ -588,7 +590,7 @@ impl TestContext {
         calldata: Vec<StarkFelt>,
     ) -> Vec<Felt> {
         let result = self.call_entry_point_raw(entry_point_name, calldata).unwrap();
-        result.execution.retdata.0.iter().map(|felt| starkfelt_to_felt(*felt)).collect()
+        result.execution.retdata.0.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect()
     }
 
     pub fn call_entry_point_raw(

@@ -25,7 +25,7 @@ use starknet_types_core::felt::Felt;
 use super::execution_utils::max_fee_for_execution_info;
 use super::sierra_utils::{
     allocate_point, big4int_to_u256, calculate_resource_bounds, contract_address_to_felt,
-    encode_str_as_felts, felt_to_starkfelt, starkfelt_to_felt, u256_to_biguint,
+    encode_str_as_felts, native_felt_to_stark_felt, stark_felt_to_native_felt, u256_to_biguint,
 };
 use super::syscalls::exceeds_event_size_limit;
 use crate::abi::constants;
@@ -147,16 +147,16 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         // Get Transaction Info
         let tx_info = &self.execution_context.tx_context.tx_info;
         let mut native_tx_info = TxV2Info {
-            version: starkfelt_to_felt(tx_info.signed_version().0),
+            version: stark_felt_to_native_felt(tx_info.signed_version().0),
             account_contract_address: contract_address_to_felt(tx_info.sender_address()),
             max_fee: max_fee_for_execution_info(tx_info).to_u128().unwrap(),
-            signature: tx_info.signature().0.into_iter().map(starkfelt_to_felt).collect(),
-            transaction_hash: starkfelt_to_felt(tx_info.transaction_hash().0),
+            signature: tx_info.signature().0.into_iter().map(stark_felt_to_native_felt).collect(),
+            transaction_hash: stark_felt_to_native_felt(tx_info.transaction_hash().0),
             chain_id: Felt::from_hex(
                 &self.execution_context.tx_context.block_context.chain_info.chain_id.as_hex(),
             )
             .unwrap(),
-            nonce: starkfelt_to_felt(tx_info.nonce().0),
+            nonce: stark_felt_to_native_felt(tx_info.nonce().0),
             // This values are only required for TransactionInfo::Current
             // todo(rodrigo): it would be nice for TxV2Info to implement the Default trait
             resource_bounds: Vec::new(),
@@ -179,7 +179,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                     .paymaster_data
                     .0
                     .iter()
-                    .map(|f| starkfelt_to_felt(*f))
+                    .map(|f| stark_felt_to_native_felt(*f))
                     .collect(),
                 nonce_data_availability_mode: to_u32(context.nonce_data_availability_mode),
                 fee_data_availability_mode: to_u32(context.fee_data_availability_mode),
@@ -187,7 +187,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                     .account_deployment_data
                     .0
                     .iter()
-                    .map(|f| starkfelt_to_felt(*f))
+                    .map(|f| stark_felt_to_native_felt(*f))
                     .collect(),
                 ..native_tx_info
             };
@@ -195,7 +195,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
         let caller_address = contract_address_to_felt(self.caller_address);
         let contract_address = contract_address_to_felt(self.contract_address);
-        let entry_point_selector = starkfelt_to_felt(self.entry_point_selector);
+        let entry_point_selector = stark_felt_to_native_felt(self.entry_point_selector);
 
         Ok(ExecutionInfoV2 {
             block_info: native_block_info,
@@ -217,14 +217,17 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let deployer_address =
             if deploy_from_zero { ContractAddress::default() } else { self.contract_address };
 
-        let class_hash = ClassHash(felt_to_starkfelt(class_hash));
+        let class_hash = ClassHash(native_felt_to_stark_felt(class_hash));
 
         let wrapper_calldata = Calldata(Arc::new(
-            calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect::<Vec<StarkFelt>>(),
+            calldata
+                .iter()
+                .map(|felt| native_felt_to_stark_felt(*felt))
+                .collect::<Vec<StarkFelt>>(),
         ));
 
         let calculated_contract_address = calculate_contract_address(
-            ContractAddressSalt(felt_to_starkfelt(contract_address_salt)),
+            ContractAddressSalt(native_felt_to_stark_felt(contract_address_salt)),
             class_hash,
             &wrapper_calldata,
             deployer_address,
@@ -248,8 +251,10 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         )
         .map_err(|error| encode_str_as_felts(&error.to_string()))?;
 
-        let return_data =
-            call_info.execution.retdata.0[..].iter().map(|felt| starkfelt_to_felt(*felt)).collect();
+        let return_data = call_info.execution.retdata.0[..]
+            .iter()
+            .map(|felt| stark_felt_to_native_felt(*felt))
+            .collect();
 
         let contract_address_felt =
             Felt::from_bytes_be_slice(calculated_contract_address.0.key().bytes());
@@ -260,7 +265,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
     }
 
     fn replace_class(&mut self, class_hash: Felt, _remaining_gas: &mut u128) -> SyscallResult<()> {
-        let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
+        let class_hash = ClassHash(StarkHash::from(native_felt_to_stark_felt(class_hash)));
         let contract_class = self
             .state
             .get_compiled_contract_class(class_hash)
@@ -287,17 +292,20 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         calldata: &[Felt],
         remaining_gas: &mut u128,
     ) -> SyscallResult<Vec<Felt>> {
-        let class_hash = ClassHash(StarkHash::from(felt_to_starkfelt(class_hash)));
+        let class_hash = ClassHash(StarkHash::from(native_felt_to_stark_felt(class_hash)));
 
         let wrapper_calldata = Calldata(Arc::new(
-            calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect::<Vec<StarkFelt>>(),
+            calldata
+                .iter()
+                .map(|felt| native_felt_to_stark_felt(*felt))
+                .collect::<Vec<StarkFelt>>(),
         ));
 
         let entry_point = CallEntryPoint {
             class_hash: Some(class_hash),
             code_address: None,
             entry_point_type: EntryPointType::External,
-            entry_point_selector: EntryPointSelector(StarkHash::from(felt_to_starkfelt(
+            entry_point_selector: EntryPointSelector(StarkHash::from(native_felt_to_stark_felt(
                 function_selector,
             ))),
             calldata: wrapper_calldata,
@@ -317,7 +325,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             .retdata
             .0
             .iter()
-            .map(|felt| starkfelt_to_felt(*felt))
+            .map(|felt| stark_felt_to_native_felt(*felt))
             .collect::<Vec<Felt>>();
 
         self.inner_calls.push(call_info);
@@ -332,7 +340,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         calldata: &[Felt],
         remaining_gas: &mut u128,
     ) -> SyscallResult<Vec<Felt>> {
-        let contract_address = ContractAddress::try_from(felt_to_starkfelt(address))
+        let contract_address = ContractAddress::try_from(native_felt_to_stark_felt(address))
             .map_err(|error| encode_str_as_felts(&error.to_string()))?;
 
         if self.execution_context.execution_mode == ExecutionMode::Validate
@@ -347,14 +355,17 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         }
 
         let wrapper_calldata = Calldata(Arc::new(
-            calldata.iter().map(|felt| felt_to_starkfelt(*felt)).collect::<Vec<StarkFelt>>(),
+            calldata
+                .iter()
+                .map(|felt| native_felt_to_stark_felt(*felt))
+                .collect::<Vec<StarkFelt>>(),
         ));
 
         let entry_point = CallEntryPoint {
             class_hash: None,
             code_address: Some(contract_address),
             entry_point_type: EntryPointType::External,
-            entry_point_selector: EntryPointSelector(StarkHash::from(felt_to_starkfelt(
+            entry_point_selector: EntryPointSelector(StarkHash::from(native_felt_to_stark_felt(
                 entry_point_selector,
             ))),
             calldata: wrapper_calldata,
@@ -373,7 +384,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             .retdata
             .0
             .iter()
-            .map(|felt| starkfelt_to_felt(*felt))
+            .map(|felt| stark_felt_to_native_felt(*felt))
             .collect::<Vec<Felt>>();
 
         self.inner_calls.push(call_info);
@@ -388,7 +399,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Felt> {
         let key = StorageKey(
-            PatriciaKey::try_from(felt_to_starkfelt(address))
+            PatriciaKey::try_from(native_felt_to_stark_felt(address))
                 .map_err(|e| encode_str_as_felts(&e.to_string()))?,
         );
 
@@ -398,7 +409,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         self.accessed_storage_keys.insert(key);
         self.storage_read_values.push(value);
 
-        Ok(starkfelt_to_felt(value))
+        Ok(stark_felt_to_native_felt(value))
     }
 
     fn storage_write(
@@ -409,13 +420,13 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> SyscallResult<()> {
         let key = StorageKey(
-            PatriciaKey::try_from(felt_to_starkfelt(address))
+            PatriciaKey::try_from(native_felt_to_stark_felt(address))
                 .map_err(|e| encode_str_as_felts(&e.to_string()))?,
         );
         self.accessed_storage_keys.insert(key);
 
         let write_result =
-            self.state.set_storage_at(self.contract_address, key, felt_to_starkfelt(value));
+            self.state.set_storage_at(self.contract_address, key, native_felt_to_stark_felt(value));
         write_result.map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
         Ok(())
@@ -431,9 +442,9 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let event = EventContent {
             keys: keys
                 .iter()
-                .map(|felt| EventKey(felt_to_starkfelt(*felt)))
+                .map(|felt| EventKey(native_felt_to_stark_felt(*felt)))
                 .collect::<Vec<EventKey>>(),
-            data: EventData(data.iter().map(|felt| felt_to_starkfelt(*felt)).collect()),
+            data: EventData(data.iter().map(|felt| native_felt_to_stark_felt(*felt)).collect()),
         };
 
         exceeds_event_size_limit(
@@ -461,10 +472,10 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         self.l2_to_l1_messages.push(OrderedL2ToL1Message {
             order,
             message: MessageToL1 {
-                to_address: EthAddress::try_from(felt_to_starkfelt(to_address))
+                to_address: EthAddress::try_from(native_felt_to_stark_felt(to_address))
                     .map_err(|e| encode_str_as_felts(&e.to_string()))?,
                 payload: L2ToL1Payload(
-                    payload.iter().map(|felt| felt_to_starkfelt(*felt)).collect(),
+                    payload.iter().map(|felt| native_felt_to_stark_felt(*felt)).collect(),
                 ),
             },
         });
@@ -523,7 +534,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 Ok(Secp256k1Point { x, y })
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
-                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+                Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
             }
             Err(error) => Err(encode_str_as_felts(&error.to_string())),
         }
@@ -552,7 +563,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             }
             Ok(SecpGetPointFromXResponse { optional_ec_point_id: None }) => Ok(None),
             Err(SyscallExecutionError::SyscallError { error_data }) => {
-                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+                Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
             }
             Err(error) => Err(encode_str_as_felts(&error.to_string())),
         }
@@ -590,7 +601,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 Ok(Secp256k1Point { x, y })
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
-                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+                Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
             }
             Err(error) => Err(encode_str_as_felts(&error.to_string())),
         }
@@ -608,7 +619,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 Ok(optional_ec_point_id.map(|_| Secp256k1Point { x, y }))
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
-                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+                Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
             }
             Err(error) => Err(encode_str_as_felts(&error.to_string())),
         }
@@ -638,7 +649,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 Ok(Secp256r1Point { x, y })
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
-                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+                Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
             }
             Err(error) => Err(encode_str_as_felts(&error.to_string())),
         }
@@ -667,7 +678,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             }
             Ok(SecpGetPointFromXResponse { optional_ec_point_id: None }) => Ok(None),
             Err(SyscallExecutionError::SyscallError { error_data }) => {
-                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+                Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
             }
             Err(error) => Err(encode_str_as_felts(&error.to_string())),
         }
@@ -706,7 +717,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 Ok(Secp256r1Point { x, y })
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
-                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+                Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
             }
             Err(error) => Err(encode_str_as_felts(&error.to_string())),
         }
@@ -725,7 +736,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 Ok(optional_ec_point_id.map(|_| Secp256r1Point { x, y }))
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
-                Err(error_data.iter().map(|felt| starkfelt_to_felt(*felt)).collect())
+                Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
             }
             Err(error) => Err(encode_str_as_felts(&error.to_string())),
         }
