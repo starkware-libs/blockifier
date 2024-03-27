@@ -397,48 +397,40 @@ fn convert_entry_points_v1(
         .collect()
 }
 
-#[derive(Clone, Debug)]
 // TODO(Ayelet,10/02/2024): Change to bytes.
-pub struct ClassInfo {
-    contract_class: ContractClass,
-    sierra_program_length: usize,
-    abi_length: usize,
+// The sierra_program_length and abi_length are relevant for non-deprecated classes only.
+#[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
+pub enum ClassInfo {
+    V0(ContractClassV0),
+    V1(ContractClassV1, usize, usize),
 }
 
 impl ClassInfo {
     pub fn bytecode_length(&self) -> usize {
-        self.contract_class.bytecode_length()
+        match self {
+            ClassInfo::V0(contract_class) => contract_class.bytecode_length(),
+            ClassInfo::V1(contract_class, _, _) => contract_class.bytecode_length(),
+        }
     }
 
     pub fn contract_class(&self) -> ContractClass {
-        self.contract_class.clone()
+        match self {
+            ClassInfo::V0(contract_class) => ContractClass::V0(contract_class.clone()),
+            ClassInfo::V1(contract_class, _, _) => ContractClass::V1(contract_class.clone()),
+        }
     }
 
     pub fn sierra_program_length(&self) -> usize {
-        self.sierra_program_length
+        match self {
+            ClassInfo::V0(_) => 0,
+            ClassInfo::V1(_, sierra_program_length, _) => *sierra_program_length,
+        }
     }
 
     pub fn abi_length(&self) -> usize {
-        self.abi_length
-    }
-
-    pub fn new(
-        contract_class: &ContractClass,
-        sierra_program_length: usize,
-        abi_length: usize,
-    ) -> ContractClassResult<Self> {
-        let (contract_class_version, condition) = match contract_class {
-            ContractClass::V0(_) => (0, sierra_program_length == 0),
-            ContractClass::V1(_) => (1, sierra_program_length > 0),
-        };
-
-        if condition {
-            Ok(Self { contract_class: contract_class.clone(), sierra_program_length, abi_length })
-        } else {
-            Err(ContractClassError::ContractClassVersionSierraProgramLengthMismatch {
-                contract_class_version,
-                sierra_program_length,
-            })
+        match self {
+            ClassInfo::V0(_) => 0,
+            ClassInfo::V1(_, abi_length, _) => *abi_length,
         }
     }
 }
