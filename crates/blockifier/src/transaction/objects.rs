@@ -13,7 +13,7 @@ use starknet_api::transaction::{
 };
 use strum_macros::EnumIter;
 
-use crate::abi::constants::{BLOB_GAS_USAGE, L1_GAS_USAGE, N_STEPS_RESOURCE};
+use crate::abi::constants as abi_constants;
 use crate::blockifier::bouncer::BouncerInfo;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
@@ -243,17 +243,17 @@ pub struct ResourcesMapping(pub HashMap<String, usize>);
 impl ResourcesMapping {
     #[cfg(test)]
     pub fn n_steps(&self) -> usize {
-        *self.0.get(crate::abi::constants::N_STEPS_RESOURCE).unwrap()
+        *self.0.get(abi_constants::N_STEPS_RESOURCE).unwrap()
     }
 
     #[cfg(test)]
     pub fn gas_usage(&self) -> usize {
-        *self.0.get(crate::abi::constants::L1_GAS_USAGE).unwrap()
+        *self.0.get(abi_constants::L1_GAS_USAGE).unwrap()
     }
 
     #[cfg(test)]
     pub fn blob_gas_usage(&self) -> usize {
-        *self.0.get(crate::abi::constants::BLOB_GAS_USAGE).unwrap()
+        *self.0.get(abi_constants::BLOB_GAS_USAGE).unwrap()
     }
 }
 
@@ -467,18 +467,19 @@ impl TransactionResources {
         let mut resources = self.vm_resources.to_resources_mapping();
         resources.0.extend(HashMap::from([
             (
-                L1_GAS_USAGE.to_string(),
+                abi_constants::L1_GAS_USAGE.to_string(),
                 usize_from_u128(l1_gas)
                     .expect("This conversion should not fail as the value is a converted usize."),
             ),
             (
-                BLOB_GAS_USAGE.to_string(),
+                abi_constants::BLOB_GAS_USAGE.to_string(),
                 usize_from_u128(l1_data_gas)
                     .expect("This conversion should not fail as the value is a converted usize."),
             ),
         ]));
         let revrted_steps_to_add = if with_reverted_steps { self.n_reverted_steps } else { 0 };
-        *resources.0.get_mut(N_STEPS_RESOURCE).unwrap_or(&mut 0) += revrted_steps_to_add;
+        *resources.0.get_mut(abi_constants::N_STEPS_RESOURCE).unwrap_or(&mut 0) +=
+            revrted_steps_to_add;
         resources
     }
 
@@ -510,25 +511,39 @@ impl TransactionResources {
 pub trait ExecutionResourcesTraits {
     fn total_n_steps(&self) -> usize;
     fn to_resources_mapping(&self) -> ResourcesMapping;
+    fn prover_builtins(&self) -> HashMap<String, usize>;
 }
 
 impl ExecutionResourcesTraits for ExecutionResources {
     fn total_n_steps(&self) -> usize {
-        // The "segment arena" builtin is not part of SHARP (not in any proof layout).
-        // Each instance requires approximately 10 steps in the OS.
-        // TODO(Noa, 01/07/23): Verify the removal of the segment_arena builtin.
         self.n_steps
+            // Memory holes are slightly cheaper than actual steps, but we count them as such
+            // for simplicity.
             + self.n_memory_holes
-            + 10 * self
-                .builtin_instance_counter
-                .get(SEGMENT_ARENA_BUILTIN_NAME)
-                .cloned()
-                .unwrap_or_default()
+            // The "segment arena" builtin is not part of the prover (not in any proof layout);
+            // It is transformed into regular steps by the OS program - each instance requires
+            // approximately 10 steps.
+            + abi_constants::N_STEPS_PER_SEGMENT_ARENA_BUILTIN
+                * self
+                    .builtin_instance_counter
+                    .get(SEGMENT_ARENA_BUILTIN_NAME)
+                    .cloned()
+                    .unwrap_or_default()
     }
+
+    fn prover_builtins(&self) -> HashMap<String, usize> {
+        let mut builtins = self.builtin_instance_counter.clone();
+
+        // See "total_n_steps" documentation.
+        builtins.remove(SEGMENT_ARENA_BUILTIN_NAME);
+        builtins
+    }
+
     // TODO(Nimrod, 1/5/2024): Delete this function when it's no longer in use.
     fn to_resources_mapping(&self) -> ResourcesMapping {
-        let mut map = HashMap::from([(N_STEPS_RESOURCE.to_string(), self.total_n_steps())]);
-        map.extend(self.builtin_instance_counter.clone());
+        let mut map =
+            HashMap::from([(abi_constants::N_STEPS_RESOURCE.to_string(), self.total_n_steps())]);
+        map.extend(self.prover_builtins());
 
         ResourcesMapping(map)
     }

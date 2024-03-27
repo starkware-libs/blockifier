@@ -13,6 +13,7 @@ pub const L1_HANDLER_VERSION: TransactionVersion = TransactionVersion(StarkFelt:
 pub const L1_TO_L2_MSG_HEADER_SIZE: usize = 5;
 pub const L2_TO_L1_MSG_HEADER_SIZE: usize = 3;
 pub const CLASS_UPDATE_SIZE: usize = 1;
+pub const N_STEPS_PER_SEGMENT_ARENA_BUILTIN: usize = 10;
 
 // Starknet solidity contract-related constants.
 pub const N_DEFAULT_TOPICS: usize = 1; // Events have one default topic.
