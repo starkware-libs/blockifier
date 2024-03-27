@@ -45,6 +45,7 @@ fn global_contract_cache_update() {
     block_executor.tx_executor().state.set_contract_class(class_hash, contract_class).unwrap();
     let is_pending_block = false;
     block_executor.finalize(is_pending_block);
+    block_executor.update_global_cache();
     assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 1);
     block_executor.teardown_block_execution();
 }
