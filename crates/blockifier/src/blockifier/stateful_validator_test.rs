@@ -1,18 +1,21 @@
+use assert_matches::assert_matches;
 use rstest::rstest;
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::blockifier::stateful_validator::StatefulValidator;
+use crate::blockifier::stateful_validator::{StatefulValidator, StatefulValidatorError};
+use crate::blockifier::transaction_executor::TransactionExecutorError;
 use crate::bouncer::BouncerConfig;
 use crate::context::BlockContext;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::{CairoVersion, NonceManager, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
 use crate::transaction::test_utils::{
-    block_context, create_account_tx_for_validate_test, FaultyAccountTxCreatorArgs, VALID,
+    block_context, create_account_tx_for_validate_test, FaultyAccountTxCreatorArgs, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 
@@ -33,7 +36,7 @@ fn test_transaction_validator(
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    let chain_info = &block_context.chain_info;
+    let chain_info = &block_context.chain_info.clone();
 
     // TODO(Arni, 1/5/2024): Add test for insufficient balance.
     let account_balance = BALANCE;
@@ -57,16 +60,41 @@ fn test_transaction_validator(
     };
     let nonce_manager = &mut NonceManager::default();
 
-    // Positive flow.
-    let tx = create_account_tx_for_validate_test(
+    // Negative flow.
+
+    // Invalid scenario.
+    let tx_invalid_scenario = create_account_tx_for_validate_test(
         nonce_manager,
-        FaultyAccountTxCreatorArgs { scenario: VALID, ..default_args },
+        FaultyAccountTxCreatorArgs { scenario: INVALID, additional_data: None, ..default_args },
     );
-    if let AccountTransaction::DeployAccount(deploy_tx) = &tx {
+    if let AccountTransaction::DeployAccount(deploy_tx) = &tx_invalid_scenario {
+        fund_account(chain_info, deploy_tx.contract_address, BALANCE, &mut state.state);
+    }
+
+    // Invalid nonce.
+    let tx_invalid_nonce = create_account_tx_for_validate_test(
+        nonce_manager,
+        FaultyAccountTxCreatorArgs { scenario: VALID, additional_data: None, ..default_args },
+    );
+
+    // Positive flow.
+    let tx_valid_scenario = if let TransactionType::DeployAccount = tx_type {
+        create_account_tx_for_validate_test(
+            &mut NonceManager::default(),
+            FaultyAccountTxCreatorArgs { scenario: VALID, ..default_args },
+        )
+    } else {
+        create_account_tx_for_validate_test(
+            nonce_manager,
+            FaultyAccountTxCreatorArgs { scenario: VALID, additional_data: None, ..default_args },
+        )
+    };
+    if let AccountTransaction::DeployAccount(deploy_tx) = &tx_valid_scenario {
         fund_account(chain_info, deploy_tx.contract_address, BALANCE, &mut state.state);
     }
 
     // Test the stateful validator.
+
     let mut stateful_validator = StatefulValidator::create(
         state,
         block_context,
@@ -74,5 +102,53 @@ fn test_transaction_validator(
         BouncerConfig::create_for_testing(),
     );
 
-    stateful_validator.perform_validations(tx, None).unwrap()
+    let error = stateful_validator.perform_validations(tx_invalid_scenario, None).unwrap_err();
+
+    if let StatefulValidatorError::TransactionExecutorError(
+        TransactionExecutorError::TransactionExecutionError(my_error),
+    ) = error
+    {
+        crate::check_transaction_execution_error_for_invalid_scenario!(
+            cairo_version,
+            my_error,
+            validate_constructor
+        );
+    } else {
+        panic!("Unexpected structure for error: {:?}", error);
+    }
+
+    let error = stateful_validator.perform_validations(tx_invalid_nonce, None).unwrap_err();
+    if let TransactionType::DeployAccount = tx_type {
+        assert_matches!(
+            error,
+            StatefulValidatorError::TransactionExecutorError(
+                TransactionExecutorError::TransactionExecutionError(
+                    TransactionExecutionError::TransactionPreValidationError(
+                        TransactionPreValidationError::InvalidNonce {
+                            account_nonce,
+                            incoming_tx_nonce, ..
+                        }
+                    )
+                )
+            )
+            if account_nonce == Nonce(stark_felt!(0_u32))
+                 && incoming_tx_nonce == Nonce(stark_felt!(1_u32))
+        );
+    } else {
+        assert_matches!(
+            error,
+            StatefulValidatorError::TransactionPreValidationError(
+                TransactionPreValidationError::InvalidNonce {
+                    address,
+                    account_nonce,
+                    incoming_tx_nonce
+                }
+            )
+            if address == sender_address
+                && account_nonce == Nonce(stark_felt!(2_u32))
+                && incoming_tx_nonce == Nonce(stark_felt!(1_u32))
+        );
+    }
+
+    stateful_validator.perform_validations(tx_valid_scenario, None).unwrap()
 }
