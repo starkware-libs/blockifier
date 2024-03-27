@@ -18,7 +18,6 @@ use self::hint_processor::{
     execute_inner_call, execute_library_call, felt_to_bool, read_call_params, read_calldata,
     read_felt_array, DeprecatedSyscallExecutionError, DeprecatedSyscallHintProcessor,
 };
-use super::syscalls::exceeds_event_size_limit;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
@@ -26,6 +25,7 @@ use crate::execution::execution_utils::{
     execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
     ReadOnlySegment,
 };
+use crate::execution::syscalls::exceeds_event_size_limit;
 
 #[cfg(test)]
 #[path = "deprecated_syscalls_test.rs"]
@@ -372,13 +372,14 @@ pub fn emit_event(
     let execution_context = &mut syscall_handler.context;
     exceeds_event_size_limit(
         execution_context.versioned_constants(),
-        execution_context.n_emitted_events + 1,
+        execution_context.tx_n_emitted_events + 1,
         &request.content,
     )?;
     let ordered_event =
         OrderedEvent { order: execution_context.n_emitted_events, event: request.content };
     syscall_handler.events.push(ordered_event);
     execution_context.n_emitted_events += 1;
+    execution_context.tx_n_emitted_events += 1;
 
     Ok(EmitEventResponse {})
 }

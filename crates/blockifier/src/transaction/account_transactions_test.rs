@@ -853,7 +853,7 @@ fn test_max_fee_to_max_steps_conversion(
         nonce: nonce_manager.next(account_address),
     });
     let tx_context1 = Arc::new(block_context.to_tx_context(&account_tx1));
-    let execution_context1 = EntryPointExecutionContext::new_invoke(tx_context1, true).unwrap();
+    let execution_context1 = EntryPointExecutionContext::new_invoke(tx_context1, true, 0).unwrap();
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps1 = tx_execution_info1.actual_resources.n_steps();
@@ -873,7 +873,7 @@ fn test_max_fee_to_max_steps_conversion(
         nonce: nonce_manager.next(account_address),
     });
     let tx_context2 = Arc::new(block_context.to_tx_context(&account_tx2));
-    let execution_context2 = EntryPointExecutionContext::new_invoke(tx_context2, true).unwrap();
+    let execution_context2 = EntryPointExecutionContext::new_invoke(tx_context2, true, 0).unwrap();
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
     let n_steps2 = tx_execution_info2.actual_resources.n_steps();
