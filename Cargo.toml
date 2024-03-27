@@ -42,6 +42,7 @@ phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 pyo3 = "0.19.1"
 pyo3-log = "0.8.1"
+regex = "1.10.4"
 rstest = "0.17.0"
 serde = "1.0.184"
 serde_json = "1.0.81"

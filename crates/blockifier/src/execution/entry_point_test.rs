@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
+use regex::Regex;
 use rstest::rstest;
 use starknet_api::core::{EntryPointSelector, PatriciaKey};
 use starknet_api::deprecated_contract_class::{EntryPointOffset, EntryPointType};
@@ -20,9 +21,20 @@ use crate::state::cached_state::CachedState;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{create_calldata, trivial_external_entry_point_new, CairoVersion, BALANCE};
-use crate::transaction::constants::EXECUTE_ENTRY_POINT_NAME;
-use crate::transaction::test_utils::{block_context, run_invoke_tx};
+use crate::test_utils::{
+    create_calldata, trivial_external_entry_point_new, CairoVersion, NonceManager, BALANCE,
+};
+use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::constants::{
+    EXECUTE_ENTRY_POINT_NAME, VALIDATE_DECLARE_ENTRY_POINT_NAME, VALIDATE_DEPLOY_ENTRY_POINT_NAME,
+    VALIDATE_ENTRY_POINT_NAME,
+};
+use crate::transaction::test_utils::{
+    block_context, create_account_tx_for_validate_test, run_invoke_tx, FaultyAccountTxCreatorArgs,
+    INVALID,
+};
+use crate::transaction::transaction_types::TransactionType;
+use crate::transaction::transactions::ExecutableTransaction;
 use crate::versioned_constants::VersionedConstants;
 use crate::{invoke_tx_args, retdata};
 
@@ -994,4 +1006,77 @@ Execution failed. Failure reason: {expected_error}.
     };
 
     assert_eq!(tx_execution_error.to_string(), expected_trace);
+}
+
+#[rstest]
+#[case::validate(TransactionType::InvokeFunction, VALIDATE_ENTRY_POINT_NAME)]
+#[case::validate_declare(TransactionType::Declare, VALIDATE_DECLARE_ENTRY_POINT_NAME)]
+#[case::validate_deploy(TransactionType::DeployAccount, VALIDATE_DEPLOY_ENTRY_POINT_NAME)]
+fn test_validate_trace(
+    #[case] tx_type: TransactionType,
+    #[case] entry_point_name: &str,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
+    let create_for_account_testing = &BlockContext::create_for_account_testing();
+    let block_context = create_for_account_testing;
+    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
+    let mut sender_address = faulty_account.get_instance_address(0);
+    let class_hash = faulty_account.get_class_hash();
+    let state = &mut test_state(&block_context.chain_info, 0, &[(faulty_account, 1)]);
+    let selector = selector_from_name(entry_point_name).0;
+
+    // Logic failure.
+    let account_tx = create_account_tx_for_validate_test(
+        &mut NonceManager::default(),
+        FaultyAccountTxCreatorArgs {
+            scenario: INVALID,
+            tx_type,
+            sender_address,
+            class_hash,
+            ..Default::default()
+        },
+    );
+
+    if let TransactionType::DeployAccount = tx_type {
+        // Deploy account uses the actual address as the sender address.
+        match &account_tx {
+            AccountTransaction::DeployAccount(tx) => {
+                sender_address = tx.contract_address;
+            }
+            _ => panic!("Expected DeployAccountTransaction type"),
+        }
+    }
+
+    let contract_address = *sender_address.0.key();
+
+    let expected_error = match cairo_version {
+        CairoVersion::Cairo0 => format!(
+            "Transaction validation has failed:
+0: Error in the called contract (contract address: {contract_address}, class hash: {class_hash}, \
+             selector: {selector}):
+Error at pc=0:0:
+Cairo traceback (most recent call last):
+Unknown location (pc=0:0)
+Unknown location (pc=0:0)
+
+An ASSERT_EQ instruction failed: 1 != 0.
+"
+        ),
+        CairoVersion::Cairo1 => format!(
+            "Transaction validation has failed:
+0: Error in the called contract (contract address: {contract_address}, class hash: {class_hash}, \
+             selector: {selector}):
+Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f ('Invalid scenario').
+"
+        ),
+    };
+
+    // Clean pc locations from the trace.
+    let re = Regex::new(r"pc=0:[0-9]+").unwrap();
+    let cleaned_expected_error = &re.replace_all(&expected_error, "pc=0:*");
+    let actual_error = account_tx.execute(state, block_context, true, true).unwrap_err();
+    let actual_error_str = actual_error.to_string();
+    let cleaned_actual_error = &re.replace_all(&actual_error_str, "pc=0:*");
+    // Compare actual trace to the expected trace (sans pc locations).
+    assert_eq!(cleaned_actual_error.to_string(), cleaned_expected_error.to_string());
 }
