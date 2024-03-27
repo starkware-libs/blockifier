@@ -108,7 +108,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         name: "Rust Toolchain Setup"
         with:
-          toolchain: nightly-2023-08-23
+          toolchain: nightly-2024-03-01
       - name: Set up Native Dependencies
         uses: ./.github/actions/setup-native-dep
       - uses: Swatinem/rust-cache@v2
@@ -116,11 +116,11 @@ jobs:
       - if: ${{ steps.cache-cargo.outputs.cache-hit != 'true' }}
         name: "Download and run cargo-udeps"
         run: |
-          cargo install cargo-udeps --locked
+          cargo +nightly-2024-03-01 install cargo-udeps --locked
           cd crates/blockifier
-          cargo udeps --all-features --all-targets
+          cargo +nightly-2024-03-01 udeps --all-features --all-targets
         env:
-          RUSTUP_TOOLCHAIN: nightly-2023-08-23
+          RUSTUP_TOOLCHAIN: nightly-2024-03-01
           MLIR_SYS_170_PREFIX: /usr/lib/llvm-17/
           LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
           TABLEGEN_170_PREFIX: /usr/lib/llvm-17/

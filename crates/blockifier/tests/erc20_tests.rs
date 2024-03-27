@@ -359,7 +359,7 @@ mod transfer_from_tests {
                     ],
                 )
                 .unwrap_err(),
-            "Native execution error: u256_sub Overflow",
+            U256_SUB_OVERFLOW,
         );
 
         assert_eq!(

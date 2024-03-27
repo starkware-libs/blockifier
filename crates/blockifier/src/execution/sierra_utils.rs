@@ -13,7 +13,7 @@ use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
 use cairo_native::executor::NativeExecutor;
 use cairo_native::metadata::syscall_handler::SyscallHandlerMeta;
-use cairo_native::starknet::{ResourceBounds, SyscallResult, U256};
+use cairo_native::starknet::{ResourceBounds, SyscallResult, TxV2Info, U256};
 use cairo_native::OptLevel;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
@@ -84,6 +84,7 @@ pub fn get_native_aot_program_cache<'context>() -> Rc<RefCell<ProgramCache<'cont
         NATIVE_CONTEXT.get_or_init(NativeContext::new),
     ))))
 }
+
 pub fn get_native_jit_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
     Rc::new(RefCell::new(ProgramCache::Jit(JitProgramCache::new(
         NATIVE_CONTEXT.get_or_init(NativeContext::new),
@@ -245,7 +246,7 @@ pub fn create_callinfo(
     inner_calls: Vec<CallInfo>,
     storage_read_values: Vec<StarkFelt>,
     accessed_storage_keys: HashSet<StorageKey, RandomState>,
-) -> Result<CallInfo, super::errors::EntryPointExecutionError> {
+) -> Result<CallInfo, EntryPointExecutionError> {
     Ok(CallInfo {
         call,
         execution: CallExecution {
@@ -308,7 +309,7 @@ pub fn allocate_point<Curve: SWCurveConfig>(
     point_x: U256,
     point_y: U256,
     hint_processor: &mut SecpHintProcessor<Curve>,
-) -> cairo_native::starknet::SyscallResult<usize>
+) -> SyscallResult<usize>
 where
     Curve::BaseField: PrimeField,
 {
@@ -325,6 +326,24 @@ where
         Err(_) => unreachable!(
             "Can't receive an error other than SyscallError from `secp_new_unchecked`."
         ),
+    }
+}
+
+pub fn default_tx_v2_info() -> TxV2Info {
+    TxV2Info {
+        version: Default::default(),
+        account_contract_address: Default::default(),
+        max_fee: 0,
+        signature: vec![],
+        transaction_hash: Default::default(),
+        chain_id: Default::default(),
+        nonce: Default::default(),
+        resource_bounds: vec![],
+        tip: 0,
+        paymaster_data: vec![],
+        nonce_data_availability_mode: 0,
+        fee_data_availability_mode: 0,
+        account_deployment_data: vec![],
     }
 }
 

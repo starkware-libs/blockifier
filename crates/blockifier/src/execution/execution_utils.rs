@@ -79,7 +79,6 @@ pub fn execute_entry_point_call(
         ContractClass::V1Sierra(contract_class) => {
             let fallback = env::var("FALLBACK_ENABLED").unwrap_or(String::from("0")) == "1";
             match native_entry_point_execution::execute_entry_point_call(
-                // todo(rodro): can we do better than this clones
                 call.clone(),
                 contract_class.clone(),
                 state,
@@ -89,9 +88,10 @@ pub fn execute_entry_point_call(
                 Ok(res) => Ok(res),
                 Err(EntryPointExecutionError::NativeUnexpectedError { .. }) if fallback => {
                     // Fallback to VM execution in case of an Error
-                    // TODO: proper error handling of this conversion from sierra class to casm
-                    // class
-                    let casm_contract_class = contract_class.to_casm_contract_class().unwrap();
+                    let casm_contract_class =
+                        contract_class.to_casm_contract_class().map_err(|e| {
+                            EntryPointExecutionError::FailedToConvertSierraToCasm(e.to_string())
+                        })?;
                     let contract_class_v1: ContractClassV1 =
                         casm_contract_class.try_into().unwrap();
                     entry_point_execution::execute_entry_point_call(
@@ -101,6 +101,9 @@ pub fn execute_entry_point_call(
                         resources,
                         context,
                     )
+                    .map_err(|e| {
+                        EntryPointExecutionError::NativeFallbackError { info: Box::new(e) }
+                    })
                 }
                 Err(e) => Err(e),
             }

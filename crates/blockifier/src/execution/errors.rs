@@ -147,6 +147,10 @@ pub enum EntryPointExecutionError {
         #[source]
         source: NativeRunnerError,
     },
+    #[error("Native Fallback Error: {info}")]
+    NativeFallbackError { info: Box<EntryPointExecutionError> },
+    #[error("Failed to convert Sierra to Casm: {0}")]
+    FailedToConvertSierraToCasm(String),
 }
 
 #[derive(Debug, Error)]

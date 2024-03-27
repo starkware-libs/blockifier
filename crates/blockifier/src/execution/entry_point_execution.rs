@@ -50,7 +50,6 @@ pub fn execute_entry_point_call(
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
 ) -> EntryPointExecutionResult<CallInfo> {
-    // println!("Executing via vm");
     // Fetch the class hash from `call`.
     let class_hash = call.class_hash.ok_or(EntryPointExecutionError::InternalError(
         "Class hash must not be None when executing an entry point.".into(),
