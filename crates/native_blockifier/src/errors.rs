@@ -1,3 +1,4 @@
+use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::blockifier::transaction_executor::TransactionExecutorError;
 use blockifier::execution::errors::ContractClassError;
 use blockifier::state::errors::StateError;
@@ -13,21 +14,6 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
-
-// TODO(Arni, 28/3/2024): Move to stateful validator dedicated file.
-#[derive(Debug, Error)]
-pub enum StatefulValidatorError {
-    #[error(transparent)]
-    StateError(#[from] StateError),
-    #[error(transparent)]
-    TransactionExecutionError(#[from] TransactionExecutionError),
-    #[error(transparent)]
-    TransactionExecutorError(#[from] TransactionExecutorError),
-    #[error(transparent)]
-    TransactionPreValidationError(#[from] TransactionPreValidationError),
-}
-
-pub type StatefulValidatorResult<T> = Result<T, StatefulValidatorError>;
 
 /// Defines `NativeBlockifierError` variants, their respective Python types, and implements a
 /// conversion to `PyErr`.
