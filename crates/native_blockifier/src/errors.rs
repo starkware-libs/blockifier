@@ -14,6 +14,21 @@ use thiserror::Error;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
 
+// TODO(Arni, 28/3/2024): Move to stateful validator dedicated file.
+#[derive(Debug, Error)]
+pub enum StatefulValidatorError {
+    #[error(transparent)]
+    StateError(#[from] StateError),
+    #[error(transparent)]
+    TransactionExecutionError(#[from] TransactionExecutionError),
+    #[error(transparent)]
+    TransactionExecutorError(#[from] TransactionExecutorError),
+    #[error(transparent)]
+    TransactionPreValidationError(#[from] TransactionPreValidationError),
+}
+
+pub type StatefulValidatorResult<T> = Result<T, StatefulValidatorError>;
+
 /// Defines `NativeBlockifierError` variants, their respective Python types, and implements a
 /// conversion to `PyErr`.
 macro_rules! native_blockifier_errors {
@@ -73,6 +88,25 @@ native_blockifier_errors!(
     (TransactionExecutorError, TransactionExecutorError, PyTransactionExecutorError),
     (TransactionPreValidationError, TransactionPreValidationError, PyTransactionPreValidationError)
 );
+
+// TODO(Arni, 21/3/2024): Add ValidatorError to the enum NativeBlockifierError and remove this
+// implementation.
+impl From<StatefulValidatorError> for NativeBlockifierError {
+    fn from(error: StatefulValidatorError) -> Self {
+        match error {
+            StatefulValidatorError::StateError(error) => NativeBlockifierError::StateError(error),
+            StatefulValidatorError::TransactionExecutorError(error) => {
+                NativeBlockifierError::TransactionExecutorError(error)
+            }
+            StatefulValidatorError::TransactionExecutionError(error) => {
+                NativeBlockifierError::TransactionExecutionError(error)
+            }
+            StatefulValidatorError::TransactionPreValidationError(error) => {
+                NativeBlockifierError::TransactionPreValidationError(error)
+            }
+        }
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
