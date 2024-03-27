@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
@@ -29,45 +28,34 @@ pub fn calculate_l1_gas_by_vm_usage(
     vm_resource_usage: &ExecutionResources,
     n_reverted_steps: usize,
 ) -> TransactionFeeResult<GasVector> {
+    // TODO(Yoni, 1/7/2024): rename vm -> cairo.
     let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
-    let total_n_steps = vm_resource_usage.total_n_steps() + n_reverted_steps;
-
-    // Validate used builtins.
-    let mut vm_builtin_names =
-        HashSet::<&String>::from_iter(vm_resource_usage.builtin_instance_counter.keys());
-
-    // The segment arena builtin is transformed into regular steps by the OS program;
-    // These steps are taken into account in `vm_resource_usage.total_n_steps()`.
-    vm_builtin_names.remove(&SEGMENT_ARENA_BUILTIN_NAME.to_string());
-    assert!(
-        vm_builtin_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())),
-        "{:#?} should contain {:#?}",
-        vm_resource_fee_costs.keys(),
-        vm_builtin_names,
+    let mut vm_resource_usage_for_fee = vm_resource_usage.prover_builtins();
+    vm_resource_usage_for_fee.insert(
+        constants::N_STEPS_RESOURCE.to_string(),
+        vm_resource_usage.total_n_steps() + n_reverted_steps,
     );
 
-    let n_steps_gas_usage =
-        (vm_resource_fee_costs.get(constants::N_STEPS_RESOURCE).cloned().unwrap_or_default()
-            * u128_from_usize(total_n_steps))
-        .ceil()
-        .to_integer();
+    // Validate used Cairo resources.
+    let used_resource_names = HashSet::<&String>::from_iter(vm_resource_usage_for_fee.keys());
+
+    assert!(
+        used_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())),
+        "{:#?} should contain {:#?}",
+        vm_resource_fee_costs.keys(),
+        used_resource_names,
+    );
 
     // Convert Cairo usage to L1 gas usage.
     let vm_l1_gas_usage = vm_resource_fee_costs
         .iter()
         .map(|(key, resource_val)| {
             ((*resource_val)
-                * u128_from_usize(
-                    vm_resource_usage
-                        .builtin_instance_counter
-                        .get(key)
-                        .cloned()
-                        .unwrap_or_default(),
-                ))
+                * u128_from_usize(vm_resource_usage_for_fee.get(key).cloned().unwrap_or_default()))
             .ceil()
             .to_integer()
         })
-        .fold(n_steps_gas_usage, u128::max);
+        .fold(0, u128::max);
 
     Ok(GasVector::from_l1_gas(vm_l1_gas_usage))
 }
