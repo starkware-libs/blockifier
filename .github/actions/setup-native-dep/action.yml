@@ -1,18 +1,36 @@
 name: 'Setup Cairo Native Dependencies'
 description: 'Sets up LLVM and GMP libraries'
 
+outputs:
+  cairo-native-runtime-libdir:
+      description: 'The path to the cairo native runtime library'
+      value: ${{ steps.set-env-vars.outputs.cairo-native-runtime-libdir }}
 runs:
   using: "composite"
   steps:
-   - name: add llvm deb repository
-     uses: myci-actions/add-deb-repo@10
-     with:
-       repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main
-       repo-name: llvm-repo
-       keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
-   - name: Install LLVM
-     run: sudo apt-get install llvm-17 llvm-17-dev llvm-17-runtime clang-17 clang-tools-17 lld-17 libpolly-17-dev libmlir-17-dev mlir-17-tools
-     shell: bash
-   - name: Install gmplib
-     run: sudo apt install -y libgmp3-dev
-     shell: bash
+    - name: add llvm deb repository
+      uses: myci-actions/add-deb-repo@10
+      with:
+        repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main
+        repo-name: llvm-repo
+        keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
+    - name: Install LLVM and gmplib
+      shell: bash
+      run: |
+        sudo apt-get install llvm-17 llvm-17-dev llvm-17-runtime clang-17 clang-tools-17 lld-17 libpolly-17-dev libmlir-17-dev mlir-17-tools
+        sudo apt install -y libgmp3-dev
+
+    - name: Fetch Cairo Native Repository
+      uses: actions/checkout@v3
+      with:
+        repository: 'lambdaclass/cairo_native'
+        ref: "main"
+        path: 'cairo_native'
+    - name: Install Cairo Native Runtime Dependencies
+      id: set-env-vars
+      shell: bash
+      run: |
+        cd ./cairo_native/runtime &&
+        echo "cairo-native-runtime-libdir=$(pwd)/../target/release" >> $GITHUB_OUTPUT &&
+        cargo build --release &&
+        cd ../..

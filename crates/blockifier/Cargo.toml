@@ -57,3 +57,6 @@ assert_matches.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
 test-case.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["cairo-native"]

@@ -26,6 +26,7 @@ const Configuration = {
             'native_blockifier',
             'state',
             'transaction',
+            'ci',
         ]],
     },
     /*

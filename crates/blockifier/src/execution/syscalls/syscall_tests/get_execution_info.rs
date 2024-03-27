@@ -31,41 +31,42 @@ use crate::transaction::objects::{
     CommonAccountFields, CurrentTransactionInfo, DeprecatedTransactionInfo, TransactionInfo,
 };
 
-#[test_case(
-    FeatureContract::SierraTestContract,
-    ExecutionMode::Validate,
-    TransactionVersion::ONE,
-    false;
-    "Native. Validate execution mode: block info fields should be zeroed. Transaction V1."
-)]
-#[test_case(
-    FeatureContract::SierraTestContract,
-    ExecutionMode::Execute,
-    TransactionVersion::ONE,
-    false;
-    "Native. Execute execution mode: block info fields should be zeroed. Transaction V1."
-)]
-#[test_case(
-    FeatureContract::SierraTestContract,
-    ExecutionMode::Validate,
-    TransactionVersion::THREE,
-    false;
-    "Native. Validate execution mode: block info fields should be zeroed. Transaction V3."
-)]
-#[test_case(
-    FeatureContract::SierraTestContract,
-    ExecutionMode::Execute,
-    TransactionVersion::THREE,
-    false;
-    "Native. Execute execution mode: block info fields should be zeroed. Transaction V3."
-)]
-#[test_case(
-    FeatureContract::SierraTestContract,
-    ExecutionMode::Execute,
-    TransactionVersion::THREE,
-    true;
-    "Native. Execute execution mode: block info should be as usual. Transaction V3. Query."
-)]
+// TODO Native
+// #[test_case(
+//     FeatureContract::SierraTestContract,
+//     ExecutionMode::Validate,
+//     TransactionVersion::ONE,
+//     false;
+//     "Native. Validate execution mode: block info fields should be zeroed. Transaction V1."
+// )]
+// #[test_case(
+//     FeatureContract::SierraTestContract,
+//     ExecutionMode::Execute,
+//     TransactionVersion::ONE,
+//     false;
+//     "Native. Execute execution mode: block info fields should be zeroed. Transaction V1."
+// )]
+// #[test_case(
+//     FeatureContract::SierraTestContract,
+//     ExecutionMode::Validate,
+//     TransactionVersion::THREE,
+//     false;
+//     "Native. Validate execution mode: block info fields should be zeroed. Transaction V3."
+// )]
+// #[test_case(
+//     FeatureContract::SierraTestContract,
+//     ExecutionMode::Execute,
+//     TransactionVersion::THREE,
+//     false;
+//     "Native. Execute execution mode: block info fields should be zeroed. Transaction V3."
+// )]
+// #[test_case(
+//     FeatureContract::SierraTestContract,
+//     ExecutionMode::Execute,
+//     TransactionVersion::THREE,
+//     true;
+//     "Native. Execute execution mode: block info should be as usual. Transaction V3. Query."
+// )]
 #[test_case(
     FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Validate,

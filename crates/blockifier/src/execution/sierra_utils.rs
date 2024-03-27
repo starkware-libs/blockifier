@@ -63,7 +63,7 @@ pub fn match_entrypoint(
     entrypoints
         .iter()
         .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
-        .expect(&format!("entrypoint selector {0} not found", entrypoint_selector.0))
+        .unwrap_or_else(|| panic!("entrypoint selector {0} not found", entrypoint_selector.0))
 }
 
 fn cmp_selector_to_entrypoint(
@@ -128,11 +128,12 @@ pub fn get_sierra_entry_function_id<'a>(
     &sierra_program
         .funcs
         .iter()
-        .find(|func| func.id.id == matching_entrypoint.function_idx as u64)
+        .find(|func| func.id.id == u64::try_from(matching_entrypoint.function_idx).unwrap())
         .unwrap()
         .id
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn setup_syscall_handler<'state>(
     state: &'state mut dyn State,
     caller_address: ContractAddress,
@@ -277,8 +278,8 @@ pub fn u256_to_biguint(u256: U256) -> BigUint {
 pub fn big4int_to_u256(b_int: BigInt<4>) -> U256 {
     let [a, b, c, d] = b_int.0;
 
-    let hi = (a as u128) | ((b as u128) << 64);
-    let lo = (c as u128) | ((d as u128) << 64);
+    let hi = u128::from(a) | (u128::from(b) << 64);
+    let lo = u128::from(c) | (u128::from(d) << 64);
 
     U256 { lo, hi }
 }
@@ -290,7 +291,7 @@ pub fn encode_str_as_felts(msg: &str) -> Vec<Felt> {
     let mut encoding = vec![Felt::default(); data.len()];
     for (i, data_chunk) in data.enumerate() {
         let mut chunk = [0_u8; CHUNK_SIZE];
-        chunk[1..data_chunk.len() + 1].copy_from_slice(&data_chunk);
+        chunk[1..data_chunk.len() + 1].copy_from_slice(data_chunk);
         encoding[i] = Felt::from_bytes_be(&chunk);
     }
     encoding

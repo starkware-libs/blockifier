@@ -173,7 +173,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
                 DataAvailabilityMode::L2 => 1,
             };
             native_tx_info = TxV2Info {
-                resource_bounds: calculate_resource_bounds(&context)?,
+                resource_bounds: calculate_resource_bounds(context)?,
                 tip: context.tip.0.into(),
                 paymaster_data: context
                     .paymaster_data
@@ -240,12 +240,11 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
 
         let call_info = execute_deployment(
             self.state,
-            &mut self.execution_resources,
-            &mut self.execution_context,
+            self.execution_resources,
+            self.execution_context,
             ctor_context,
             wrapper_calldata,
-            // todo: handle gas properly
-            *remaining_gas as u64,
+            u64::try_from(*remaining_gas).unwrap(),
         )
         .map_err(|error| encode_str_as_felts(&error.to_string()))?;
 
@@ -306,11 +305,11 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             storage_address: self.contract_address,
             caller_address: self.caller_address,
             call_type: CallType::Delegate,
-            initial_gas: *remaining_gas as u64,
+            initial_gas: u64::try_from(*remaining_gas).unwrap(),
         };
 
         let call_info = entry_point
-            .execute(self.state, &mut self.execution_resources, &mut self.execution_context)
+            .execute(self.state, self.execution_resources, self.execution_context)
             .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
         let retdata = call_info
@@ -362,11 +361,11 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             storage_address: contract_address,
             caller_address: self.caller_address,
             call_type: CallType::Call,
-            initial_gas: *remaining_gas as u64,
+            initial_gas: u64::try_from(*remaining_gas).unwrap(),
         };
 
         let call_info = entry_point
-            .execute(self.state, &mut self.execution_resources, &mut self.execution_context)
+            .execute(self.state, self.execution_resources, self.execution_context)
             .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
         let retdata = call_info
@@ -495,8 +494,8 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         }
 
         Ok(U256 {
-            lo: state[2] as u128 | ((state[3] as u128) << 64),
-            hi: state[0] as u128 | ((state[1] as u128) << 64),
+            lo: u128::from(state[2]) | (u128::from(state[3]) << 64),
+            hi: u128::from(state[0]) | (u128::from(state[1]) << 64),
         })
     }
 

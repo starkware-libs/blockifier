@@ -207,7 +207,8 @@ pub fn pad_address_to_64(address: &str) -> String {
 
 pub fn get_raw_contract_class(contract_path: &str) -> String {
     let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), contract_path].iter().collect();
-    fs::read_to_string(path.clone()).expect(&format!("File expected at {}", path.display()))
+    fs::read_to_string(path.clone())
+        .unwrap_or_else(|_| panic!("File expected at {}", path.display()))
 }
 
 pub fn get_deprecated_contract_class(contract_path: &str) -> DeprecatedContractClass {
@@ -525,21 +526,21 @@ impl Signers {
     }
 }
 
-impl Into<ContractAddress> for Signers {
-    fn into(self) -> ContractAddress {
-        self.get_address()
+impl From<Signers> for ContractAddress {
+    fn from(val: Signers) -> Self {
+        val.get_address()
     }
 }
 
-impl Into<Felt> for Signers {
-    fn into(self) -> Felt {
-        contract_address_to_felt(self.get_address())
+impl From<Signers> for Felt {
+    fn from(val: Signers) -> Self {
+        contract_address_to_felt(val.get_address())
     }
 }
 
-impl Into<StarkFelt> for Signers {
-    fn into(self) -> StarkFelt {
-        felt_to_starkfelt(contract_address_to_felt(self.get_address()))
+impl From<Signers> for StarkFelt {
+    fn from(val: Signers) -> Self {
+        felt_to_starkfelt(contract_address_to_felt(val.get_address()))
     }
 }
 
@@ -564,10 +565,16 @@ pub struct TestContext {
     pub events: Vec<TestEvent>,
 }
 
-impl TestContext {
-    pub fn new() -> Self {
+impl Default for TestContext {
+    fn default() -> Self {
         let (contract_address, state) = prepare_erc20_deploy_test_state();
         Self { contract_address, state, caller_address: contract_address, events: vec![] }
+    }
+}
+
+impl TestContext {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn with_caller(mut self, caller_address: ContractAddress) -> Self {

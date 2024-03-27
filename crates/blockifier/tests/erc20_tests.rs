@@ -197,7 +197,7 @@ mod transfer_tests {
         );
 
         let event = context.get_event(0).unwrap();
-        let event = (event.keys[1], event.keys[2], event.data[0].clone());
+        let event = (event.keys[1], event.keys[2], event.data[0]);
 
         assert_eq!(
             event,
@@ -266,7 +266,7 @@ mod allowance_tests {
         );
 
         let event = context.get_event(0).unwrap();
-        let event = (event.keys[1], event.keys[2], event.data[0].clone());
+        let event = (event.keys[1], event.keys[2], event.data[0]);
 
         assert_eq!(
             event,
@@ -480,7 +480,7 @@ mod transfer_from_tests {
 
         // Approve event
         let event = context.get_event(0).unwrap();
-        let event = (event.keys[1], event.keys[2], event.data[0].clone());
+        let event = (event.keys[1], event.keys[2], event.data[0]);
 
         assert_eq!(
             event,
@@ -504,7 +504,7 @@ mod transfer_from_tests {
 
         // Transfer event
         let event = context.get_event(2).unwrap();
-        let event = (event.keys[1], event.keys[2], event.data[0].clone());
+        let event = (event.keys[1], event.keys[2], event.data[0]);
 
         assert_eq!(
             event,
@@ -648,7 +648,7 @@ pub mod mintable_tests {
 
         let event = context.get_event(0).unwrap();
 
-        let event = (event.keys[1], event.keys[2], event.data[0].clone());
+        let event = (event.keys[1], event.keys[2], event.data[0]);
 
         assert_eq!(
             event,
@@ -731,7 +731,7 @@ pub mod burnable_tests {
 
         let event = context.get_event(0).unwrap();
 
-        let event = (event.keys[1], event.keys[2], event.data[0].clone());
+        let event = (event.keys[1], event.keys[2], event.data[0]);
 
         assert_eq!(
             event,

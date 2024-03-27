@@ -29,7 +29,7 @@ fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
     // works.
     let call_info = emit_events(test_contract, &N_EMITTED_EVENTS, &KEYS, &DATA).unwrap();
     let event = EventContent {
-        keys: KEYS.clone().into_iter().map(EventKey).collect(),
+        keys: KEYS.into_iter().map(EventKey).collect(),
         data: EventData(DATA.to_vec()),
     };
 

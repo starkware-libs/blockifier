@@ -16,11 +16,6 @@ on:
       - auto_merge_enabled
       - edited
 
-env:
-  MLIR_SYS_170_PREFIX: /usr/lib/llvm-17
-  LLVM_SYS_170_PREFIX: /usr/lib/llvm-17
-  TABLEGEN_170_PREFIX: /usr/lib/llvm-17
-
 jobs:
   commitlint:
     runs-on: ubuntu-latest
@@ -47,7 +42,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           components: rustfmt
-          toolchain: nightly-2023-07-05
+          toolchain: nightly-2024-01-12
       - uses: Swatinem/rust-cache@v2
       - run: scripts/rust_fmt.sh --check
 
@@ -62,6 +57,11 @@ jobs:
       - name: Set up Native Dependencies
         uses: ./.github/actions/setup-native-dep
       - run: scripts/clippy.sh
+        env:
+          CAIRO_NATIVE_RUNTIME_LIBDIR: ${{ steps.native-deps.outputs.cairo-native-runtime-libdir }}
+          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17/
+          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
+          TABLEGEN_170_PREFIX: /usr/lib/llvm-17/
 
   run-tests:
     runs-on: ubuntu-latest
@@ -69,12 +69,18 @@ jobs:
       - uses: actions/checkout@v3
       - name: Set up Native Dependencies
         uses: ./.github/actions/setup-native-dep
+        id: native-deps
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test
+      - run: cargo test --features testing
+        env:
+          CAIRO_NATIVE_RUNTIME_LIBDIR: ${{ steps.native-deps.outputs.cairo-native-runtime-libdir }}
+          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17/
+          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
+          TABLEGEN_170_PREFIX: /usr/lib/llvm-17/
 
   erc20-native-tests:
     runs-on: ubuntu-latest
@@ -82,21 +88,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Set up Native Dependencies
+      - name: Install Native dependencies
+        id: native-deps
         uses: ./.github/actions/setup-native-dep
-      - uses: actions/checkout@v3
-        with:
-          repository: 'lambdaclass/cairo_native'
-          ref: "main"
-          path: 'cairo_native'
-      - name: Run ERC20 Native Tests
-        run: cd ./cairo_native/runtime &&
-          export CAIRO_NATIVE_RUNTIME_LIBDIR=$(pwd)/../target/release &&
-          echo $CAIRO_NATIVE_RUNTIME_LIBDIR &&
-          cargo build --release &&
-          cd ../.. &&
-          cd crates/blockifier && 
+      - name: Run ERC20 tests
+        run: | 
+          cd crates/blockifier 
           cargo test --test erc20_tests --features testing
+        env:
+          CAIRO_NATIVE_RUNTIME_LIBDIR: ${{ steps.native-deps.outputs.cairo-native-runtime-libdir }}
+          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17/
+          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
+          TABLEGEN_170_PREFIX: /usr/lib/llvm-17/
 
   udeps:
     runs-on: ubuntu-latest
@@ -105,7 +108,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         name: "Rust Toolchain Setup"
         with:
-          toolchain: nightly-2023-07-05
+          toolchain: nightly-2023-08-23
       - name: Set up Native Dependencies
         uses: ./.github/actions/setup-native-dep
       - uses: Swatinem/rust-cache@v2
@@ -113,7 +116,11 @@ jobs:
       - if: ${{ steps.cache-cargo.outputs.cache-hit != 'true' }}
         name: "Download and run cargo-udeps"
         run: |
-          wget -O - -c https://github.com/est31/cargo-udeps/releases/download/v0.1.35/cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz | tar -xz
-          cargo-udeps-*/cargo-udeps udeps
+          cargo install cargo-udeps --locked
+          cd crates/blockifier
+          cargo udeps --all-features --all-targets
         env:
-          RUSTUP_TOOLCHAIN: nightly-2023-07-05
+          RUSTUP_TOOLCHAIN: nightly-2023-08-23
+          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17/
+          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
+          TABLEGEN_170_PREFIX: /usr/lib/llvm-17/
