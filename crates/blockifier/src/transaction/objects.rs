@@ -510,13 +510,14 @@ impl TransactionResources {
 pub trait ExecutionResourcesTraits {
     fn total_n_steps(&self) -> usize;
     fn to_resources_mapping(&self) -> ResourcesMapping;
+    fn total_builtins(&self) -> HashMap<String, usize>;
 }
 
 impl ExecutionResourcesTraits for ExecutionResources {
     fn total_n_steps(&self) -> usize {
-        // The "segment arena" builtin is not part of SHARP (not in any proof layout).
-        // Each instance requires approximately 10 steps in the OS.
-        // TODO(Noa, 01/07/23): Verify the removal of the segment_arena builtin.
+        // The "segment arena" builtin is not part of the prover (not in any proof layout);
+        // It is transformed into regular steps by the OS program - each instance requires
+        // approximately 10 steps.
         self.n_steps
             + self.n_memory_holes
             + 10 * self
@@ -525,10 +526,19 @@ impl ExecutionResourcesTraits for ExecutionResources {
                 .cloned()
                 .unwrap_or_default()
     }
+
+    fn total_builtins(&self) -> HashMap<String, usize> {
+        let mut builtins = self.builtin_instance_counter.clone();
+
+        // See "total_n_steps" documentation.
+        builtins.remove(SEGMENT_ARENA_BUILTIN_NAME);
+        builtins
+    }
+
     // TODO(Nimrod, 1/5/2024): Delete this function when it's no longer in use.
     fn to_resources_mapping(&self) -> ResourcesMapping {
         let mut map = HashMap::from([(N_STEPS_RESOURCE.to_string(), self.total_n_steps())]);
-        map.extend(self.builtin_instance_counter.clone());
+        map.extend(self.total_builtins());
 
         ResourcesMapping(map)
     }
