@@ -14,7 +14,7 @@ use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionHash;
 
-use crate::errors::NativeBlockifierResult;
+use crate::errors::{NativeBlockifierResult, StatefulValidatorResult};
 use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, PyClassInfo};
@@ -99,7 +99,7 @@ impl<S: StateReader> StatefulValidator<S> {
         &mut self,
         tx: AccountTransaction,
         deploy_account_tx_hash: Option<TransactionHash>,
-    ) -> NativeBlockifierResult<()> {
+    ) -> StatefulValidatorResult<()> {
         let tx_context = self.tx_executor.block_context.to_tx_context(&tx);
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,
@@ -134,7 +134,7 @@ impl<S: StateReader> StatefulValidator<S> {
         Ok(())
     }
 
-    fn execute(&mut self, tx: AccountTransaction) -> NativeBlockifierResult<()> {
+    fn execute(&mut self, tx: AccountTransaction) -> StatefulValidatorResult<()> {
         self.tx_executor.execute(Transaction::AccountTransaction(tx), true)?;
         Ok(())
     }
@@ -143,7 +143,7 @@ impl<S: StateReader> StatefulValidator<S> {
         &mut self,
         tx: &AccountTransaction,
         tx_context: &TransactionContext,
-    ) -> NativeBlockifierResult<()> {
+    ) -> StatefulValidatorResult<()> {
         let strict_nonce_check = false;
         // Run pre-validation in charge fee mode to perform fee and balance related checks.
         let charge_fee = true;
@@ -164,7 +164,7 @@ impl<S: StateReader> StatefulValidator<S> {
         &mut self,
         tx_info: &TransactionInfo,
         deploy_account_tx_hash: Option<TransactionHash>,
-    ) -> NativeBlockifierResult<bool> {
+    ) -> StatefulValidatorResult<bool> {
         let nonce = self.tx_executor.state.get_nonce_at(tx_info.sender_address())?;
         let tx_nonce = tx_info.nonce();
 
@@ -185,7 +185,7 @@ impl<S: StateReader> StatefulValidator<S> {
         &mut self,
         tx: &AccountTransaction,
         remaining_gas: u64,
-    ) -> NativeBlockifierResult<(Option<CallInfo>, TransactionReceipt)> {
+    ) -> StatefulValidatorResult<(Option<CallInfo>, TransactionReceipt)> {
         Ok(self.tx_executor.validate(tx, remaining_gas)?)
     }
 }
