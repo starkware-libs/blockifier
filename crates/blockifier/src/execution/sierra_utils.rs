@@ -279,8 +279,8 @@ pub fn u256_to_biguint(u256: U256) -> BigUint {
 pub fn big4int_to_u256(b_int: BigInt<4>) -> U256 {
     let [a, b, c, d] = b_int.0;
 
-    let hi = u128::from(a) | (u128::from(b) << 64);
-    let lo = u128::from(c) | (u128::from(d) << 64);
+    let lo = u128::from(a) | (u128::from(b) << 64);
+    let hi = u128::from(c) | (u128::from(d) << 64);
 
     U256 { lo, hi }
 }
@@ -489,5 +489,21 @@ mod sierra_tests {
         let actual_entrypoint_selector = contract_entrypoint_to_entrypoint_selector(&entrypoint);
 
         assert_eq!(expected_entrypoint_selector, actual_entrypoint_selector);
+    }
+
+    #[test]
+    fn big4int_to_u256_test() {
+        let big_int: BigInt<4> = BigInt!(
+            "34627219085299802438030559924718133626325687994345768323532899246965609283226"
+        );
+
+        let expected_u256 = U256 {
+            lo: 162661716537849136813498421163242372762,
+            hi: 101760251048639038778899488808831626319,
+        };
+
+        let actual_u256 = big4int_to_u256(big_int);
+
+        assert_eq!(expected_u256, actual_u256);
     }
 }
