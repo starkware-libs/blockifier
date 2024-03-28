@@ -305,16 +305,10 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             ctor_context,
             self.constructor_calldata(),
             *remaining_gas,
-        );
-        let call_info = deployment_result.map_err(|error| {
-            TransactionExecutionError::ContractConstructorExecutionFailed {
-                error,
-                storage_address: self.contract_address,
-            }
-        })?;
-        update_remaining_gas(remaining_gas, &call_info);
+        )?;
+        update_remaining_gas(remaining_gas, &deployment_result);
 
-        Ok(Some(call_info))
+        Ok(Some(deployment_result))
     }
 }
 

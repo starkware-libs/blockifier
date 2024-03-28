@@ -28,6 +28,7 @@ use crate::execution::execution_utils::{
     write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_utils::update_remaining_gas;
 use crate::versioned_constants::{EventLimits, VersionedConstants};
 
@@ -260,7 +261,11 @@ pub fn deploy(
         ctor_context,
         request.constructor_calldata,
         *remaining_gas,
-    )?;
+    )
+    .map_err(|error| match error {
+        TransactionExecutionError::ContractConstructorExecutionFailed { error, .. } => error,
+        _ => panic!("Unexpected error: {:?}", error),
+    })?;
 
     let constructor_retdata =
         create_retdata_segment(vm, syscall_handler, &call_info.execution.retdata.0)?;

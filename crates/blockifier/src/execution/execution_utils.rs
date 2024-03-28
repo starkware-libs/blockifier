@@ -25,11 +25,12 @@ use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, ConstructorContext,
     EntryPointExecutionContext, EntryPointExecutionResult,
 };
-use crate::execution::errors::PostExecutionError;
+use crate::execution::errors::{EntryPointExecutionError, PostExecutionError};
 use crate::execution::{deprecated_entry_point_execution, entry_point_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
-use crate::transaction::objects::TransactionInfo;
+use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::objects::{TransactionExecutionResult, TransactionInfo};
 
 pub type Args = Vec<CairoArg>;
 
@@ -221,16 +222,28 @@ pub fn execute_deployment(
     ctor_context: ConstructorContext,
     constructor_calldata: Calldata,
     remaining_gas: u64,
-) -> EntryPointExecutionResult<CallInfo> {
+) -> TransactionExecutionResult<CallInfo> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
     let deployed_contract_address = ctor_context.storage_address;
     let current_class_hash = state.get_class_hash_at(deployed_contract_address)?;
     if current_class_hash != ClassHash::default() {
-        return Err(StateError::UnavailableContractAddress(deployed_contract_address).into());
+        let state_error = StateError::UnavailableContractAddress(deployed_contract_address).into();
+        return Err(TransactionExecutionError::ContractConstructorExecutionFailed {
+            error: state_error,
+            storage_address: deployed_contract_address,
+        });
     }
 
-    state.set_class_hash_at(deployed_contract_address, ctor_context.class_hash)?;
+    state.set_class_hash_at(deployed_contract_address, ctor_context.class_hash).map_err(
+        |state_error| {
+            let error: EntryPointExecutionError = state_error.into();
+            TransactionExecutionError::ContractConstructorExecutionFailed {
+                error,
+                storage_address: deployed_contract_address,
+            }
+        },
+    )?;
 
     let call_info = execute_constructor_entry_point(
         state,

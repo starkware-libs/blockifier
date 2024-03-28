@@ -26,6 +26,7 @@ use crate::execution::execution_utils::{
     execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
     ReadOnlySegment,
 };
+use crate::transaction::errors::TransactionExecutionError;
 
 #[cfg(test)]
 #[path = "deprecated_syscalls_test.rs"]
@@ -336,7 +337,11 @@ pub fn deploy(
         ctor_context,
         request.constructor_calldata,
         syscall_handler.context.gas_costs().initial_gas_cost,
-    )?;
+    )
+    .map_err(|error| match error {
+        TransactionExecutionError::ContractConstructorExecutionFailed { error, .. } => error,
+        _ => panic!("Unexpected error: {:?}", error),
+    })?;
     syscall_handler.inner_calls.push(call_info);
 
     Ok(DeployResponse { contract_address: deployed_contract_address })
