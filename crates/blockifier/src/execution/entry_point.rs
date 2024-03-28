@@ -18,6 +18,7 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::state_api::State;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionResult, TransactionInfo};
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::{u128_from_usize, usize_from_u128};
@@ -292,12 +293,19 @@ pub fn execute_constructor_entry_point(
     ctor_context: ConstructorContext,
     calldata: Calldata,
     remaining_gas: u64,
-) -> EntryPointExecutionResult<CallInfo> {
+) -> TransactionExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_compiled_contract_class(ctor_context.class_hash)?;
+    let storage_address = ctor_context.storage_address;
+    let contract_class =
+        state.get_compiled_contract_class(ctor_context.class_hash).map_err(|state_error| {
+            let error: EntryPointExecutionError = state_error.into();
+            TransactionExecutionError::ContractConstructorExecutionFailed { error, storage_address }
+        })?;
     let Some(constructor_selector) = contract_class.constructor_selector() else {
         // Contract has no constructor.
-        return handle_empty_constructor(ctor_context, calldata, remaining_gas);
+        return handle_empty_constructor(ctor_context, calldata, remaining_gas).map_err(|error| {
+            TransactionExecutionError::ContractConstructorExecutionFailed { error, storage_address }
+        });
     };
 
     let constructor_call = CallEntryPoint {
@@ -306,13 +314,15 @@ pub fn execute_constructor_entry_point(
         entry_point_type: EntryPointType::Constructor,
         entry_point_selector: constructor_selector,
         calldata,
-        storage_address: ctor_context.storage_address,
+        storage_address,
         caller_address: ctor_context.caller_address,
         call_type: CallType::Call,
         initial_gas: remaining_gas,
     };
 
-    constructor_call.execute(state, resources, context)
+    constructor_call.execute(state, resources, context).map_err(|error| {
+        TransactionExecutionError::ContractConstructorExecutionFailed { error, storage_address }
+    })
 }
 
 pub fn handle_empty_constructor(

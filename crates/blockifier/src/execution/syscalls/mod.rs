@@ -23,11 +23,13 @@ use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Messag
 use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
     execute_deployment, felt_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
     write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
 };
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::transaction_utils::update_remaining_gas;
 use crate::versioned_constants::{EventLimits, VersionedConstants};
 
@@ -260,7 +262,11 @@ pub fn deploy(
         ctor_context,
         request.constructor_calldata,
         *remaining_gas,
-    )?;
+    )
+    .map_err(|error| match error {
+        TransactionExecutionError::ContractConstructorExecutionFailed { error, .. } => error,
+        _ => EntryPointExecutionError::InternalError("Unexpected error type.".to_string()),
+    })?;
 
     let constructor_retdata =
         create_retdata_segment(vm, syscall_handler, &call_info.execution.retdata.0)?;

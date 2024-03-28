@@ -22,10 +22,12 @@ use super::syscalls::exceeds_event_size_limit;
 use crate::execution::call_info::{MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::execution_utils::{
     execute_deployment, stark_felt_from_ptr, write_maybe_relocatable, write_stark_felt,
     ReadOnlySegment,
 };
+use crate::transaction::errors::TransactionExecutionError;
 
 #[cfg(test)]
 #[path = "deprecated_syscalls_test.rs"]
@@ -336,7 +338,11 @@ pub fn deploy(
         ctor_context,
         request.constructor_calldata,
         syscall_handler.context.gas_costs().initial_gas_cost,
-    )?;
+    )
+    .map_err(|error| match error {
+        TransactionExecutionError::ContractConstructorExecutionFailed { error, .. } => error,
+        _ => EntryPointExecutionError::InternalError("Unexpected error type.".to_string()),
+    })?;
     syscall_handler.inner_calls.push(call_info);
 
     Ok(DeployResponse { contract_address: deployed_contract_address })
