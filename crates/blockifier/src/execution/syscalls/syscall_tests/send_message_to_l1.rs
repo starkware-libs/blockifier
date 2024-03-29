@@ -9,7 +9,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, MessageToL1, OrderedL2ToL1Message};
 use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::sierra_utils::NATIVE_GAS_PLACEHOLDER;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{trivial_external_entry_point_new, CairoVersion, BALANCE};

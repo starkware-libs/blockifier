@@ -9,7 +9,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::sierra_utils::NATIVE_GAS_PLACEHOLDER;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;

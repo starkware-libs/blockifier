@@ -11,7 +11,7 @@ use crate::abi::constants;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::sierra_utils::NATIVE_GAS_PLACEHOLDER;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;

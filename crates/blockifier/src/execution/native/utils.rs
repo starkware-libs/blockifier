@@ -19,61 +19,58 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
 use num_bigint::BigUint;
 use num_traits::ToBytes;
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Resource;
-use starknet_types_core::felt::{Felt, FromStrError};
+use starknet_types_core::felt::Felt;
 
-use super::call_info::{CallExecution, CallInfo, OrderedEvent, OrderedL2ToL1Message, Retdata};
-use super::contract_class::SierraContractClassV1;
-use super::entry_point::{CallEntryPoint, EntryPointExecutionResult};
-use super::errors::EntryPointExecutionError;
-use super::native_syscall_handler::NativeSyscallHandler;
-use crate::execution::entry_point::EntryPointExecutionContext;
+use crate::execution::call_info::{
+    CallExecution, CallInfo, OrderedEvent, OrderedL2ToL1Message, Retdata,
+};
+use crate::execution::entry_point::{CallEntryPoint, EntryPointExecutionResult};
+use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::syscalls::hint_processor::{SyscallExecutionError, L1_GAS, L2_GAS};
 use crate::execution::syscalls::secp::{SecpHintProcessor, SecpNewRequest, SecpNewResponse};
-use crate::state::state_api::State;
 use crate::transaction::objects::CurrentTransactionInfo;
+
+#[cfg(test)]
+#[path = "utils_test.rs"]
+pub mod test;
 
 // An arbitrary number, chosen to avoid accidentally aligning with actually calculated gas
 // To be deleted once cairo native gas handling can be used
 pub const NATIVE_GAS_PLACEHOLDER: u64 = 12;
 
-pub fn get_program(contract_class: &SierraContractClassV1) -> &SierraProgram {
-    &contract_class.sierra_program
-}
-
-pub fn get_entrypoints(contract_class: &SierraContractClassV1) -> &ContractEntryPoints {
-    &contract_class.entry_points_by_type
-}
-
 pub fn match_entrypoint(
     entry_point_type: EntryPointType,
     entrypoint_selector: EntryPointSelector,
     contract_entrypoints: &ContractEntryPoints,
-) -> &ContractEntryPoint {
+) -> EntryPointExecutionResult<&ContractEntryPoint> {
     let entrypoints = match entry_point_type {
         EntryPointType::Constructor => &contract_entrypoints.constructor,
         EntryPointType::External => &contract_entrypoints.external,
         EntryPointType::L1Handler => &contract_entrypoints.l1_handler,
     };
 
+    let cmp_selector_to_entrypoint =
+        |selector: EntryPointSelector, entrypoint: &ContractEntryPoint| {
+            let entrypoint_selector_str = entrypoint.selector.to_str_radix(16);
+            let padded_selector_str = format!(
+                "0x{}{}",
+                "0".repeat(64 - entrypoint_selector_str.len()),
+                entrypoint_selector_str
+            );
+            selector.0.to_string() == padded_selector_str
+        };
+
     entrypoints
         .iter()
         .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
-        .unwrap_or_else(|| panic!("entrypoint selector {0} not found", entrypoint_selector.0))
-}
-
-fn cmp_selector_to_entrypoint(
-    selector: EntryPointSelector,
-    contract_entrypoint: &ContractEntryPoint,
-) -> bool {
-    let entrypoint_selector_str = contract_entrypoint.selector.to_str_radix(16);
-    let padded_selector_str =
-        format!("0x{}{}", "0".repeat(64 - entrypoint_selector_str.len()), entrypoint_selector_str);
-    selector.0.to_string() == padded_selector_str
+        .ok_or(EntryPointExecutionError::NativeExecutionError {
+            info: format!("Entrypoint selector {} not found", entrypoint_selector.0),
+        })
 }
 
 static NATIVE_CONTEXT: std::sync::OnceLock<cairo_native::context::NativeContext> =
@@ -89,12 +86,6 @@ pub fn get_native_jit_program_cache<'context>() -> Rc<RefCell<ProgramCache<'cont
     Rc::new(RefCell::new(ProgramCache::Jit(JitProgramCache::new(
         NATIVE_CONTEXT.get_or_init(NativeContext::new),
     ))))
-}
-
-pub fn get_code_class_hash(call: &CallEntryPoint, _state: &mut dyn State) -> ClassHash {
-    // TODO investigate how this works for delegate calls, and whether this is already handled by
-    // the blockifier (rendering this function inlinable)
-    call.class_hash.unwrap()
 }
 
 pub fn get_native_executor<'context>(
@@ -134,43 +125,6 @@ pub fn get_sierra_entry_function_id<'a>(
         .id
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn setup_syscall_handler<'state>(
-    state: &'state mut dyn State,
-    caller_address: ContractAddress,
-    contract_address: ContractAddress,
-    entry_point_selector: EntryPointSelector,
-    execution_resources: &'state mut ExecutionResources,
-    execution_context: &'state mut EntryPointExecutionContext,
-    events: Vec<OrderedEvent>,
-    l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
-    inner_calls: Vec<CallInfo>,
-    secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
-    secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
-    storage_read_values: Vec<StarkFelt>,
-    accessed_storage_keys: HashSet<StorageKey, RandomState>,
-) -> NativeSyscallHandler<'state> {
-    NativeSyscallHandler {
-        state,
-        caller_address,
-        contract_address,
-        entry_point_selector: entry_point_selector.0,
-        execution_context,
-        events,
-        l2_to_l1_messages,
-        execution_resources,
-        inner_calls,
-        secp256k1_hint_processor,
-        secp256r1_hint_processor,
-        storage_read_values,
-        accessed_storage_keys,
-    }
-}
-
-pub fn wrap_syscall_handler(syscall_handler: &mut NativeSyscallHandler<'_>) -> SyscallHandlerMeta {
-    SyscallHandlerMeta::new(syscall_handler)
-}
-
 pub fn stark_felt_to_native_felt(stark_felt: StarkFelt) -> Felt {
     Felt::from_bytes_be_slice(stark_felt.bytes())
 }
@@ -179,7 +133,7 @@ pub fn native_felt_to_stark_felt(felt: Felt) -> StarkFelt {
     StarkFelt::new(felt.to_bytes_be()).unwrap()
 }
 
-pub fn contract_address_to_felt(contract_address: ContractAddress) -> Felt {
+pub fn contract_address_to_native_felt(contract_address: ContractAddress) -> Felt {
     Felt::from_bytes_be_slice(contract_address.0.key().bytes())
 }
 
@@ -190,34 +144,26 @@ pub fn contract_entrypoint_to_entrypoint_selector(
     EntryPointSelector(native_felt_to_stark_felt(selector_felt))
 }
 
-pub fn chain_id_to_felt(chain_id: &ChainId) -> Result<Felt, FromStrError> {
-    Felt::from_hex(&chain_id.as_hex())
-}
-
-pub fn parse_stark_felt_string(felt: StarkFelt) -> String {
-    String::from_utf8(felt.bytes().into()).unwrap()
-}
-
-fn stark_felts_to_felts(data: &[StarkFelt]) -> Vec<Felt> {
-    data.iter().map(|stark_felt| stark_felt_to_native_felt(*stark_felt)).collect_vec()
-}
-
 pub fn run_native_executor(
     native_executor: NativeExecutor<'_>,
     sierra_entry_function_id: &FunctionId,
     call: &CallEntryPoint,
     syscall_handler: &SyscallHandlerMeta,
 ) -> EntryPointExecutionResult<ContractExecutionResult> {
+    let stark_felts_to_native_felts = |data: &[StarkFelt]| -> Vec<Felt> {
+        data.iter().map(|stark_felt| stark_felt_to_native_felt(*stark_felt)).collect_vec()
+    };
+
     let execution_result = match native_executor {
         NativeExecutor::Aot(executor) => executor.invoke_contract_dynamic(
             sierra_entry_function_id,
-            &stark_felts_to_felts(&call.calldata.0),
+            &stark_felts_to_native_felts(&call.calldata.0),
             Some(call.initial_gas.into()),
             Some(syscall_handler),
         ),
         NativeExecutor::Jit(executor) => executor.invoke_contract_dynamic(
             sierra_entry_function_id,
-            &stark_felts_to_felts(&call.calldata.0),
+            &stark_felts_to_native_felts(&call.calldata.0),
             Some(call.initial_gas.into()),
             Some(syscall_handler),
         ),
@@ -302,7 +248,19 @@ pub fn decode_felts_as_str(encoding: &[Felt]) -> String {
     let bytes_err: Vec<_> =
         encoding.iter().flat_map(|felt| felt.to_bytes_be()[1..32].to_vec()).collect();
 
-    String::from_utf8(bytes_err).unwrap().trim_matches('\0').to_owned()
+    match String::from_utf8(bytes_err) {
+        Ok(s) => s.trim_matches('\0').to_owned(),
+        Err(_) => {
+            let err_msgs = encoding
+                .iter()
+                .map(|felt| match String::from_utf8(felt.to_bytes_be()[1..32].to_vec()) {
+                    Ok(s) => format!("{} ({})", s.trim_matches('\0'), felt),
+                    Err(_) => felt.to_string(),
+                })
+                .join(", ");
+            format!("[{}]", err_msgs)
+        }
+    }
 }
 
 pub fn allocate_point<Curve: SWCurveConfig>(
@@ -370,140 +328,4 @@ pub fn calculate_resource_bounds(
             }
         })
         .collect())
-}
-
-#[cfg(test)]
-mod sierra_tests {
-    use num_traits::Num;
-    use starknet_api::core::PatriciaKey;
-    use starknet_api::hash::StarkHash;
-    use starknet_api::{contract_address, patricia_key};
-
-    use super::*;
-
-    #[test]
-    fn test_chain_id_to_felt() {
-        const CHAIN_ID: &str = "SN_GOERLI";
-
-        let chain_id = ChainId(String::from(CHAIN_ID));
-        let expected_felt = Felt::from_bytes_be_slice(CHAIN_ID.as_bytes());
-
-        let actual_felt = chain_id_to_felt(&chain_id).unwrap();
-
-        assert_eq!(actual_felt, expected_felt);
-    }
-
-    #[test]
-    fn test_parse_starknet_string() {
-        const EXPECTED_STRING: &str = "Hello StarkNet!";
-        let expected_string_hex: String = {
-            let mut hex = String::new();
-            for byte in EXPECTED_STRING.as_bytes() {
-                hex.push_str(&format!("{:02x}", byte));
-            }
-            hex
-        };
-
-        let stark_felt_str = StarkFelt::try_from(expected_string_hex.as_str()).unwrap();
-        let actual_string = parse_stark_felt_string(stark_felt_str);
-
-        assert_eq!(actual_string.trim_matches('\0'), EXPECTED_STRING);
-    }
-
-    #[test]
-    fn test_stark_felts_to_felts() {
-        let stark_felts = vec![
-            StarkFelt::try_from("0x01").unwrap(),
-            StarkFelt::try_from("0x02").unwrap(),
-            StarkFelt::try_from("0x03").unwrap(),
-        ];
-        let expected_felts = vec![Felt::from(1_u64), Felt::from(2_u64), Felt::from(3_u64)];
-
-        let actual_felts = stark_felts_to_felts(&stark_felts);
-
-        assert_eq!(actual_felts, expected_felts);
-    }
-
-    #[test]
-    fn test_u256_to_biguint() {
-        let u256 = U256 { lo: 0x1234_5678, hi: 0x9abc_def0 };
-
-        let expected_biguint =
-            BigUint::from_str_radix("123456780000000000000000000000009abcdef0", 16).unwrap();
-
-        let actual_biguint = u256_to_biguint(u256);
-
-        assert_eq!(actual_biguint, expected_biguint);
-    }
-
-    #[test]
-    fn test_encode_decode_str() {
-        const STR: &str = "Hello StarkNet!";
-
-        let encoded_felt_array = encode_str_as_felts(STR);
-
-        let decoded_felt_array = decode_felts_as_str(encoded_felt_array.as_slice());
-
-        assert_eq!(STR, &decoded_felt_array);
-    }
-
-    #[test]
-    fn test_felt_to_stark_felt() {
-        const NUM: u128 = 123;
-
-        let felt = Felt::from(NUM);
-        let expected_stark_felt = StarkFelt::from_u128(NUM);
-        let actual_stark_felt = native_felt_to_stark_felt(felt);
-
-        assert_eq!(expected_stark_felt, actual_stark_felt);
-    }
-
-    #[test]
-    fn test_stark_felt_to_felt() {
-        const NUM: u128 = 123;
-
-        let stark_felt = StarkFelt::from_u128(NUM);
-        let expected_felt = Felt::from(NUM);
-        let actual_felt = stark_felt_to_native_felt(stark_felt);
-
-        assert_eq!(expected_felt, actual_felt);
-    }
-
-    #[test]
-    fn test_contract_address_to_felt() {
-        const NUM: u128 = 1234;
-
-        let contract_address = contract_address!({ NUM });
-        let expected_felt = Felt::from(NUM);
-        let actual_felt = contract_address_to_felt(contract_address);
-
-        assert_eq!(expected_felt, actual_felt);
-    }
-
-    #[test]
-    fn test_contract_entrypoint_to_entrypoint_selector() {
-        const NUM: u128 = 123;
-
-        let entrypoint = ContractEntryPoint { selector: BigUint::from(NUM), function_idx: 0 };
-        let expected_entrypoint_selector = EntryPointSelector(StarkFelt::from_u128(NUM));
-        let actual_entrypoint_selector = contract_entrypoint_to_entrypoint_selector(&entrypoint);
-
-        assert_eq!(expected_entrypoint_selector, actual_entrypoint_selector);
-    }
-
-    #[test]
-    fn big4int_to_u256_test() {
-        let big_int: BigInt<4> = BigInt!(
-            "34627219085299802438030559924718133626325687994345768323532899246965609283226"
-        );
-
-        let expected_u256 = U256 {
-            lo: 162661716537849136813498421163242372762,
-            hi: 101760251048639038778899488808831626319,
-        };
-
-        let actual_u256 = big4int_to_u256(big_int);
-
-        assert_eq!(expected_u256, actual_u256);
-    }
 }

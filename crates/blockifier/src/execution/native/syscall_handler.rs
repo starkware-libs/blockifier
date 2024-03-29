@@ -22,13 +22,11 @@ use starknet_api::transaction::{
 };
 use starknet_types_core::felt::Felt;
 
-use super::execution_utils::max_fee_for_execution_info;
-use super::sierra_utils::{
-    allocate_point, big4int_to_u256, calculate_resource_bounds, contract_address_to_felt,
+use super::utils::{
+    allocate_point, big4int_to_u256, calculate_resource_bounds, contract_address_to_native_felt,
     default_tx_v2_info, encode_str_as_felts, native_felt_to_stark_felt, stark_felt_to_native_felt,
     u256_to_biguint,
 };
-use super::syscalls::exceeds_event_size_limit;
 use crate::abi::constants;
 use crate::execution::call_info::{CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::ExecutionMode;
@@ -36,7 +34,8 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
-use crate::execution::execution_utils::execute_deployment;
+use crate::execution::execution_utils::{execute_deployment, max_fee_for_execution_info};
+use crate::execution::syscalls::exceeds_event_size_limit;
 use crate::execution::syscalls::hint_processor::{
     SyscallExecutionError, BLOCK_NUMBER_OUT_OF_RANGE_ERROR, INVALID_INPUT_LENGTH_ERROR,
 };
@@ -48,20 +47,54 @@ use crate::state::state_api::State;
 use crate::transaction::objects::TransactionInfo;
 
 pub struct NativeSyscallHandler<'state> {
+    // Input for execution
     pub state: &'state mut dyn State,
+    pub execution_resources: &'state mut ExecutionResources,
+    pub execution_context: &'state mut EntryPointExecutionContext,
+
+    // Call information
     pub caller_address: ContractAddress,
     pub contract_address: ContractAddress,
     pub entry_point_selector: StarkFelt,
-    pub execution_resources: &'state mut ExecutionResources,
-    pub execution_context: &'state mut EntryPointExecutionContext,
+
+    // Execution results
     pub events: Vec<OrderedEvent>,
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     pub inner_calls: Vec<CallInfo>,
+    // Additional execution result info
+    pub storage_read_values: Vec<StarkFelt>,
+    pub accessed_storage_keys: HashSet<StorageKey, RandomState>,
+
     // Secp hint processors.
     pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
     pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
-    pub storage_read_values: Vec<StarkFelt>,
-    pub accessed_storage_keys: HashSet<StorageKey, RandomState>,
+}
+
+impl<'state> NativeSyscallHandler<'_> {
+    pub fn new(
+        state: &'state mut dyn State,
+        caller_address: ContractAddress,
+        contract_address: ContractAddress,
+        entry_point_selector: EntryPointSelector,
+        execution_resources: &'state mut ExecutionResources,
+        execution_context: &'state mut EntryPointExecutionContext,
+    ) -> NativeSyscallHandler<'state> {
+        NativeSyscallHandler {
+            state,
+            caller_address,
+            contract_address,
+            entry_point_selector: entry_point_selector.0,
+            execution_resources,
+            execution_context,
+            events: Vec::new(),
+            l2_to_l1_messages: Vec::new(),
+            inner_calls: Vec::new(),
+            secp256k1_hint_processor: Default::default(),
+            secp256r1_hint_processor: Default::default(),
+            storage_read_values: Vec::new(),
+            accessed_storage_keys: HashSet::new(),
+        }
+    }
 }
 
 impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
@@ -141,7 +174,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             BlockInfo {
                 block_number: block_info.block_number.0,
                 block_timestamp: block_info.block_timestamp.0,
-                sequencer_address: contract_address_to_felt(block_info.sequencer_address),
+                sequencer_address: contract_address_to_native_felt(block_info.sequencer_address),
             }
         };
 
@@ -149,7 +182,7 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
         let tx_info = &self.execution_context.tx_context.tx_info;
         let mut native_tx_info = TxV2Info {
             version: stark_felt_to_native_felt(tx_info.signed_version().0),
-            account_contract_address: contract_address_to_felt(tx_info.sender_address()),
+            account_contract_address: contract_address_to_native_felt(tx_info.sender_address()),
             max_fee: max_fee_for_execution_info(tx_info).to_u128().unwrap(),
             signature: tx_info.signature().0.into_iter().map(stark_felt_to_native_felt).collect(),
             transaction_hash: stark_felt_to_native_felt(tx_info.transaction_hash().0),
@@ -187,8 +220,8 @@ impl<'state> StarkNetSyscallHandler for NativeSyscallHandler<'state> {
             };
         }
 
-        let caller_address = contract_address_to_felt(self.caller_address);
-        let contract_address = contract_address_to_felt(self.contract_address);
+        let caller_address = contract_address_to_native_felt(self.caller_address);
+        let contract_address = contract_address_to_native_felt(self.contract_address);
         let entry_point_selector = stark_felt_to_native_felt(self.entry_point_selector);
 
         Ok(ExecutionInfoV2 {

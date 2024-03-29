@@ -1,7 +1,7 @@
 // run with:
 // cargo test --test erc20_tests --features testing
-use blockifier::execution::sierra_utils::{
-    contract_address_to_felt, native_felt_to_stark_felt, stark_felt_to_native_felt,
+use blockifier::execution::native::utils::{
+    contract_address_to_native_felt, native_felt_to_stark_felt, stark_felt_to_native_felt,
 };
 use blockifier::test_utils::*;
 use starknet_api::hash::StarkFelt;
@@ -37,7 +37,8 @@ mod read_only_methods_tests {
 
     #[test]
     fn test_balance_of() {
-        let address = native_felt_to_stark_felt(contract_address_to_felt(Signers::Alice.into()));
+        let address =
+            native_felt_to_stark_felt(contract_address_to_native_felt(Signers::Alice.into()));
 
         let mut context = TestContext::new();
         let result = context.call_entry_point("balance_of", vec![address]);

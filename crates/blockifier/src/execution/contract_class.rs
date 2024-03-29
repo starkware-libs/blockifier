@@ -30,7 +30,7 @@ use starknet_api::deprecated_contract_class::{
 };
 
 use super::execution_utils::poseidon_hash_many_cost;
-use super::sierra_utils::contract_entrypoint_to_entrypoint_selector;
+use super::native::utils::contract_entrypoint_to_entrypoint_selector;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;

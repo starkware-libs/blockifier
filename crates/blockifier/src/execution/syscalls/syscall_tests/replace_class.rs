@@ -8,7 +8,7 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::execution::call_info::CallExecution;
 use crate::execution::contract_class::ContractClassV0;
 use crate::execution::entry_point::CallEntryPoint;
-use crate::execution::sierra_utils::NATIVE_GAS_PLACEHOLDER;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::cached_state::create_deploy_test_state;
 use crate::test_utils::contracts::FeatureContract;

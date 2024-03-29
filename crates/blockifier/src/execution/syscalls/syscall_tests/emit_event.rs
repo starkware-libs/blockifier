@@ -10,7 +10,7 @@ use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::EntryPointExecutionError;
-use crate::execution::sierra_utils::NATIVE_GAS_PLACEHOLDER;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;

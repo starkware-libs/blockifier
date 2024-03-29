@@ -9,7 +9,5 @@ pub mod entry_point_execution;
 pub mod errors;
 pub mod execution_utils;
 pub mod hint_code;
-pub mod native_entry_point_execution;
-pub mod native_syscall_handler;
-pub mod sierra_utils;
+pub mod native;
 pub mod syscalls;

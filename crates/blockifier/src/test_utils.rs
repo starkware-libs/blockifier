@@ -39,8 +39,8 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::{execute_deployment, felt_to_stark_felt}; /* TODO rename to felt252_to_stark_felt */
-use crate::execution::sierra_utils::{
-    contract_address_to_felt, native_felt_to_stark_felt, stark_felt_to_native_felt,
+use crate::execution::native::utils::{
+    contract_address_to_native_felt, native_felt_to_stark_felt, stark_felt_to_native_felt,
 };
 use crate::execution::syscalls::hint_processor::{
     FAILED_TO_CALCULATE_CONTRACT_ADDRESS, FAILED_TO_EXECUTE_CALL,
@@ -498,8 +498,8 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
         class_hash,
         Felt::from(0),
         &[
-            contract_address_to_felt(Signers::Alice.into()), // Recipient
-            contract_address_to_felt(Signers::Alice.into()), // Owner
+            contract_address_to_native_felt(Signers::Alice.into()), // Recipient
+            contract_address_to_native_felt(Signers::Alice.into()), // Owner
         ],
     )
     .unwrap();
@@ -536,13 +536,13 @@ impl From<Signers> for ContractAddress {
 
 impl From<Signers> for Felt {
     fn from(val: Signers) -> Self {
-        contract_address_to_felt(val.get_address())
+        contract_address_to_native_felt(val.get_address())
     }
 }
 
 impl From<Signers> for StarkFelt {
     fn from(val: Signers) -> Self {
-        native_felt_to_stark_felt(contract_address_to_felt(val.get_address()))
+        native_felt_to_stark_felt(contract_address_to_native_felt(val.get_address()))
     }
 }
 
