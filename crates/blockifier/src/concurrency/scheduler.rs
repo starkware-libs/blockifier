@@ -1,7 +1,5 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::concurrency::Version;
-
 #[cfg(test)]
 #[path = "scheduler_test.rs"]
 pub mod test;
@@ -106,8 +104,8 @@ impl Scheduler {
 }
 
 pub enum Task {
-    ExecutionTask(Version),
-    ValidationTask(Version),
+    ExecutionTask(usize),
+    ValidationTask(usize),
     NoTask,
     Done,
 }
