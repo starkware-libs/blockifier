@@ -158,6 +158,7 @@ impl Scheduler {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Task {
     ExecutionTask(TxIndex),
     ValidationTask(TxIndex),
