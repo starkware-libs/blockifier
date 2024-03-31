@@ -29,6 +29,7 @@ cairo-lang-starknet-classes.workspace = true
 cairo-lang-utils.workspace = true
 cairo-vm.workspace = true
 derive_more.workspace = true
+glob.workspace = true
 indexmap.workspace = true
 itertools.workspace = true
 keccak.workspace = true

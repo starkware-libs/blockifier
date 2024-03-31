@@ -402,6 +402,7 @@ dependencies = [
  "cairo-lang-utils",
  "cairo-vm",
  "derive_more",
+ "glob",
  "indexmap 2.1.0",
  "itertools 0.10.5",
  "keccak",
