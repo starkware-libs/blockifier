@@ -1,3 +1,4 @@
+use glob::glob;
 use pretty_assertions::assert_eq;
 
 use super::*;
@@ -190,4 +191,13 @@ fn test_invalid_number() {
         "Value 42.5 used to create value for key 'entry_point_initial_budget' is out of range and \
          cannot be cast into u64",
     );
+}
+
+#[test]
+fn test_old_json_parsing() {
+    let files = glob(format!("{}/resources/*.json", env!("CARGO_MANIFEST_DIR")).as_str()).unwrap();
+    for file in files.map(Result::unwrap) {
+        serde_json::from_reader::<_, VersionedConstants>(&std::fs::File::open(&file).unwrap())
+            .unwrap_or_else(|_| panic!("Versioned constants JSON file {file:#?} is malformed"));
+    }
 }
