@@ -23,9 +23,13 @@ pub fn get_tx_events_gas_cost<'a>(
     call_infos: impl Iterator<Item = &'a CallInfo>,
     versioned_constants: &VersionedConstants,
 ) -> GasVector {
-    let l1_milligas: u128 = call_infos
-        .map(|call_info| get_events_milligas_cost(&call_info.execution.events, versioned_constants))
-        .sum();
+    let mut l1_milligas: u128 = 0;
+    for main_call_info in call_infos {
+        for inner_call in main_call_info.into_iter() {
+            l1_milligas +=
+                get_events_milligas_cost(&inner_call.execution.events, versioned_constants);
+        }
+    }
     GasVector { l1_gas: l1_milligas / 1000_u128, l1_data_gas: 0_u128 }
 }
 
