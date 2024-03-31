@@ -105,19 +105,19 @@ impl Scheduler {
     }
 
     fn decrease_validation_index(&self, target_index: TxIndex) {
-        // TODO(barak, 01/06/2024): Rethink the necessity of this assert once we have a multiple
-        // threads flow.
-        // Temporary assertion, to make sure we don't miss any special flow.
-        // The purpose is to catch the scenarios where we increment the `decrease_counter`
-        // but the `validation_index` remains the same.
-        assert!(target_index < self.validation_index.load(Ordering::Acquire));
-        self.validation_index.fetch_min(target_index, Ordering::SeqCst);
-        self.decrease_counter.fetch_add(1, Ordering::SeqCst);
+        let previous_validation_index =
+            self.validation_index.fetch_min(target_index, Ordering::SeqCst);
+        if target_index < previous_validation_index {
+            self.decrease_counter.fetch_add(1, Ordering::SeqCst);
+        }
     }
 
     fn decrease_execution_index(&self, target_index: TxIndex) {
-        self.execution_index.fetch_min(target_index, Ordering::SeqCst);
-        self.decrease_counter.fetch_add(1, Ordering::SeqCst);
+        let previous_execution_index =
+            self.execution_index.fetch_min(target_index, Ordering::SeqCst);
+        if target_index < previous_execution_index {
+            self.decrease_counter.fetch_add(1, Ordering::SeqCst);
+        }
     }
 
     /// Updates a transaction's status to `Executing` if it is ready to execute.
@@ -126,7 +126,8 @@ impl Scheduler {
             // TODO(barak, 01/04/2024): complete try_incarnate logic.
             return Some(tx_index);
         }
-        self.n_active_tasks.fetch_sub(1, Ordering::SeqCst);
+        let previous_n_active_tasks = self.n_active_tasks.fetch_sub(1, Ordering::SeqCst);
+        assert!(previous_n_active_tasks > 0, "n_active_tasks underflowed");
         None
     }
 
@@ -142,7 +143,8 @@ impl Scheduler {
             // TODO(barak, 01/04/2024): complete next_version_to_validate logic.
             return Some(index_to_validate);
         }
-        self.n_active_tasks.fetch_sub(1, Ordering::SeqCst);
+        let previous_n_active_tasks = self.n_active_tasks.fetch_sub(1, Ordering::SeqCst);
+        assert!(previous_n_active_tasks > 0, "n_active_tasks underflowed");
         None
     }
 
@@ -158,6 +160,7 @@ impl Scheduler {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Task {
     ExecutionTask(TxIndex),
     ValidationTask(TxIndex),
