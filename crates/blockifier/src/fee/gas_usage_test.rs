@@ -25,7 +25,8 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
     let call_info_1 = &CallInfo::default();
     let call_info_2 = &CallInfo::default();
     let call_info_3 = &CallInfo::default();
-    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    let call_infos =
+        Some(call_info_1).into_iter().chain(Some(call_info_2)).chain(Some(call_info_3));
     assert_eq!(GasVector::default(), get_tx_events_gas_cost(call_infos, versioned_constants));
 
     let create_event = |keys_size: usize, data_size: usize| OrderedEvent {
@@ -52,15 +53,16 @@ fn test_get_event_gas_cost(versioned_constants: &VersionedConstants) {
     let call_info_3 = &CallInfo {
         execution: CallExecution { events: vec![create_event(0, 1)], ..Default::default() },
         inner_calls: vec![CallInfo {
-            execution: CallExecution { events: vec![create_event(1, 0)], ..Default::default() },
+            execution: CallExecution { events: vec![create_event(5, 5)], ..Default::default() },
             ..Default::default()
         }],
         ..Default::default()
     };
-    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    let call_infos =
+        Some(call_info_1).into_iter().chain(Some(call_info_2)).chain(Some(call_info_3));
     let expected = GasVector {
         // 4 keys and 6 data words overall.
-        l1_gas: (event_key_factor * data_word_cost * 4_u128 + data_word_cost * 6_u128) / 1000,
+        l1_gas: (event_key_factor * data_word_cost * 8_u128 + data_word_cost * 11_u128) / 1000,
         l1_data_gas: 0_u128,
     };
     let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
