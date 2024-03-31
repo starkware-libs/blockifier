@@ -280,16 +280,20 @@ impl StarknetResources {
         l1_handler_payload_size: Option<usize>,
         call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
     ) -> Self {
-        let mut new = Self {
+        let (n_events, total_event_keys, total_event_data_size) =
+            StarknetResources::calculate_events_resources(call_infos.clone());
+
+        Self {
             calldata_length,
             signature_length,
             code_size,
             state_changes_for_fee: state_changes_count,
             l1_handler_payload_size,
-            ..Default::default()
-        };
-        new.set_events_and_messages_resources(call_infos);
-        new
+            message_cost_info: MessageL1CostInfo::calculate(call_infos, l1_handler_payload_size),
+            n_events,
+            total_event_keys,
+            total_event_data_size,
+        }
     }
 
     /// Returns the gas cost of the starknet resources, summing all components.
@@ -303,41 +307,6 @@ impl StarknetResources {
             + self.get_state_changes_cost(use_kzg_da)
             + self.get_messages_cost()
             + self.get_events_cost(versioned_constants)
-    }
-
-    /// Sets the code_size field from a ClassInfo from (Sierra, Casm and ABI). Each code felt costs
-    /// a fixed and configurable amount of gas. The cost is 0 for non-Declare transactions.
-    pub fn set_code_size(&mut self, code_size: usize) {
-        self.code_size = code_size;
-    }
-
-    /// Sets the l2_to_l1_payload_lengths, message_segment_length, total_event_keys,
-    // let/ total_event_data_size fields according to the call_infos of a transaction.
-    pub fn set_events_and_messages_resources<'a>(
-        &mut self,
-        call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
-    ) {
-        let mut total_event_keys = 0;
-        let mut total_event_data_size = 0;
-        let mut n_events = 0;
-        for call_info in call_infos.clone() {
-            for inner_call in call_info.iter() {
-                for OrderedEvent { event, .. } in inner_call.execution.events.iter() {
-                    // TODO(barak: 18/03/2024): Once we start charging per byte
-                    // change to num_bytes_keys
-                    // and num_bytes_data.
-                    total_event_data_size += u128_from_usize(event.data.0.len());
-                    total_event_keys += u128_from_usize(event.keys.len());
-                }
-                n_events += inner_call.execution.events.len();
-            }
-        }
-        self.total_event_keys = total_event_keys;
-        self.total_event_data_size = total_event_data_size;
-        self.n_events = n_events;
-
-        self.message_cost_info =
-            MessageL1CostInfo::calculate(call_infos, self.l1_handler_payload_size);
     }
 
     // Returns the gas cost for transaction calldata and transaction signature. Each felt costs a
@@ -429,6 +398,29 @@ impl StarknetResources {
 
     pub fn get_onchain_data_segment_length(&self) -> usize {
         get_onchain_data_segment_length(&self.state_changes_for_fee)
+    }
+
+    /// Private and static method that calculates the n_events, total_event_keys and
+    /// total_event_data_size fields according to the call_infos of a transaction.
+    fn calculate_events_resources<'a>(
+        call_infos: impl Iterator<Item = &'a CallInfo> + Clone,
+    ) -> (usize, u128, u128) {
+        let mut total_event_keys = 0;
+        let mut total_event_data_size = 0;
+        let mut n_events = 0;
+        for call_info in call_infos.clone() {
+            for inner_call in call_info.iter() {
+                for OrderedEvent { event, .. } in inner_call.execution.events.iter() {
+                    // TODO(barak: 18/03/2024): Once we start charging per byte
+                    // change to num_bytes_keys
+                    // and num_bytes_data.
+                    total_event_data_size += u128_from_usize(event.data.0.len());
+                    total_event_keys += u128_from_usize(event.keys.len());
+                }
+                n_events += inner_call.execution.events.len();
+            }
+        }
+        (n_events, total_event_keys, total_event_data_size)
     }
 }
 
