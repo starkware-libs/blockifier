@@ -51,6 +51,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
+glob.workspace = true
 pretty_assertions.workspace = true
 regex.workspace = true
 rstest.workspace = true
