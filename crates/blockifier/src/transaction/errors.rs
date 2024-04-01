@@ -61,6 +61,7 @@ pub enum TransactionExecutionError {
     #[error("Contract constructor execution has failed: {error}")]
     ContractConstructorExecutionFailed {
         error: EntryPointExecutionError,
+        class_hash: ClassHash,
         storage_address: ContractAddress,
     },
     #[error("Class with hash {class_hash:?} is already declared.")]
