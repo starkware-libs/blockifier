@@ -35,6 +35,7 @@ macro_rules! default_scheduler {
     };
 }
 
+// TODO: Allow the creation of VersionedState with different state readers.
 pub fn versioned_state_for_testing(
     contract_address: ContractAddress,
     class_hash: ClassHash,

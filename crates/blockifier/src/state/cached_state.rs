@@ -346,6 +346,7 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
     }
 }
 
+#[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct StateMaps {
     pub(crate) nonces: HashMap<ContractAddress, Nonce>,
@@ -368,6 +369,7 @@ impl StateMaps {
 /// The tracked changes are needed for block state commitment.
 
 // Invariant: keys cannot be deleted from fields (only used internally by the cached state).
+#[cfg_attr(test, derive(Clone))]
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
