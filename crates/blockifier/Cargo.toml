@@ -10,6 +10,7 @@ description = "The transaction-executing component in the Starknet sequencer."
 workspace = true
 
 [features]
+jemalloc = ["dep:jemallocator"]
 testing = ["rstest"]
 concurrency = []
 
@@ -31,6 +32,7 @@ cairo-vm.workspace = true
 derive_more.workspace = true
 indexmap.workspace = true
 itertools.workspace = true
+jemallocator = { workspace = true, optional = true }
 keccak.workspace = true
 log.workspace = true
 num-bigint.workspace = true

@@ -9,6 +9,11 @@
     target_pointer_width = "128"
 ))]
 
+#[cfg(feature = "jemalloc")]
+// Override default allocator.
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 pub mod abi;
 pub mod blockifier;
 pub mod bouncer;
