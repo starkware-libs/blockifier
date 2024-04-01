@@ -52,7 +52,6 @@ impl PyValidator {
         let state = CachedState::new(state_reader, global_contract_cache);
 
         let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
-        // TODO(Yael 24/01/24): calc block_context using pre_process_block
         let block_context =
             BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
         let tx_executor = TransactionExecutor::new(state, block_context);
@@ -82,7 +81,6 @@ impl PyValidator {
         if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
             let sentinel_class_info = None;
             let (_tx_execution_info, _py_bouncer_info) = self.execute(tx, sentinel_class_info)?;
-            // TODO(Ayelet, 09/11/2023): Check call succeeded.
 
             return Ok(());
         }
@@ -106,7 +104,6 @@ impl PyValidator {
             self.validate(account_tx, versioned_constants.tx_initial_gas())?;
 
         // Post validations.
-        // TODO(Ayelet, 09/11/2023): Check call succeeded.
         self.perform_post_validation_stage(&tx_context, &tx_receipt)?;
 
         Ok(())
