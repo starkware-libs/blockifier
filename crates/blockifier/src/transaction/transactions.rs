@@ -292,8 +292,9 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        let class_hash = self.class_hash();
         let ctor_context = ConstructorContext {
-            class_hash: self.class_hash(),
+            class_hash,
             code_address: None,
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
@@ -309,6 +310,7 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         let call_info = deployment_result.map_err(|error| {
             TransactionExecutionError::ContractConstructorExecutionFailed {
                 error,
+                class_hash,
                 storage_address: self.contract_address,
             }
         })?;
