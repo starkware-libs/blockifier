@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use rstest::{fixture, rstest};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, Nonce, PatriciaKey,
 };
@@ -11,6 +12,7 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionV
 use starknet_api::{calldata, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
+use crate::concurrency::test_utils::versioned_state_for_testing;
 use crate::concurrency::versioned_state_proxy::{
     ThreadSafeVersionedState, VersionedState, VersionedStateProxy,
 };
@@ -27,6 +29,20 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{FeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::l1_resource_bounds;
 use crate::transaction::transactions::ExecutableTransaction;
+
+#[fixture]
+pub fn versioned_state() -> Arc<Mutex<VersionedState<DictStateReader>>> {
+    let contract_address = contract_address!("0x1");
+    let class_hash = ClassHash(stark_felt!(27_u8));
+    let init_state = DictStateReader {
+        storage_view: HashMap::default(),
+        address_to_nonce: HashMap::default(),
+        address_to_class_hash: HashMap::from([(contract_address, class_hash)]),
+        class_hash_to_compiled_class_hash: HashMap::default(),
+        class_hash_to_class: HashMap::default(),
+    };
+    versioned_state_for_testing(init_state)
+}
 
 #[test]
 fn test_versioned_state_proxy() {
@@ -208,4 +224,115 @@ fn test_run_parallel_txs() {
 
     thread_handle_1.join().unwrap();
     thread_handle_2.join().unwrap();
+}
+
+#[rstest]
+fn test_validate_read_set(versioned_state: Arc<Mutex<VersionedState<DictStateReader>>>) {
+    let contract_address = contract_address!("0x1");
+    let storage_key = StorageKey(patricia_key!("0x10"));
+    let class_hash = ClassHash(stark_felt!(27_u8));
+
+    let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
+    let mut transactional_state = CachedState::from(safe_versioned_state.pin_version(1));
+
+    // Validating tx index 0 always succeeds.
+    assert!(
+        versioned_state
+            .lock()
+            .unwrap()
+            .validate_read_set(0, &transactional_state.cache.borrow().initial_reads)
+    );
+
+    assert!(transactional_state.cache.borrow().initial_reads.storage.is_empty());
+    transactional_state.get_storage_at(contract_address, storage_key).unwrap();
+    assert_eq!(transactional_state.cache.borrow().initial_reads.storage.len(), 1);
+
+    assert!(transactional_state.cache.borrow().initial_reads.nonces.is_empty());
+    transactional_state.get_nonce_at(contract_address).unwrap();
+    assert_eq!(transactional_state.cache.borrow().initial_reads.nonces.len(), 1);
+
+    assert!(transactional_state.cache.borrow().initial_reads.class_hashes.is_empty());
+    transactional_state.get_class_hash_at(contract_address).unwrap();
+    assert_eq!(transactional_state.cache.borrow().initial_reads.class_hashes.len(), 1);
+
+    assert!(transactional_state.cache.borrow().initial_reads.compiled_class_hashes.is_empty());
+    transactional_state.get_compiled_class_hash(class_hash).unwrap();
+    assert_eq!(transactional_state.cache.borrow().initial_reads.compiled_class_hashes.len(), 1);
+
+    transactional_state.get_actual_state_changes().unwrap();
+    assert!(
+        versioned_state
+            .lock()
+            .unwrap()
+            .validate_read_set(1, &transactional_state.cache.borrow().initial_reads)
+    );
+}
+
+#[rstest]
+fn test_apply_writes(versioned_state: Arc<Mutex<VersionedState<DictStateReader>>>) {
+    let contract_address = contract_address!("0x1");
+    let class_hash = ClassHash(stark_felt!(27_u8));
+
+    let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
+    let mut transactional_states: Vec<CachedState<VersionedStateProxy<DictStateReader>>> =
+        (0..2).map(|i| CachedState::from(safe_versioned_state.pin_version(i))).collect();
+
+    // Client 0 class hash.
+    let class_hash_0 = ClassHash(stark_felt!(76_u8));
+    assert!(transactional_states[0].cache.borrow().writes.class_hashes.is_empty());
+    transactional_states[0].set_class_hash_at(contract_address, class_hash_0).unwrap();
+    assert_eq!(transactional_states[0].cache.borrow().writes.class_hashes.len(), 1);
+
+    // Client 0 contract class.
+    let contract_class_0 = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
+    assert!(transactional_states[0].class_hash_to_class.borrow().is_empty());
+    transactional_states[0].set_contract_class(class_hash, contract_class_0.clone()).unwrap();
+    assert_eq!(transactional_states[0].class_hash_to_class.borrow().len(), 1);
+
+    versioned_state.lock().unwrap().apply_writes(
+        0,
+        &transactional_states[0].cache.borrow().writes,
+        &transactional_states[0].class_hash_to_class.borrow().clone(),
+    );
+    assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
+    assert!(
+        transactional_states[1].get_compiled_contract_class(class_hash).unwrap()
+            == contract_class_0
+    );
+}
+
+#[rstest]
+fn test_apply_writes_reexecute_scenario(
+    versioned_state: Arc<Mutex<VersionedState<DictStateReader>>>,
+) {
+    let contract_address = contract_address!("0x1");
+    let init_class_hash = ClassHash(stark_felt!(27_u8));
+
+    let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
+    let mut transactional_states: Vec<CachedState<VersionedStateProxy<DictStateReader>>> =
+        (0..2).map(|i| CachedState::from(safe_versioned_state.pin_version(i))).collect();
+
+    // Client 0 class hash.
+    let class_hash_0 = ClassHash(stark_felt!(76_u8));
+    transactional_states[0].set_class_hash_at(contract_address, class_hash_0).unwrap();
+
+    // As the transaction is not committed, the class hash should not be updated.
+    assert!(
+        transactional_states[1].get_class_hash_at(contract_address).unwrap() == init_class_hash
+    );
+
+    versioned_state.lock().unwrap().apply_writes(
+        0,
+        &transactional_states[0].cache.borrow().writes,
+        &transactional_states[0].class_hash_to_class.borrow().clone(),
+    );
+    // Although it has been committed, version 1 needs to be re-executed to see the new value.
+    assert!(
+        transactional_states[1].get_class_hash_at(contract_address).unwrap() == init_class_hash
+    );
+
+    // Re-execute the transaction.
+    transactional_states[1] = CachedState::from(safe_versioned_state.pin_version(1));
+    // The class hash should be updated.
+    assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
 }
