@@ -6,10 +6,10 @@ repository.workspace = true
 license-file.workspace = true
 description = "A Bridge between the Rust blockifier crate and Python."
 
+[features]
 # Required for `cargo test` to work with Pyo3.
 # On Python, make sure to compile this with the extension-module feature enabled.
 # https://pyo3.rs/v0.19.1/faq#i-cant-run-cargo-test-or-i-cant-build-in-a-cargo-workspace-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
-[features]
 extension-module = ["pyo3/extension-module"]
 testing = []
 
@@ -26,7 +26,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier", features = ["testing"] }
+blockifier = { path = "../blockifier", features = ["jemalloc", "testing"] }
 cairo-lang-starknet-classes.workspace = true
 cairo-vm.workspace = true
 indexmap.workspace = true
