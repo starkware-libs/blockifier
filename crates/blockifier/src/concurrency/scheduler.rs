@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 use crate::concurrency::TxIndex;
 
@@ -8,7 +9,6 @@ pub mod test;
 
 // TODO(Avi, 01/04/2024): Remove dead_code attribute.
 #[allow(dead_code)]
-#[derive(Default)]
 pub struct Scheduler {
     execution_index: AtomicUsize,
     validation_index: AtomicUsize,
@@ -18,13 +18,23 @@ pub struct Scheduler {
     decrease_counter: AtomicUsize,
     n_active_tasks: AtomicUsize,
     chunk_size: usize,
+    tx_statuses: Box<[Mutex<TransactionStatus>]>,
 }
 
 // TODO(Avi, 01/04/2024): Remove dead_code attribute.
 #[allow(dead_code)]
 impl Scheduler {
     pub fn new(chunk_size: usize) -> Scheduler {
-        Scheduler { chunk_size, validation_index: chunk_size.into(), ..Default::default() }
+        Scheduler {
+            execution_index: AtomicUsize::new(0),
+            validation_index: AtomicUsize::new(chunk_size),
+            decrease_counter: AtomicUsize::new(0),
+            n_active_tasks: AtomicUsize::new(0),
+            chunk_size,
+            tx_statuses: std::iter::repeat_with(|| Mutex::new(TransactionStatus::ReadyToExecute))
+                .take(chunk_size)
+                .collect(),
+        }
     }
 
     /// Returns the done marker.
@@ -110,4 +120,14 @@ pub enum Task {
     ValidationTask(TxIndex),
     NoTask,
     Done,
+}
+
+// TODO(Barak, 01/04/2024): Remove dead_code attribute.
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum TransactionStatus {
+    ReadyToExecute,
+    Executing,
+    Executed,
+    Aborting,
 }
