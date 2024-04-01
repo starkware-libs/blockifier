@@ -6,6 +6,11 @@
     target_pointer_width = "128"
 ))]
 
+#[cfg(jemalloc)]
+// Override default allocator.
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 pub mod errors;
 pub mod py_block_executor;
 pub mod py_declare;
