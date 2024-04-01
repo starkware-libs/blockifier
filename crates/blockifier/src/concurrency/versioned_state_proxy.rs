@@ -67,6 +67,8 @@ impl<S: StateReader> VersionedState<S> {
     // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared
     // object (probabily `VersionedState`). As RefCell operations are not thread-safe. Therefore,
     // accessing this function should be protected by a mutex to ensure thread safety.
+    // TODO: Consider coupling the tx index with the read set to ensure any mismatch between them
+    // will cause the validation to fail.
     pub fn validate_read_set(&mut self, tx_index: TxIndex, reads: &StateMaps) -> bool {
         // If is the first transaction in the chunk, then the read set is valid. Since it has no
         // predecessors, there's nothing to compare it to.
