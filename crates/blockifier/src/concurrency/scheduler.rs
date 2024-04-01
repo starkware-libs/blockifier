@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 use crate::concurrency::TxIndex;
 
@@ -8,7 +9,6 @@ pub mod test;
 
 // TODO(Avi, 01/04/2024): Remove dead_code attribute.
 #[allow(dead_code)]
-#[derive(Default)]
 pub struct Scheduler {
     execution_index: AtomicUsize,
     validation_index: AtomicUsize,
@@ -17,14 +17,22 @@ pub struct Scheduler {
     /// is zero.
     decrease_counter: AtomicUsize,
     n_active_tasks: AtomicUsize,
-    chunk_size: usize,
+    tx_statuses: Box<[Mutex<TransactionStatus>]>,
 }
 
 // TODO(Avi, 01/04/2024): Remove dead_code attribute.
 #[allow(dead_code)]
 impl Scheduler {
     pub fn new(chunk_size: usize) -> Scheduler {
-        Scheduler { chunk_size, validation_index: chunk_size.into(), ..Default::default() }
+        Scheduler {
+            execution_index: AtomicUsize::default(),
+            validation_index: chunk_size.into(),
+            decrease_counter: AtomicUsize::default(),
+            n_active_tasks: AtomicUsize::default(),
+            tx_statuses: std::iter::repeat_with(|| Mutex::new(TransactionStatus::ReadyToExecute))
+                .take(chunk_size)
+                .collect(),
+        }
     }
 
     /// Returns the done marker.
@@ -69,7 +77,7 @@ impl Scheduler {
 
     /// Updates a transaction's status to `Executing` if it is ready to execute.
     fn try_incarnate(&self, tx_index: TxIndex) -> Option<TxIndex> {
-        if tx_index < self.chunk_size {
+        if tx_index < self.tx_statuses.len() {
             // TODO(barak, 01/04/2024): complete try_incarnate logic.
             return Some(tx_index);
         }
@@ -79,13 +87,13 @@ impl Scheduler {
 
     fn next_version_to_validate(&self) -> Option<TxIndex> {
         let index_to_validate = self.validation_index.load(Ordering::Acquire);
-        if index_to_validate >= self.chunk_size {
+        if index_to_validate >= self.tx_statuses.len() {
             self.check_done();
             return None;
         }
         self.n_active_tasks.fetch_add(1, Ordering::SeqCst);
         let index_to_validate = self.validation_index.fetch_add(1, Ordering::SeqCst);
-        if index_to_validate < self.chunk_size {
+        if index_to_validate < self.tx_statuses.len() {
             // TODO(barak, 01/04/2024): complete next_version_to_validate logic.
             return Some(index_to_validate);
         }
@@ -95,7 +103,7 @@ impl Scheduler {
 
     fn next_version_to_execute(&self) -> Option<TxIndex> {
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
-        if index_to_execute >= self.chunk_size {
+        if index_to_execute >= self.tx_statuses.len() {
             self.check_done();
             return None;
         }
@@ -110,4 +118,13 @@ pub enum Task {
     ValidationTask(TxIndex),
     NoTask,
     Done,
+}
+
+// TODO(Barak, 01/04/2024): Remove dead_code attribute.
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum TransactionStatus {
+    ReadyToExecute,
+    Executing,
+    Executed,
 }
