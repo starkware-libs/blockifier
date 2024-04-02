@@ -57,6 +57,14 @@ impl<S: StateReader> CachedState<S> {
         CachedState::new(MutRefState::new(state), global_class_hash_to_class)
     }
 
+    /// Creates a transferable instance from the given cached state.
+    /// It allows executing fee transfer without adding the read/ write
+    /// from the sequnscer to the read/ write set.
+    pub fn create_transferable(state: &mut CachedState<S>) -> TransferState<'_, S> {
+        let global_class_hash_to_class = state.global_class_hash_to_class.clone();
+        CachedState::new(MutRefState::new(state), global_class_hash_to_class)
+    }
+
     /// Returns the storage changes done through this state.
     /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
     /// root); the state updates correspond to them.
@@ -623,6 +631,27 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 
     /// Drops `self`.
     pub fn abort(self) {}
+}
+
+pub type TransferState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
+
+/// Adds the ability to perform a fee transfer execution without changing the sequenser.
+impl<'a, S: StateReader> TransferState<'a, S> {
+    /// Commits changes in the child (wrapping) state to its parent.
+    pub fn commit_transfer(self, sequencer_storage_entry: &StorageEntry) {
+        let state = self.state.0;
+        let mut child_cache = self.cache.into_inner();
+        child_cache.storage_writes.remove(sequencer_storage_entry);
+        state.update_cache(child_cache);
+        state.update_contract_class_caches(
+            self.class_hash_to_class.into_inner(),
+            self.global_class_hash_to_class,
+        );
+        state.update_visited_pcs_cache(&self.visited_pcs);
+    }
+
+    /// Drops `self`.
+    pub fn abort_transfer(self) {}
 }
 
 /// Represents the interim state, containing the changes made by a transaction after execution but

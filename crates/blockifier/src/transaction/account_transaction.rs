@@ -1,23 +1,26 @@
 use std::sync::Arc;
 
+use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use num_traits::Bounded;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
 
-use crate::abi::abi_utils::selector_from_name;
+use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
+use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_bounds};
 use crate::fee::gas_usage::{compute_discounted_gas_from_gas_vector, estimate_minimal_gas_vector};
 use crate::retdata;
-use crate::state::cached_state::{CachedState, StateChanges, TransactionalState};
+use crate::state::cached_state::{CachedState, StateChanges, StorageEntry, TransactionalState};
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::constants;
 use crate::transaction::errors::{
@@ -270,20 +273,23 @@ impl AccountTransaction {
         }
     }
 
-    fn handle_fee(
+    fn handle_fee<S: StateReader>(
         &self,
-        state: &mut dyn State,
+        state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
         charge_fee: bool,
+        concurrecy: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if !charge_fee || actual_fee == Fee(0) {
             // Fee charging is not enforced in some transaction simulations and tests.
             return Ok(None);
         }
-
-        // Charge fee.
-        let fee_transfer_call_info = Self::execute_fee_transfer(state, tx_context, actual_fee)?;
+        let fee_transfer_call_info = if concurrecy {
+            Self::concurecy_execute_fee_transfer(state, tx_context, actual_fee)?
+        } else {
+            Self::execute_fee_transfer(state, tx_context, actual_fee)?
+        };
 
         Ok(Some(fee_transfer_call_info))
     }
@@ -324,6 +330,57 @@ impl AccountTransaction {
         Ok(fee_transfer_call
             .execute(state, &mut ExecutionResources::default(), &mut context)
             .map_err(TransactionFeeError::ExecuteFeeTransferError)?)
+    }
+
+    fn concurecy_execute_fee_transfer<S: StateReader>(
+        state: &mut TransactionalState<'_, S>,
+        tx_context: Arc<TransactionContext>,
+        actual_fee: Fee,
+    ) -> TransactionExecutionResult<CallInfo> {
+        // The least significant 128 bits of the amount transferred.
+        let lsb_amount = StarkFelt::from(actual_fee.0);
+        // The most significant 128 bits of the amount transferred.
+        let msb_amount = StarkFelt::from(0_u8);
+
+        let TransactionContext { block_context, tx_info } = tx_context.as_ref();
+
+        // TODO(Gilad): add test that correct fee address is taken, once we add V3 test support.
+        let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
+        let fee_transfer_call = CallEntryPoint {
+            class_hash: None,
+            code_address: None,
+            entry_point_type: EntryPointType::External,
+            entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
+            calldata: calldata![
+                *block_context.block_info.sequencer_address.0.key(), // Recipient.
+                lsb_amount,
+                msb_amount
+            ],
+            storage_address,
+            caller_address: tx_info.sender_address(),
+            call_type: CallType::Call,
+            // The fee-token contract is a Cairo 0 contract, hence the initial gas is irrelevant.
+            initial_gas: block_context.versioned_constants.os_constants.gas_costs.initial_gas_cost,
+        };
+        let seqencer_address = block_context.block_info.sequencer_address;
+        let seqencer_key = get_fee_token_var_address(seqencer_address);
+        // TODO(Meshi 05/05/2024): Check how to get the value of the sequencer balance without
+        // tarnishing the read set.
+        let sequencer_value = felt_to_stark_felt(&Felt252::max_value());
+        let mut transfer_state = CachedState::create_transferable(state);
+        let sequencer_storage_entry: StorageEntry =
+            (block_context.block_info.sequencer_address, seqencer_key);
+        let mut context = EntryPointExecutionContext::new_invoke(tx_context, true)?;
+        transfer_state.cache.get_mut().set_storage_initial_value(
+            storage_address,
+            seqencer_key,
+            sequencer_value,
+        );
+        let result = fee_transfer_call
+            .execute(&mut transfer_state, &mut ExecutionResources::default(), &mut context)
+            .map_err(TransactionFeeError::ExecuteFeeTransferError)?;
+        transfer_state.commit_transfer(&sequencer_storage_entry);
+        Ok(result)
     }
 
     fn run_execute<S: State>(
@@ -595,8 +652,10 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             validate,
             charge_fee,
         )?;
-
-        let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?;
+        // the concurecy flag will be a part of the block context it is only here to pass clippy
+        // tests.
+        let fee_transfer_call_info =
+            self.handle_fee(state, tx_context, final_fee, charge_fee, false)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
