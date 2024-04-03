@@ -24,6 +24,7 @@ use starknet_api::transaction::{Calldata, Resource};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
 
+use super::sha_256_process_block;
 use crate::abi::sierra_types::SierraTypeError;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
@@ -203,6 +204,8 @@ pub struct SyscallHintProcessor<'a> {
     pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
     pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
 
+    pub sha256_segment: Option<Relocatable>,
+
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
@@ -236,6 +239,7 @@ impl<'a> SyscallHintProcessor<'a> {
             execution_info_ptr: None,
             secp256k1_hint_processor: SecpHintProcessor::default(),
             secp256r1_hint_processor: SecpHintProcessor::default(),
+            sha256_segment: None,
         }
     }
 
@@ -318,6 +322,11 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::Keccak => {
                 self.execute_syscall(vm, keccak, self.context.gas_costs().keccak_gas_cost)
             }
+            SyscallSelector::SHA256ProcessBlock => self.execute_syscall(
+                vm,
+                sha_256_process_block,
+                self.context.gas_costs().sha256_process_block_gas_cost,
+            ),
             SyscallSelector::LibraryCall => self.execute_syscall(
                 vm,
                 library_call,
