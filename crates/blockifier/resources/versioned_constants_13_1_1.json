@@ -5,7 +5,7 @@
         "max_n_emitted_events": 1000
     },
     "gateway": {
-        "max_calldata_length": 4000,
+        "max_calldata_length": 5000,
         "max_contract_bytecode_size": 81920
     },
     "invoke_tx_max_n_steps": 4000000,
@@ -19,7 +19,7 @@
             1
         ],
         "gas_per_code_byte": [
-            875,
+            32,
             1000
         ]
     },
