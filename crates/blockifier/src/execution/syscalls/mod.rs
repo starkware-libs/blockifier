@@ -728,3 +728,81 @@ pub fn keccak(
         result_high: (Felt252::from(state[3]) << 64u32) + Felt252::from(state[2]),
     })
 }
+
+// SHA256ProcessBlock syscall.
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SHA256ProcessBlockRequest {
+    pub state_start: Relocatable,
+    pub input_start: Relocatable,
+    pub input_end: Relocatable,
+}
+
+impl SyscallRequest for SHA256ProcessBlockRequest {
+    fn read(
+        vm: &VirtualMachine,
+        ptr: &mut Relocatable,
+    ) -> SyscallResult<SHA256ProcessBlockRequest> {
+        let state_start = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        let input_start = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        let input_end = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        Ok(SHA256ProcessBlockRequest { state_start, input_start, input_end })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SHA256ProcessBlockResponse {
+    pub state_ptr: Relocatable,
+}
+
+impl SyscallResponse for SHA256ProcessBlockResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_maybe_relocatable(vm, ptr, self.state_ptr)?;
+        Ok(())
+    }
+}
+
+pub fn sha_256_process_block(
+    request: SHA256ProcessBlockRequest,
+    vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<SHA256ProcessBlockResponse> {
+    let input_length: usize = (request.input_end - request.input_start)?;
+
+    const SHA256_BLOCK_SIZE: usize = 16;
+    if input_length != SHA256_BLOCK_SIZE {
+        return Err(SyscallExecutionError::SyscallError {
+            error_data: vec![
+                StarkFelt::try_from(INVALID_INPUT_LENGTH_ERROR)
+                    .map_err(SyscallExecutionError::from)?,
+            ],
+        });
+    }
+
+    let data = vm.get_integer_range(request.input_start, input_length)?;
+    const SHA256_STATE_SIZE: usize = 8;
+    let prev_state = vm.get_integer_range(request.state_start, SHA256_STATE_SIZE)?;
+
+    let data_as_bytes = sha2::digest::generic_array::GenericArray::from_exact_iter(
+        data.iter().flat_map(|felt| felt.to_bigint().to_u32().unwrap().to_be_bytes()),
+    )
+    .unwrap();
+    let mut state_as_words: [u32; SHA256_STATE_SIZE] =
+        core::array::from_fn(|i| prev_state[i].to_bigint().to_u32().unwrap());
+
+    sha2::compress256(&mut state_as_words, &[data_as_bytes]);
+
+    let mut segment = syscall_handler.sha256_segment.unwrap_or(vm.add_memory_segment());
+
+    let respone = segment;
+    for felt in state_as_words {
+        write_felt(vm, &mut segment, Felt252::from(felt))?;
+    }
+    syscall_handler.sha256_segment = Some(segment);
+
+    Ok(SHA256ProcessBlockResponse { state_ptr: respone })
+}
