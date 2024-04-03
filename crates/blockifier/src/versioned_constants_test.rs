@@ -198,6 +198,6 @@ fn test_old_json_parsing() {
     let files = glob(format!("{}/resources/*.json", env!("CARGO_MANIFEST_DIR")).as_str()).unwrap();
     for file in files.map(Result::unwrap) {
         serde_json::from_reader::<_, VersionedConstants>(&std::fs::File::open(&file).unwrap())
-            .unwrap_or_else(|_| panic!("Versioned constants JSON file {file:#?} is malformed"));
+            .unwrap();
     }
 }
