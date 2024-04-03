@@ -38,7 +38,7 @@ use crate::transaction::transactions::ExecutableTransaction;
 use crate::versioned_constants::VersionedConstants;
 use crate::{invoke_tx_args, retdata};
 
-const INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET: usize = 65;
+const INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET: usize = 117;
 const ACCOUNT_PC_OFFSET: usize = 82;
 
 #[test]
@@ -688,7 +688,7 @@ An ASSERT_EQ instruction failed: 1 != 0.
     );
 
     let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
-    let pc_location = entry_point_offset.0 + 82;
+    let _pc_location = entry_point_offset.0 + 82;
     let expected_trace_cairo1 = format!(
         "Transaction execution has failed:
 0: Error in the called contract (contract address: {account_address_felt}, class hash: \
@@ -699,10 +699,7 @@ Unknown location (pc=0:{account_pc_location})
 
 1: Error in the called contract (contract address: {test_contract_address_felt}, class hash: \
          {test_contract_hash}, selector: {external_entry_point_selector_felt}):
-Error at pc=0:4992:
-Cairo traceback (most recent call last):
-Unknown location (pc=0:{pc_location})
-
+Error at pc=0:612:
 2: Error in the called contract (contract address: {test_contract_address_2_felt}, class hash: \
          {test_contract_hash}, selector: {inner_entry_point_selector_felt}):
 Execution failed. Failure reason: 0x6661696c ('fail').
@@ -720,7 +717,7 @@ Execution failed. Failure reason: 0x6661696c ('fail').
 #[rstest]
 #[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:37", (1081_u16, 1127_u16))]
 #[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", (1184_u16, 1135_u16))]
-#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", (0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x4469766973696f6e2062792030 ('Division by 0')", (0_u16, 0_u16))]
 #[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", (0_u16, 0_u16))]
 fn test_trace_callchain_ends_with_regular_call(
     block_context: BlockContext,
@@ -828,7 +825,7 @@ Unknown location (pc=0:{account_pc_location})
 
 1: Error in the called contract (contract address: {contract_address_felt}, class hash: \
                  {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
-Error at pc=0:8010:
+Error at pc=0:9473:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
@@ -848,10 +845,10 @@ Execution failed. Failure reason: {expected_error}.
 #[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:23", 1_u8, 1_u8, (49_u16, 1111_u16, 1081_u16, 1166_u16))]
 #[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 0_u8, (37_u16, 1093_u16, 1184_u16, 1188_u16))]
 #[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 1_u8, (49_u16, 1111_u16, 1184_u16, 1188_u16))]
-#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8, 0_u8, (8010_u16, 0_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x75382069732030 ('u8 is 0')", 1_u8, 1_u8, (8099_u16, 0_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 0_u8, (8010_u16, 0_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 1_u8, (8099_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x4469766973696f6e2062792030 ('Division by 0')", 1_u8, 0_u8, (9473_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x4469766973696f6e2062792030 ('Division by 0')", 1_u8, 1_u8, (9542_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 0_u8, (9473_u16, 0_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 1_u8, (9542_u16, 0_u16, 0_u16, 0_u16))]
 fn test_trace_call_chain_with_syscalls(
     block_context: BlockContext,
     #[case] cairo_version: CairoVersion,
@@ -988,7 +985,7 @@ Unknown location (pc=0:{account_pc_location})
 
 1: Error in the called contract (contract address: {address_felt}, class hash: \
                  {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
-Error at pc=0:8010:
+Error at pc=0:9473:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 

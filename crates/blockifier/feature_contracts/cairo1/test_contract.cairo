@@ -1,6 +1,7 @@
 #[starknet::contract]
 mod TestContract {
     use box::BoxTrait;
+    use core::sha256::{compute_sha256_u32_array, sha256_state_handle_init, SHA256_INITIAL_STATE};
     use dict::Felt252DictTrait;
     use ec::EcPointTrait;
     use starknet::ClassHash;
@@ -66,7 +67,9 @@ mod TestContract {
     }
 
     #[external(v0)]
-    fn test_emit_events(self: @ContractState, events_number: u64, keys: Array::<felt252>, data: Array::<felt252>) {
+    fn test_emit_events(
+        self: @ContractState, events_number: u64, keys: Array::<felt252>, data: Array::<felt252>
+    ) {
         let mut c = 0_u64;
         loop {
             if c == events_number {
@@ -139,7 +142,7 @@ mod TestContract {
         nested_library_calldata.append(2);
         nested_library_calldata.append(a + 1);
         nested_library_calldata.append(b + 1);
-        let res = starknet::library_call_syscall(
+        let _res = starknet::library_call_syscall(
             class_hash, lib_selector, nested_library_calldata.span(),
         )
             .unwrap_syscall();
@@ -219,6 +222,25 @@ mod TestContract {
     }
 
     #[external(v0)]
+    fn test_sha256(ref self: ContractState) {
+        let mut input: Array::<u32> = Default::default();
+        input.append('aaaa');
+
+        let [res, _, _, _, _, _, _, _,] = compute_sha256_u32_array(input, 0, 0);
+        assert(res == 0x61be55a8, 'Wrong hash value');
+
+        let mut input: Array::<u32> = Default::default();
+        input.append(1_u32);
+        let mut state = sha256_state_handle_init(BoxTrait::new(SHA256_INITIAL_STATE));
+        match syscalls::sha256_process_block_syscall(state, input.span()) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) => assert(
+                *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
+            ),
+        }
+    }
+
+    #[external(v0)]
     fn test_secp256k1(ref self: ContractState) {
         // Test a point not on the curve.
         assert(
@@ -242,7 +264,7 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256k1::secp256k1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        let (msg_hash, signature, _expected_public_key_x, _expected_public_key_y, eth_address) =
             get_message_and_secp256k1_signature();
         verify_eth_signature(:msg_hash, :signature, :eth_address);
     }
@@ -288,7 +310,7 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256r1::secp256r1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, _eth_address) =
             get_message_and_secp256r1_signature();
         let public_key = Secp256r1Impl::secp256_ec_new_syscall(
             expected_public_key_x, expected_public_key_y
@@ -454,7 +476,7 @@ mod TestContract {
     }
 
     #[starknet::interface]
-    trait MyContract<TContractState>{
+    trait MyContract<TContractState> {
         fn xor_counters(ref self: TContractState, index_and_x: IndexAndValues);
     }
 
@@ -469,19 +491,21 @@ mod TestContract {
     #[external(v0)]
     fn xor_counters(ref self: ContractState, index_and_x: IndexAndValues) {
         let index = index_and_x.index;
-       let (val_0, val_1) = index_and_x.values;
-       let counters = self.two_counters.read(index);
-       let (counter_0, counter_1) = counters;
-       let counter_0: u128 = counter_0.try_into().unwrap();
-       let counter_1: u128 = counter_1.try_into().unwrap();
-       let res_0: felt252 = (counter_0^val_0).into();
-       let res_1: felt252 = (counter_1^val_1).into();
-       self.two_counters.write(index, (res_0, res_1));
+        let (val_0, val_1) = index_and_x.values;
+        let counters = self.two_counters.read(index);
+        let (counter_0, counter_1) = counters;
+        let counter_0: u128 = counter_0.try_into().unwrap();
+        let counter_1: u128 = counter_1.try_into().unwrap();
+        let res_0: felt252 = (counter_0 ^ val_0).into();
+        let res_1: felt252 = (counter_1 ^ val_1).into();
+        self.two_counters.write(index, (res_0, res_1));
     }
 
     #[external(v0)]
-    fn call_xor_counters(ref self: ContractState, address: ContractAddress, index_and_x: IndexAndValues) {
-       MyContractDispatcher{contract_address: address}.xor_counters(index_and_x);
+    fn call_xor_counters(
+        ref self: ContractState, address: ContractAddress, index_and_x: IndexAndValues
+    ) {
+        MyContractDispatcher { contract_address: address }.xor_counters(index_and_x);
     }
 
     #[external(v0)]
@@ -489,11 +513,13 @@ mod TestContract {
         let p = EcPointTrait::new(
             0x654fd7e67a123dd13868093b3b7777f1ffef596c2e324f25ceaf9146698482c,
             0x4fad269cbf860980e38768fe9cb6b0b9ab03ee3fe84cfde2eccce597c874fd8
-        ).unwrap();
+        )
+            .unwrap();
         let q = EcPointTrait::new(
             0x3dbce56de34e1cfe252ead5a1f14fd261d520d343ff6b7652174e62976ef44d,
             0x4b5810004d9272776dec83ecc20c19353453b956e594188890b48467cb53c19
-        ).unwrap();
+        )
+            .unwrap();
         let m: felt252 = 0x6d232c016ef1b12aec4b7f88cc0b3ab662be3b7dd7adbce5209fcfdbd42a504;
         let res = q.mul(m) + p;
         let res_nz = res.try_into().unwrap();
@@ -515,5 +541,4 @@ mod TestContract {
         payload.append(34);
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
     }
-
 }
