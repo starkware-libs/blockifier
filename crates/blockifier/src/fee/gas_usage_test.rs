@@ -23,6 +23,7 @@ fn test_get_event_gas_cost(
 ) {
     let l2_resource_gas_costs = &versioned_constants.l2_resource_gas_costs;
     let (event_key_factor, data_word_cost) =
+<<<<<<< HEAD
         (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.gas_per_data_felt);
     let call_infos = vec![CallInfo::default(), CallInfo::default(), CallInfo::default()];
     let call_infos_iter = call_infos.iter();
@@ -32,6 +33,24 @@ fn test_get_event_gas_cost(
         GasVector::default(),
         starknet_resources.to_gas_vector(versioned_constants, use_kzg_da)
     );
+||||||| 5cf3a4f3
+        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.milligas_per_data_felt);
+
+    let call_info_1 = &CallInfo::default();
+    let call_info_2 = &CallInfo::default();
+    let call_info_3 = &CallInfo::default();
+    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    assert_eq!(GasVector::default(), get_tx_events_gas_cost(call_infos, versioned_constants));
+=======
+        (l2_resource_gas_costs.event_key_factor, l2_resource_gas_costs.milligas_per_data_felt);
+
+    let call_info_1 = &CallInfo::default();
+    let call_info_2 = &CallInfo::default();
+    let call_info_3 = &CallInfo::default();
+    let call_infos =
+        Some(call_info_1).into_iter().chain(Some(call_info_2)).chain(Some(call_info_3));
+    assert_eq!(GasVector::default(), get_tx_events_gas_cost(call_infos, versioned_constants));
+>>>>>>> origin/main-v0.13.1
 
     let create_event = |keys_size: usize, data_size: usize| OrderedEvent {
         order: 0,
@@ -57,20 +76,41 @@ fn test_get_event_gas_cost(
     let call_info_3 = CallInfo {
         execution: CallExecution { events: vec![create_event(0, 1)], ..Default::default() },
         inner_calls: vec![CallInfo {
-            execution: CallExecution { events: vec![create_event(1, 0)], ..Default::default() },
+            execution: CallExecution { events: vec![create_event(5, 5)], ..Default::default() },
             ..Default::default()
         }],
         ..Default::default()
     };
+<<<<<<< HEAD
     let call_infos = vec![call_info_1, call_info_2, call_info_3];
     let call_infos_iter = call_infos.iter();
     let expected = GasVector::from_l1_gas(
+||||||| 5cf3a4f3
+    let call_infos = call_info_1.into_iter().chain(call_info_2).chain(call_info_3);
+    let expected = GasVector {
+=======
+    let call_infos =
+        Some(call_info_1).into_iter().chain(Some(call_info_2)).chain(Some(call_info_3));
+    let expected = GasVector {
+>>>>>>> origin/main-v0.13.1
         // 4 keys and 6 data words overall.
+<<<<<<< HEAD
         (data_word_cost * (event_key_factor * 4_u128 + 6_u128)).to_integer(),
     );
     let starknet_resources =
         StarknetResources::new(0, 0, 0, StateChangesCount::default(), None, call_infos_iter);
     let gas_vector = starknet_resources.to_gas_vector(versioned_constants, use_kzg_da);
+||||||| 5cf3a4f3
+        l1_gas: (event_key_factor * data_word_cost * 4_u128 + data_word_cost * 6_u128) / 1000,
+        l1_data_gas: 0_u128,
+    };
+    let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
+=======
+        l1_gas: (event_key_factor * data_word_cost * 8_u128 + data_word_cost * 11_u128) / 1000,
+        l1_data_gas: 0_u128,
+    };
+    let gas_vector = get_tx_events_gas_cost(call_infos, versioned_constants);
+>>>>>>> origin/main-v0.13.1
     assert_eq!(expected, gas_vector);
     assert_ne!(GasVector::default(), gas_vector)
 }

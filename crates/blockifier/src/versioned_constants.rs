@@ -216,9 +216,22 @@ impl TryFrom<&Path> for VersionedConstants {
 pub struct L2ResourceGasCosts {
     // TODO(barak, 18/03/2024): Once we start charging per byte change to milligas_per_data_byte,
     // divide the value by 32 in the JSON file.
+<<<<<<< HEAD
     pub gas_per_data_felt: ResourceCost,
     pub event_key_factor: ResourceCost,
     pub gas_per_code_byte: ResourceCost,
+||||||| 5cf3a4f3
+    pub milligas_per_data_felt: u128,
+    pub event_key_factor: u128,
+    pub milligas_per_code_byte: u128,
+=======
+    pub milligas_per_data_felt: u128,
+    pub event_key_factor: u128,
+    // TODO(avi, 15/04/2024): This constant was changed to 32 milligas in the JSON file, but the
+    // actual number we wanted is 1/32 gas per byte. Change the value to 1/32 in the next version
+    // where rational numbers are supported.
+    pub milligas_per_code_byte: u128,
+>>>>>>> origin/main-v0.13.1
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
