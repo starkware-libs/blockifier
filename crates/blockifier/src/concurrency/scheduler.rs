@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::concurrency::Version;
+use crate::concurrency::TxIndex;
 
 #[cfg(test)]
 #[path = "scheduler_test.rs"]
@@ -57,18 +57,18 @@ impl Scheduler {
         todo!()
     }
 
-    fn decrease_validation_index(&self, target_index: usize) {
+    fn decrease_validation_index(&self, target_index: TxIndex) {
         self.validation_index.fetch_min(target_index, Ordering::SeqCst);
         self.decrease_counter.fetch_add(1, Ordering::SeqCst);
     }
 
-    fn decrease_execution_index(&self, target_index: usize) {
+    fn decrease_execution_index(&self, target_index: TxIndex) {
         self.execution_index.fetch_min(target_index, Ordering::SeqCst);
         self.decrease_counter.fetch_add(1, Ordering::SeqCst);
     }
 
     /// Updates a transaction's status to `Executing` if it is ready to execute.
-    fn try_incarnate(&self, tx_index: usize) -> Option<usize> {
+    fn try_incarnate(&self, tx_index: TxIndex) -> Option<TxIndex> {
         if tx_index < self.chunk_size {
             // TODO(barak, 01/04/2024): complete try_incarnate logic.
             return Some(tx_index);
@@ -77,7 +77,7 @@ impl Scheduler {
         None
     }
 
-    fn next_version_to_validate(&self) -> Option<usize> {
+    fn next_version_to_validate(&self) -> Option<TxIndex> {
         let index_to_validate = self.validation_index.load(Ordering::Acquire);
         if index_to_validate >= self.chunk_size {
             self.check_done();
@@ -93,7 +93,7 @@ impl Scheduler {
         None
     }
 
-    fn next_version_to_execute(&self) -> Option<usize> {
+    fn next_version_to_execute(&self) -> Option<TxIndex> {
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
         if index_to_execute >= self.chunk_size {
             self.check_done();
@@ -106,8 +106,8 @@ impl Scheduler {
 }
 
 pub enum Task {
-    ExecutionTask(Version),
-    ValidationTask(Version),
+    ExecutionTask(TxIndex),
+    ValidationTask(TxIndex),
     NoTask,
     Done,
 }

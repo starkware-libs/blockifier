@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::concurrency::Version;
+use crate::concurrency::TxIndex;
 
 #[cfg(test)]
 #[path = "versioned_storage_test.rs"]
@@ -18,7 +18,7 @@ where
     V: Clone + Debug,
 {
     cached_initial_values: HashMap<K, V>,
-    writes: HashMap<K, BTreeMap<Version, V>>,
+    writes: HashMap<K, BTreeMap<TxIndex, V>>,
 }
 
 impl<K, V> Default for VersionedStorage<K, V>
@@ -38,16 +38,16 @@ where
     K: Clone + Copy + Eq + Hash + Debug,
     V: Clone + Debug,
 {
-    pub fn read(&self, version: Version, key: K) -> Option<V> {
+    pub fn read(&self, tx_index: TxIndex, key: K) -> Option<V> {
         // Ignore the writes in the current transaction (may contain an `ESTIMATE` value). Reading
         // the value written in this transaction should be handled by the state.
-        let value = self.writes.get(&key).and_then(|cell| cell.range(..version).next_back());
+        let value = self.writes.get(&key).and_then(|cell| cell.range(..tx_index).next_back());
         value.map(|(_, value)| value).or_else(|| self.cached_initial_values.get(&key)).cloned()
     }
 
-    pub fn write(&mut self, version: Version, key: K, value: V) {
+    pub fn write(&mut self, tx_index: TxIndex, key: K, value: V) {
         let cell = self.writes.entry(key).or_default();
-        cell.insert(version, value);
+        cell.insert(tx_index, value);
     }
 
     /// This method inserts the provided key-value pair into the cached initial values map.
