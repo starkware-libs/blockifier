@@ -76,6 +76,11 @@
             "syscall_base_gas_cost": 1
         },
         "keccak_round_cost_gas_cost": 180000,
+        "sha256_process_block_gas_cost": {
+            "step_gas_cost": 2000,
+            "range_check_gas_cost": 6,
+            "syscall_base_gas_cost": 1
+        },
         "l1_gas": "L1_GAS",
         "l1_gas_index": 0,
         "l1_handler_version": 0,
@@ -83,11 +88,6 @@
         "l2_gas_index": 1,
         "library_call_gas_cost": {
             "call_contract_gas_cost": 1
-        },
-        "sha256_process_block_gas_cost": {
-            "step_gas_cost": 2000,
-            "range_check_gas_cost": 6,
-            "syscall_base_gas_cost": 1
         },
         "memory_hole_gas_cost": 10,
         "nop_entry_point_offset": -1,
@@ -280,9 +280,7 @@
                 "n_memory_holes": 0
             },
             "Sha256ProcessBlock": {
-                "builtin_instance_counter": {
-                    "range_check_builtin": 6
-                },
+                "builtin_instance_counter": {},
                 "n_memory_holes": 0,
                 "n_steps": 2000
             },
