@@ -13,9 +13,6 @@ use crate::utils::u128_from_usize;
 #[path = "gas_usage_test.rs"]
 pub mod test;
 
-// Returns an estimation of the gas usage of the Starknet contract when processing L1<>L2 messages
-// on L1.
-
 /// Returns the number of felts added to the output data availability segment as a result of adding
 /// a transaction to a batch. Note that constant cells - such as the one that holds the number of
 /// modified contracts - are not counted.

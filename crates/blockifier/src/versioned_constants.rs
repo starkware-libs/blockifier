@@ -218,6 +218,9 @@ pub struct L2ResourceGasCosts {
     // divide the value by 32 in the JSON file.
     pub gas_per_data_felt: ResourceCost,
     pub event_key_factor: ResourceCost,
+    // TODO(avi, 15/04/2024): This constant was changed to 32 milligas in the JSON file, but the
+    // actual number we wanted is 1/32 gas per byte. Change the value to 1/32 in the next version
+    // where rational numbers are supported.
     pub gas_per_code_byte: ResourceCost,
 }
 

@@ -57,7 +57,7 @@ fn test_get_event_gas_cost(
     let call_info_3 = CallInfo {
         execution: CallExecution { events: vec![create_event(0, 1)], ..Default::default() },
         inner_calls: vec![CallInfo {
-            execution: CallExecution { events: vec![create_event(1, 0)], ..Default::default() },
+            execution: CallExecution { events: vec![create_event(5, 5)], ..Default::default() },
             ..Default::default()
         }],
         ..Default::default()
@@ -65,8 +65,8 @@ fn test_get_event_gas_cost(
     let call_infos = vec![call_info_1, call_info_2, call_info_3];
     let call_infos_iter = call_infos.iter();
     let expected = GasVector::from_l1_gas(
-        // 4 keys and 6 data words overall.
-        (data_word_cost * (event_key_factor * 4_u128 + 6_u128)).to_integer(),
+        // 8 keys and 11 data words overall.
+        (data_word_cost * (event_key_factor * 8_u128 + 11_u128)).to_integer(),
     );
     let starknet_resources =
         StarknetResources::new(0, 0, 0, StateChangesCount::default(), None, call_infos_iter);
