@@ -27,6 +27,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 blockifier = { path = "../blockifier", features = ["testing"] }
+cairo-lang-casm = { workspace = true, features = ["parity-scale-codec"] }
 cairo-lang-starknet-classes.workspace = true
 cairo-vm.workspace = true
 indexmap.workspace = true
