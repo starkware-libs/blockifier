@@ -1,6 +1,7 @@
 #[starknet::contract]
 mod TestContract {
     use box::BoxTrait;
+    use core::sha256::{compute_sha256_u32_array, sha256_state_handle_init, SHA256_INITIAL_STATE};
     use dict::Felt252DictTrait;
     use ec::EcPointTrait;
     use starknet::ClassHash;
@@ -213,6 +214,25 @@ mod TestContract {
         let mut input: Array::<u64> = Default::default();
         input.append(1_u64);
         match syscalls::keccak_syscall(input.span()) {
+            Result::Ok(_) => panic_with_felt252('Should fail'),
+            Result::Err(revert_reason) => assert(
+                *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
+            ),
+        }
+    }
+
+    #[external(v0)]
+    fn test_sha256(ref self: ContractState) {
+        let mut input: Array::<u32> = Default::default();
+        input.append('aaaa');
+
+        let [res, _, _, _, _, _, _, _,] = compute_sha256_u32_array(input, 0, 0);
+        assert(res == 0x61be55a8, 'Wrong hash value');
+
+        let mut input: Array::<u32> = Default::default();
+        input.append(1_u32);
+        let mut state = sha256_state_handle_init(BoxTrait::new(SHA256_INITIAL_STATE));
+        match syscalls::sha256_process_block_syscall(state, input.span()) {
             Result::Ok(_) => panic_with_felt252('Should fail'),
             Result::Err(revert_reason) => assert(
                 *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
