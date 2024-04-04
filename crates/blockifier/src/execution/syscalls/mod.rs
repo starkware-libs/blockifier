@@ -1,5 +1,5 @@
 use cairo_felt::Felt252;
-use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::ToPrimitive;
 use starknet_api::block::{BlockHash, BlockNumber};
@@ -727,4 +727,89 @@ pub fn keccak(
         result_low: (Felt252::from(state[1]) << 64u32) + Felt252::from(state[0]),
         result_high: (Felt252::from(state[3]) << 64u32) + Felt252::from(state[2]),
     })
+}
+
+// Sha256ProcessBlock syscall.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Sha256ProcessBlockRequest {
+    pub state_ptr: Relocatable,
+    pub input_start: Relocatable,
+    pub input_end: Relocatable,
+}
+
+impl SyscallRequest for Sha256ProcessBlockRequest {
+    fn read(
+        vm: &VirtualMachine,
+        ptr: &mut Relocatable,
+    ) -> SyscallResult<Sha256ProcessBlockRequest> {
+        let state_start = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        let input_start = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        let input_end = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        Ok(Sha256ProcessBlockRequest { state_ptr: state_start, input_start, input_end })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Sha256ProcessBlockResponse {
+    pub state_ptr: Relocatable,
+}
+
+impl SyscallResponse for Sha256ProcessBlockResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_maybe_relocatable(vm, ptr, self.state_ptr)?;
+        Ok(())
+    }
+}
+
+pub fn sha_256_process_block(
+    request: Sha256ProcessBlockRequest,
+    vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Sha256ProcessBlockResponse> {
+    let input_length: usize = (request.input_end - request.input_start)?;
+
+    const SHA256_BLOCK_SIZE: usize = 16;
+    if input_length != SHA256_BLOCK_SIZE {
+        return Err(SyscallExecutionError::SyscallError {
+            error_data: vec![
+                StarkFelt::try_from(INVALID_INPUT_LENGTH_ERROR)
+                    .map_err(SyscallExecutionError::from)?,
+            ],
+        });
+    }
+
+    let data = vm.get_integer_range(request.input_start, input_length)?;
+    const SHA256_STATE_SIZE: usize = 8;
+    let prev_state = vm.get_integer_range(request.state_ptr, SHA256_STATE_SIZE)?;
+
+    let data_as_bytes =
+        sha2::digest::generic_array::GenericArray::from_exact_iter(data.iter().flat_map(|felt| {
+            felt.to_bigint()
+                .to_u32()
+                .expect("libfunc should ensure the input is an Array<u32>.")
+                .to_be_bytes()
+        }))
+        .expect("u32.to_be_bytes() returns 4 bytes, and data.len() == 16.");
+
+    let mut state_as_words: [u32; SHA256_STATE_SIZE] = core::array::from_fn(|i| {
+        prev_state[i].to_bigint().to_u32().expect(
+            "libfunc only accepts SHA256StateHandle which can only be created from an Array<u32>.",
+        )
+    });
+
+    sha2::compress256(&mut state_as_words, &[data_as_bytes]);
+
+    let segment = syscall_handler.sha256_segment_end_ptr.unwrap_or(vm.add_memory_segment());
+
+    let response = segment;
+    let data: Vec<MaybeRelocatable> =
+        state_as_words.iter().map(|&arg| MaybeRelocatable::from(Felt252::from(arg))).collect();
+
+    syscall_handler.sha256_segment_end_ptr = Some(vm.load_data(segment, &data)?);
+
+    Ok(Sha256ProcessBlockResponse { state_ptr: response })
 }

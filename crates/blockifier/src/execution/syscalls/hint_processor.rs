@@ -40,9 +40,9 @@ use crate::execution::syscalls::secp::{
 };
 use crate::execution::syscalls::{
     call_contract, deploy, emit_event, get_block_hash, get_execution_info, keccak, library_call,
-    library_call_l1_handler, replace_class, send_message_to_l1, storage_read, storage_write,
-    StorageReadResponse, StorageWriteResponse, SyscallRequest, SyscallRequestWrapper,
-    SyscallResponse, SyscallResponseWrapper, SyscallResult, SyscallSelector,
+    library_call_l1_handler, replace_class, send_message_to_l1, sha_256_process_block,
+    storage_read, storage_write, StorageReadResponse, StorageWriteResponse, SyscallRequest,
+    SyscallRequestWrapper, SyscallResponse, SyscallResponseWrapper, SyscallResult, SyscallSelector,
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
@@ -203,6 +203,8 @@ pub struct SyscallHintProcessor<'a> {
     pub secp256k1_hint_processor: SecpHintProcessor<ark_secp256k1::Config>,
     pub secp256r1_hint_processor: SecpHintProcessor<ark_secp256r1::Config>,
 
+    pub sha256_segment_end_ptr: Option<Relocatable>,
+
     // Additional fields.
     hints: &'a HashMap<String, Hint>,
     // Transaction info. and signature segments; allocated on-demand.
@@ -236,6 +238,7 @@ impl<'a> SyscallHintProcessor<'a> {
             execution_info_ptr: None,
             secp256k1_hint_processor: SecpHintProcessor::default(),
             secp256r1_hint_processor: SecpHintProcessor::default(),
+            sha256_segment_end_ptr: None,
         }
     }
 
@@ -318,6 +321,11 @@ impl<'a> SyscallHintProcessor<'a> {
             SyscallSelector::Keccak => {
                 self.execute_syscall(vm, keccak, self.context.gas_costs().keccak_gas_cost)
             }
+            SyscallSelector::Sha256ProcessBlock => self.execute_syscall(
+                vm,
+                sha_256_process_block,
+                self.context.gas_costs().sha256_process_block_gas_cost,
+            ),
             SyscallSelector::LibraryCall => self.execute_syscall(
                 vm,
                 library_call,
