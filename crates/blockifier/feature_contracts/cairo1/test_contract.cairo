@@ -139,7 +139,7 @@ mod TestContract {
         nested_library_calldata.append(2);
         nested_library_calldata.append(a + 1);
         nested_library_calldata.append(b + 1);
-        let res = starknet::library_call_syscall(
+        let _res = starknet::library_call_syscall(
             class_hash, lib_selector, nested_library_calldata.span(),
         )
             .unwrap_syscall();
@@ -242,7 +242,7 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256k1::secp256k1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        let (msg_hash, signature, _expected_public_key_x, _expected_public_key_y, eth_address) =
             get_message_and_secp256k1_signature();
         verify_eth_signature(:msg_hash, :signature, :eth_address);
     }
@@ -288,7 +288,7 @@ mod TestContract {
         let (x_coord, y_coord) = starknet::secp256r1::secp256r1_get_xy_syscall(p0).unwrap_syscall();
         assert(x_coord == x && y_coord == y, 'Unexpected coordinates');
 
-        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, eth_address) =
+        let (msg_hash, signature, expected_public_key_x, expected_public_key_y, _eth_address) =
             get_message_and_secp256r1_signature();
         let public_key = Secp256r1Impl::secp256_ec_new_syscall(
             expected_public_key_x, expected_public_key_y
