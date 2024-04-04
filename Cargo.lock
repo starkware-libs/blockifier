@@ -427,6 +427,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "sha2",
  "sha3",
  "starknet-crypto 0.5.2",
  "starknet_api",
@@ -937,9 +938,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-lang-syntax-codegen"
-version = "2.6.0"
+version = "2.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06841b9eb87842cad1679f3c8534d25bbb5710923fd9e1903ca62e0663d91698"
+checksum = "70e2d692eae4bb4179a4a1148fd5eb738a91653d86750c813658ffad4a99fa97"
 dependencies = [
  "genco",
  "xshell",
