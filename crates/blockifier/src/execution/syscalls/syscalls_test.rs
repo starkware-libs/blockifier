@@ -267,6 +267,25 @@ fn test_keccak() {
     );
 }
 
+#[test]
+fn test_sha256() {
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let chain_info = &ChainInfo::create_for_testing();
+    let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
+
+    let calldata = Calldata(vec![].into());
+    let entry_point_call = CallEntryPoint {
+        entry_point_selector: selector_from_name("test_sha256"),
+        calldata,
+        ..trivial_external_entry_point_new(test_contract)
+    };
+
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        CallExecution { gas_consumed: 457480, ..CallExecution::from_retdata(retdata![]) }
+    );
+}
+
 fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
     // Read and parse file content.
     let raw_contract: serde_json::Value =
