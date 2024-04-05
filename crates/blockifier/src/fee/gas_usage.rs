@@ -328,6 +328,10 @@ pub fn compute_discounted_gas_from_gas_vector(
     let fee_type = tx_context.tx_info.fee_type();
     let gas_price = gas_prices.get_gas_price_by_fee_type(&fee_type);
     let data_gas_price = gas_prices.get_data_gas_price_by_fee_type(&fee_type);
-    gas_usage
-        + (blob_gas_usage * u128::from(data_gas_price) + u128::from(gas_price) - 1) / gas_price
+    let (mut blob_gas_as_l1_gas, remainder) =
+        num_integer::div_rem(blob_gas_usage * u128::from(data_gas_price), gas_price.into());
+    if remainder > 0 {
+        blob_gas_as_l1_gas += 1;
+    }
+    gas_usage + blob_gas_as_l1_gas
 }
