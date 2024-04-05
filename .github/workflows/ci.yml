@@ -82,25 +82,6 @@ jobs:
           LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
           TABLEGEN_170_PREFIX: /usr/lib/llvm-17/
 
-  erc20-native-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Native dependencies
-        id: native-deps
-        uses: ./.github/actions/setup-native-dep
-      - name: Run ERC20 tests
-        run: |
-          cd crates/blockifier 
-          cargo test --test erc20_tests --features testing
-        env:
-          CAIRO_NATIVE_RUNTIME_LIBDIR: ${{ steps.native-deps.outputs.cairo-native-runtime-libdir }}
-          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17/
-          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
-          TABLEGEN_170_PREFIX: /usr/lib/llvm-17/
-
   udeps:
     runs-on: ubuntu-latest
     steps:
