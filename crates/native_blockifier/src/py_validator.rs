@@ -6,28 +6,24 @@ use blockifier::fee::fee_checks::PostValidationReport;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
 use blockifier::state::state_api::StateReader;
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::objects::{TransactionExecutionResult, TransactionInfo};
+use blockifier::transaction::objects::TransactionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::{pyclass, pymethods, PyAny};
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::TransactionHash;
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_block_executor::{
-    into_block_context_args, PyGeneralConfig, ThinTransactionExecutionInfo,
-};
+use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::{py_account_tx, py_tx, PyClassInfo};
-use crate::py_transaction_execution_info::PyBouncerInfo;
+use crate::py_transaction::{py_account_tx, PyClassInfo};
 use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 
-/// Manages transaction validation for pre-execution flows.
 #[pyclass]
 pub struct PyValidator {
-    pub max_nonce_for_validation_skip: Nonce,
-    pub tx_executor: TransactionExecutor<PyStateReader>,
+    pub stateful_validator: StatefulValidator<PyStateReader>,
 }
 
 #[pymethods]
@@ -43,25 +39,26 @@ impl PyValidator {
         global_contract_cache_size: usize,
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
-        let versioned_constants = VersionedConstants::latest_constants_with_overrides(
-            validate_max_n_steps,
-            max_recursion_depth,
-        );
+        // Create the state.
         let global_contract_cache = GlobalContractCache::new(global_contract_cache_size);
         let state_reader = PyStateReader::new(state_reader_proxy);
         let state = CachedState::new(state_reader, global_contract_cache);
 
+        // Create the block context.
         let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
+        let versioned_constants = VersionedConstants::latest_constants_with_overrides(
+            validate_max_n_steps,
+            max_recursion_depth,
+        );
         let block_context =
             BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
-        let tx_executor = TransactionExecutor::new(state, block_context);
 
-        let validator = Self {
-            max_nonce_for_validation_skip: Nonce(max_nonce_for_validation_skip.0),
-            tx_executor,
-        };
+        // Create the stateful validator.
+        let max_nonce_for_validation_skip = Nonce(max_nonce_for_validation_skip.0);
+        let stateful_validator =
+            StatefulValidator::create(state, block_context, max_nonce_for_validation_skip);
 
-        Ok(validator)
+        Ok(Self { stateful_validator })
     }
 
     // Transaction Execution API.
@@ -74,25 +71,51 @@ impl PyValidator {
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
         let account_tx = py_account_tx(tx, optional_py_class_info)?;
-        let tx_context = self.tx_executor.block_context.to_tx_context(&account_tx);
+        let deploy_account_tx_hash = deploy_account_tx_hash.map(|hash| TransactionHash(hash.0));
+        self.stateful_validator.perform_validations(account_tx, deploy_account_tx_hash)?;
+
+        Ok(())
+    }
+}
+
+/// Manages state related transaction validations for pre-execution flows.
+pub struct StatefulValidator<S: StateReader> {
+    tx_executor: TransactionExecutor<S>,
+    max_nonce_for_validation_skip: Nonce,
+}
+
+impl<S: StateReader> StatefulValidator<S> {
+    fn create(
+        state: CachedState<S>,
+        block_context: BlockContext,
+        max_nonce_for_validation_skip: Nonce,
+    ) -> Self {
+        let tx_executor = TransactionExecutor::new(state, block_context);
+        Self { tx_executor, max_nonce_for_validation_skip }
+    }
+
+    fn perform_validations(
+        &mut self,
+        tx: AccountTransaction,
+        deploy_account_tx_hash: Option<TransactionHash>,
+    ) -> NativeBlockifierResult<()> {
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
-        if let AccountTransaction::DeployAccount(_deploy_account_tx) = account_tx {
-            let sentinel_class_info = None;
-            let (_tx_execution_info, _py_bouncer_info) = self.execute(tx, sentinel_class_info)?;
-
+        if let AccountTransaction::DeployAccount(_) = tx {
+            self.execute(tx)?;
             return Ok(());
         }
 
         // First, we check if the transaction should be skipped due to the deploy account not being
         // processed. It is done before the pre-validations checks because, in these checks, we
         // change the state (more precisely, we increment the nonce).
+        let tx_context = self.tx_executor.block_context.to_tx_context(&tx);
         let skip_validate = self.skip_validate_due_to_unprocessed_deploy_account(
             &tx_context.tx_info,
             deploy_account_tx_hash,
         )?;
-        self.perform_pre_validation_stage(&account_tx, &tx_context)?;
+        self.perform_pre_validation_stage(&tx, &tx_context)?;
 
         if skip_validate {
             return Ok(());
@@ -100,48 +123,29 @@ impl PyValidator {
 
         // `__validate__` call.
         let versioned_constants = &tx_context.block_context.versioned_constants();
-        let (_optional_call_info, tx_receipt) =
-            self.validate(account_tx, versioned_constants.tx_initial_gas())?;
+        let (_optional_call_info, actual_cost) =
+            self.validate(&tx, versioned_constants.tx_initial_gas())?;
 
         // Post validations.
-        self.perform_post_validation_stage(&tx_context, &tx_receipt)?;
+        PostValidationReport::verify(&tx_context, &actual_cost)?;
 
         Ok(())
     }
-}
 
-impl PyValidator {
-    /// Applicable solely to account deployment transactions: the execution of the constructor
-    /// is required before they can be validated.
-    fn execute(
-        &mut self,
-        tx: &PyAny,
-        optional_class_info: Option<PyClassInfo>,
-    ) -> NativeBlockifierResult<(ThinTransactionExecutionInfo, PyBouncerInfo)> {
-        let limit_execution_steps_by_resource_bounds = true;
-        let tx: Transaction = py_tx(tx, optional_class_info)?;
-        let (tx_execution_info, bouncer_info) =
-            self.tx_executor.execute(tx, limit_execution_steps_by_resource_bounds)?;
-        let py_bouncer_info = PyBouncerInfo::from(bouncer_info);
-
-        Ok((
-            ThinTransactionExecutionInfo::from_tx_execution_info(
-                &self.tx_executor.block_context,
-                tx_execution_info,
-            ),
-            py_bouncer_info,
-        ))
+    fn execute(&mut self, tx: AccountTransaction) -> NativeBlockifierResult<()> {
+        self.tx_executor.execute(Transaction::AccountTransaction(tx), true)?;
+        Ok(())
     }
 
     fn perform_pre_validation_stage(
         &mut self,
-        account_tx: &AccountTransaction,
+        tx: &AccountTransaction,
         tx_context: &TransactionContext,
     ) -> NativeBlockifierResult<()> {
         let strict_nonce_check = false;
         // Run pre-validation in charge fee mode to perform fee and balance related checks.
         let charge_fee = true;
-        account_tx.perform_pre_validation_stage(
+        tx.perform_pre_validation_stage(
             &mut self.tx_executor.state,
             tx_context,
             charge_fee,
@@ -157,7 +161,7 @@ impl PyValidator {
     fn skip_validate_due_to_unprocessed_deploy_account(
         &mut self,
         tx_info: &TransactionInfo,
-        deploy_account_tx_hash: Option<PyFelt>,
+        deploy_account_tx_hash: Option<TransactionHash>,
     ) -> NativeBlockifierResult<bool> {
         let nonce = self.tx_executor.state.get_nonce_at(tx_info.sender_address())?;
         let tx_nonce = tx_info.nonce();
@@ -177,20 +181,9 @@ impl PyValidator {
 
     fn validate(
         &mut self,
-        account_tx: AccountTransaction,
+        tx: &AccountTransaction,
         remaining_gas: u64,
     ) -> NativeBlockifierResult<(Option<CallInfo>, TransactionReceipt)> {
-        let (optional_call_info, tx_receipt) =
-            self.tx_executor.validate(&account_tx, remaining_gas)?;
-
-        Ok((optional_call_info, tx_receipt))
-    }
-
-    fn perform_post_validation_stage(
-        &mut self,
-        tx_context: &TransactionContext,
-        tx_receipt: &TransactionReceipt,
-    ) -> TransactionExecutionResult<()> {
-        PostValidationReport::verify(tx_context, tx_receipt)
+        Ok(self.tx_executor.validate(tx, remaining_gas)?)
     }
 }
