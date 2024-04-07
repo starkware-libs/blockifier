@@ -270,6 +270,37 @@ impl AccountTransaction {
         }
     }
 
+    // TODO(Amos, 8/04/2024): Add test for this function.
+    fn assert_actual_fee_in_bounds(
+        tx_context: &Arc<TransactionContext>,
+        actual_fee: Fee,
+    ) -> TransactionExecutionResult<Option<CallInfo>> {
+        match &tx_context.tx_info {
+            TransactionInfo::Current(context) => {
+                let ResourceBounds {
+                    max_amount: max_l1_gas_amount,
+                    max_price_per_unit: max_l1_gas_price,
+                } = context.l1_resource_bounds()?;
+                if actual_fee > Fee(u128::from(max_l1_gas_amount) * max_l1_gas_price) {
+                    panic!(
+                        "Actual fee {:#?} exceeded bounds; max amount is {:#?}, max price is 
+                         {:#?}.",
+                        actual_fee, max_l1_gas_amount, max_l1_gas_price
+                    );
+                }
+            }
+            TransactionInfo::Deprecated(context) => {
+                if actual_fee > context.max_fee {
+                    panic!(
+                        "Actual fee {:#?} exceeded bounds; max fee is {:#?}.",
+                        actual_fee, context.max_fee
+                    );
+                }
+            }
+        }
+        Ok(None)
+    }
+
     fn handle_fee(
         &self,
         state: &mut dyn State,
@@ -281,6 +312,8 @@ impl AccountTransaction {
             // Fee charging is not enforced in some transaction simulations and tests.
             return Ok(None);
         }
+
+        Self::assert_actual_fee_in_bounds(&tx_context, actual_fee)?;
 
         // Charge fee.
         let fee_transfer_call_info = Self::execute_fee_transfer(state, tx_context, actual_fee)?;
