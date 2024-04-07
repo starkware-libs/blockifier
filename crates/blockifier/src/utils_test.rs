@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
 
-use crate::utils::subtract_mappings;
+use crate::utils::{subtract_mappings, u128_div_ceil};
 
 #[test]
 fn test_subtract_mappings() {
@@ -17,4 +17,12 @@ fn test_subtract_mappings() {
 
     let expected = HashMap::from([("red", 1), ("blue", 3)]);
     assert_eq!(expected, subtract_mappings(&map1, &map2));
+}
+
+#[test]
+fn test_u128_div_ceil() {
+    assert_eq!(1, u128_div_ceil(1, 1));
+    assert_eq!(1, u128_div_ceil(1, 2));
+    assert_eq!(14, u128_div_ceil(27, 2));
+    assert_eq!(14, u128_div_ceil(28, 2));
 }
