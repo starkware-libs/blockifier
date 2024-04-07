@@ -282,6 +282,20 @@ impl AccountTransaction {
             return Ok(None);
         }
 
+        match &tx_context.tx_info {
+            TransactionInfo::Current(context) => {
+                let ResourceBounds {
+                    max_amount: max_l1_gas_amount,
+                    max_price_per_unit: max_l1_gas_price,
+                } = context.l1_resource_bounds()?;
+
+                assert!(actual_fee <= Fee(u128::from(max_l1_gas_amount) * max_l1_gas_price));
+            }
+            TransactionInfo::Deprecated(context) => {
+                assert!(actual_fee <= context.max_fee);
+            }
+        }
+
         // Charge fee.
         let fee_transfer_call_info = Self::execute_fee_transfer(state, tx_context, actual_fee)?;
 

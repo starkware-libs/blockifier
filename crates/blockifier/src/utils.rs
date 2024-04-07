@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::format;
 
 use crate::transaction::errors::NumericConversionError;
 
@@ -32,4 +33,12 @@ pub fn usize_from_u128(val: u128) -> Result<usize, NumericConversionError> {
 /// of address space.
 pub fn u128_from_usize(val: usize) -> Result<u128, NumericConversionError> {
     val.try_into().map_err(|_| NumericConversionError::UsizeToU128Error(val))
+}
+
+/// Returns the ceiling of the division of two u128 numbers. Panics if there's an overflow.
+pub fn u128_div_ceil(a: u128, b: u128) -> u128 {
+    let overflow_err_msg =
+        format(format_args!("Overflow when dividing u128 numbers {} / {}", a, b));
+    // (a + b - 1) / b = ceil(a / b).
+    (a.checked_add(b).expect(&overflow_err_msg) - 1) / b
 }

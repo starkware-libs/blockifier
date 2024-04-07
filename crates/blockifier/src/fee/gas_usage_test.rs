@@ -4,12 +4,19 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{EventContent, EventData, EventKey};
 
 use crate::abi::constants;
+use crate::context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};
 use crate::fee::eth_gas_constants;
-use crate::fee::gas_usage::{get_da_gas_cost, get_message_segment_length, get_tx_events_gas_cost};
+use crate::fee::gas_usage::{
+    compute_discounted_gas_from_gas_vector, get_da_gas_cost, get_message_segment_length,
+    get_tx_events_gas_cost,
+};
+use crate::invoke_tx_args;
 use crate::state::cached_state::StateChangesCount;
+use crate::test_utils::{DEFAULT_ETH_L1_DATA_GAS_PRICE, DEFAULT_ETH_L1_GAS_PRICE};
 use crate::transaction::objects::GasVector;
-use crate::utils::u128_from_usize;
+use crate::transaction::test_utils::account_invoke_tx;
+use crate::utils::{u128_div_ceil, u128_from_usize};
 use crate::versioned_constants::VersionedConstants;
 #[fixture]
 fn versioned_constants() -> &'static VersionedConstants {
@@ -185,4 +192,23 @@ fn test_get_message_segment_length(
         };
 
     assert_eq!(result, expected_result);
+}
+
+#[rstest]
+fn test_compute_discounted_gas_from_gas_vector() {
+    let tx_context =
+        BlockContext::create_for_testing().to_tx_context(&account_invoke_tx(invoke_tx_args! {}));
+    let gas_usage = GasVector { l1_gas: 100, l1_data_gas: 2 };
+    let actual_result = compute_discounted_gas_from_gas_vector(&gas_usage, &tx_context);
+
+    let result_div_ceil = gas_usage.l1_gas
+        + u128_div_ceil(
+            gas_usage.l1_data_gas * DEFAULT_ETH_L1_DATA_GAS_PRICE,
+            DEFAULT_ETH_L1_GAS_PRICE,
+        );
+    let result_integer_div = gas_usage.l1_gas
+        + (gas_usage.l1_data_gas * DEFAULT_ETH_L1_DATA_GAS_PRICE) / DEFAULT_ETH_L1_GAS_PRICE;
+
+    assert_eq!(actual_result, result_div_ceil);
+    assert_ne!(actual_result, result_integer_div);
 }
