@@ -45,6 +45,9 @@ pub trait StateReader {
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash>;
 
+    /// Returns true iff the class is already declared.
+    fn is_declared(&self, class_hash: ClassHash) -> StateResult<bool>;
+
     /// Returns the storage value representing the balance (in fee token) at the given address.
     // TODO(Dori, 1/7/2023): When a standard representation for large integers is set, change the
     //    return type to that.

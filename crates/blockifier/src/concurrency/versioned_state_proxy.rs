@@ -271,4 +271,15 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
             }
         }
     }
+
+    // TODO(Ori, 1/5/2024): Change this function once versioned state has the right cache for this.
+    fn is_declared(&self, class_hash: ClassHash) -> StateResult<bool> {
+        match self.get_compiled_contract_class(class_hash) {
+            Ok(_contract_class) => Ok(true),
+            Err(StateError::StateReadError(class_hash)) => {
+                Err(StateError::StateReadError(class_hash))
+            }
+            Err(_error) => Ok(false),
+        }
+    }
 }
