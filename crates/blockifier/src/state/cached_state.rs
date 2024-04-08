@@ -250,6 +250,20 @@ impl<S: StateReader> StateReader for CachedState<S> {
             .unwrap_or_else(|| panic!("Cannot retrieve '{class_hash:?}' from the cache."));
         Ok(*compiled_class_hash)
     }
+
+    fn is_declared(&self, class_hash: ClassHash) -> bool {
+        let mut cache = self.cache.borrow_mut();
+
+        if cache.get_declared_contract(class_hash).is_none() {
+            let is_declared = self.state.is_declared(class_hash);
+            cache.set_declared_contract_initial_values(class_hash, is_declared);
+        }
+
+        let is_declared = cache
+            .get_declared_contract(class_hash)
+            .unwrap_or_else(|| panic!("Cannot retrieve '{class_hash:?}' from the cache."));
+        *is_declared
+    }
 }
 
 impl<S: StateReader> State for CachedState<S> {
@@ -377,6 +391,12 @@ impl StateCache {
 
     fn set_declared_contract_initial_values(&mut self, class_hash: ClassHash, is_declared: bool) {
         self.declared_contract_initial_values.insert(class_hash, is_declared);
+    }
+
+    fn get_declared_contract(&self, class_hash: ClassHash) -> Option<&bool> {
+        self.declared_contract_writes
+            .get(&class_hash)
+            .or_else(|| self.declared_contract_initial_values.get(&class_hash))
     }
 
     fn get_storage_at(
@@ -523,6 +543,10 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
 
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         self.0.get_compiled_class_hash(class_hash)
+    }
+
+    fn is_declared(&self, class_hash: ClassHash) -> bool {
+        self.0.is_declared(class_hash)
     }
 }
 

@@ -271,4 +271,8 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
             }
         }
     }
+
+    fn is_declared(&self, class_hash: ClassHash) -> bool {
+        self.get_compiled_contract_class(class_hash).is_ok()
+    }
 }

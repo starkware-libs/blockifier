@@ -93,6 +93,10 @@ impl StateReader for PyStateReader {
         .map(|felt| CompiledClassHash(felt.0))
         .map_err(|err| StateError::StateReadError(err.to_string()))
     }
+
+    fn is_declared(&self, class_hash: ClassHash) -> bool {
+        self.get_compiled_contract_class(class_hash).is_ok()
+    }
 }
 
 #[derive(FromPyObject)]

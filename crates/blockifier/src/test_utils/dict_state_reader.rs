@@ -57,4 +57,8 @@ impl StateReader for DictStateReader {
             self.class_hash_to_compiled_class_hash.get(&class_hash).copied().unwrap_or_default();
         Ok(compiled_class_hash)
     }
+
+    fn is_declared(&self, class_hash: ClassHash) -> bool {
+        self.get_compiled_contract_class(class_hash).is_ok()
+    }
 }
