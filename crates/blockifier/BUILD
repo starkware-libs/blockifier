@@ -9,5 +9,8 @@ rust_library(
     deps=all_crate_deps(),
     proc_macro_deps=all_crate_deps(proc_macro=True),
     edition="2021",
-    crate_features=["testing"],
+    crate_features = [
+        "jemalloc",
+        "testing",
+    ],
 )

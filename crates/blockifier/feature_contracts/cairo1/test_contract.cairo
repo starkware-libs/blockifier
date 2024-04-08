@@ -426,6 +426,7 @@ mod TestContract {
         if depth == 0 {
             return;
         }
+        let arr = [1,2,3,4,5,6,7,8,9,10];
         recurse(ref self, depth - 1)
     }
 

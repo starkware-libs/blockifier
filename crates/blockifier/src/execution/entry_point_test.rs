@@ -84,17 +84,19 @@ fn test_entry_point_without_arg() {
 
 #[test]
 fn test_entry_point_with_arg() {
-    let mut state = deprecated_create_test_state();
-    let calldata = calldata![stark_felt!(25_u8)];
-    let entry_point_call = CallEntryPoint {
-        calldata,
-        entry_point_selector: selector_from_name("with_arg"),
-        ..trivial_external_entry_point()
-    };
-    assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::default()
-    );
+    for _ in 0..1000 {
+        let mut state = deprecated_create_test_state();
+        let calldata = calldata![stark_felt!(500_000_u128)];
+        let entry_point_call = CallEntryPoint {
+            calldata,
+            entry_point_selector: selector_from_name("recurse"),
+            ..trivial_external_entry_point()
+        };
+        assert_eq!(
+            entry_point_call.execute_directly(&mut state).unwrap().execution,
+            CallExecution::default()
+        );
+    }
 }
 
 #[test]
@@ -537,14 +539,12 @@ fn test_cairo1_entry_point_segment_arena() {
         ..trivial_external_entry_point()
     };
 
-    assert!(
-        entry_point_call
-            .execute_directly(&mut state)
-            .unwrap()
-            .resources
-            .builtin_instance_counter
-            .contains_key(BuiltinName::segment_arena.name())
-    );
+    assert!(entry_point_call
+        .execute_directly(&mut state)
+        .unwrap()
+        .resources
+        .builtin_instance_counter
+        .contains_key(BuiltinName::segment_arena.name()));
 }
 
 /// Fetch PC locations from the compiled contract to compute the expected PC locations in the
