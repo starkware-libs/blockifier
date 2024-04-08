@@ -9,6 +9,7 @@ use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::{ContractClassMapping, StateCache};
+use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult};
 
 #[cfg(test)]
@@ -269,6 +270,17 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
                     .set_initial_value(class_hash, initial_value.clone());
                 Ok(initial_value)
             }
+        }
+    }
+
+    // TODO(Ori, 1/5/2024): Change this function once versioned state has the right cache for this.
+    fn is_declared(&self, class_hash: ClassHash) -> StateResult<bool> {
+        match self.get_compiled_contract_class(class_hash) {
+            Ok(_contract_class) => Ok(true),
+            Err(StateError::StateReadError(class_hash)) => {
+                Err(StateError::StateReadError(class_hash))
+            }
+            Err(_error) => Ok(false),
         }
     }
 }

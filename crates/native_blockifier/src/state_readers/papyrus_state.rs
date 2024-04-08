@@ -136,4 +136,14 @@ impl StateReader for PapyrusReader {
     fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         todo!()
     }
+
+    fn is_declared(&self, class_hash: ClassHash) -> StateResult<bool> {
+        match self.get_compiled_contract_class(class_hash) {
+            Ok(_contract_class) => Ok(true),
+            Err(StateError::StateReadError(class_hash)) => {
+                Err(StateError::StateReadError(class_hash))
+            }
+            Err(_error) => Ok(false),
+        }
+    }
 }
