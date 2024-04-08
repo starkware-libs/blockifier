@@ -645,11 +645,11 @@
         ],
         "EXTERNAL": [
             {
-                "offset": 1238,
+                "offset": 1265,
                 "selector": "0x1143aa89c8e3ebf8ed14df2a3606c1cd2dd513fac8040b0f8ab441f5c52fe4"
             },
             {
-                "offset": 1280,
+                "offset": 1307,
                 "selector": "0x600c98a299d72ef1e09a2e1503206fbc76081233172c65f7e2438ef0069d8d"
             },
             {
@@ -657,11 +657,11 @@
                 "selector": "0x62c83572d28cb834a3de3c1e94977a4191469a4a8c26d1d7bc55305e640ed5"
             },
             {
-                "offset": 1794,
+                "offset": 1821,
                 "selector": "0x679c22735055a10db4f275395763a3752a1e3a3043c192299ab6b574fba8d6"
             },
             {
-                "offset": 1718,
+                "offset": 1745,
                 "selector": "0x7772be8b80a8a33dc6c1f9a6ab820c02e537c73e859de67f288c70f92571bb"
             },
             {
@@ -669,7 +669,7 @@
                 "selector": "0xad451bd0dba3d8d97104e1bfc474f88605ccc7acbe1c846839a120fdf30d95"
             },
             {
-                "offset": 1544,
+                "offset": 1571,
                 "selector": "0xd47144c49bce05b6de6bce9d5ff0cc8da9420f8945453e20ef779cbea13ad4"
             },
             {
@@ -685,11 +685,11 @@
                 "selector": "0x120c24672855cfe872cb35256ea85172417f2aada7a22c15908906dc5f3c69d"
             },
             {
-                "offset": 1511,
+                "offset": 1538,
                 "selector": "0x127a04cfe41aceb22fc022bce0c5c70f2d860a7c7c054681bd821cdc18e6dbc"
             },
             {
-                "offset": 1871,
+                "offset": 1898,
                 "selector": "0x12ead94ae9d3f9d2bdb6b847cf255f1f398193a1f88884a0ae8e18f24a037b6"
             },
             {
@@ -697,11 +697,11 @@
                 "selector": "0x137a07fa9c479e27114b8ae1fbf252f2065cf91a0d8615272e060a7ccf37309"
             },
             {
-                "offset": 1924,
+                "offset": 1951,
                 "selector": "0x14dae1999ae9ab799bc72def6dc6e90890cf8ac0d64525021b7e71d05cb13e8"
             },
             {
-                "offset": 1402,
+                "offset": 1429,
                 "selector": "0x167ac610845cc0ab1501b38169a7e50f1bf60602d3c2a961b30987454f97812"
             },
             {
@@ -709,7 +709,7 @@
                 "selector": "0x169f135eddda5ab51886052d777a57f2ea9c162d713691b5e04a6d4ed71d47f"
             },
             {
-                "offset": 1835,
+                "offset": 1862,
                 "selector": "0x1ae1a515cf2d214b29bdf63a79ee2d490efd4dd1acc99d383a8e549c3cecb5d"
             },
             {
@@ -721,7 +721,7 @@
                 "selector": "0x1b47f727a0668d8593c5bb115d5b53a470f29833fd4d598e748f68e65f4f003"
             },
             {
-                "offset": 1481,
+                "offset": 1508,
                 "selector": "0x1de4779362d5ca708d55fe1d4d499501b7f692730d2e01656e9180708985e07"
             },
             {
@@ -729,15 +729,15 @@
                 "selector": "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c"
             },
             {
-                "offset": 1347,
+                "offset": 1374,
                 "selector": "0x309687d54611a7db521175c78ba48b082df1372350d2529981a8c0dd09a6529"
             },
             {
-                "offset": 1750,
+                "offset": 1777,
                 "selector": "0x30f842021fbf02caf80d09a113997c1e00a32870eee0c6136bed27acb348bea"
             },
             {
-                "offset": 1670,
+                "offset": 1697,
                 "selector": "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f"
             },
             {
@@ -749,7 +749,7 @@
                 "selector": "0x3307b3297ab2ab7a46a9b7d139a52dddf9c343e9a0a3ac69c5b4048d80e3aaf"
             },
             {
-                "offset": 1426,
+                "offset": 1453,
                 "selector": "0x33ce93a3eececa5c9fc70da05f4aff3b00e1820b79587924d514bc76788991a"
             },
             {
@@ -781,7 +781,7 @@
                 "selector": "0x3b097c62d3e4b85742aadd0dfb823f96134b886ec13bda57b68faf86f294d97"
             },
             {
-                "offset": 1378,
+                "offset": 1405,
                 "selector": "0x3dc5da2d6d1275aeed57f43461d31967b0fed58bfe739b4ffad4091e89c4b03"
             },
             {
@@ -2031,20 +2031,47 @@
             "0x0",
             "0x48127ff97fff8000",
             "0x208b7fff7fff7ffe",
+            "0x40780017fff7fff",
+            "0x1",
             "0x20780017fff7ffd",
             "0x3",
             "0x208b7fff7fff7ffe",
+            "0x480680017fff8000",
+            "0x1",
+            "0x480680017fff8000",
+            "0x2",
+            "0x480680017fff8000",
+            "0x3",
+            "0x480680017fff8000",
+            "0x4",
+            "0x480680017fff8000",
+            "0x5",
+            "0x480680017fff8000",
+            "0x6",
+            "0x480680017fff8000",
+            "0x7",
+            "0x480680017fff8000",
+            "0x8",
+            "0x480680017fff8000",
+            "0x9",
+            "0x480680017fff8000",
+            "0xa",
+            "0x1104800180018000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb33",
+            "0x482480017fff8000",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff7",
+            "0x40137fff7fff8000",
             "0x482680017ffd8000",
             "0x800000000000011000000000000000000000000000000000000000000000000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffc",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffe1",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
             "0x1",
             "0x402a7ffd7ffc7fff",
             "0x480280007ffd8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff5",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffffffda",
             "0x40780017fff7fff",
             "0x1",
             "0x480280007ffb8000",
@@ -2067,7 +2094,7 @@
             "0x482680017ffd8000",
             "0x800000000000011000000000000000000000000000000000000000000000000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb29",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb0e",
             "0x482480017fff8000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffe",
             "0x40137fff7fff8000",
@@ -2078,7 +2105,7 @@
             "0x3",
             "0x480a80007fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb23",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb08",
             "0x48127ffd7fff8000",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
@@ -2107,15 +2134,15 @@
             "0x480a7ff97fff8000",
             "0x480a7ffa7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb56",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb3b",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb28",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffb0d",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
             "0x480680017fff8000",
             "0x0",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaf9",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffade",
             "0x482480017fff8000",
             "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffffd",
             "0x40137fff7fff8000",
@@ -2127,7 +2154,7 @@
             "0x4",
             "0x480a80007fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaf2",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffad7",
             "0x208b7fff7fff7ffe",
             "0x40780017fff7fff",
             "0x3",
@@ -2143,7 +2170,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffb7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffacd",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffab2",
             "0x480a80017fff8000",
             "0x4829800080008002",
             "0x480a80007fff8000",
@@ -2175,7 +2202,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaf4",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffad9",
             "0x400a7ffd7fff7fff",
             "0x48127ffe7fff8000",
             "0x208b7fff7fff7ffe",
@@ -2199,7 +2226,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffae3",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffac8",
             "0x400a7ffd7fff7fff",
             "0x48127ffe7fff8000",
             "0x208b7fff7fff7ffe",
@@ -2223,7 +2250,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffabd",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaa2",
             "0x400a7ffd7fff7fff",
             "0x48127ffe7fff8000",
             "0x208b7fff7fff7ffe",
@@ -2247,7 +2274,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ff67fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffadc",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffac1",
             "0x480080007fff8000",
             "0x480080017ffe8000",
             "0x480080027ffd8000",
@@ -2269,17 +2296,17 @@
             "0x12c",
             "0x48127ffb7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffab4",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa99",
             "0x480680017fff8000",
             "0x137",
             "0x48127ff67fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaaf",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa94",
             "0x480680017fff8000",
             "0x142",
             "0x48127ff17fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffaaa",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa8f",
             "0x480a7ff77fff8000",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
@@ -2308,7 +2335,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa9f",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa84",
             "0x400180007fff7ffd",
             "0x48127ffe7fff8000",
             "0x208b7fff7fff7ffe",
@@ -2336,13 +2363,13 @@
             "0x480680017fff8000",
             "0x0",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa71",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa56",
             "0x480680017fff8000",
             "0xf",
             "0x480680017fff8000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa6b",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa50",
             "0x480a7ffd7fff8000",
             "0x208b7fff7fff7ffe",
             "0x402b7ffd7ffc7ffd",
@@ -2364,7 +2391,7 @@
             "0x40780017fff7fff",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9e7",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9cc",
             "0x40137fff7fff8000",
             "0x4003800080007ffb",
             "0x4003800180007ffc",
@@ -2378,7 +2405,7 @@
             "0x4828800080007ffc",
             "0x480a80007fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9f7",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9dc",
             "0x48127ffd7fff8000",
             "0x480a7ff97fff8000",
             "0x208b7fff7fff7ffe",
@@ -2387,11 +2414,11 @@
             "0x2691cb735b18f3f656c3b82bd97a32b65d15019b64117513f8604d1e06fe58b",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9d3",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9b8",
             "0x480a7ffc7fff8000",
             "0x48127ffe7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa67",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa4c",
             "0x48127fe17fff8000",
             "0x48127ffd7fff8000",
             "0x48127ffd7fff8000",
@@ -2404,12 +2431,12 @@
             "0x480a7ffa7fff8000",
             "0x48127ffe7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa25",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa0a",
             "0x48127ffe7fff8000",
             "0x482480017ff78000",
             "0x1",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa20",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa05",
             "0x48127ffe7fff8000",
             "0x48127fee7fff8000",
             "0x48127fee7fff8000",
@@ -2425,12 +2452,12 @@
             "0x48127ffe7fff8000",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa18",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9fd",
             "0x482480017ff88000",
             "0x1",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa13",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9f8",
             "0x48127ff07fff8000",
             "0x48127ff07fff8000",
             "0x208b7fff7fff7ffe",
@@ -2447,12 +2474,12 @@
             "0x48127ffe7fff8000",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa02",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9e7",
             "0x482480017ff88000",
             "0x1",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9fd",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9e2",
             "0x48127ff07fff8000",
             "0x48127ff07fff8000",
             "0x208b7fff7fff7ffe",
@@ -2503,12 +2530,12 @@
             "0x48127ffd7fff8000",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa1f",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa04",
             "0x48127ffe7fff8000",
             "0x48127ff77fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa1a",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9ff",
             "0x48127fed7fff8000",
             "0x48127fed7fff8000",
             "0x48127fed7fff8000",
@@ -2585,7 +2612,7 @@
             "0x480680017fff8000",
             "0x4b5810004d9272776dec83ecc20c19353453b956e594188890b48467cb53c19",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffa0f",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9f4",
             "0x480a7ffa7fff8000",
             "0x480a7ffb7fff8000",
             "0x480a7ffc7fff8000",
@@ -2615,7 +2642,7 @@
             "0x208b7fff7fff7ffe",
             "0x480a7ffc7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff94a",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff92f",
             "0x400680017fff7ffe",
             "0x2",
             "0x48127ffd7fff8000",
@@ -2663,14 +2690,14 @@
             "0x400780017fff8001",
             "0x22",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff8d4",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff8b9",
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x480680017fff8000",
             "0x2",
             "0x48127ffb7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9d9",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff9be",
             "0x208b7fff7fff7ffe",
             "0x482680017ffd8000",
             "0x1",
@@ -2702,7 +2729,7 @@
             "0x480a7ffc7fff8000",
             "0x480a7ffd7fff8000",
             "0x1104800180018000",
-            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff90b",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffff8f0",
             "0x480a7ff77fff8000",
             "0x480a7ff87fff8000",
             "0x482680017ff98000",
@@ -3529,7 +3556,7 @@
                     }
                 }
             ],
-            "1244": [
+            "1271": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3547,7 +3574,7 @@
                     }
                 }
             ],
-            "1289": [
+            "1316": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3565,7 +3592,7 @@
                     }
                 }
             ],
-            "1328": [
+            "1355": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3583,7 +3610,7 @@
                     }
                 }
             ],
-            "1385": [
+            "1412": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3601,7 +3628,7 @@
                     }
                 }
             ],
-            "1409": [
+            "1436": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3619,7 +3646,7 @@
                     }
                 }
             ],
-            "1433": [
+            "1460": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3637,7 +3664,7 @@
                     }
                 }
             ],
-            "1494": [
+            "1521": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3655,7 +3682,7 @@
                     }
                 }
             ],
-            "1518": [
+            "1545": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3673,7 +3700,7 @@
                     }
                 }
             ],
-            "1549": [
+            "1576": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3691,7 +3718,7 @@
                     }
                 }
             ],
-            "1681": [
+            "1708": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3709,7 +3736,7 @@
                     }
                 }
             ],
-            "1730": [
+            "1757": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3727,7 +3754,7 @@
                     }
                 }
             ],
-            "1761": [
+            "1788": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3745,7 +3772,7 @@
                     }
                 }
             ],
-            "1801": [
+            "1828": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3763,7 +3790,7 @@
                     }
                 }
             ],
-            "1844": [
+            "1871": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3781,7 +3808,7 @@
                     }
                 }
             ],
-            "1878": [
+            "1905": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3799,7 +3826,7 @@
                     }
                 }
             ],
-            "1953": [
+            "1980": [
                 {
                     "accessible_scopes": [
                         "__main__",
@@ -3899,7 +3926,7 @@
             },
             "__main__.MyContract.xor_counters": {
                 "decorators": [],
-                "pc": 1560,
+                "pc": 1587,
                 "type": "function"
             },
             "__main__.MyContract.xor_counters.Args": {
@@ -3952,7 +3979,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1812,
+                "pc": 1839,
                 "type": "function"
             },
             "__main__.add_signature_to_counters.Args": {
@@ -3997,7 +4024,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1655,
+                "pc": 1682,
                 "type": "function"
             },
             "__main__.advance_counter.Args": {
@@ -4099,7 +4126,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1741,
+                "pc": 1768,
                 "type": "function"
             },
             "__main__.call_xor_counters.Args": {
@@ -4218,7 +4245,7 @@
             },
             "__main__.ec_point.addr": {
                 "decorators": [],
-                "pc": 1633,
+                "pc": 1660,
                 "type": "function"
             },
             "__main__.ec_point.addr.Args": {
@@ -4268,7 +4295,7 @@
             },
             "__main__.ec_point.write": {
                 "decorators": [],
-                "pc": 1638,
+                "pc": 1665,
                 "type": "function"
             },
             "__main__.ec_point.write.Args": {
@@ -4315,7 +4342,7 @@
             },
             "__main__.emit_event_recurse": {
                 "decorators": [],
-                "pc": 1889,
+                "pc": 1916,
                 "type": "function"
             },
             "__main__.emit_event_recurse.Args": {
@@ -4705,7 +4732,7 @@
             },
             "__main__.recurse.SIZEOF_LOCALS": {
                 "type": "const",
-                "value": 0
+                "value": 1
             },
             "__main__.recursive_fail": {
                 "decorators": [
@@ -4743,7 +4770,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1255,
+                "pc": 1282,
                 "type": "function"
             },
             "__main__.recursive_syscall.Args": {
@@ -4824,7 +4851,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1855,
+                "pc": 1882,
                 "type": "function"
             },
             "__main__.send_message.Args": {
@@ -5047,7 +5074,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1529,
+                "pc": 1556,
                 "type": "function"
             },
             "__main__.test_count_actual_storage_changes.Args": {
@@ -5140,7 +5167,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1772,
+                "pc": 1799,
                 "type": "function"
             },
             "__main__.test_ec_op.Args": {
@@ -5184,7 +5211,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1913,
+                "pc": 1940,
                 "type": "function"
             },
             "__main__.test_emit_events.Args": {
@@ -5245,7 +5272,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1372,
+                "pc": 1399,
                 "type": "function"
             },
             "__main__.test_get_block_number.Args": {
@@ -5282,7 +5309,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1396,
+                "pc": 1423,
                 "type": "function"
             },
             "__main__.test_get_block_timestamp.Args": {
@@ -5319,7 +5346,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1420,
+                "pc": 1447,
                 "type": "function"
             },
             "__main__.test_get_sequencer_address.Args": {
@@ -5356,7 +5383,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1444,
+                "pc": 1471,
                 "type": "function"
             },
             "__main__.test_get_tx_info.Args": {
@@ -5665,7 +5692,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1505,
+                "pc": 1532,
                 "type": "function"
             },
             "__main__.test_tx_version.Args": {
@@ -5702,7 +5729,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1300,
+                "pc": 1327,
                 "type": "function"
             },
             "__main__.test_write_and_transfer.Args": {
@@ -5780,7 +5807,7 @@
             },
             "__main__.two_counters.addr": {
                 "decorators": [],
-                "pc": 1581,
+                "pc": 1608,
                 "type": "function"
             },
             "__main__.two_counters.addr.Args": {
@@ -5827,7 +5854,7 @@
             },
             "__main__.two_counters.read": {
                 "decorators": [],
-                "pc": 1595,
+                "pc": 1622,
                 "type": "function"
             },
             "__main__.two_counters.read.Args": {
@@ -5878,7 +5905,7 @@
             },
             "__main__.two_counters.write": {
                 "decorators": [],
-                "pc": 1615,
+                "pc": 1642,
                 "type": "function"
             },
             "__main__.two_counters.write.Args": {
@@ -6068,7 +6095,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1692,
+                "pc": 1719,
                 "type": "function"
             },
             "__main__.xor_counters.Args": {
@@ -6117,7 +6144,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1835,
+                "pc": 1862,
                 "type": "function"
             },
             "__wrappers__.add_signature_to_counters.Args": {
@@ -6152,7 +6179,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1670,
+                "pc": 1697,
                 "type": "function"
             },
             "__wrappers__.advance_counter.Args": {
@@ -6222,7 +6249,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1750,
+                "pc": 1777,
                 "type": "function"
             },
             "__wrappers__.call_xor_counters.Args": {
@@ -6431,7 +6458,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1238,
+                "pc": 1265,
                 "type": "function"
             },
             "__wrappers__.recurse.Args": {
@@ -6501,7 +6528,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1280,
+                "pc": 1307,
                 "type": "function"
             },
             "__wrappers__.recursive_syscall.Args": {
@@ -6605,7 +6632,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1871,
+                "pc": 1898,
                 "type": "function"
             },
             "__wrappers__.send_message.Args": {
@@ -6780,7 +6807,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1544,
+                "pc": 1571,
                 "type": "function"
             },
             "__wrappers__.test_count_actual_storage_changes.Args": {
@@ -6884,7 +6911,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1794,
+                "pc": 1821,
                 "type": "function"
             },
             "__wrappers__.test_ec_op.Args": {
@@ -6919,7 +6946,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1924,
+                "pc": 1951,
                 "type": "function"
             },
             "__wrappers__.test_emit_events.Args": {
@@ -6954,7 +6981,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1378,
+                "pc": 1405,
                 "type": "function"
             },
             "__wrappers__.test_get_block_number.Args": {
@@ -6989,7 +7016,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1402,
+                "pc": 1429,
                 "type": "function"
             },
             "__wrappers__.test_get_block_timestamp.Args": {
@@ -7024,7 +7051,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1426,
+                "pc": 1453,
                 "type": "function"
             },
             "__wrappers__.test_get_sequencer_address.Args": {
@@ -7059,7 +7086,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1481,
+                "pc": 1508,
                 "type": "function"
             },
             "__wrappers__.test_get_tx_info.Args": {
@@ -7407,7 +7434,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1511,
+                "pc": 1538,
                 "type": "function"
             },
             "__wrappers__.test_tx_version.Args": {
@@ -7442,7 +7469,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1347,
+                "pc": 1374,
                 "type": "function"
             },
             "__wrappers__.test_write_and_transfer.Args": {
@@ -7471,7 +7498,7 @@
             },
             "__wrappers__.test_write_and_transfer_encode_return": {
                 "decorators": [],
-                "pc": 1328,
+                "pc": 1355,
                 "type": "function"
             },
             "__wrappers__.test_write_and_transfer_encode_return.Args": {
@@ -7651,7 +7678,7 @@
                 "decorators": [
                     "external"
                 ],
-                "pc": 1718,
+                "pc": 1745,
                 "type": "function"
             },
             "__wrappers__.xor_counters.Args": {

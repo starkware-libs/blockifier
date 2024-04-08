@@ -290,9 +290,11 @@ func recursive_fail(depth: felt) {
 
 @external
 func recurse(depth: felt) {
+    alloc_locals;
     if (depth == 0) {
         return ();
     }
+    local x: felt* = new(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
     recurse(depth - 1);
     return ();
 }

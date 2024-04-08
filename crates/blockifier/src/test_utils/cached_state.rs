@@ -17,6 +17,11 @@ use crate::test_utils::{
 };
 
 pub fn deprecated_create_test_state() -> CachedState<DictStateReader> {
+    // #[cfg(feature = "jemalloc")]
+    // println!("Jemalloc is enabled; allocator is {:?}.", crate::ALLOC);
+    // #[cfg(not(feature = "jemalloc"))]
+    // println!("Jemalloc is not enabled.");
+
     let class_hash_to_class = get_class_hash_to_v0_class_mapping();
     let address_to_class_hash = get_address_to_v0_class_hash();
 

@@ -26,7 +26,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier", features = ["testing"] }
+blockifier = { path = "../blockifier", features = ["jemalloc", "testing"] }
 cairo-lang-starknet-classes.workspace = true
 cairo-vm.workspace = true
 indexmap.workspace = true
@@ -45,6 +45,7 @@ cached.workspace = true
 criterion = { workspace = true, features = ["html_reports"] }
 pretty_assertions.workspace = true
 tempfile.workspace = true
+rayon = "1.10.0"
 
 [[bench]]
 path = "bench/blockifier_bench.rs"

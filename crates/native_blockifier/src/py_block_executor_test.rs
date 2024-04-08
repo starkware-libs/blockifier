@@ -1,17 +1,64 @@
 use std::collections::HashMap;
 
+use blockifier::abi::abi_utils::selector_from_name;
+use blockifier::execution::call_info::CallExecution;
+use blockifier::execution::entry_point::CallEntryPoint;
 use blockifier::state::state_api::State;
-use blockifier::test_utils::{get_test_contract_class, TEST_CLASS_HASH};
+use blockifier::test_utils::cached_state::deprecated_create_test_state;
+use blockifier::test_utils::{
+    get_test_contract_class, trivial_external_entry_point, TEST_CLASS_HASH,
+};
 use cached::Cached;
 use pretty_assertions::assert_eq;
-use starknet_api::class_hash;
+use rayon::prelude::*;
 use starknet_api::core::ClassHash;
 use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::transaction::Calldata;
+use starknet_api::{calldata, class_hash, stark_felt};
 
 use crate::py_block_executor::{PyBlockExecutor, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_utils::PyFelt;
 use crate::test_utils::MockStorage;
+
+#[test]
+fn test_native_entry_point_with_arg() {
+    let mut v = vec![];
+    for i in 0..5000 {
+        v.push(i);
+    }
+    let start = std::time::Instant::now();
+    v.par_iter()
+        .map(|i| {
+            let mut state = deprecated_create_test_state();
+            let calldata = calldata![stark_felt!(500_u128)];
+            let entry_point_call = CallEntryPoint {
+                calldata,
+                entry_point_selector: selector_from_name("recurse"),
+                ..trivial_external_entry_point()
+            };
+            assert_eq!(
+                entry_point_call.execute_directly(&mut state).unwrap().execution,
+                CallExecution::default()
+            );
+            i
+        })
+        .collect::<Vec<&i32>>();
+    // for _ in 0..1000 {
+    //     let mut state = deprecated_create_test_state();
+    //     let calldata = calldata![stark_felt!(500_u128)];
+    //     let entry_point_call = CallEntryPoint {
+    //         calldata,
+    //         entry_point_selector: selector_from_name("recurse"),
+    //         ..trivial_external_entry_point()
+    //     };
+    //     assert_eq!(
+    //         entry_point_call.execute_directly(&mut state).unwrap().execution,
+    //         CallExecution::default()
+    //     );
+    // }
+    println!("Elapsed: {:?}", start.elapsed());
+}
 
 #[test]
 fn global_contract_cache_update() {

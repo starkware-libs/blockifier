@@ -1,3 +1,8 @@
+#[cfg(feature = "jemalloc")]
+// Override default allocator.
+#[global_allocator]
+pub static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 pub mod abi;
 pub mod block;
 pub mod context;
