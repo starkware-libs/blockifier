@@ -283,6 +283,14 @@ impl<S: StateReader> StateReader for CachedState<S> {
             .unwrap_or_else(|| panic!("Cannot retrieve '{class_hash:?}' from the cache."));
         Ok(*compiled_class_hash)
     }
+
+    fn is_declared(&self, class_hash: ClassHash) -> bool {
+        let cache = self.cache.borrow_mut();
+        if let Some(is_declared) = cache.get_has_contract_class(class_hash) {
+            return *is_declared;
+        }
+        self.get_compiled_contract_class(class_hash).is_ok()
+    }
 }
 
 impl<S: StateReader> State for CachedState<S> {
@@ -414,6 +422,12 @@ impl StateCache {
 
     fn set_contract_class_initial_values(&mut self, class_hash: ClassHash, is_declared: bool) {
         self.contract_class_initial_values.insert(class_hash, is_declared);
+    }
+
+    fn get_has_contract_class(&self, class_hash: ClassHash) -> Option<&bool> {
+        self.contract_class_writes
+            .get(&class_hash)
+            .or_else(|| self.contract_class_initial_values.get(&class_hash))
     }
 
     fn get_storage_at(

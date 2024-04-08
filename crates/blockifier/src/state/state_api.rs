@@ -62,6 +62,10 @@ pub trait StateReader {
 
         Ok((low, high))
     }
+
+    fn is_declared(&self, class_hash: ClassHash) -> bool {
+        self.get_compiled_contract_class(class_hash).is_ok()
+    }
 }
 
 /// A class defining the API for writing to Starknet global state.
