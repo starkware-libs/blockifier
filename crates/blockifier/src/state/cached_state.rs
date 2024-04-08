@@ -71,6 +71,7 @@ impl<S: StateReader> CachedState<S> {
             class_hash_updates: cache.get_class_hash_updates(),
             // Compiled class hash updates (declare Cairo 1 contract).
             compiled_class_hash_updates: cache.get_compiled_class_hash_updates(),
+            contract_class_updates: cache.get_contract_class_updates(),
         })
     }
 
@@ -235,6 +236,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
     }
 
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        let mut cache = self.cache.borrow_mut();
         let class_hash_to_class = &mut *self.class_hash_to_class.borrow_mut();
 
         if let std::collections::hash_map::Entry::Vacant(vacant_entry) =
@@ -247,9 +249,15 @@ impl<S: StateReader> StateReader for CachedState<S> {
                     vacant_entry.insert(contract_class_from_global_cache);
                 }
                 None => {
-                    let contract_class_from_db =
-                        self.state.get_compiled_contract_class(class_hash)?;
-                    vacant_entry.insert(contract_class_from_db);
+                    match self.state.get_compiled_contract_class(class_hash) {
+                        Err(error) => {
+                            cache.set_contract_class_initial_values(class_hash, false);
+                            return Err(error)
+                        },
+                        Ok(contract_class_from_db) => {
+                            vacant_entry.insert(contract_class_from_db);
+                        }
+                    }
                 }
             }
         }
@@ -258,6 +266,8 @@ impl<S: StateReader> StateReader for CachedState<S> {
             .get(&class_hash)
             .cloned()
             .expect("The class hash must appear in the cache.");
+
+        cache.set_contract_class_initial_values(class_hash, true);
 
         Ok(contract_class)
     }
@@ -321,6 +331,9 @@ impl<S: StateReader> State for CachedState<S> {
         contract_class: ContractClass,
     ) -> StateResult<()> {
         self.class_hash_to_class.get_mut().insert(class_hash, contract_class);
+        // Update the contract_class_writes cache as well.
+        let mut cache = self.cache.borrow_mut();
+        cache.set_contract_class_write(class_hash, true);
         Ok(())
     }
 
@@ -386,15 +399,25 @@ pub struct StateCache {
     pub(crate) class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
     pub(crate) storage_initial_values: HashMap<StorageEntry, StarkFelt>,
     pub(crate) compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
+    pub(crate) contract_class_initial_values: HashMap<ClassHash, bool>,
 
     // Writer's cached information.
     pub(crate) nonce_writes: HashMap<ContractAddress, Nonce>,
     pub(crate) class_hash_writes: HashMap<ContractAddress, ClassHash>,
     pub(crate) storage_writes: HashMap<StorageEntry, StarkFelt>,
     pub(crate) compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
+    pub(crate) contract_class_writes: HashMap<ClassHash, bool>,
 }
 
 impl StateCache {
+    fn set_contract_class_write(&mut self, class_hash: ClassHash, is_declared: bool) {
+        self.contract_class_writes.insert(class_hash, is_declared);
+    }
+
+    fn set_contract_class_initial_values(&mut self, class_hash: ClassHash, is_declared: bool) {
+        self.contract_class_initial_values.insert(class_hash, is_declared);
+    }
+
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -490,6 +513,10 @@ impl StateCache {
 
     fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
         subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
+    }
+
+    fn get_contract_class_updates(&self) -> HashMap<ClassHash, bool> {
+        subtract_mappings(&self.contract_class_writes, &self.contract_class_initial_values)
     }
 
     fn get_compiled_class_hash_updates(&self) -> HashMap<ClassHash, CompiledClassHash> {
@@ -726,6 +753,7 @@ pub struct StateChanges {
     pub nonce_updates: HashMap<ContractAddress, Nonce>,
     pub class_hash_updates: HashMap<ContractAddress, ClassHash>,
     pub compiled_class_hash_updates: HashMap<ClassHash, CompiledClassHash>,
+    pub contract_class_updates: HashMap<ClassHash, bool>,
 }
 
 impl StateChanges {

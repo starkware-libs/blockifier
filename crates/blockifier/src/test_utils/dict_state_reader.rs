@@ -17,6 +17,7 @@ pub struct DictStateReader {
     pub address_to_class_hash: HashMap<ContractAddress, ClassHash>,
     pub class_hash_to_class: HashMap<ClassHash, ContractClass>,
     pub class_hash_to_compiled_class_hash: HashMap<ClassHash, CompiledClassHash>,
+    pub class_hash_to_contract_class_writes: HashMap<ClassHash, bool>,
 }
 
 impl StateReader for DictStateReader {
