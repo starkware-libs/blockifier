@@ -47,6 +47,7 @@ fn test_versioned_state_proxy() {
         address_to_class_hash: HashMap::from([(contract_address, class_hash)]),
         class_hash_to_compiled_class_hash: HashMap::from([(class_hash, compiled_class_hash)]),
         class_hash_to_class: HashMap::from([(class_hash, contract_class.clone())]),
+        class_hash_to_contract_class_writes: HashMap::new(),
     });
 
     let versioned_state = Arc::new(Mutex::new(VersionedState::new(cached_state)));

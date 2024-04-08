@@ -439,6 +439,7 @@ fn test_cache_get_write_keys() {
             class_hash0,
             CompiledClassHash(stark_felt!("0x3")),
         )]),
+        contract_class_updates: HashMap::new(),
     };
 
     let expected_keys = StateChangesKeys {
