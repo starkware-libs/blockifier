@@ -106,6 +106,25 @@ fn get_uninitialized_value() {
 }
 
 #[test]
+fn declare_contract() {
+    let mut state = CachedState::from(DictStateReader { ..Default::default() });
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let class_hash = test_contract.get_class_hash();
+    let contract_class = test_contract.get_class();
+
+    assert_eq!(state.cache.borrow().declared_contract_writes.get(&class_hash).is_none(), true);
+
+    assert_eq!(state.get_compiled_contract_class(class_hash).is_err(), true);
+    assert_eq!(
+        *state.cache.borrow().declared_contract_initial_values.get(&class_hash).unwrap(),
+        false
+    );
+
+    state.set_contract_class(class_hash, contract_class).unwrap();
+    assert_eq!(*state.cache.borrow().declared_contract_writes.get(&class_hash).unwrap(), true);
+}
+
+#[test]
 fn get_and_increment_nonce() {
     let contract_address1 = contract_address!("0x100");
     let contract_address2 = contract_address!("0x200");
