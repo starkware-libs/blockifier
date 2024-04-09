@@ -181,6 +181,13 @@ impl PyBlockExecutor {
 
         finalized_state
     }
+    pub fn update_global_cache(&mut self) {
+        log::debug!("Finalizing update_global_cache...");
+        let finalized_state = self.tx_executor().update_global_cache();
+        log::debug!("Finalized update_global_cache.");
+
+        finalized_state
+    }
 
     pub fn commit_tx(&mut self) {
         self.tx_executor().commit()
