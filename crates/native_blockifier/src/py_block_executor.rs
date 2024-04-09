@@ -6,7 +6,8 @@ use blockifier::blockifier::block::{
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::execution::call_info::CallInfo;
-use blockifier::state::cached_state::{CachedState, GlobalContractCache};
+use blockifier::state::cached_state::CachedState;
+use blockifier::state::global_cache::GlobalContractCache;
 use blockifier::state::state_api::State;
 use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionInfo};
 use blockifier::transaction::transaction_execution::Transaction;
@@ -132,8 +133,7 @@ impl PyBlockExecutor {
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
-        let global_contract_cache = self.global_contract_cache.clone();
-        let mut state = CachedState::new(papyrus_reader, global_contract_cache);
+        let mut state = CachedState::new(papyrus_reader);
         let block_context = pre_process_block(
             &mut state,
             old_block_number_and_hash,
@@ -210,12 +210,9 @@ impl PyBlockExecutor {
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
     /// visited segment values.
-    pub fn finalize(
-        &mut self,
-        is_pending_block: bool,
-    ) -> NativeBlockifierResult<(PyStateDiff, PyVisitedSegmentsMapping)> {
+    pub fn finalize(&mut self) -> NativeBlockifierResult<(PyStateDiff, PyVisitedSegmentsMapping)> {
         log::debug!("Finalizing execution...");
-        let (commitment_state_diff, visited_pcs) = self.tx_executor().finalize(is_pending_block)?;
+        let (commitment_state_diff, visited_pcs) = self.tx_executor().finalize()?;
         let visited_pcs = visited_pcs
             .into_iter()
             .map(|(class_hash, class_visited_pcs_vec)| {
@@ -315,7 +312,7 @@ impl PyBlockExecutor {
     #[pyo3(signature = (general_config, path))]
     #[staticmethod]
     fn create_for_testing(general_config: PyGeneralConfig, path: std::path::PathBuf) -> Self {
-        use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
+        use blockifier::state::global_cache::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
             storage: Box::new(PapyrusStorage::new_for_testing(
                 path,
@@ -337,12 +334,16 @@ impl PyBlockExecutor {
     fn get_aligned_reader(&self, next_block_number: u64) -> PapyrusReader {
         // Full-node storage must be aligned to the Python storage before initializing a reader.
         self.storage.validate_aligned(next_block_number);
-        PapyrusReader::new(self.storage.reader().clone(), BlockNumber(next_block_number))
+        PapyrusReader::new(
+            self.storage.reader().clone(),
+            BlockNumber(next_block_number),
+            self.global_contract_cache.clone(),
+        )
     }
 
     #[cfg(any(feature = "testing", test))]
     pub fn create_for_testing_with_storage(storage: impl Storage + Send + 'static) -> Self {
-        use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
+        use blockifier::state::global_cache::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
             storage: Box::new(storage),
             general_config: PyGeneralConfig::default(),

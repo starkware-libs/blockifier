@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, MutexGuard};
 
-use cached::{Cached, SizedCache};
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -32,19 +30,16 @@ pub struct CachedState<S: StateReader> {
     // Using interior mutability to update caches during `State`'s immutable getters.
     pub(crate) cache: RefCell<StateCache>,
     pub(crate) class_hash_to_class: RefCell<ContractClassMapping>,
-    // Invariant: managed by CachedState.
-    global_class_hash_to_class: GlobalContractCache,
     /// A map from class hash to the set of PC values that were visited in the class.
     pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
 
 impl<S: StateReader> CachedState<S> {
-    pub fn new(state: S, global_class_hash_to_class: GlobalContractCache) -> Self {
+    pub fn new(state: S) -> Self {
         Self {
             state,
             cache: RefCell::new(StateCache::default()),
             class_hash_to_class: RefCell::new(HashMap::default()),
-            global_class_hash_to_class,
             visited_pcs: HashMap::default(),
         }
     }
@@ -53,8 +48,7 @@ impl<S: StateReader> CachedState<S> {
     /// It allows performing buffered modifying actions on the given state, which
     /// will either all happen (will be committed) or none of them (will be discarded).
     pub fn create_transactional(state: &mut CachedState<S>) -> TransactionalState<'_, S> {
-        let global_class_hash_to_class = state.global_class_hash_to_class.clone();
-        CachedState::new(MutRefState::new(state), global_class_hash_to_class)
+        CachedState::new(MutRefState::new(state))
     }
 
     /// Returns the storage changes done through this state.
@@ -74,21 +68,6 @@ impl<S: StateReader> CachedState<S> {
         })
     }
 
-    /// Drains contract-class cache collected during execution and updates the global cache.
-    pub fn move_classes_to_global_cache(&mut self) {
-        let contract_class_updates: Vec<_> = self.class_hash_to_class.get_mut().drain().collect();
-        for (key, value) in contract_class_updates {
-            self.global_class_hash_to_class().cache_set(key, value);
-        }
-    }
-
-    // Locks the Mutex and unwraps the MutexGuard, thus exposing the internal cache
-    // store. The Guard will panic only if the Mutex panics during the lock operation, but
-    // this shouldn't happen in our flow.
-    pub fn global_class_hash_to_class(&self) -> LockedContractClassCache<'_> {
-        self.global_class_hash_to_class.lock()
-    }
-
     pub fn update_cache(&mut self, cache_updates: StateCache) {
         let mut cache = self.cache.borrow_mut();
 
@@ -98,13 +77,11 @@ impl<S: StateReader> CachedState<S> {
         cache.compiled_class_hash_writes.extend(cache_updates.compiled_class_hash_writes);
     }
 
-    pub fn update_contract_class_caches(
+    pub fn update_contract_class_cache(
         &mut self,
         local_contract_cache_updates: ContractClassMapping,
-        global_contract_cache: GlobalContractCache,
     ) {
         self.class_hash_to_class.get_mut().extend(local_contract_cache_updates);
-        self.global_class_hash_to_class = global_contract_cache;
     }
 
     pub fn update_visited_pcs_cache(&mut self, visited_pcs: &HashMap<ClassHash, HashSet<usize>>) {
@@ -179,10 +156,7 @@ impl<S: StateReader> CachedState<S> {
 #[cfg(any(feature = "testing", test))]
 impl<S: StateReader> From<S> for CachedState<S> {
     fn from(state_reader: S) -> Self {
-        CachedState::new(
-            state_reader,
-            GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
-        )
+        CachedState::new(state_reader)
     }
 }
 
@@ -240,18 +214,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
         if let std::collections::hash_map::Entry::Vacant(vacant_entry) =
             class_hash_to_class.entry(class_hash)
         {
-            let contract_class = self.global_class_hash_to_class().cache_get(&class_hash).cloned();
-
-            match contract_class {
-                Some(contract_class_from_global_cache) => {
-                    vacant_entry.insert(contract_class_from_global_cache);
-                }
-                None => {
-                    let contract_class_from_db =
-                        self.state.get_compiled_contract_class(class_hash)?;
-                    vacant_entry.insert(contract_class_from_db);
-                }
-            }
+            vacant_entry.insert(self.state.get_compiled_contract_class(class_hash)?);
         }
 
         let contract_class = class_hash_to_class
@@ -345,9 +308,6 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
             state: Default::default(),
             cache: Default::default(),
             class_hash_to_class: Default::default(),
-            global_class_hash_to_class: GlobalContractCache::new(
-                GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST,
-            ),
             visited_pcs: Default::default(),
         }
     }
@@ -591,17 +551,10 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         tx_visited_storage_entries: HashSet<StorageEntry>,
         tx_unique_state_changes_keys: StateChangesKeys,
     ) -> StagedTransactionalState {
-        let TransactionalState {
-            cache,
-            class_hash_to_class,
-            global_class_hash_to_class,
-            visited_pcs,
-            ..
-        } = self;
+        let TransactionalState { cache, class_hash_to_class, visited_pcs, .. } = self;
         StagedTransactionalState {
             cache: cache.into_inner(),
             class_hash_to_class: class_hash_to_class.into_inner(),
-            global_class_hash_to_class,
             tx_executed_class_hashes,
             tx_visited_storage_entries,
             tx_unique_state_changes_keys,
@@ -614,10 +567,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
         let state = self.state.0;
         let child_cache = self.cache.into_inner();
         state.update_cache(child_cache);
-        state.update_contract_class_caches(
-            self.class_hash_to_class.into_inner(),
-            self.global_class_hash_to_class,
-        );
+        state.update_contract_class_cache(self.class_hash_to_class.into_inner());
         state.update_visited_pcs_cache(&self.visited_pcs);
     }
 
@@ -631,7 +581,6 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 pub struct StagedTransactionalState {
     pub cache: StateCache,
     pub class_hash_to_class: ContractClassMapping,
-    pub global_class_hash_to_class: GlobalContractCache,
 
     // Maintained for counting purposes.
     pub tx_executed_class_hashes: HashSet<ClassHash>,
@@ -807,30 +756,4 @@ pub struct StateChangesCount {
     pub n_class_hash_updates: usize,
     pub n_compiled_class_hash_updates: usize,
     pub n_modified_contracts: usize,
-}
-
-// Note: `ContractClassLRUCache` key-value types must align with `ContractClassMapping`.
-type ContractClassLRUCache = SizedCache<ClassHash, ContractClass>;
-type LockedContractClassCache<'a> = MutexGuard<'a, ContractClassLRUCache>;
-#[derive(Debug, Clone)]
-// Thread-safe LRU cache for contract classes, optimized for inter-language sharing when
-// `blockifier` compiles as a shared library.
-pub struct GlobalContractCache(pub Arc<Mutex<ContractClassLRUCache>>);
-
-pub const GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST: usize = 100;
-
-impl GlobalContractCache {
-    /// Locks the cache for atomic access. Although conceptually shared, writing to this cache is
-    /// only possible for one writer at a time.
-    pub fn lock(&self) -> LockedContractClassCache<'_> {
-        self.0.lock().expect("Global contract cache is poisoned.")
-    }
-
-    pub fn clear(&mut self) {
-        self.lock().cache_clear();
-    }
-
-    pub fn new(cache_size: usize) -> Self {
-        Self(Arc::new(Mutex::new(ContractClassLRUCache::with_size(cache_size))))
-    }
 }
