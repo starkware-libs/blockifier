@@ -1163,6 +1163,43 @@ fn test_count_actual_storage_changes(
 }
 
 #[rstest]
-fn test_concurrncy_execute_fee_transfer(){
-    
+fn test_concurrncy_execute_fee_transfer(block_context: BlockContext) {
+    let chain_info = &block_context.chain_info;
+    let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(chain_info, CairoVersion::Cairo0);
+    let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
+    let grindy_class_hash = grindy_validate_account.get_class_hash();
+    let class_info = calculate_class_info_for_testing(grindy_validate_account.get_class());
+
+    // Declare the grindy-validation account.
+    let account_tx = declare_tx(
+        declare_tx_args! {
+            class_hash: grindy_class_hash,
+            sender_address: account_address,
+            max_fee: Fee(MAX_FEE),
+            nonce: nonce_manager.next(account_address),
+        },
+        class_info,
+    );
+    let tx_context = Arc::new(block_context.to_tx_context(&account_tx));
+    let storage_address =
+        block_context.chain_info.fee_token_address(&tx_context.tx_info.fee_type());
+    let sequencer_address = block_context.block_info.sequencer_address;
+    let sequencer_key = get_fee_token_var_address(sequencer_address);
+    let mut transactional_state = CachedState::create_transactional(&mut state);
+
+    AccountTransaction::concurrency_execute_fee_transfer(
+        &mut transactional_state,
+        tx_context,
+        Fee(1_u128),
+    )
+    .unwrap();
+    assert!(
+        transactional_state
+            .cache
+            .borrow()
+            .storage_writes
+            .get(&(storage_address, sequencer_key))
+            .is_none()
+    );
 }
