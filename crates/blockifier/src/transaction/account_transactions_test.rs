@@ -44,9 +44,9 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
-    create_account_tx_for_validate_test, create_test_init_data, deploy_and_fund_account,
-    l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs,
-    TestInitData, INVALID,
+    create_account_tx_for_validate_test, create_declare_account_tx, create_test_init_data,
+    deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
+    FaultyAccountTxCreatorArgs, TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -1165,23 +1165,9 @@ fn test_count_actual_storage_changes(
 fn test_concurrency_execute_fee_transfer(block_context: BlockContext) {
     const STORAGE_WRITE_HIGH: u128 = 150;
     const STORAGE_WRITE_LOW: u128 = 100;
-    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let (account_tx, account) = create_declare_account_tx();
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
-    let class_hash = empty_contract.get_class_hash();
-    let class_info = calculate_class_info_for_testing(empty_contract.get_class());
-    let sender_address = account.get_instance_address(0);
-
-    let account_tx = declare_tx(
-        declare_tx_args! {
-            sender_address,
-            version: TransactionVersion::THREE,
-            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-            class_hash,
-        },
-        class_info.clone(),
-    );
 
     let tx_context = Arc::new(block_context.to_tx_context(&account_tx));
     let fee_token_address =

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use rstest::fixture;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
@@ -11,9 +13,10 @@ use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::context::{BlockContext, ChainInfo};
+use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::{ClassInfo, ContractClass};
 use crate::state::cached_state::CachedState;
-use crate::state::state_api::State;
+use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::{deploy_account_tx, DeployAccountTxArgs};
@@ -263,4 +266,49 @@ pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassI
         ContractClass::V1(_) => 100,
     };
     ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
+}
+
+pub fn create_declare_account_tx() -> (AccountTransaction, FeatureContract) {
+    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let class_hash = empty_contract.get_class_hash();
+    let class_info = calculate_class_info_for_testing(empty_contract.get_class());
+    let sender_address = account.get_instance_address(0);
+
+    let account_tx = declare_tx(
+        declare_tx_args! {
+            sender_address,
+            version: TransactionVersion::THREE,
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            class_hash,
+        },
+        class_info.clone(),
+    );
+    (account_tx, account)
+}
+
+pub fn create_fee_transfer_call_data<S: StateReader>(
+    block_context: &BlockContext,
+    state: &mut CachedState<S>,
+    account_tx: &AccountTransaction,
+    concurrency_mode: bool,
+    actual_fee: u128,
+) -> CallInfo {
+    let tx_context = Arc::new(block_context.to_tx_context(account_tx));
+    let mut transactional_state = CachedState::create_transactional(state);
+    if concurrency_mode {
+        AccountTransaction::concurrency_execute_fee_transfer(
+            &mut transactional_state,
+            tx_context,
+            Fee(actual_fee),
+        )
+        .unwrap()
+    } else {
+        AccountTransaction::execute_fee_transfer(
+            &mut transactional_state,
+            tx_context,
+            Fee(actual_fee),
+        )
+        .unwrap()
+    }
 }
