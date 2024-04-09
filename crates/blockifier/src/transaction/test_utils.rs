@@ -11,9 +11,10 @@ use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::context::{BlockContext, ChainInfo};
+use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::{ClassInfo, ContractClass};
 use crate::state::cached_state::CachedState;
-use crate::state::state_api::State;
+use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::{deploy_account_tx, DeployAccountTxArgs};
@@ -263,4 +264,28 @@ pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassI
         ContractClass::V1(_) => 100,
     };
     ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
+}
+
+pub fn create_invoke_account_tx() -> (AccountTransaction, FeatureContract) {
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        sender_address: account.get_instance_address(0),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        version: TransactionVersion::THREE
+    });
+    (account_tx, account)
+}
+
+pub fn create_fee_transfer_call_data<S: StateReader>(
+    state: &mut CachedState<S>,
+    account_tx: &AccountTransaction,
+    concurrency_mode: bool,
+) -> (CallInfo, u128) {
+    let block_context =
+        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+    let mut transactional_state = CachedState::create_transactional(state);
+    let execution_info =
+        account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
+
+    (execution_info.fee_transfer_call_info.unwrap(), execution_info.actual_fee.0)
 }
