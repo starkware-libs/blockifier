@@ -8,6 +8,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::sierra_types::next_storage_key;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
@@ -335,20 +336,36 @@ impl AccountTransaction {
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
         let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
         let sequencer_address = block_context.block_info.sequencer_address;
-        let sequencer_key = get_fee_token_var_address(sequencer_address);
+        let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
+        let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
+            .expect("Cannot get sequencer balance high key.");
         let mut transfer_state = CachedState::create_transactional(state);
 
-        // Set the initail value of the storage key of the sequencer balance to
+        // Sets the initail value of the storage key of the sequencer balance to
         // a dummy value to avoid tarnishing the read set of the transaction state cahe.
         transfer_state.cache.get_mut().set_storage_initial_value(
             storage_address,
-            sequencer_key,
+            sequencer_balance_key_low,
             StarkFelt::from_u128(actual_fee.0),
+        );
+        transfer_state.cache.get_mut().set_storage_initial_value(
+            storage_address,
+            sequencer_balance_key_high,
+            StarkFelt::from(0_u8),
         );
         let result =
             AccountTransaction::execute_fee_transfer(&mut transfer_state, tx_context, actual_fee);
-        // delete the update of the sequencer balance from the write set.
-        transfer_state.cache.get_mut().storage_writes.remove(&(storage_address, sequencer_key));
+        // Remove the write to the sequencer balance.
+        transfer_state
+            .cache
+            .get_mut()
+            .storage_writes
+            .remove(&(storage_address, sequencer_balance_key_low));
+        transfer_state
+            .cache
+            .get_mut()
+            .storage_writes
+            .remove(&(storage_address, sequencer_balance_key_high));
         transfer_state.commit();
         result
     }
