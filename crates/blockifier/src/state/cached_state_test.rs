@@ -381,31 +381,22 @@ fn test_state_changes_merge(
 }
 
 #[test]
-fn global_contract_cache_is_used() {
+fn test_contract_cache_is_used() {
     // Initialize the global cache with a single class, and initialize an empty state with this
     // cache.
-    let global_cache = GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let class_hash = test_contract.get_class_hash();
     let contract_class = test_contract.get_class();
-    global_cache.lock().cache_set(class_hash, contract_class.clone());
-    assert_eq!(global_cache.lock().cache_size(), 1);
-    let state = CachedState::new(DictStateReader::default(), global_cache.clone());
+    let mut reader = DictStateReader::default();
+    reader.class_hash_to_class.insert(class_hash, contract_class.clone());
+    let state = CachedState::new(reader);
 
-    // Assert local cache is initialized empty even if global cache is not empty.
+    // Assert local cache is initialized empty.
     assert!(state.class_hash_to_class.borrow().get(&class_hash).is_none());
 
-    // Check state uses the global cache.
+    // Check state uses the cache.
     assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
-    assert_eq!(global_cache.lock().cache_hits().unwrap(), 1);
-    assert_eq!(global_cache.lock().cache_size(), 1);
-    // Verify local cache is also updated.
     assert_eq!(state.class_hash_to_class.borrow().get(&class_hash).unwrap(), &contract_class);
-
-    // Idempotency: getting the same class again uses the local cache.
-    assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
-    assert_eq!(global_cache.lock().cache_hits().unwrap(), 1);
-    assert_eq!(global_cache.lock().cache_size(), 1);
 }
 
 #[test]

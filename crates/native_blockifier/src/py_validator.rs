@@ -1,6 +1,6 @@
 use blockifier::blockifier::stateful_validator::StatefulValidator;
 use blockifier::context::BlockContext;
-use blockifier::state::cached_state::{CachedState, GlobalContractCache};
+use blockifier::state::cached_state::CachedState;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::{pyclass, pymethods, PyAny};
 use starknet_api::core::Nonce;
@@ -21,20 +21,18 @@ pub struct PyValidator {
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, max_recursion_depth, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
         validate_max_n_steps: u32,
         max_recursion_depth: usize,
-        global_contract_cache_size: usize,
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
         // Create the state.
-        let global_contract_cache = GlobalContractCache::new(global_contract_cache_size);
         let state_reader = PyStateReader::new(state_reader_proxy);
-        let state = CachedState::new(state_reader, global_contract_cache);
+        let state = CachedState::new(state_reader);
 
         // Create the block context.
         let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
