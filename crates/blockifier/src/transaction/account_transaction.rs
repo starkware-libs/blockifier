@@ -7,7 +7,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
 
-use crate::abi::abi_utils::selector_from_name;
+use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
@@ -301,12 +301,13 @@ impl AccountTransaction {
         Ok(())
     }
 
-    fn handle_fee(
+    fn handle_fee<S: StateReader>(
         &self,
-        state: &mut dyn State,
+        state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
         charge_fee: bool,
+        concurrecy: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if !charge_fee || actual_fee == Fee(0) {
             // Fee charging is not enforced in some transaction simulations and tests.
@@ -315,9 +316,11 @@ impl AccountTransaction {
 
         // TODO(Amos, 8/04/2024): Add test for this assert.
         Self::assert_actual_fee_in_bounds(&tx_context, actual_fee)?;
-
-        // Charge fee.
-        let fee_transfer_call_info = Self::execute_fee_transfer(state, tx_context, actual_fee)?;
+        let fee_transfer_call_info = if concurrecy {
+            Self::concurrency_execute_fee_transfer(state, tx_context, actual_fee)?
+        } else {
+            Self::execute_fee_transfer(state, tx_context, actual_fee)?
+        };
 
         Ok(Some(fee_transfer_call_info))
     }
@@ -333,8 +336,6 @@ impl AccountTransaction {
         let msb_amount = StarkFelt::from(0_u8);
 
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
-
-        // TODO(Gilad): add test that correct fee address is taken, once we add V3 test support.
         let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
@@ -358,6 +359,32 @@ impl AccountTransaction {
         Ok(fee_transfer_call
             .execute(state, &mut ExecutionResources::default(), &mut context)
             .map_err(TransactionFeeError::ExecuteFeeTransferError)?)
+    }
+
+    fn concurrency_execute_fee_transfer<S: StateReader>(
+        state: &mut TransactionalState<'_, S>,
+        tx_context: Arc<TransactionContext>,
+        actual_fee: Fee,
+    ) -> TransactionExecutionResult<CallInfo> {
+        let TransactionContext { block_context, tx_info } = tx_context.as_ref();
+        let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
+        let sequencer_address = block_context.block_info.sequencer_address;
+        let sequencer_key = get_fee_token_var_address(sequencer_address);
+        let mut transfer_state = CachedState::create_transactional(state);
+
+        // Set the initail value of the storage key of the sequencer balance to
+        // a dummy value to avoid tarnishing the read set of the transaction state cahe.
+        transfer_state.cache.get_mut().set_storage_initial_value(
+            storage_address,
+            sequencer_key,
+            StarkFelt::from_u128(actual_fee.0),
+        );
+        let result =
+            AccountTransaction::execute_fee_transfer(&mut transfer_state, tx_context, actual_fee);
+        // delete the update of the sequencer balance from the write set.
+        transfer_state.cache.get_mut().storage_writes.remove(&(storage_address, sequencer_key));
+        transfer_state.commit();
+        result
     }
 
     fn run_execute<S: State>(
@@ -629,8 +656,9 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             validate,
             charge_fee,
         )?;
-
-        let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?;
+        // TODO(Meshi 05/05/2024) add a concurreny flag to tx context.
+        let fee_transfer_call_info =
+            self.handle_fee(state, tx_context, final_fee, charge_fee, false)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
