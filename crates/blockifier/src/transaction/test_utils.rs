@@ -1,17 +1,23 @@
+use std::collections::HashSet;
+
 use rstest::fixture;
 use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, InvokeTransactionV0, InvokeTransactionV1,
-    InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, InvokeTransactionV0,
+    InvokeTransactionV1, InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, stark_felt};
 use strum::IntoEnumIterator;
 
-use crate::abi::abi_utils::get_fee_token_var_address;
-use crate::context::{BlockContext, ChainInfo};
+use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::sierra_types::next_storage_key;
+use crate::context::{BlockContext, ChainInfo, TransactionContext};
+use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent, Retdata};
 use crate::execution::contract_class::{ClassInfo, ContractClass};
+use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
 use crate::test_utils::contracts::FeatureContract;
@@ -20,17 +26,19 @@ use crate::test_utils::deploy_account::{deploy_account_tx, DeployAccountTxArgs};
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
+use crate::test_utils::prices::Prices;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
     MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::objects::{FeeType, TransactionExecutionInfo, TransactionExecutionResult};
+use crate::transaction::objects::{
+    FeeType, HasRelatedFeeType, TransactionExecutionInfo, TransactionExecutionResult,
+};
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, InvokeTransaction};
-use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
-
+use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args, retdata};
 // Corresponding constants to the ones in faulty_account.
 pub const VALID: u64 = 0;
 pub const INVALID: u64 = 1;
@@ -263,4 +271,85 @@ pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassI
         ContractClass::V1(_) => 100,
     };
     ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
+}
+
+pub fn expected_fee_transfer_call_info(
+    tx_context: &TransactionContext,
+    account_address: ContractAddress,
+    actual_fee: Fee,
+    expected_fee_token_class_hash: ClassHash,
+) -> Option<CallInfo> {
+    let block_context = &tx_context.block_context;
+    let fee_type = &tx_context.tx_info.fee_type();
+    let expected_sequencer_address = block_context.block_info.sequencer_address;
+    let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
+    // The least significant 128 bits of the expected amount transferred.
+    let lsb_expected_amount = stark_felt!(actual_fee.0);
+    // The most significant 128 bits of the expected amount transferred.
+    let msb_expected_amount = stark_felt!(0_u8);
+    let storage_address = block_context.chain_info.fee_token_address(fee_type);
+    let expected_fee_transfer_call = CallEntryPoint {
+        class_hash: Some(expected_fee_token_class_hash),
+        code_address: None,
+        entry_point_type: EntryPointType::External,
+        entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
+        calldata: calldata![
+            expected_sequencer_address_felt, // Recipient.
+            lsb_expected_amount,
+            msb_expected_amount
+        ],
+        storage_address,
+        caller_address: account_address,
+        call_type: CallType::Call,
+        initial_gas: block_context.versioned_constants.os_constants.gas_costs.initial_gas_cost,
+    };
+    let expected_fee_sender_address = *account_address.0.key();
+    let expected_fee_transfer_event = OrderedEvent {
+        order: 0,
+        event: EventContent {
+            keys: vec![EventKey(selector_from_name(constants::TRANSFER_EVENT_NAME).0)],
+            data: EventData(vec![
+                expected_fee_sender_address,
+                expected_sequencer_address_felt, // Recipient.
+                lsb_expected_amount,
+                msb_expected_amount,
+            ]),
+        },
+    };
+
+    let sender_balance_key_low = get_fee_token_var_address(account_address);
+    let sender_balance_key_high =
+        next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
+    let sequencer_balance_key_low = get_fee_token_var_address(expected_sequencer_address);
+    let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
+        .expect("Cannot get sequencer balance high key.");
+    Some(CallInfo {
+        call: expected_fee_transfer_call,
+        execution: CallExecution {
+            retdata: retdata![stark_felt!(constants::FELT_TRUE)],
+
+            events: vec![expected_fee_transfer_event],
+            ..Default::default()
+        },
+        resources: Prices::FeeTransfer(account_address, *fee_type).into(),
+        // We read sender balance, write (which starts with read) sender balance, then the same for
+        // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
+        storage_read_values: vec![
+            stark_felt!(BALANCE),
+            stark_felt!(0_u8),
+            stark_felt!(BALANCE),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+            stark_felt!(0_u8),
+        ],
+        accessed_storage_keys: HashSet::from_iter(vec![
+            sender_balance_key_low,
+            sender_balance_key_high,
+            sequencer_balance_key_low,
+            sequencer_balance_key_high,
+        ]),
+        ..Default::default()
+    })
 }

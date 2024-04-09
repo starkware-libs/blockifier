@@ -14,8 +14,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, TransactionSignature,
-    TransactionVersion,
+    Calldata, Fee, L2ToL1Payload, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -25,9 +24,9 @@ use crate::abi::abi_utils::{
 };
 use crate::abi::constants as abi_constants;
 use crate::abi::sierra_types::next_storage_key;
-use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
+use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use crate::execution::call_info::{
-    CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
+    CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message, Retdata,
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::EntryPointExecutionError;
@@ -47,7 +46,6 @@ use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::invoke_tx;
-use crate::test_utils::prices::Prices;
 use crate::test_utils::{
     create_calldata, create_trivial_calldata, get_syscall_resources, get_tx_resources,
     test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager, BALANCE,
@@ -66,9 +64,9 @@ use crate::transaction::objects::{
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
-    create_account_tx_for_validate_test, l1_resource_bounds, FaultyAccountTxCreatorArgs,
-    CALL_CONTRACT, GET_BLOCK_HASH, GET_BLOCK_NUMBER, GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO,
-    GET_SEQUENCER_ADDRESS, INVALID, VALID,
+    create_account_tx_for_validate_test, expected_fee_transfer_call_info, l1_resource_bounds,
+    FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH, GET_BLOCK_NUMBER,
+    GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO, GET_SEQUENCER_ADDRESS, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -162,86 +160,6 @@ fn expected_validate_call_info(
         // The account contract we use for testing has trivial `validate` functions.
         resources,
         execution: CallExecution { retdata, gas_consumed, ..Default::default() },
-        ..Default::default()
-    })
-}
-
-fn expected_fee_transfer_call_info(
-    tx_context: &TransactionContext,
-    account_address: ContractAddress,
-    actual_fee: Fee,
-    expected_fee_token_class_hash: ClassHash,
-) -> Option<CallInfo> {
-    let block_context = &tx_context.block_context;
-    let fee_type = &tx_context.tx_info.fee_type();
-    let expected_sequencer_address = block_context.block_info.sequencer_address;
-    let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
-    // The least significant 128 bits of the expected amount transferred.
-    let lsb_expected_amount = stark_felt!(actual_fee.0);
-    // The most significant 128 bits of the expected amount transferred.
-    let msb_expected_amount = stark_felt!(0_u8);
-    let storage_address = block_context.chain_info.fee_token_address(fee_type);
-    let expected_fee_transfer_call = CallEntryPoint {
-        class_hash: Some(expected_fee_token_class_hash),
-        code_address: None,
-        entry_point_type: EntryPointType::External,
-        entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
-        calldata: calldata![
-            expected_sequencer_address_felt, // Recipient.
-            lsb_expected_amount,
-            msb_expected_amount
-        ],
-        storage_address,
-        caller_address: account_address,
-        call_type: CallType::Call,
-        initial_gas: block_context.versioned_constants.os_constants.gas_costs.initial_gas_cost,
-    };
-    let expected_fee_sender_address = *account_address.0.key();
-    let expected_fee_transfer_event = OrderedEvent {
-        order: 0,
-        event: EventContent {
-            keys: vec![EventKey(selector_from_name(constants::TRANSFER_EVENT_NAME).0)],
-            data: EventData(vec![
-                expected_fee_sender_address,
-                expected_sequencer_address_felt, // Recipient.
-                lsb_expected_amount,
-                msb_expected_amount,
-            ]),
-        },
-    };
-
-    let sender_balance_key_low = get_fee_token_var_address(account_address);
-    let sender_balance_key_high =
-        next_storage_key(&sender_balance_key_low).expect("Cannot get sender balance high key.");
-    let sequencer_balance_key_low = get_fee_token_var_address(expected_sequencer_address);
-    let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
-        .expect("Cannot get sequencer balance high key.");
-    Some(CallInfo {
-        call: expected_fee_transfer_call,
-        execution: CallExecution {
-            retdata: retdata![stark_felt!(constants::FELT_TRUE)],
-            events: vec![expected_fee_transfer_event],
-            ..Default::default()
-        },
-        resources: Prices::FeeTransfer(account_address, *fee_type).into(),
-        // We read sender balance, write (which starts with read) sender balance, then the same for
-        // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
-        storage_read_values: vec![
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-        ],
-        accessed_storage_keys: HashSet::from_iter(vec![
-            sender_balance_key_low,
-            sender_balance_key_high,
-            sequencer_balance_key_low,
-            sequencer_balance_key_high,
-        ]),
         ..Default::default()
     })
 }
