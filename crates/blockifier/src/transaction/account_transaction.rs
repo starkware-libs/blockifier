@@ -325,7 +325,7 @@ impl AccountTransaction {
         Ok(Some(fee_transfer_call_info))
     }
 
-    fn execute_fee_transfer(
+    pub(crate) fn execute_fee_transfer(
         state: &mut dyn State,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
@@ -367,7 +367,7 @@ impl AccountTransaction {
     /// manipulates the state to avoid that part. Note: the returned transfer call info is
     /// partial, and should be completed at the commit stage, as well as the actual sequencer
     /// balance.
-    fn concurrency_execute_fee_transfer<S: StateReader>(
+    pub(crate) fn concurrency_execute_fee_transfer<S: StateReader>(
         state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
