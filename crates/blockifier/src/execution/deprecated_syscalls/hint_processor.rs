@@ -383,7 +383,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         Ok(StorageWriteResponse {})
     }
 
-    pub fn get_block_info(&self) -> &BlockInfo {
+    pub fn block_info(&self) -> &BlockInfo {
         &self.context.tx_context.block_context.block_info
     }
 }
