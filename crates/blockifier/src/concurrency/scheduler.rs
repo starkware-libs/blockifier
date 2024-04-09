@@ -9,6 +9,7 @@ pub mod test;
 
 // TODO(Avi, 01/04/2024): Remove dead_code attribute.
 #[allow(dead_code)]
+#[derive(Debug, Default)]
 pub struct Scheduler {
     execution_index: AtomicUsize,
     validation_index: AtomicUsize,
@@ -68,6 +69,10 @@ impl Scheduler {
     }
 
     fn decrease_validation_index(&self, target_index: TxIndex) {
+        // Temporary assertion, to make sure we don't miss any special flow. The purpose is to catch
+        // the scenarios where we increment the `decrease_counter` but the `validation_index`
+        // remains the same.
+        assert!(target_index < self.validation_index.load(Ordering::Acquire));
         self.validation_index.fetch_min(target_index, Ordering::SeqCst);
         self.decrease_counter.fetch_add(1, Ordering::SeqCst);
     }
