@@ -19,7 +19,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
-use crate::abi::sierra_types::next_storage_key;
+use crate::concurrency::fee_utils::get_sequencer_address_and_keys;
 use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
@@ -44,9 +44,9 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
-    create_account_tx_for_validate_test, create_test_init_data, deploy_and_fund_account,
-    l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs,
-    TestInitData, INVALID,
+    create_account_tx_for_validate_test, create_invoke_account_tx, create_test_init_data,
+    deploy_and_fund_account, l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx,
+    FaultyAccountTxCreatorArgs, TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
@@ -1167,28 +1167,14 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     const STORAGE_WRITE_LOW: u128 = 100;
     const STORAGE_READ_LOW: u128 = 50;
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
-    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let (account_tx, account) = create_invoke_account_tx();
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
-    let class_hash = empty_contract.get_class_hash();
-    let class_info = calculate_class_info_for_testing(empty_contract.get_class());
-    let sender_address = account.get_instance_address(0);
-
-    let account_tx = declare_tx(
-        declare_tx_args! {
-            sender_address,
-            version: TransactionVersion::THREE,
-            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-            class_hash,
-        },
-        class_info.clone(),
-    );
 
     let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
-    let sequencer_address = block_context.block_info.sequencer_address;
-    let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
-    let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low).unwrap();
+    let (sequencer_address, sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_address_and_keys(&block_context, false);
+
     // Case 1: The transaction did not read form/ write to the sequenser balance before executing
     // fee transfer.
     let mut transactional_state = CachedState::create_transactional(state);

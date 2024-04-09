@@ -7,8 +7,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
 
-use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::abi::sierra_types::next_storage_key;
+use crate::abi::abi_utils::selector_from_name;
+use crate::concurrency::fee_utils::get_sequencer_address_and_keys;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
@@ -378,10 +378,8 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<CallInfo> {
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
         let fee_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
-        let sequencer_address = block_context.block_info.sequencer_address;
-        let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
-        let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
-            .expect("Cannot get sequencer balance high key.");
+        let (_, sequencer_balance_key_low, sequencer_balance_key_high) =
+            get_sequencer_address_and_keys(block_context, true);
         let mut transfer_state = CachedState::create_transactional(state);
 
         // Set the initial sequencer balance to avoid tarnishing the read-set of the transaction.
