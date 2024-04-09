@@ -1,7 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use crate::concurrency::versioned_state_proxy::VersionedState;
+use crate::context::BlockContext;
+use crate::execution::call_info::CallInfo;
+use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
+use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::transactions::ExecutableTransaction;
 
 #[macro_export]
 macro_rules! default_scheduler {
@@ -36,4 +41,18 @@ pub fn versioned_state_for_testing(
     block_state: impl StateReader,
 ) -> Arc<Mutex<VersionedState<impl StateReader>>> {
     Arc::new(Mutex::new(VersionedState::new(block_state)))
+}
+
+pub fn create_fee_transfer_call_data<S: StateReader>(
+    state: &mut CachedState<S>,
+    account_tx: &AccountTransaction,
+    concurrency_mode: bool,
+) -> CallInfo {
+    let block_context =
+        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+    let mut transactional_state = CachedState::create_transactional(state);
+    let execution_info =
+        account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
+
+    execution_info.fee_transfer_call_info.unwrap()
 }
