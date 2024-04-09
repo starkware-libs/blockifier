@@ -7,15 +7,16 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
 
-use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::abi::sierra_types::next_storage_key;
+use crate::abi::abi_utils::selector_from_name;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
-use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_bounds};
+use crate::fee::fee_utils::{
+    get_fee_by_gas_vector, get_sequencer_balance_keys, verify_can_pay_committed_bounds,
+};
 use crate::fee::gas_usage::{compute_discounted_gas_from_gas_vector, estimate_minimal_gas_vector};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, StateChanges, TransactionalState};
@@ -378,10 +379,8 @@ impl AccountTransaction {
     ) -> TransactionExecutionResult<CallInfo> {
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
         let fee_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
-        let sequencer_address = block_context.block_info.sequencer_address;
-        let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
-        let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
-            .expect("Cannot get sequencer balance high key.");
+        let (sequencer_balance_key_low, sequencer_balance_key_high) =
+            get_sequencer_balance_keys(block_context);
         let mut transfer_state = CachedState::create_transactional(state);
 
         // Set the initial sequencer balance to avoid tarnishing the read-set of the transaction.
