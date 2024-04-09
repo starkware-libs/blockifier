@@ -19,6 +19,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
+use crate::abi::sierra_types::next_storage_key;
 use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
@@ -1158,4 +1159,100 @@ fn test_count_actual_storage_changes(
     );
     assert_eq!(expected_storage_update_transfer, state_changes_transfer.storage_updates);
     assert_eq!(state_changes_count_3, expected_state_changes_count_3);
+}
+
+#[rstest]
+fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] fee_type: FeeType) {
+    const STORAGE_WRITE_HIGH: u128 = 150;
+    const STORAGE_WRITE_LOW: u128 = 100;
+    const STORAGE_READ_LOW: u128 = 50;
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
+    let class_hash = empty_contract.get_class_hash();
+    let class_info = calculate_class_info_for_testing(empty_contract.get_class());
+    let sender_address = account.get_instance_address(0);
+
+    let account_tx = declare_tx(
+        declare_tx_args! {
+            sender_address,
+            version: TransactionVersion::THREE,
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            class_hash,
+        },
+        class_info.clone(),
+    );
+
+    let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
+    let sequencer_address = block_context.block_info.sequencer_address;
+    let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
+    let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low).unwrap();
+
+    // Case 1: The transaction did not read form/ write to the sequenser balance before executing
+    // fee transfer.
+    let mut transactional_state = CachedState::create_transactional(state);
+    account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
+    let transactional_cache = transactional_state.cache.borrow();
+    for storage in [
+        transactional_cache.storage_initial_values.clone(),
+        transactional_cache.storage_writes.clone(),
+    ] {
+        for seq_key in [sequencer_balance_key_low, sequencer_balance_key_high] {
+            assert!(storage.get(&(fee_token_address, seq_key)).is_none());
+        }
+    }
+
+    // Case 2: The transaction read from and write to the sequenser balance before executing fee
+    // transfer.
+
+    // Set the sequencer balance to a constant value to check that the read set did not changed.
+    fund_account(chain_info, sequencer_address, STORAGE_READ_LOW, state);
+    let mut transactional_state_1 = CachedState::create_transactional(state);
+
+    // Save the sequencer balance before the execution.
+    let seq_read_high_value_before = transactional_state_1
+        .get_storage_at(fee_token_address, sequencer_balance_key_high)
+        .unwrap();
+    let seq_read_low_value_before =
+        transactional_state_1.get_storage_at(fee_token_address, sequencer_balance_key_low).unwrap();
+
+    // Set the sequencer balance write set to a constant value.
+    for (seq_key, value) in [
+        (sequencer_balance_key_low, STORAGE_WRITE_LOW),
+        (sequencer_balance_key_high, STORAGE_WRITE_HIGH),
+    ] {
+        transactional_state_1
+            .set_storage_at(fee_token_address, seq_key, stark_felt!(value))
+            .unwrap();
+    }
+
+    account_tx.execute_raw(&mut transactional_state_1, &block_context, true, false).unwrap();
+    // Check that the sequencer balance was not changed.
+    let storage_write = transactional_state_1.cache.borrow().storage_writes.clone();
+    let storage_initial_values =
+        transactional_state_1.cache.borrow().storage_initial_values.clone();
+
+    for (seq_write_val, expexted_write_val) in [
+        (
+            storage_write.get(&(fee_token_address, sequencer_balance_key_low)),
+            stark_felt!(STORAGE_WRITE_LOW),
+        ),
+        (
+            storage_initial_values.get(&(fee_token_address, sequencer_balance_key_low)),
+            seq_read_low_value_before,
+        ),
+        (
+            storage_write.get(&(fee_token_address, sequencer_balance_key_high)),
+            stark_felt!(STORAGE_WRITE_HIGH),
+        ),
+        (
+            storage_initial_values.get(&(fee_token_address, sequencer_balance_key_high)),
+            seq_read_high_value_before,
+        ),
+    ] {
+        assert!(seq_write_val.is_some());
+        assert_eq!(*seq_write_val.unwrap(), expexted_write_val);
+    }
 }
