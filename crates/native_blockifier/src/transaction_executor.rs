@@ -164,12 +164,14 @@ impl<S: StateReader> TransactionExecutor<S> {
         self.state.increment_nonce(tx_info.sender_address())?;
 
         let limit_steps_by_resources = true;
+        let mut tx_n_emitted_events = 0;
         let validate_call_info = account_tx.validate_tx(
             &mut self.state,
             &mut execution_resources,
             tx_context.clone(),
             &mut remaining_gas,
             limit_steps_by_resources,
+            &mut tx_n_emitted_events,
         )?;
 
         let (actual_cost, _bouncer_resources) = account_tx

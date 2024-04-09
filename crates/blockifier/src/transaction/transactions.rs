@@ -100,6 +100,7 @@ pub trait ValidatableTransaction {
         tx_context: Arc<TransactionContext>,
         remaining_gas: &mut u64,
         limit_steps_by_resources: bool,
+        tx_n_emitted_events: &mut usize,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
