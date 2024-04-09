@@ -202,7 +202,7 @@ macro_rules! check_inner_exc_for_invalid_scenario {
 #[macro_export]
 macro_rules! check_entry_point_execution_error {
     ($error:expr, $expected_hint:expr $(,)?) => {
-        if let EntryPointExecutionError::CairoRunError(
+        if let $crate::execution::errors::EntryPointExecutionError::CairoRunError(
             cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
                 cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
             ),
