@@ -429,7 +429,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "starknet-crypto 0.5.2",
- "starknet_api",
+ "starknet_api 0.12.0-dev.1",
  "strum",
  "strum_macros 0.24.3",
  "test-case",
@@ -1863,6 +1863,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2173,7 +2182,7 @@ dependencies = [
  "pyo3-log",
  "serde",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.12.0-dev.1",
  "tempfile",
  "thiserror",
 ]
@@ -2391,7 +2400,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "starknet-crypto 0.5.2",
- "starknet_api",
+ "starknet_api 0.12.0-dev.0",
  "thiserror",
 ]
 
@@ -2447,7 +2456,7 @@ dependencies = [
  "primitive-types",
  "serde",
  "serde_json",
- "starknet_api",
+ "starknet_api 0.12.0-dev.0",
  "statistical",
  "tempfile",
  "thiserror",
@@ -3477,6 +3486,27 @@ dependencies = [
  "derive_more",
  "hex",
  "indexmap 2.1.0",
+ "once_cell",
+ "primitive-types",
+ "serde",
+ "serde_json",
+ "starknet-crypto 0.5.2",
+ "starknet-types-core",
+ "strum",
+ "strum_macros 0.24.3",
+ "thiserror",
+]
+
+[[package]]
+name = "starknet_api"
+version = "0.12.0-dev.1"
+source = "git+https://github.com/starkware-libs/starknet-api.git?rev=51bc38a#51bc38a6027fab8bc0ba561db6e19570d15bce62"
+dependencies = [
+ "cairo-lang-starknet-classes",
+ "derive_more",
+ "hex",
+ "indexmap 2.1.0",
+ "itertools 0.12.1",
  "once_cell",
  "primitive-types",
  "serde",

@@ -49,7 +49,7 @@ serde = "1.0.184"
 serde_json = "1.0.81"
 sha3 = "0.10.6"
 starknet-crypto = "0.5.1"
-starknet_api = "0.12.0-dev.0"
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", rev = "51bc38a" }
 strum = "0.24.1"
 strum_macros = "0.24.3"
 tempfile = "3.7.0"
