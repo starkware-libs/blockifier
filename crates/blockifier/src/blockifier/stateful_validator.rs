@@ -17,6 +17,10 @@ use crate::transaction::errors::{TransactionExecutionError, TransactionPreValida
 use crate::transaction::objects::TransactionInfo;
 use crate::transaction::transaction_execution::Transaction;
 
+#[cfg(test)]
+#[path = "stateful_validator_test.rs"]
+pub mod stateful_validator_test;
+
 #[derive(Debug, Error)]
 pub enum StatefulValidatorError {
     #[error(transparent)]
