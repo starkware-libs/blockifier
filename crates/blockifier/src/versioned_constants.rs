@@ -23,7 +23,8 @@ use crate::transaction::transaction_types::TransactionType;
 #[path = "versioned_constants_test.rs"]
 pub mod test;
 
-const DEFAULT_CONSTANTS_JSON: &str = include_str!("../resources/versioned_constants.json");
+// Always refer to the explicit version of the JSON relevant for the current version of the library.
+const DEFAULT_CONSTANTS_JSON: &str = include_str!("../resources/versioned_constants_13_1_1.json");
 static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
     serde_json::from_str(DEFAULT_CONSTANTS_JSON)
         .expect("Versioned constants JSON file is malformed")

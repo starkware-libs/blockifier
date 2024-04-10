@@ -158,3 +158,8 @@ fn test_invalid_number() {
          cannot be cast into u64",
     );
 }
+
+#[test]
+fn test_current_version_correctly_reflected() {
+    assert_eq!(DEFAULT_CONSTANTS_JSON, include_str!("../resources/versioned_constants.json"));
+}
