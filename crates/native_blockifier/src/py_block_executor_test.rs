@@ -1,52 +1,58 @@
 use std::collections::HashMap;
 
-use blockifier::state::state_api::State;
-use blockifier::test_utils::contracts::FeatureContract;
-use blockifier::test_utils::CairoVersion;
+use blockifier::execution::contract_class::{ContractClass, ContractClassV1};
+use blockifier::state::state_api::StateReader;
 use cached::Cached;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use pretty_assertions::assert_eq;
-use starknet_api::hash::StarkFelt;
+use starknet_api::class_hash;
+use starknet_api::core::ClassHash;
+use starknet_api::hash::{StarkFelt, StarkHash};
 
 use crate::py_block_executor::{PyBlockExecutor, PyGeneralConfig};
-use crate::py_state_diff::PyBlockInfo;
+use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_utils::PyFelt;
 use crate::test_utils::MockStorage;
 
 #[test]
 fn global_contract_cache_update() {
     // Initialize executor and set a contract class on the state.
+    let casm = CasmContractClass::default();
+    let contract_class = ContractClass::V1(ContractClassV1::try_from(casm.clone()).unwrap());
+    let class_hash = class_hash!("0x1");
+
     let temp_storage_path = tempfile::tempdir().unwrap().into_path();
     let mut block_executor =
         PyBlockExecutor::create_for_testing(PyGeneralConfig::default(), temp_storage_path);
+    block_executor
+        .append_block(
+            0,
+            None,
+            PyBlockInfo::default(),
+            PyStateDiff::default(),
+            HashMap::from([(
+                class_hash.into(),
+                (PyFelt::from(1_u8), serde_json::to_string(&casm).unwrap()),
+            )]),
+            HashMap::default(),
+        )
+        .unwrap();
+
     let sentinel_block_number_and_hash = None; // Information does not exist for block 0.
     block_executor
-        .setup_block_execution(PyBlockInfo::default(), sentinel_block_number_and_hash)
+        .setup_block_execution(
+            PyBlockInfo { block_number: 1, ..PyBlockInfo::default() },
+            sentinel_block_number_and_hash,
+        )
         .unwrap();
 
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let class_hash = test_contract.get_class_hash();
-    let contract_class = test_contract.get_class();
-    block_executor
-        .tx_executor()
-        .state
-        .set_contract_class(class_hash, contract_class.clone())
-        .unwrap();
-
-    // Finalizing a pending block doesn't update the global contract cache.
-    let is_pending_block = true;
-    block_executor.finalize(is_pending_block).unwrap();
     assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 0);
-    block_executor.teardown_block_execution();
 
-    // Finalizing a non-pending block does update the global cache.
-    block_executor
-        .setup_block_execution(PyBlockInfo::default(), sentinel_block_number_and_hash)
-        .unwrap();
-    block_executor.tx_executor().state.set_contract_class(class_hash, contract_class).unwrap();
-    let is_pending_block = false;
-    block_executor.finalize(is_pending_block).unwrap();
+    let queried_contract_class =
+        block_executor.tx_executor().state.get_compiled_contract_class(class_hash).unwrap();
+
+    assert_eq!(queried_contract_class, contract_class);
     assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 1);
-    block_executor.teardown_block_execution();
 }
 
 #[test]

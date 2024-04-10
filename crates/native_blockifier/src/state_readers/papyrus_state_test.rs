@@ -3,6 +3,7 @@ use blockifier::execution::call_info::{CallExecution, Retdata};
 use blockifier::execution::entry_point::CallEntryPoint;
 use blockifier::retdata;
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::global_cache::{GlobalContractCache, GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST};
 use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{trivial_external_entry_point_new, CairoVersion};
@@ -36,7 +37,11 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
 
     // BlockNumber is 1 due to the initialization step above.
     let block_number = BlockNumber(1);
-    let papyrus_reader = PapyrusReader::new(storage_reader, block_number);
+    let papyrus_reader = PapyrusReader::new(
+        storage_reader,
+        block_number,
+        GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
+    );
     let mut state = CachedState::from(papyrus_reader);
 
     // Call entrypoint that want to write to storage, which updates the cached state's write cache.

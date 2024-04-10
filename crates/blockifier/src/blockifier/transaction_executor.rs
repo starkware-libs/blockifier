@@ -182,15 +182,7 @@ impl<S: StateReader> TransactionExecutor<S> {
     /// visited segment values.
     pub fn finalize(
         &mut self,
-        is_pending_block: bool,
     ) -> TransactionExecutorResult<(CommitmentStateDiff, VisitedSegmentsMapping)> {
-        // Do not cache classes that were declared during a pending block.
-        // They will be redeclared, and should not be cached since the content of this block is
-        // transient.
-        if !is_pending_block {
-            self.state.move_classes_to_global_cache();
-        }
-
         // Get the visited segments of each contract class.
         // This is done by taking all the visited PCs of each contract, and compress them to one
         // representative for each visited segment.
@@ -214,10 +206,7 @@ impl<S: StateReader> TransactionExecutor<S> {
 
         let child_cache = finalized_transactional_state.cache;
         self.state.update_cache(child_cache);
-        self.state.update_contract_class_caches(
-            finalized_transactional_state.class_hash_to_class,
-            finalized_transactional_state.global_class_hash_to_class,
-        );
+        self.state.update_contract_class_cache(finalized_transactional_state.class_hash_to_class);
         self.state.update_visited_pcs_cache(&finalized_transactional_state.visited_pcs);
 
         self.executed_class_hashes.extend(&finalized_transactional_state.tx_executed_class_hashes);
