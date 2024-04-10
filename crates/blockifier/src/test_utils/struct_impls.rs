@@ -9,7 +9,7 @@ use starknet_api::{contract_address, patricia_key};
 
 use super::update_json_value;
 use crate::blockifier::block::{BlockInfo, GasPrices};
-use crate::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
+use crate::bouncer::{Bouncer, BouncerConfig, BouncerWeights, BuiltinCount};
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
@@ -183,6 +183,12 @@ impl ContractClassV1 {
     }
 }
 
+impl Bouncer {
+    pub fn create_for_testing() -> Self {
+        Bouncer::new(BouncerConfig::create_for_testing())
+    }
+}
+
 impl BouncerConfig {
     pub fn create_for_testing() -> Self {
         Self {
@@ -207,11 +213,12 @@ impl BouncerWeights {
 
 impl BuiltinCount {
     pub fn create_for_testing(with_keccak: bool) -> Self {
+        let keccak = if with_keccak { 1220 } else { 0 };
         Self {
             bitwise: 39062,
             ecdsa: 1220,
             ec_op: 2441,
-            keccak: { if with_keccak { 1220 } else { 0 } },
+            keccak,
             pedersen: 78125,
             poseidon: 78125,
             range_check: 156250,

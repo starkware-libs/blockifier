@@ -34,8 +34,7 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
-#[derive(Debug, Default, PartialEq)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
     pub block_max_capacity_with_keccak: BouncerWeights,
