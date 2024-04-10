@@ -6,8 +6,24 @@ use crate::context::{BlockContext, TransactionContext};
 use crate::fee::eth_gas_constants;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
+<<<<<<< HEAD
 use crate::transaction::objects::{GasVector, HasRelatedFeeType, TransactionPreValidationResult};
 use crate::utils::u128_from_usize;
+||||||| 534daaa0
+use crate::transaction::objects::{
+    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    TransactionPreValidationResult,
+};
+use crate::utils::{u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
+=======
+use crate::transaction::objects::{
+    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
+    TransactionPreValidationResult,
+};
+use crate::utils::{u128_div_ceil, u128_from_usize, usize_from_u128};
+use crate::versioned_constants::VersionedConstants;
+>>>>>>> origin/main-v0.13.1
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
@@ -199,5 +215,5 @@ pub fn compute_discounted_gas_from_gas_vector(
     let fee_type = tx_context.tx_info.fee_type();
     let gas_price = gas_prices.get_gas_price_by_fee_type(&fee_type);
     let data_gas_price = gas_prices.get_data_gas_price_by_fee_type(&fee_type);
-    gas_usage + (blob_gas_usage * u128::from(data_gas_price)) / gas_price
+    gas_usage + u128_div_ceil(blob_gas_usage * u128::from(data_gas_price), gas_price)
 }
