@@ -3,13 +3,9 @@ use std::num::NonZeroU128;
 
 use pretty_assertions::assert_eq;
 
-<<<<<<< HEAD
-use crate::utils::{strict_subtract_mappings, subtract_mappings, STRICT_SUBTRACT_MAPPING_ERROR};
-||||||| 534daaa0
-use crate::utils::subtract_mappings;
-=======
-use crate::utils::{subtract_mappings, u128_div_ceil};
->>>>>>> origin/main-v0.13.1
+use crate::utils::{
+    strict_subtract_mappings, subtract_mappings, u128_div_ceil, STRICT_SUBTRACT_MAPPING_ERROR,
+};
 
 #[test]
 fn test_subtract_mappings() {
@@ -25,13 +21,11 @@ fn test_subtract_mappings() {
     let expected = HashMap::from([("red", 1), ("blue", 3)]);
     assert_eq!(expected, subtract_mappings(&map1, &map2));
 }
-<<<<<<< HEAD
 
 #[test]
 fn test_strict_subtract_mappings_good() {
     let not_empty = HashMap::from([("foo", "bar")]);
     let empty = HashMap::default();
-
     assert_eq!(empty, strict_subtract_mappings(&empty, &not_empty));
 
     let map1 = HashMap::from([("green", 2), ("blue", 3)]);
@@ -69,8 +63,6 @@ fn test_strict_subtract_mappings_bad() {
         STRICT_SUBTRACT_MAPPING_ERROR
     );
 }
-||||||| 534daaa0
-=======
 
 #[test]
 fn test_u128_div_ceil() {
@@ -80,4 +72,3 @@ fn test_u128_div_ceil() {
     assert_eq!(9, u128_div_ceil(27, NonZeroU128::new(3).unwrap()));
     assert_eq!(10, u128_div_ceil(28, NonZeroU128::new(3).unwrap()));
 }
->>>>>>> origin/main-v0.13.1

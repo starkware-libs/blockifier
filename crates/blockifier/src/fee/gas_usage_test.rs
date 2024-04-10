@@ -9,34 +9,17 @@ use crate::abi::constants;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};
 use crate::fee::eth_gas_constants;
-<<<<<<< HEAD
-use crate::fee::gas_usage::{get_da_gas_cost, get_message_segment_length};
-||||||| 534daaa0
-use crate::fee::gas_usage::{get_da_gas_cost, get_message_segment_length, get_tx_events_gas_cost};
-=======
 use crate::fee::fee_utils::get_fee_by_gas_vector;
 use crate::fee::gas_usage::{
     compute_discounted_gas_from_gas_vector, get_da_gas_cost, get_message_segment_length,
-    get_tx_events_gas_cost,
 };
 use crate::invoke_tx_args;
->>>>>>> origin/main-v0.13.1
 use crate::state::cached_state::StateChangesCount;
-<<<<<<< HEAD
-use crate::transaction::objects::{GasVector, StarknetResources};
-use crate::utils::u128_from_usize;
-use crate::versioned_constants::{ResourceCost, VersionedConstants};
-||||||| 534daaa0
-use crate::transaction::objects::GasVector;
-use crate::utils::u128_from_usize;
-use crate::versioned_constants::VersionedConstants;
-=======
 use crate::test_utils::{DEFAULT_ETH_L1_DATA_GAS_PRICE, DEFAULT_ETH_L1_GAS_PRICE};
-use crate::transaction::objects::{FeeType, GasVector};
+use crate::transaction::objects::{FeeType, GasVector, StarknetResources};
 use crate::transaction::test_utils::account_invoke_tx;
 use crate::utils::{u128_div_ceil, u128_from_usize};
-use crate::versioned_constants::VersionedConstants;
->>>>>>> origin/main-v0.13.1
+use crate::versioned_constants::{ResourceCost, VersionedConstants};
 #[fixture]
 fn versioned_constants() -> &'static VersionedConstants {
     VersionedConstants::latest_constants()

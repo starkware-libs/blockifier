@@ -24,17 +24,9 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{
-<<<<<<< HEAD
-    HasRelatedFeeType, TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo,
-    TransactionInfoCreator, TransactionPreValidationResult,
-||||||| 534daaa0
-    HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo, TransactionExecutionResult,
-    TransactionInfo, TransactionInfoCreator, TransactionPreValidationResult,
-=======
-    DeprecatedTransactionInfo, HasRelatedFeeType, ResourcesMapping, TransactionExecutionInfo,
+    DeprecatedTransactionInfo, HasRelatedFeeType, TransactionExecutionInfo,
     TransactionExecutionResult, TransactionInfo, TransactionInfoCreator,
     TransactionPreValidationResult,
->>>>>>> origin/main-v0.13.1
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::update_remaining_gas;
@@ -291,7 +283,7 @@ impl AccountTransaction {
                 } = context.l1_resource_bounds()?;
                 if actual_fee > Fee(u128::from(max_l1_gas_amount) * max_l1_gas_price) {
                     panic!(
-                        "Actual fee {:#?} exceeded bounds; max amount is {:#?}, max price is 
+                        "Actual fee {:#?} exceeded bounds; max amount is {:#?}, max price is
                          {:#?}.",
                         actual_fee, max_l1_gas_amount, max_l1_gas_price
                     );

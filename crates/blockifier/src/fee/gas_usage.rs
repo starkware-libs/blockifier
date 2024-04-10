@@ -6,24 +6,8 @@ use crate::context::{BlockContext, TransactionContext};
 use crate::fee::eth_gas_constants;
 use crate::state::cached_state::StateChangesCount;
 use crate::transaction::account_transaction::AccountTransaction;
-<<<<<<< HEAD
 use crate::transaction::objects::{GasVector, HasRelatedFeeType, TransactionPreValidationResult};
-use crate::utils::u128_from_usize;
-||||||| 534daaa0
-use crate::transaction::objects::{
-    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
-    TransactionPreValidationResult,
-};
-use crate::utils::{u128_from_usize, usize_from_u128};
-use crate::versioned_constants::VersionedConstants;
-=======
-use crate::transaction::objects::{
-    GasVector, HasRelatedFeeType, ResourcesMapping, TransactionExecutionResult,
-    TransactionPreValidationResult,
-};
-use crate::utils::{u128_div_ceil, u128_from_usize, usize_from_u128};
-use crate::versioned_constants::VersionedConstants;
->>>>>>> origin/main-v0.13.1
+use crate::utils::{u128_div_ceil, u128_from_usize};
 
 #[cfg(test)]
 #[path = "gas_usage_test.rs"]
