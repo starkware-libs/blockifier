@@ -275,16 +275,6 @@ impl From<PyBouncerConfig> for BouncerConfig {
     }
 }
 
-impl PyBouncerConfig {
-    #[cfg(test)]
-    pub fn create_for_testing() -> Self {
-        Self {
-            full_total_weights_with_keccak: BouncerWeights::create_for_testing(true).into(),
-            full_total_weights: BouncerWeights::create_for_testing(false).into(),
-        }
-    }
-}
-
 fn hash_map_into_bouncer_weights(mut data: HashMap<String, usize>) -> BouncerWeights {
     BouncerWeights {
         gas: data.remove(constants::L1_GAS_USAGE).expect("gas_weight must be present"),

@@ -34,11 +34,19 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
-#[derive(Debug, Default, PartialEq)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
     pub block_max_capacity_with_keccak: BouncerWeights,
+}
+
+impl BouncerConfig {
+    pub fn max() -> Self {
+        Self {
+            block_max_capacity_with_keccak: BouncerWeights::max(true),
+            block_max_capacity: BouncerWeights::max(false),
+        }
+    }
 }
 
 #[derive(
@@ -75,6 +83,17 @@ impl BouncerWeights {
     pub fn has_room(&self, other: Self) -> bool {
         self.checked_sub(other).is_some()
     }
+
+    pub fn max(with_keccak: bool) -> Self {
+        Self {
+            gas: usize::MAX,
+            n_steps: usize::MAX,
+            message_segment_length: usize::MAX,
+            state_diff_size: usize::MAX,
+            n_events: usize::MAX,
+            builtin_count: BuiltinCount::max(with_keccak),
+        }
+    }
 }
 
 #[derive(
@@ -100,6 +119,19 @@ pub struct BuiltinCount {
 
 impl BuiltinCount {
     impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
+
+    pub fn max(with_keccak: bool) -> Self {
+        let keccak = if with_keccak { usize::MAX } else { 0 };
+        Self {
+            bitwise: usize::MAX,
+            ecdsa: usize::MAX,
+            ec_op: usize::MAX,
+            keccak,
+            pedersen: usize::MAX,
+            poseidon: usize::MAX,
+            range_check: usize::MAX,
+        }
+    }
 }
 
 impl From<HashMapWrapper> for BuiltinCount {

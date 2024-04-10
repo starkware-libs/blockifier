@@ -207,11 +207,12 @@ impl BouncerWeights {
 
 impl BuiltinCount {
     pub fn create_for_testing(with_keccak: bool) -> Self {
+        let keccak = if with_keccak { 1220 } else { 0 };
         Self {
             bitwise: 39062,
             ecdsa: 1220,
             ec_op: 2441,
-            keccak: { if with_keccak { 1220 } else { 0 } },
+            keccak,
             pedersen: 78125,
             poseidon: 78125,
             range_check: 156250,
