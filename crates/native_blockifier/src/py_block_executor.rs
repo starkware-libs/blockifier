@@ -4,6 +4,7 @@ use blockifier::blockifier::block::{
     pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
+use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::{CachedState, GlobalContractCache};
@@ -85,6 +86,7 @@ pub(crate) struct TypedTransactionExecutionInfo {
 
 #[pyclass]
 pub struct PyBlockExecutor {
+    pub bouncer_config: BouncerConfig,
     pub general_config: PyGeneralConfig,
     pub versioned_constants: VersionedConstants,
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
@@ -96,8 +98,9 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
+    #[pyo3(signature = (bouncer_config, general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
     pub fn create(
+        bouncer_config: PyBouncerConfig,
         general_config: PyGeneralConfig,
         validate_max_n_steps: u32,
         max_recursion_depth: usize,
@@ -114,6 +117,7 @@ impl PyBlockExecutor {
         log::debug!("Initialized Block Executor.");
 
         Self {
+            bouncer_config: bouncer_config.into(),
             general_config,
             versioned_constants,
             tx_executor: None,
@@ -125,11 +129,10 @@ impl PyBlockExecutor {
     // Transaction Execution API.
 
     /// Initializes the transaction executor for the given block.
-    #[pyo3(signature = (next_block_info, bouncer_config, old_block_number_and_hash))]
+    #[pyo3(signature = (next_block_info, old_block_number_and_hash))]
     fn setup_block_execution(
         &mut self,
         next_block_info: PyBlockInfo,
-        bouncer_config: PyBouncerConfig,
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
         let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
@@ -143,7 +146,8 @@ impl PyBlockExecutor {
             &self.versioned_constants,
         )?;
 
-        let tx_executor = TransactionExecutor::new(state, block_context, bouncer_config.into());
+        let tx_executor =
+            TransactionExecutor::new(state, block_context, self.bouncer_config.clone());
         self.tx_executor = Some(tx_executor);
 
         Ok(())
@@ -318,6 +322,7 @@ impl PyBlockExecutor {
     fn create_for_testing(general_config: PyGeneralConfig, path: std::path::PathBuf) -> Self {
         use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
+            bouncer_config: BouncerConfig::max(),
             storage: Box::new(PapyrusStorage::new_for_testing(
                 path,
                 &general_config.starknet_os_config.chain_id,
@@ -345,6 +350,7 @@ impl PyBlockExecutor {
     pub fn create_for_testing_with_storage(storage: impl Storage + Send + 'static) -> Self {
         use blockifier::state::cached_state::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
+            bouncer_config: BouncerConfig::max(),
             storage: Box::new(storage),
             general_config: PyGeneralConfig::default(),
             versioned_constants: VersionedConstants::latest_constants().clone(),
