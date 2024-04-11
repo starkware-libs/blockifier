@@ -6,15 +6,12 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ClassHash;
 use thiserror::Error;
 
-use crate::blockifier::bouncer::BouncerInfo;
 use crate::bouncer::{Bouncer, BouncerConfig};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
-use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{
-    CachedState, CommitmentStateDiff, StagedTransactionalState, StateChangesKeys, StorageEntry,
-    TransactionalState,
+    CachedState, CommitmentStateDiff, StorageEntry, TransactionalState,
 };
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -46,19 +43,8 @@ pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
     pub bouncer: Bouncer,
 
-    // Maintained for counting purposes.
-    pub executed_class_hashes: HashSet<ClassHash>,
-    pub visited_storage_entries: HashSet<StorageEntry>,
-    // This member should be consistent with the state's modified keys.
-    state_changes_keys: StateChangesKeys,
-
     // State-related fields.
     pub state: CachedState<S>,
-
-    // Transactional state, awaiting commit/abort call.
-    // Is `Some` only after transaction has finished executing, and before commit/revert have been
-    // called. `None` while a transaction is being executed and in between transactions.
-    pub staged_for_commit_state: Option<StagedTransactionalState>,
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
@@ -68,17 +54,9 @@ impl<S: StateReader> TransactionExecutor<S> {
         bouncer_config: BouncerConfig,
     ) -> Self {
         log::debug!("Initializing Transaction Executor...");
-        let tx_executor = Self {
-            block_context,
-            bouncer: Bouncer::new(bouncer_config),
-            executed_class_hashes: HashSet::<ClassHash>::new(),
-            visited_storage_entries: HashSet::<StorageEntry>::new(),
-            // Note: the state might not be empty even at this point; it is the creator's
-            // responsibility to tune the bouncer according to pre and post block process.
-            state_changes_keys: StateChangesKeys::default(),
-            state,
-            staged_for_commit_state: None,
-        };
+        // Note: the state might not be empty even at this point; it is the creator's
+        // responsibility to tune the bouncer according to pre and post block process.
+        let tx_executor = Self { block_context, bouncer: Bouncer::new(bouncer_config), state };
         log::debug!("Initialized Transaction Executor.");
 
         tx_executor
@@ -91,7 +69,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: Transaction,
         charge_fee: bool,
-    ) -> TransactionExecutorResult<(TransactionExecutionInfo, BouncerInfo)> {
+    ) -> TransactionExecutorResult<TransactionExecutionInfo> {
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
@@ -99,49 +77,13 @@ impl<S: StateReader> TransactionExecutor<S> {
             tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
         match tx_execution_result {
             Ok(tx_execution_info) => {
-                // Prepare bouncer info; the countings here should be linear in the transactional
-                // state changes and execution info rather than the cumulative state attributes.
-
-                // TODO(Elin, 01/06/2024): consider moving Bouncer logic to a function.
-                let tx_execution_summary = tx_execution_info.summarize();
-
-                // Count additional OS resources.
-                // TODO(Nimrod, 1/5/2024): Move this computation to TransactionResources.
-                let mut additional_os_resources = get_casm_hash_calculation_resources(
+                self.bouncer.try_update(
                     &mut transactional_state,
-                    &self.executed_class_hashes,
-                    &tx_execution_summary.executed_class_hashes,
+                    &tx_execution_info.summarize(),
+                    &tx_execution_info.actual_resources,
                 )?;
-                additional_os_resources += &get_particia_update_resources(
-                    &self.visited_storage_entries,
-                    &tx_execution_summary.visited_storage_entries,
-                )?;
-
-                // Count residual state diff size (w.r.t. the OS output encoding).
-                let tx_state_changes_keys =
-                    transactional_state.get_actual_state_changes()?.into_keys();
-                let tx_unique_state_changes_keys =
-                    tx_state_changes_keys.difference(&self.state_changes_keys);
-                // Note: block-constant felts are not counted here. so the bouncer needs to
-                // tune the size limit accordingly. E.g., the felt that encodes the number of
-                // modified contracts in a block.
-                let state_diff_size =
-                    get_onchain_data_segment_length(&tx_unique_state_changes_keys.count());
-
-                // Finalize counting logic.
-                let bouncer_info = tx_execution_info.actual_resources.to_bouncer_info(
-                    &self.block_context.versioned_constants,
-                    self.block_context.block_info.use_kzg_da,
-                    additional_os_resources,
-                    state_diff_size,
-                )?;
-                self.staged_for_commit_state = Some(transactional_state.stage(
-                    tx_execution_summary.executed_class_hashes,
-                    tx_execution_summary.visited_storage_entries,
-                    tx_unique_state_changes_keys,
-                ));
-
-                Ok((tx_execution_info, bouncer_info))
+                transactional_state.commit();
+                Ok(tx_execution_info)
             }
             Err(error) => {
                 transactional_state.abort();
@@ -206,31 +148,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             .collect::<TransactionExecutorResult<_>>()?;
 
         Ok((self.state.to_state_diff(), visited_segments))
-    }
-
-    pub fn commit(&mut self) {
-        let Some(finalized_transactional_state) = self.staged_for_commit_state.take() else {
-            panic!("commit called without a transactional state")
-        };
-
-        let child_cache = finalized_transactional_state.cache;
-        self.state.update_cache(child_cache);
-        self.state.update_contract_class_cache(finalized_transactional_state.class_hash_to_class);
-        self.state.update_visited_pcs_cache(&finalized_transactional_state.visited_pcs);
-
-        self.executed_class_hashes.extend(&finalized_transactional_state.tx_executed_class_hashes);
-        self.visited_storage_entries
-            .extend(&finalized_transactional_state.tx_visited_storage_entries);
-
-        // Note: cancelling writes (0 -> 1 -> 0) will not be removed,
-        // but it's fine since fee was charged for them.
-        self.state_changes_keys.extend(&finalized_transactional_state.tx_unique_state_changes_keys);
-
-        self.staged_for_commit_state = None
-    }
-
-    pub fn abort(&mut self) {
-        self.staged_for_commit_state = None
     }
 }
 
