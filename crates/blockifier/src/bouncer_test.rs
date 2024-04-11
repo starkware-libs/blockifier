@@ -159,14 +159,7 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
 
 #[rstest]
 #[case::positive_flow(0, 1, 0, Ok(()))]
-#[case::block_full(
-    0,
-    11,
-    0,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::BlockFull
-    ))
-)]
+#[case::block_full(0, 11, 0, Err(TransactionExecutorError::BlockFull))]
 #[case::transaction_too_large(
     0,
     21,
@@ -176,14 +169,7 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
     ))
 )]
 #[case::positive_flow_with_keccak(0, 0, 1, Ok(()))]
-#[case::block_full_with_keccak(
-    1,
-    0,
-    1,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::BlockFull
-    ))
-)]
+#[case::block_full_with_keccak(1, 0, 1, Err(TransactionExecutorError::BlockFull))]
 #[case::transaction_too_large_with_keccak(
     0,
     0,
@@ -192,14 +178,7 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
         TransactionExecutionError::TransactionTooLarge
     ))
 )]
-#[case::block_full_with_keccak_ecdsa_exceeds(
-    0,
-    11,
-    1,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::BlockFull
-    ))
-)]
+#[case::block_full_with_keccak_ecdsa_exceeds(0, 11, 1, Err(TransactionExecutorError::BlockFull))]
 #[case::transaction_too_large_with_keccak_ecdsa_too_large(
     0,
     21,
