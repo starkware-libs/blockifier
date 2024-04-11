@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use blockifier::abi::constants;
-use blockifier::blockifier::bouncer::BouncerInfo;
 use blockifier::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
 use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
@@ -225,33 +224,6 @@ impl From<ExecutionResources> for PyExecutionResources {
             n_steps: resources.n_steps,
             builtin_instance_counter: resources.builtin_instance_counter,
             n_memory_holes: resources.n_memory_holes,
-        }
-    }
-}
-
-#[pyclass]
-#[derive(Clone, Default)]
-pub struct PyBouncerInfo {
-    #[pyo3(get)]
-    pub state_diff_size: usize, // The number of felts needed to store the state diff.
-    #[pyo3(get)]
-    pub gas_weight: usize,
-    #[pyo3(get)]
-    pub message_segment_length: usize, // The number of felts needed to store L1<>L2 messages.
-    #[pyo3(get)]
-    pub execution_resources: PyExecutionResources,
-    #[pyo3(get)]
-    pub n_events: usize,
-}
-
-impl From<BouncerInfo> for PyBouncerInfo {
-    fn from(bouncer_info: BouncerInfo) -> Self {
-        Self {
-            state_diff_size: bouncer_info.state_diff_size,
-            gas_weight: bouncer_info.gas_weight,
-            message_segment_length: bouncer_info.message_segment_length,
-            execution_resources: PyExecutionResources::from(bouncer_info.execution_resources),
-            n_events: bouncer_info.n_events,
         }
     }
 }
