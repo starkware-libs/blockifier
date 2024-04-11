@@ -18,7 +18,8 @@ use crate::test_utils::{
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, calculate_class_info_for_testing, l1_resource_bounds,
+    account_invoke_tx, block_context, calculate_class_info_for_testing, create_test_init_data,
+    emit_n_events_tx, l1_resource_bounds, TestInitData,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::L1HandlerTransaction;
@@ -219,4 +220,48 @@ fn test_l1_handler(block_context: BlockContext, #[values(true, false)] charge_fe
         ..Default::default()
     };
     tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
+}
+
+#[rstest]
+#[case::happy_flow(BouncerWeights::default(), 10)]
+#[should_panic(expected = "BlockFull")]
+#[case::block_full(
+    BouncerWeights {
+        n_events: 4,
+        ..Default::default()
+    },
+    7
+)]
+#[should_panic(expected = "TransactionExecutionError(TransactionTooLarge)")]
+#[case::transaction_too_large(BouncerWeights::default(), 11)]
+
+fn test_bouncing(
+    block_context: BlockContext,
+    #[case] initial_bouncer_weights: BouncerWeights,
+    #[case] n_events: u32,
+) {
+    let TestInitData { state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);
+
+    let mut tx_executor = TransactionExecutor::new(
+        state,
+        block_context,
+        BouncerConfig {
+            block_max_capacity: BouncerWeights { n_events: 10, ..BouncerWeights::max(false) },
+            ..BouncerConfig::default()
+        },
+    );
+    tx_executor.bouncer.set_accumulated_weights(initial_bouncer_weights);
+
+    tx_executor
+        .execute(
+            Transaction::AccountTransaction(emit_n_events_tx(
+                n_events,
+                account_address,
+                contract_address,
+                nonce_manager.next(account_address),
+            )),
+            true,
+        )
+        .unwrap();
 }
