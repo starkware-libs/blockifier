@@ -14,7 +14,6 @@ use starknet_api::transaction::{
 use strum_macros::EnumIter;
 
 use crate::abi::constants as abi_constants;
-use crate::blockifier::bouncer::BouncerInfo;
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -473,26 +472,6 @@ impl TransactionResources {
         *resources.0.get_mut(abi_constants::N_STEPS_RESOURCE).unwrap_or(&mut 0) +=
             revrted_steps_to_add;
         resources
-    }
-
-    pub fn to_bouncer_info(
-        &self,
-        versioned_constants: &VersionedConstants,
-        use_kzg_da: bool,
-        additional_os_resources: ExecutionResources,
-        state_diff_size: usize,
-    ) -> TransactionExecutionResult<BouncerInfo> {
-        // Count message to L1 resources.
-        let (message_segment_length, gas_usage) =
-            self.starknet_resources.calculate_message_l1_resources();
-        BouncerInfo::calculate(
-            &self.to_resources_mapping(versioned_constants, use_kzg_da, false),
-            gas_usage,
-            additional_os_resources,
-            message_segment_length,
-            state_diff_size,
-            self.starknet_resources.n_events,
-        )
     }
 
     pub fn total_charged_steps(&self) -> usize {
