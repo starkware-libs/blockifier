@@ -260,4 +260,9 @@ impl Bouncer {
         let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
         Ok(tx_state_changes_keys.difference(&self.state_changes_keys))
     }
+
+    #[cfg(test)]
+    pub fn set_accumulated_weights(&mut self, weights: BouncerWeights) {
+        self.accumulated_weights = weights;
+    }
 }
