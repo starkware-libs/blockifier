@@ -30,6 +30,8 @@ pub mod transaction_executor_test;
 
 #[derive(Debug, Error)]
 pub enum TransactionExecutorError {
+    #[error("Transaction cannot be added to the current block, block capacity reached.")]
+    BlockFull,
     #[error(transparent)]
     StateError(#[from] StateError),
     #[error(transparent)]
