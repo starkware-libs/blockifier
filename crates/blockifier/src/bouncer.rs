@@ -5,7 +5,8 @@ use serde::Deserialize;
 use starknet_api::core::ClassHash;
 
 use crate::blockifier::transaction_executor::{
-    get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorResult,
+    get_casm_hash_calculation_resources, get_particia_update_resources, TransactionExecutorError,
+    TransactionExecutorResult,
 };
 use crate::execution::call_info::ExecutionSummary;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
@@ -212,7 +213,7 @@ impl Bouncer {
 
         // Check if the transaction can fit the current block available capacity.
         if !max_capacity.has_room(self.accumulated_weights + tx_weights) {
-            Err(TransactionExecutionError::BlockFull)?
+            return Err(TransactionExecutorError::BlockFull);
         }
 
         self._update(tx_weights, tx_execution_summary, &state_changes_keys);

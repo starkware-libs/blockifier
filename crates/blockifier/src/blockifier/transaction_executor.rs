@@ -34,6 +34,8 @@ pub enum TransactionExecutorError {
     StateError(#[from] StateError),
     #[error(transparent)]
     TransactionExecutionError(#[from] TransactionExecutionError),
+    #[error("Transaction cannot be added to the current block, block capacity reached.")]
+    BlockFull,
 }
 
 pub type TransactionExecutorResult<T> = Result<T, TransactionExecutorError>;
