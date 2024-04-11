@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
+use blockifier::abi::constants;
 use blockifier::blockifier::bouncer::BouncerInfo;
+use blockifier::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
 use blockifier::context::BlockContext;
 use blockifier::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use blockifier::execution::entry_point::CallType;
@@ -251,5 +253,39 @@ impl From<BouncerInfo> for PyBouncerInfo {
             execution_resources: PyExecutionResources::from(bouncer_info.execution_resources),
             n_events: bouncer_info.n_events,
         }
+    }
+}
+
+#[derive(Clone, Debug, FromPyObject)]
+pub struct PyBouncerConfig {
+    pub full_total_weights_with_keccak: HashMap<String, usize>,
+    pub full_total_weights: HashMap<String, usize>,
+}
+
+impl From<PyBouncerConfig> for BouncerConfig {
+    fn from(py_bouncer_config: PyBouncerConfig) -> Self {
+        BouncerConfig {
+            block_max_capacity: hash_map_into_bouncer_weights(
+                py_bouncer_config.full_total_weights.clone(),
+            ),
+            block_max_capacity_with_keccak: hash_map_into_bouncer_weights(
+                py_bouncer_config.full_total_weights_with_keccak.clone(),
+            ),
+        }
+    }
+}
+
+fn hash_map_into_bouncer_weights(mut data: HashMap<String, usize>) -> BouncerWeights {
+    BouncerWeights {
+        gas: data.remove(constants::L1_GAS_USAGE).expect("gas_weight must be present"),
+        n_steps: data.remove(constants::N_STEPS_RESOURCE).expect("n_steps must be present"),
+        message_segment_length: data
+            .remove(constants::MESSAGE_SEGMENT_LENGTH)
+            .expect("message_segment_length must be present"),
+        state_diff_size: data
+            .remove(constants::STATE_DIFF_SIZE)
+            .expect("state_diff_size must be present"),
+        n_events: data.remove(constants::N_EVENTS).expect("n_events must be present"),
+        builtin_count: BuiltinCount::from(data),
     }
 }

@@ -7,6 +7,7 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::bouncer::BouncerInfo;
+use crate::bouncer::{Bouncer, BouncerConfig};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -41,6 +42,7 @@ pub type VisitedSegmentsMapping = Vec<(ClassHash, Vec<usize>)>;
 // TODO(Gilad): make this hold TransactionContext instead of BlockContext.
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
+    pub bouncer: Bouncer,
 
     // Maintained for counting purposes.
     pub executed_class_hashes: HashSet<ClassHash>,
@@ -58,10 +60,15 @@ pub struct TransactionExecutor<S: StateReader> {
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
-    pub fn new(state: CachedState<S>, block_context: BlockContext) -> Self {
+    pub fn new(
+        state: CachedState<S>,
+        block_context: BlockContext,
+        bouncer_config: BouncerConfig,
+    ) -> Self {
         log::debug!("Initializing Transaction Executor...");
         let tx_executor = Self {
             block_context,
+            bouncer: Bouncer::new(bouncer_config),
             executed_class_hashes: HashSet::<ClassHash>::new(),
             visited_storage_entries: HashSet::<StorageEntry>::new(),
             // Note: the state might not be empty even at this point; it is the creator's

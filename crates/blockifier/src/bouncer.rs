@@ -12,7 +12,7 @@ use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::TransactionResources;
+use crate::transaction::objects::{ExecutionResourcesTraits, TransactionResources};
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -34,10 +34,19 @@ macro_rules! impl_checked_sub {
 
 pub type HashMapWrapper = HashMap<String, usize>;
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
     pub block_max_capacity_with_keccak: BouncerWeights,
+}
+
+impl BouncerConfig {
+    pub fn max() -> Self {
+        Self {
+            block_max_capacity_with_keccak: BouncerWeights::max(true),
+            block_max_capacity: BouncerWeights::max(false),
+        }
+    }
 }
 
 #[derive(
@@ -53,12 +62,12 @@ pub struct BouncerConfig {
 )]
 /// Represents the execution resources counted throughout block creation.
 pub struct BouncerWeights {
-    builtin_count: BuiltinCount,
-    gas: usize,
-    message_segment_length: usize,
-    n_events: usize,
-    n_steps: usize,
-    state_diff_size: usize,
+    pub builtin_count: BuiltinCount,
+    pub gas: usize,
+    pub message_segment_length: usize,
+    pub n_events: usize,
+    pub n_steps: usize,
+    pub state_diff_size: usize,
 }
 
 impl BouncerWeights {
@@ -74,6 +83,17 @@ impl BouncerWeights {
     pub fn has_room(&self, other: Self) -> bool {
         self.checked_sub(other).is_some()
     }
+
+    pub fn max(with_keccak: bool) -> Self {
+        Self {
+            gas: usize::MAX,
+            n_steps: usize::MAX,
+            message_segment_length: usize::MAX,
+            state_diff_size: usize::MAX,
+            n_events: usize::MAX,
+            builtin_count: BuiltinCount::max(with_keccak),
+        }
+    }
 }
 
 #[derive(
@@ -88,23 +108,37 @@ impl BouncerWeights {
     PartialEq,
 )]
 pub struct BuiltinCount {
-    bitwise: usize,
-    ecdsa: usize,
-    ec_op: usize,
-    keccak: usize,
-    pedersen: usize,
-    poseidon: usize,
-    range_check: usize,
+    pub bitwise: usize,
+    pub ecdsa: usize,
+    pub ec_op: usize,
+    pub keccak: usize,
+    pub pedersen: usize,
+    pub poseidon: usize,
+    pub range_check: usize,
 }
 
 impl BuiltinCount {
     impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
+
+    pub fn max(with_keccak: bool) -> Self {
+        let keccak = if with_keccak { usize::MAX } else { 0 };
+        Self {
+            bitwise: usize::MAX,
+            ecdsa: usize::MAX,
+            ec_op: usize::MAX,
+            keccak,
+            pedersen: usize::MAX,
+            poseidon: usize::MAX,
+            range_check: usize::MAX,
+        }
+    }
 }
 
 impl From<HashMapWrapper> for BuiltinCount {
     fn from(mut data: HashMapWrapper) -> Self {
         // TODO(yael 24/3/24): replace the unwrap_or_default with expect, once the
         // ExecutionResources contains all the builtins.
+        // The keccak config we get from python is not always present.
         let builtin_count = Self {
             bitwise: data.remove(BuiltinName::bitwise.name()).unwrap_or_default(),
             ecdsa: data.remove(BuiltinName::ecdsa.name()).unwrap_or_default(),
@@ -123,7 +157,8 @@ impl From<HashMapWrapper> for BuiltinCount {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
+#[cfg_attr(test, derive(Clone))]
 pub struct Bouncer {
     // Additional info; maintained and used to calculate the residual contribution of a transaction
     // to the accumulated weights.
@@ -211,8 +246,8 @@ impl Bouncer {
             gas: gas_usage,
             message_segment_length,
             n_events: tx_resources.starknet_resources.n_events,
-            n_steps: vm_resources.n_steps + vm_resources.n_memory_holes,
-            builtin_count: BuiltinCount::from(vm_resources.builtin_instance_counter.clone()),
+            n_steps: vm_resources.total_n_steps(),
+            builtin_count: BuiltinCount::from(vm_resources.prover_builtins()),
             state_diff_size: get_onchain_data_segment_length(&state_changes_keys.count()),
         })
     }
