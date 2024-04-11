@@ -549,24 +549,6 @@ pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>
 
 /// Adds the ability to perform a transactional execution.
 impl<'a, S: StateReader> TransactionalState<'a, S> {
-    // Detach `state`, moving the instance to a pending state, which can be committed or aborted.
-    pub fn stage(
-        self,
-        tx_executed_class_hashes: HashSet<ClassHash>,
-        tx_visited_storage_entries: HashSet<StorageEntry>,
-        tx_unique_state_changes_keys: StateChangesKeys,
-    ) -> StagedTransactionalState {
-        let TransactionalState { cache, class_hash_to_class, visited_pcs, .. } = self;
-        StagedTransactionalState {
-            cache: cache.into_inner(),
-            class_hash_to_class: class_hash_to_class.into_inner(),
-            tx_executed_class_hashes,
-            tx_visited_storage_entries,
-            tx_unique_state_changes_keys,
-            visited_pcs,
-        }
-    }
-
     /// Commits changes in the child (wrapping) state to its parent.
     pub fn commit(self) {
         let state = self.state.0;
@@ -578,20 +560,6 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 
     /// Drops `self`.
     pub fn abort(self) {}
-}
-
-/// Represents the interim state, containing the changes made by a transaction after execution but
-/// before commitment to the state. Can be passed to external services that validate and count
-/// resources to decide whether the transaction should be committed or aborted.
-pub struct StagedTransactionalState {
-    pub cache: StateCache,
-    pub class_hash_to_class: ContractClassMapping,
-
-    // Maintained for counting purposes.
-    pub tx_executed_class_hashes: HashSet<ClassHash>,
-    pub tx_visited_storage_entries: HashSet<StorageEntry>,
-    pub tx_unique_state_changes_keys: StateChangesKeys,
-    pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
 
 /// Holds uncommitted changes induced on Starknet contracts.
