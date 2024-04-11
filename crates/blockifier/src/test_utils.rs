@@ -202,7 +202,7 @@ macro_rules! check_inner_exc_for_invalid_scenario {
 #[macro_export]
 macro_rules! check_entry_point_execution_error {
     ($error:expr, $expected_hint:expr $(,)?) => {
-        if let EntryPointExecutionError::CairoRunError(
+        if let $crate::execution::errors::EntryPointExecutionError::CairoRunError(
             cairo_vm::vm::errors::cairo_run_errors::CairoRunError::VmException(
                 cairo_vm::vm::errors::vm_exception::VmException { inner_exc, .. },
             ),
@@ -232,7 +232,7 @@ macro_rules! check_entry_point_execution_error_for_custom_hint {
 macro_rules! check_transaction_execution_error_inner {
     ($error:expr, $expected_hint:expr, $variant:ident $(,)?) => {
         match $error {
-            TransactionExecutionError::$variant { error, .. } => {
+            $crate::transaction::errors::TransactionExecutionError::$variant { error, .. } => {
                 $crate::check_entry_point_execution_error!(error, $expected_hint)
             }
             _ => panic!("Unexpected structure for error: {:?}", $error),
@@ -281,7 +281,9 @@ macro_rules! check_transaction_execution_error_for_invalid_scenario {
                 }
             }
             CairoVersion::Cairo1 => {
-                if let TransactionExecutionError::ValidateTransactionError { error, .. } = $error {
+                if let $crate::transaction::errors::TransactionExecutionError::ValidateTransactionError {
+                    error, ..
+                } = $error {
                     assert_eq!(
                         error.to_string(),
                         "Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f \
