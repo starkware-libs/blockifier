@@ -1,10 +1,12 @@
+use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::blockifier::transaction_executor::TransactionExecutor;
+use crate::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
 use crate::bouncer::{BouncerConfig, BouncerWeights};
 use crate::context::BlockContext;
 use crate::state::cached_state::CachedState;
@@ -17,8 +19,10 @@ use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, calculate_class_info_for_testing, l1_resource_bounds,
+    account_invoke_tx, block_context, calculate_class_info_for_testing, create_test_init_data,
+    l1_resource_bounds, TestInitData,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::L1HandlerTransaction;
@@ -44,6 +48,26 @@ fn tx_executor_test_body<S: StateReader>(
         expected_bouncer_weights.message_segment_length
     );
     assert_eq!(bouncer_weights.n_events, expected_bouncer_weights.n_events);
+}
+
+fn emit_n_events(
+    n: u32,
+    account_contract: ContractAddress,
+    contract_address: ContractAddress,
+    nonce: Nonce,
+) -> Transaction {
+    let entry_point_args = vec![
+        stark_felt!(n),     // events_number.
+        stark_felt!(0_u32), // keys length.
+        stark_felt!(0_u32), // data length.
+    ];
+    let calldata = create_calldata(contract_address, "test_emit_events", &entry_point_args);
+    Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
+        sender_address: account_contract,
+        calldata,
+        version: TransactionVersion::THREE,
+        nonce
+    }))
 }
 
 #[rstest]
@@ -219,4 +243,84 @@ fn test_l1_handler(block_context: BlockContext, #[values(true, false)] charge_fe
         ..Default::default()
     };
     tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
+}
+
+#[rstest]
+fn test_block_full(block_context: BlockContext) {
+    let TestInitData { state, account_address, contract_address, mut nonce_manager } =
+        create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);
+
+    let mut tx_executor = TransactionExecutor::new(
+        state,
+        block_context,
+        BouncerConfig {
+            block_max_capacity: BouncerWeights { n_events: 10, ..BouncerWeights::max(false) },
+            ..BouncerConfig::default()
+        },
+    );
+
+    // Has room: 7 <= 10.
+    tx_executor
+        .execute(
+            emit_n_events(
+                7,
+                account_address,
+                contract_address,
+                nonce_manager.next(account_address),
+            ),
+            true,
+        )
+        .unwrap();
+
+    // No room: 7 + 5 > 10.
+    let error = tx_executor
+        .execute(
+            emit_n_events(
+                5,
+                account_address,
+                contract_address,
+                nonce_manager.next(account_address),
+            ),
+            true,
+        )
+        .err()
+        .unwrap();
+
+    assert_matches!(error, TransactionExecutorError::BlockFull);
+    nonce_manager.rollback(account_address);
+
+    // Transaction too big to fit any block: 11 > 10.
+    let error = tx_executor
+        .execute(
+            emit_n_events(
+                11,
+                account_address,
+                contract_address,
+                nonce_manager.next(account_address),
+            ),
+            true,
+        )
+        .err()
+        .unwrap();
+
+    assert_matches!(
+        error,
+        TransactionExecutorError::TransactionExecutionError(
+            TransactionExecutionError::TransactionTooLarge
+        )
+    );
+    nonce_manager.rollback(account_address);
+
+    // Finally, has room: 7 + 3 <= 10.
+    tx_executor
+        .execute(
+            emit_n_events(
+                3,
+                account_address,
+                contract_address,
+                nonce_manager.next(account_address),
+            ),
+            true,
+        )
+        .unwrap();
 }
