@@ -182,9 +182,7 @@ impl<'a> Iterator for CallInfoIter<'a> {
     type Item = &'a CallInfo;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(call_info) = self.call_infos.pop() else {
-            return None;
-        };
+        let call_info = self.call_infos.pop()?;
 
         // Push order is right to left.
         self.call_infos.extend(call_info.inner_calls.iter().rev());

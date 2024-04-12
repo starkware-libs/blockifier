@@ -24,8 +24,11 @@ cached.workspace = true
 cairo-felt.workspace = true
 cairo-lang-casm = { workspace = true, features = ["parity-scale-codec"] }
 cairo-lang-runner.workspace = true
+cairo-lang-sierra.workspace = true
+cairo-lang-starknet.workspace = true
 cairo-lang-starknet-classes.workspace = true
 cairo-lang-utils.workspace = true
+cairo-native.workspace = true
 cairo-vm.workspace = true
 derive_more.workspace = true
 indexmap.workspace = true
@@ -44,6 +47,7 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 sha3.workspace = true
 starknet-crypto.workspace = true
 starknet_api = { workspace = true, features = ["testing"] }
+starknet-types-core.workspace = true
 strum.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
@@ -53,3 +57,6 @@ assert_matches.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
 test-case.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["cairo-native"]
