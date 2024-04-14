@@ -65,10 +65,10 @@ use crate::transaction::objects::{
     TransactionInfo, TransactionResources,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, calculate_class_info_for_testing, create_account_tx_for_validate_test,
-    l1_resource_bounds, FaultyAccountTxCreatorArgs, CALL_CONTRACT, GET_BLOCK_HASH,
-    GET_BLOCK_NUMBER, GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO, GET_SEQUENCER_ADDRESS, INVALID,
-    VALID,
+    account_invoke_tx, block_context, calculate_class_info_for_testing,
+    create_account_tx_for_validate_test, l1_resource_bounds, FaultyAccountTxCreatorArgs,
+    CALL_CONTRACT, GET_BLOCK_HASH, GET_BLOCK_NUMBER, GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO,
+    GET_SEQUENCER_ADDRESS, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
@@ -539,9 +539,10 @@ fn verify_storage_after_invoke_advanced_operations(
 
 #[rstest]
 fn test_invoke_tx_advanced_operations(
+    block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
     let state =
@@ -714,11 +715,12 @@ fn test_invoke_tx_advanced_operations(
 #[case(TransactionVersion::ONE, FeeType::Eth)]
 #[case(TransactionVersion::THREE, FeeType::Strk)]
 fn test_state_get_fee_token_balance(
+    block_context: BlockContext,
     #[case] tx_version: TransactionVersion,
     #[case] fee_type: FeeType,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_version: CairoVersion,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let chain_info = &block_context.chain_info;
     let account = FeatureContract::AccountWithoutValidations(account_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -787,9 +789,10 @@ fn assert_failure_if_resource_bounds_exceed_balance(
 
 #[rstest]
 fn test_max_fee_exceeds_balance(
+    block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let state = &mut test_state(
@@ -852,9 +855,10 @@ fn test_max_fee_exceeds_balance(
 // TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
 #[rstest]
 fn test_insufficient_resource_bounds(
+    block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let state = &mut test_state(
@@ -942,9 +946,10 @@ fn test_insufficient_resource_bounds(
 // TODO(Aner, 21/01/24) modify test for 4844.
 #[rstest]
 fn test_actual_fee_gt_resource_bounds(
+    block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let state = &mut test_state(
@@ -974,9 +979,9 @@ fn test_actual_fee_gt_resource_bounds(
 
 #[rstest]
 fn test_invalid_nonce(
+    block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let state = &mut test_state(
@@ -1365,8 +1370,8 @@ fn test_deploy_account_tx(
 }
 
 #[rstest]
-fn test_fail_deploy_account_undeclared_class_hash() {
-    let block_context = &BlockContext::create_for_account_testing();
+fn test_fail_deploy_account_undeclared_class_hash(block_context: BlockContext) {
+    let block_context = &block_context;
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[]);
     let mut nonce_manager = NonceManager::default();
@@ -1403,11 +1408,12 @@ fn test_fail_deploy_account_undeclared_class_hash() {
 #[case::validate_deploy(TransactionType::DeployAccount, false)]
 #[case::constructor(TransactionType::DeployAccount, true)]
 fn test_validate_accounts_tx(
+    block_context: BlockContext,
     #[case] tx_type: TransactionType,
     #[case] validate_constructor: bool,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let account_balance = 0;
     let faulty_account = FeatureContract::FaultyAccount(cairo_version);
     let sender_address = faulty_account.get_instance_address(0);
@@ -1574,10 +1580,11 @@ fn test_validate_accounts_tx(
 
 #[rstest]
 fn test_valid_flag(
+    block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] test_contract_cairo_version: CairoVersion,
 ) {
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
     let state = &mut test_state(
@@ -1599,9 +1606,9 @@ fn test_valid_flag(
 
 // TODO(Noa,01/12/2023): Consider moving it to syscall_test.
 #[rstest]
-fn test_only_query_flag(#[values(true, false)] only_query: bool) {
+fn test_only_query_flag(block_context: BlockContext, #[values(true, false)] only_query: bool) {
     let account_balance = BALANCE;
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let state = &mut test_state(
@@ -1813,12 +1820,12 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     );
 }
 
-#[test]
-fn test_execute_tx_with_invalid_transaction_version() {
+#[rstest]
+fn test_execute_tx_with_invalid_transaction_version(block_context: BlockContext) {
     let cairo_version = CairoVersion::Cairo0;
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let state =
         &mut test_state(&block_context.chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
     let invalid_version = 12345_u64;
@@ -1885,6 +1892,7 @@ fn max_event_data() -> usize {
         max_data_length: max_event_data(),
     }))]
 fn test_emit_event_exceeds_limit(
+    block_context: BlockContext,
     #[case] event_keys: Vec<StarkFelt>,
     #[case] event_data: Vec<StarkFelt>,
     #[case] n_emitted_events: usize,
@@ -1893,7 +1901,7 @@ fn test_emit_event_exceeds_limit(
 ) {
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
-    let block_context = &BlockContext::create_for_account_testing();
+    let block_context = &block_context;
     let state = &mut test_state(
         &block_context.chain_info,
         BALANCE,
