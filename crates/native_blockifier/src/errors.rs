@@ -49,10 +49,11 @@ macro_rules! native_blockifier_errors {
             fn from(error: NativeBlockifierError) -> PyErr {
                 match error {
                     $(NativeBlockifierError::$variant_name(error) => $py_error_name::new_err(
-                        // Constructs with the tuple `(error_code, error_message)`.
+                        // Constructs with the tuple `(error_code, raw_message, error_message)`.
                         (
                             String::from("native_blockifier.") + stringify!($py_error_name),
                             format!("{:?}", error),
+                            format!("{:?}", error.to_string()),
                         )
                     )),*
                 }
