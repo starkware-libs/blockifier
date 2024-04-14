@@ -19,7 +19,6 @@ use starknet_api::transaction::{
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
-use test_case::test_case;
 
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
@@ -786,9 +785,10 @@ fn assert_failure_if_resource_bounds_exceed_balance(
     };
 }
 
-#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
-#[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
-fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
+#[rstest]
+fn test_max_fee_exceeds_balance(
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -850,9 +850,10 @@ fn test_max_fee_exceeds_balance(account_cairo_version: CairoVersion) {
 }
 
 // TODO(Aner, 21/01/24) modify for 4844 (taking blob_gas into account).
-#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
-#[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
-fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
+#[rstest]
+fn test_insufficient_resource_bounds(
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -939,9 +940,10 @@ fn test_insufficient_resource_bounds(account_cairo_version: CairoVersion) {
 }
 
 // TODO(Aner, 21/01/24) modify test for 4844.
-#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
-#[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
-fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
+#[rstest]
+fn test_actual_fee_gt_resource_bounds(
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -970,9 +972,10 @@ fn test_actual_fee_gt_resource_bounds(account_cairo_version: CairoVersion) {
     assert_eq!(execution_result.actual_fee, minimal_fee);
 }
 
-#[test_case(CairoVersion::Cairo0; "With Cairo0 account")]
-#[test_case(CairoVersion::Cairo1; "With Cairo1 account")]
-fn test_invalid_nonce(account_cairo_version: CairoVersion) {
+#[rstest]
+fn test_invalid_nonce(
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
+) {
     let block_context = &BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -1206,10 +1209,8 @@ fn test_declare_tx(
 }
 
 #[rstest]
-#[case(CairoVersion::Cairo0)]
-#[case(CairoVersion::Cairo1)]
 fn test_deploy_account_tx(
-    #[case] cairo_version: CairoVersion,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
     #[values(false, true)] use_kzg_da: bool,
 ) {
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
@@ -1598,9 +1599,7 @@ fn test_valid_flag(
 
 // TODO(Noa,01/12/2023): Consider moving it to syscall_test.
 #[rstest]
-#[case(true)]
-#[case(false)]
-fn test_only_query_flag(#[case] only_query: bool) {
+fn test_only_query_flag(#[values(true, false)] only_query: bool) {
     let account_balance = BALANCE;
     let block_context = &BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
