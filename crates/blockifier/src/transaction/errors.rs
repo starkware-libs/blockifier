@@ -51,8 +51,6 @@ pub enum TransactionFeeError {
 
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
-    #[error("Transaction cannot be added to the current block, block capacity reached.")]
-    BlockFull,
     #[error(
         "Declare transaction version {declare_version:?} must have a contract class of Cairo \
          version {cairo_version:?}."
