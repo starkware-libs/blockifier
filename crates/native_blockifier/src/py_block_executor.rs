@@ -448,6 +448,7 @@ pub fn into_block_context_args(
             )?,
         },
         use_kzg_da: block_info.use_kzg_da,
+        concurrency_mode: block_info.concurrency_mode,
     };
 
     Ok((block_info, chain_info))

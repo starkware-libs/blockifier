@@ -25,6 +25,7 @@ pub struct BlockInfo {
     pub sequencer_address: ContractAddress,
     pub gas_prices: GasPrices,
     pub use_kzg_da: bool,
+    pub concurrency_mode: bool,
 }
 
 #[derive(Clone, Debug)]
