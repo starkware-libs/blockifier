@@ -132,6 +132,7 @@ pub struct PyBlockInfo {
     pub l1_data_gas_price: PyResourcePrice,
     pub sequencer_address: PyFelt,
     pub use_kzg_da: bool,
+    pub concurrency_mode: bool,
 }
 
 /// Block info cannot have gas prices set to zero; implement `Default` explicitly.
@@ -150,6 +151,7 @@ impl Default for PyBlockInfo {
             },
             sequencer_address: PyFelt::default(),
             use_kzg_da: bool::default(),
+            concurrency_mode: bool::default(),
         }
     }
 }

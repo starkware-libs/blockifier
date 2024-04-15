@@ -128,6 +128,7 @@ impl BlockInfo {
                 strk_l1_data_gas_price: DEFAULT_STRK_L1_DATA_GAS_PRICE.try_into().unwrap(),
             },
             use_kzg_da: false,
+            concurrency_mode: false,
         }
     }
 
