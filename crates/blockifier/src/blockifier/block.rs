@@ -80,7 +80,7 @@ pub fn pre_process_block(
         return Err(StateError::OldBlockHashNotProvided);
     }
 
-    Ok(BlockContext { block_info, chain_info, versioned_constants })
+    Ok(BlockContext { block_info, chain_info, versioned_constants, concurrency_mode: false })
 }
 
 pub struct BlockNumberHashPair {
