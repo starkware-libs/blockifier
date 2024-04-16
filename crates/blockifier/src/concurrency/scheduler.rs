@@ -1,4 +1,5 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cmp::min;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 use crate::concurrency::TxIndex;
@@ -20,6 +21,9 @@ pub struct Scheduler {
     n_active_tasks: AtomicUsize,
     chunk_size: usize,
     tx_statuses: Box<[Mutex<TransactionStatus>]>,
+    /// Updated by the `check_done` procedure, providing a cheap way for all threads to exit their
+    /// main loops.
+    done_marker: AtomicBool,
 }
 
 // TODO(Avi, 01/04/2024): Remove dead_code attribute.
@@ -35,12 +39,13 @@ impl Scheduler {
             tx_statuses: std::iter::repeat_with(|| Mutex::new(TransactionStatus::ReadyToExecute))
                 .take(chunk_size)
                 .collect(),
+            done_marker: AtomicBool::new(false),
         }
     }
 
     /// Returns the done marker.
     pub fn done(&self) -> bool {
-        todo!()
+        self.done_marker.load(Ordering::Acquire)
     }
 
     /// Checks if all transactions have been executed and validated.
@@ -48,8 +53,29 @@ impl Scheduler {
         todo!()
     }
 
-    pub fn next_task() -> Task {
-        todo!()
+    pub fn next_task(&self) -> Task {
+        if self.done() {
+            return Task::Done;
+        }
+
+        let index_to_validate = self.validation_index.load(Ordering::Acquire);
+        let index_to_execute = self.execution_index.load(Ordering::Acquire);
+
+        if min(index_to_validate, index_to_execute) >= self.chunk_size {
+            return Task::NoTask;
+        }
+
+        if index_to_validate < index_to_execute {
+            if let Some(tx_index) = self.next_version_to_validate() {
+                return Task::ValidationTask(tx_index);
+            }
+        }
+
+        if let Some(tx_index) = self.next_version_to_execute() {
+            return Task::ExecutionTask(tx_index);
+        }
+
+        Task::NoTask
     }
 
     // TODO(barak, 01/04/2024): Ensure documentation matches logic.
