@@ -24,6 +24,7 @@ pub struct BlockContext {
     pub(crate) block_info: BlockInfo,
     pub(crate) chain_info: ChainInfo,
     pub(crate) versioned_constants: VersionedConstants,
+    pub(crate) concurrency_mode: bool,
 }
 
 impl BlockContext {
@@ -39,6 +40,7 @@ impl BlockContext {
             block_info: block_info.clone(),
             chain_info: chain_info.clone(),
             versioned_constants: versioned_constants.clone(),
+            concurrency_mode: false,
         }
     }
 
@@ -52,6 +54,10 @@ impl BlockContext {
 
     pub fn versioned_constants(&self) -> &VersionedConstants {
         &self.versioned_constants
+    }
+
+    pub fn concurrency_mode(&self) -> bool {
+        self.concurrency_mode
     }
 }
 
