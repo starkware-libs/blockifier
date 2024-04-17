@@ -191,11 +191,11 @@ pub fn create_account_tx_for_validate_test(
             let class_info = calculate_class_info_for_testing(declared_contract.get_class());
             declare_tx(
                 declare_tx_args! {
-                    class_hash,
-                    sender_address,
-                    signature,
-                    nonce: nonce_manager.next(sender_address),
                     max_fee,
+                    signature,
+                    sender_address,
+                    nonce: nonce_manager.next(sender_address),
+                    class_hash,
                 },
                 class_info,
             )
@@ -209,11 +209,11 @@ pub fn create_account_tx_for_validate_test(
             })];
             let deploy_account_tx = deploy_account_tx(
                 deploy_account_tx_args! {
-                    class_hash,
-                    constructor_calldata,
-                    signature,
-                    contract_address_salt,
                     max_fee,
+                    signature,
+                    class_hash,
+                    contract_address_salt,
+                    constructor_calldata,
                 },
                 nonce_manager,
             );
@@ -222,12 +222,12 @@ pub fn create_account_tx_for_validate_test(
         TransactionType::InvokeFunction => {
             let execute_calldata = create_calldata(sender_address, "foo", &[]);
             let invoke_tx = invoke_tx(invoke_tx_args! {
+                max_fee,
                 signature,
                 sender_address,
                 calldata: execute_calldata,
                 version: TransactionVersion::ONE,
                 nonce: nonce_manager.next(sender_address),
-                max_fee,
             });
             AccountTransaction::Invoke(invoke_tx)
         }
