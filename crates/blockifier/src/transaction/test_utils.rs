@@ -128,6 +128,7 @@ pub fn create_test_init_data(chain_info: &ChainInfo, cairo_version: CairoVersion
 
 pub struct FaultyAccountTxCreatorArgs {
     pub tx_type: TransactionType,
+    pub tx_version: TransactionVersion,
     pub scenario: u64,
     // Should be None unless scenario is CALL_CONTRACT.
     pub additional_data: Option<Vec<StarkFelt>>,
@@ -146,6 +147,7 @@ impl Default for FaultyAccountTxCreatorArgs {
     fn default() -> Self {
         Self {
             tx_type: TransactionType::InvokeFunction,
+            tx_version: TransactionVersion::THREE,
             scenario: VALID,
             additional_data: None,
             sender_address: ContractAddress::default(),
@@ -166,6 +168,7 @@ pub fn create_account_tx_for_validate_test(
 ) -> AccountTransaction {
     let FaultyAccountTxCreatorArgs {
         tx_type,
+        tx_version,
         scenario,
         additional_data,
         sender_address,
@@ -194,6 +197,7 @@ pub fn create_account_tx_for_validate_test(
                     max_fee,
                     signature,
                     sender_address,
+                    version: tx_version,
                     nonce: nonce_manager.next(sender_address),
                     class_hash,
                 },
@@ -211,6 +215,7 @@ pub fn create_account_tx_for_validate_test(
                 deploy_account_tx_args! {
                     max_fee,
                     signature,
+                    version: tx_version,
                     class_hash,
                     contract_address_salt,
                     constructor_calldata,
@@ -226,7 +231,7 @@ pub fn create_account_tx_for_validate_test(
                 signature,
                 sender_address,
                 calldata: execute_calldata,
-                version: TransactionVersion::ONE,
+                version: tx_version,
                 nonce: nonce_manager.next(sender_address),
             });
             AccountTransaction::Invoke(invoke_tx)
