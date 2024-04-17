@@ -123,7 +123,7 @@ impl<S: StateReader> VersionedState<S> {
     }
 }
 
-pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
+pub struct ThreadSafeVersionedState<S: StateReader>(pub(crate) Arc<Mutex<VersionedState<S>>>);
 
 impl<S: StateReader> ThreadSafeVersionedState<S> {
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
