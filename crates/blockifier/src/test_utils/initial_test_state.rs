@@ -17,9 +17,9 @@ pub fn fund_account(
     chain_info: &ChainInfo,
     account_address: ContractAddress,
     initial_balance: u128,
-    state: &mut CachedState<DictStateReader>,
+    state_reader: &mut DictStateReader,
 ) {
-    let storage_view = &mut state.state.storage_view;
+    let storage_view = &mut state_reader.storage_view;
     let balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
         storage_view.insert(
@@ -63,11 +63,8 @@ pub fn test_state(
         }
     }
 
-    let mut state = CachedState::from(DictStateReader {
-        address_to_class_hash,
-        class_hash_to_class,
-        ..Default::default()
-    });
+    let mut state_reader =
+        DictStateReader { address_to_class_hash, class_hash_to_class, ..Default::default() };
 
     // fund the accounts.
     for (contract, n_instances) in contract_instances.iter() {
@@ -77,12 +74,12 @@ pub fn test_state(
                 FeatureContract::AccountWithLongValidate(_)
                 | FeatureContract::AccountWithoutValidations(_)
                 | FeatureContract::FaultyAccount(_) => {
-                    fund_account(chain_info, instance_address, initial_balances, &mut state);
+                    fund_account(chain_info, instance_address, initial_balances, &mut state_reader);
                 }
                 _ => (),
             }
         }
     }
 
-    state
+    CachedState::from(state_reader)
 }
