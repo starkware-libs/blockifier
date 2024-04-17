@@ -1401,12 +1401,16 @@ fn test_fail_deploy_account_undeclared_class_hash(block_context: BlockContext) {
     );
 }
 
-// TODO(Arni, 1/1/2024): Consider converting this test to use V3 txs.
+// TODO(Arni, 1/5/2024): Cover other versions of declare transaction.
+// TODO(Arni, 1/5/2024): Consider version 0 invoke.
 #[rstest]
-#[case::validate(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
-#[case::validate_declare(TransactionType::Declare, false, TransactionVersion::ONE)]
-#[case::validate_deploy(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
-#[case::constructor(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
+#[case::validate_version_1(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
+#[case::validate_version_3(TransactionType::InvokeFunction, false, TransactionVersion::THREE)]
+#[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::ONE)]
+#[case::validate_deploy_version_1(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
+#[case::validate_deploy_version_3(TransactionType::DeployAccount, false, TransactionVersion::THREE)]
+#[case::constructor_version_1(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
+#[case::constructor_version_3(TransactionType::DeployAccount, true, TransactionVersion::THREE)]
 fn test_validate_accounts_tx(
     block_context: BlockContext,
     #[case] tx_type: TransactionType,
