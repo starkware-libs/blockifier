@@ -1,6 +1,6 @@
 use std::cmp::min;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use crate::concurrency::TxIndex;
 
@@ -68,6 +68,16 @@ impl Scheduler {
         assert!(previous_n_active_tasks > 0, "n_active_tasks underflow");
     }
 
+    fn lock_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {
+        self.tx_statuses[tx_index].lock().unwrap_or_else(|error| {
+            panic!(
+                "Status of transaction index {} is poisoned. Data: {:?}.",
+                tx_index,
+                *error.get_ref()
+            )
+        })
+    }
+
     pub fn next_task(&self) -> Task {
         if self.done() {
             return Task::Done;
@@ -128,8 +138,11 @@ impl Scheduler {
     /// Updates a transaction's status to `Executing` if it is ready to execute.
     fn try_incarnate(&self, tx_index: TxIndex) -> Option<TxIndex> {
         if tx_index < self.chunk_size {
-            // TODO(barak, 01/04/2024): complete try_incarnate logic.
-            return Some(tx_index);
+            let mut status = self.lock_tx_status(tx_index);
+            if *status == TransactionStatus::ReadyToExecute {
+                *status = TransactionStatus::Executing;
+                return Some(tx_index);
+            }
         }
         self.safe_decrement_n_active_tasks();
         None
@@ -144,8 +157,10 @@ impl Scheduler {
         self.n_active_tasks.fetch_add(1, Ordering::SeqCst);
         let index_to_validate = self.validation_index.fetch_add(1, Ordering::SeqCst);
         if index_to_validate < self.chunk_size {
-            // TODO(barak, 01/04/2024): complete next_version_to_validate logic.
-            return Some(index_to_validate);
+            let status = self.lock_tx_status(index_to_validate);
+            if *status == TransactionStatus::Executed {
+                return Some(index_to_validate);
+            }
         }
         self.safe_decrement_n_active_tasks();
         None
