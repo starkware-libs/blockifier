@@ -1403,14 +1403,15 @@ fn test_fail_deploy_account_undeclared_class_hash(block_context: BlockContext) {
 
 // TODO(Arni, 1/1/2024): Consider converting this test to use V3 txs.
 #[rstest]
-#[case::validate(TransactionType::InvokeFunction, false)]
-#[case::validate_declare(TransactionType::Declare, false)]
-#[case::validate_deploy(TransactionType::DeployAccount, false)]
-#[case::constructor(TransactionType::DeployAccount, true)]
+#[case::validate(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
+#[case::validate_declare(TransactionType::Declare, false, TransactionVersion::ONE)]
+#[case::validate_deploy(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
+#[case::constructor(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
 fn test_validate_accounts_tx(
     block_context: BlockContext,
     #[case] tx_type: TransactionType,
     #[case] validate_constructor: bool,
+    #[case] tx_version: TransactionVersion,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let block_context = &block_context;
@@ -1423,6 +1424,7 @@ fn test_validate_accounts_tx(
 
     let default_args = FaultyAccountTxCreatorArgs {
         tx_type,
+        tx_version,
         sender_address,
         class_hash,
         validate_constructor,
