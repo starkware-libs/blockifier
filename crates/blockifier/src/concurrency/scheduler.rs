@@ -8,8 +8,6 @@ use crate::concurrency::TxIndex;
 #[path = "scheduler_test.rs"]
 pub mod test;
 
-// TODO(Avi, 01/04/2024): Remove dead_code attribute.
-#[allow(dead_code)]
 #[derive(Debug, Default)]
 pub struct Scheduler {
     execution_index: AtomicUsize,
@@ -27,8 +25,6 @@ pub struct Scheduler {
     done_marker: AtomicBool,
 }
 
-// TODO(Avi, 01/04/2024): Remove dead_code attribute.
-#[allow(dead_code)]
 impl Scheduler {
     pub fn new(chunk_size: usize) -> Scheduler {
         Scheduler {
@@ -171,14 +167,6 @@ impl Scheduler {
         }
     }
 
-    fn decrease_execution_index(&self, target_index: TxIndex) {
-        let previous_execution_index =
-            self.execution_index.fetch_min(target_index, Ordering::SeqCst);
-        if target_index < previous_execution_index {
-            self.decrease_counter.fetch_add(1, Ordering::SeqCst);
-        }
-    }
-
     /// Updates a transaction's status to `Executing` if it is ready to execute.
     fn try_incarnate(&self, tx_index: TxIndex) -> bool {
         if tx_index < self.chunk_size {
@@ -241,8 +229,6 @@ pub enum Task {
     Done,
 }
 
-// TODO(Barak, 01/04/2024): Remove dead_code attribute.
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum TransactionStatus {
     ReadyToExecute,
