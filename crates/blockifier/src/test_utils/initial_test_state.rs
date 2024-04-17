@@ -29,7 +29,7 @@ pub fn fund_account(
     }
 }
 
-/// Initializes a state for testing:
+/// Initializes a state reader for testing:
 /// * "Declares" a Cairo0 account and a Cairo0 ERC20 contract (class hash => class mapping set).
 /// * "Deploys" two ERC20 contracts (address => class hash mapping set) at the fee token addresses
 ///   on the input block context.
@@ -37,11 +37,11 @@ pub fn fund_account(
 /// * "Declares" the input list of contracts.
 /// * "Deploys" the requested number of instances of each input contract.
 /// * Makes each input account contract privileged.
-pub fn test_state(
+pub fn test_state_reader(
     chain_info: &ChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u16)],
-) -> CachedState<DictStateReader> {
+) -> DictStateReader {
     let mut class_hash_to_class = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
 
@@ -81,5 +81,21 @@ pub fn test_state(
         }
     }
 
-    CachedState::from(state_reader)
+    state_reader
+}
+
+/// Initializes a state for testing:
+/// * "Declares" a Cairo0 account and a Cairo0 ERC20 contract (class hash => class mapping set).
+/// * "Deploys" two ERC20 contracts (address => class hash mapping set) at the fee token addresses
+///   on the input block context.
+/// * Makes the Cairo0 account privileged (minter on both tokens, funded in both tokens).
+/// * "Declares" the input list of contracts.
+/// * "Deploys" the requested number of instances of each input contract.
+/// * Makes each input account contract privileged.
+pub fn test_state(
+    chain_info: &ChainInfo,
+    initial_balances: u128,
+    contract_instances: &[(FeatureContract, u16)],
+) -> CachedState<DictStateReader> {
+    CachedState::from(test_state_reader(chain_info, initial_balances, contract_instances))
 }
