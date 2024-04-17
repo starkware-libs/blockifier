@@ -1005,12 +1005,25 @@ Execution failed. Failure reason: {expected_error}.
 }
 
 #[rstest]
-#[case::validate(TransactionType::InvokeFunction, VALIDATE_ENTRY_POINT_NAME)]
-#[case::validate_declare(TransactionType::Declare, VALIDATE_DECLARE_ENTRY_POINT_NAME)]
-#[case::validate_deploy(TransactionType::DeployAccount, VALIDATE_DEPLOY_ENTRY_POINT_NAME)]
+#[case::validate(
+    TransactionType::InvokeFunction,
+    VALIDATE_ENTRY_POINT_NAME,
+    TransactionVersion::ONE
+)]
+#[case::validate_declare(
+    TransactionType::Declare,
+    VALIDATE_DECLARE_ENTRY_POINT_NAME,
+    TransactionVersion::ONE
+)]
+#[case::validate_deploy(
+    TransactionType::DeployAccount,
+    VALIDATE_DEPLOY_ENTRY_POINT_NAME,
+    TransactionVersion::ONE
+)]
 fn test_validate_trace(
     #[case] tx_type: TransactionType,
     #[case] entry_point_name: &str,
+    #[case] tx_version: TransactionVersion,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let create_for_account_testing = &BlockContext::create_for_account_testing();
@@ -1027,6 +1040,7 @@ fn test_validate_trace(
         FaultyAccountTxCreatorArgs {
             scenario: INVALID,
             tx_type,
+            tx_version,
             sender_address,
             class_hash,
             ..Default::default()

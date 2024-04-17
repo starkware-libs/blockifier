@@ -490,6 +490,7 @@ fn test_fail_deploy_account(
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             tx_type: TransactionType::DeployAccount,
+            tx_version: TransactionVersion::ONE,
             scenario: INVALID,
             class_hash: faulty_account_feature_contract.get_class_hash(),
             max_fee: Fee(BALANCE),
