@@ -104,20 +104,62 @@ impl Scheduler {
         Task::NoTask
     }
 
-    // TODO(barak, 01/04/2024): Ensure documentation matches logic.
+    fn set_executed_status(&self, tx_index: TxIndex) {
+        let mut status = self.lock_tx_status(tx_index);
+        assert_eq!(
+            *status,
+            TransactionStatus::Executing,
+            "Only executing transactions can gain status executed. Transaction {tx_index} is not \
+             executing. Transaction status: {status:?}."
+        );
+        *status = TransactionStatus::Executed;
+    }
+
+    fn set_ready_status(&self, tx_index: TxIndex) {
+        let mut status = self.lock_tx_status(tx_index);
+        assert_eq!(
+            *status,
+            TransactionStatus::Aborting,
+            "Only aborting transactions can be re-executed. Transaction {tx_index} is not \
+             aborting. Transaction status: {status:?}."
+        );
+        *status = TransactionStatus::ReadyToExecute;
+    }
+
     /// Updates the Scheduler that an execution task has been finished and triggers the creation of
     /// new tasks accordingly: schedules validation for the current and higher transactions, if not
     /// already scheduled.
-    pub fn finish_execution(&self) -> Task {
-        todo!()
+    pub fn finish_execution(&self, tx_index: TxIndex) {
+        self.set_executed_status(tx_index);
+        if self.validation_index.load(Ordering::Acquire) > tx_index {
+            self.decrease_validation_index(tx_index);
+        }
+        self.safe_decrement_n_active_tasks();
     }
 
-    // TODO(barak, 01/04/2024): Ensure documentation matches logic.
+    pub fn try_validation_abort(&self, tx_index: TxIndex) -> bool {
+        let mut status = self.lock_tx_status(tx_index);
+        if *status == TransactionStatus::Executed {
+            *status = TransactionStatus::Aborting;
+            return true;
+        }
+        false
+    }
+
     /// Updates the Scheduler that a validation task has been finished and triggers the creation of
     /// new tasks in case of failure: schedules validation for higher transactions + re-executes the
     /// current transaction (if ready).
-    pub fn finish_validation(&self) -> Task {
-        todo!()
+    pub fn finish_validation(&self, tx_index: TxIndex, aborted: bool) -> Option<Task> {
+        if aborted {
+            self.set_ready_status(tx_index);
+            if self.execution_index.load(Ordering::Acquire) > tx_index
+                && self.try_incarnate(tx_index).is_some()
+            {
+                return Some(Task::ExecutionTask(tx_index));
+            }
+        }
+        self.safe_decrement_n_active_tasks();
+        None
     }
 
     fn decrease_validation_index(&self, target_index: TxIndex) {
