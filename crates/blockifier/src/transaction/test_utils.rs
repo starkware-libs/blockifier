@@ -189,7 +189,12 @@ pub fn create_account_tx_for_validate_test(
     match tx_type {
         TransactionType::Declare => {
             // It does not matter which class is declared for this test.
-            let declared_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+            let declared_contract_cairo_version = match tx_version {
+                TransactionVersion::ZERO | TransactionVersion::ONE => CairoVersion::Cairo0,
+                TransactionVersion::TWO | TransactionVersion::THREE => CairoVersion::Cairo1,
+                _ => panic!("Transaction version {:?} is not supported.", tx_version),
+            };
+            let declared_contract = FeatureContract::TestContract(declared_contract_cairo_version);
             let class_hash = declared_contract.get_class_hash();
             let class_info = calculate_class_info_for_testing(declared_contract.get_class());
             declare_tx(
