@@ -93,20 +93,51 @@ impl Scheduler {
         Task::NoTask
     }
 
+    fn set_ready_status(&self, tx_index: TxIndex) {
+        let mut status = self.tx_statuses[tx_index].lock().unwrap();
+        assert_eq!(*status, TransactionStatus::Aborting, "Transaction not aborting");
+        *status = TransactionStatus::ReadyToExecute;
+    }
+
     // TODO(barak, 01/04/2024): Ensure documentation matches logic.
     /// Updates the Scheduler that an execution task has been finished and triggers the creation of
     /// new tasks accordingly: schedules validation for the current and higher transactions, if not
     /// already scheduled.
-    pub fn finish_execution(&self) -> Task {
-        todo!()
+    pub fn finish_execution(&self, tx_index: TxIndex) {
+        let mut status = self.tx_statuses[tx_index].lock().unwrap();
+        assert_eq!(*status, TransactionStatus::Executing, "Transaction not executing");
+        *status = TransactionStatus::Executed;
+        if self.validation_index.load(Ordering::Acquire) > tx_index {
+            self.decrease_validation_index(tx_index);
+        }
+        self.safe_decrement_n_active_tasks();
+    }
+
+    pub fn try_validation_abort(&self, tx_index: TxIndex) -> bool {
+        let mut status = self.tx_statuses[tx_index].lock().unwrap();
+        if *status == TransactionStatus::Executed {
+            *status = TransactionStatus::Aborting;
+            return true;
+        }
+        false
     }
 
     // TODO(barak, 01/04/2024): Ensure documentation matches logic.
     /// Updates the Scheduler that a validation task has been finished and triggers the creation of
     /// new tasks in case of failure: schedules validation for higher transactions + re-executes the
     /// current transaction (if ready).
-    pub fn finish_validation(&self) -> Task {
-        todo!()
+    pub fn finish_validation(&self, tx_index: TxIndex, aborted: bool) -> Option<Task> {
+        if aborted {
+            self.set_ready_status(tx_index);
+            if self.execution_index.load(Ordering::Acquire) > tx_index {
+                let new_version = self.try_incarnate(tx_index);
+                if new_version.is_some() {
+                    return Some(Task::ExecutionTask(tx_index));
+                }
+            }
+        }
+        self.safe_decrement_n_active_tasks();
+        None
     }
 
     fn decrease_validation_index(&self, target_index: TxIndex) {
