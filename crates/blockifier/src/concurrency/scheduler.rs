@@ -123,8 +123,11 @@ impl Scheduler {
     /// Updates a transaction's status to `Executing` if it is ready to execute.
     fn try_incarnate(&self, tx_index: TxIndex) -> Option<TxIndex> {
         if tx_index < self.chunk_size {
-            // TODO(barak, 01/04/2024): complete try_incarnate logic.
-            return Some(tx_index);
+            let mut status = self.tx_statuses[tx_index].try_lock().unwrap();
+            if *status == TransactionStatus::ReadyToExecute {
+                *status = TransactionStatus::Executing;
+                return Some(tx_index);
+            }
         }
         let previous_n_active_tasks = self.n_active_tasks.fetch_sub(1, Ordering::SeqCst);
         assert!(previous_n_active_tasks > 0, "n_active_tasks underflowed");
@@ -140,8 +143,10 @@ impl Scheduler {
         self.n_active_tasks.fetch_add(1, Ordering::SeqCst);
         let index_to_validate = self.validation_index.fetch_add(1, Ordering::SeqCst);
         if index_to_validate < self.chunk_size {
-            // TODO(barak, 01/04/2024): complete next_version_to_validate logic.
-            return Some(index_to_validate);
+            let status = self.tx_statuses[index_to_validate].try_lock().unwrap();
+            if *status == TransactionStatus::Executed {
+                return Some(index_to_validate);
+            }
         }
         let previous_n_active_tasks = self.n_active_tasks.fetch_sub(1, Ordering::SeqCst);
         assert!(previous_n_active_tasks > 0, "n_active_tasks underflowed");

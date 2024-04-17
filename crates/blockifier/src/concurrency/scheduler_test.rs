@@ -64,6 +64,10 @@ fn test_next_task(
         validation_index: validation_index,
         done_marker: done_marker,
     );
+    if validation_index < execution_index && validation_index < DEFAULT_CHUNK_SIZE {
+        let mut status = scheduler.tx_statuses[validation_index].lock().unwrap();
+        *status = TransactionStatus::Executed;
+    }
     let next_task = scheduler.next_task();
     assert_eq!(next_task, expected_next_task);
     assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), expected_n_active_tasks);
@@ -106,45 +110,69 @@ fn test_decrease_execution_index(
 }
 
 #[rstest]
-#[case::ready(1, Some(1), 1)]
-#[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, None, 0)]
+#[case::ready(1, Some(TransactionStatus::ReadyToExecute), Some(1), 1)]
+#[case::executed(1, Some(TransactionStatus::Executing), None, 0)]
+#[case::executed(1, Some(TransactionStatus::Executed), None, 0)]
+#[case::aborting(1, Some(TransactionStatus::Aborting), None, 0)]
+#[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, None, None, 0)]
 fn test_try_incarnate(
     #[case] tx_index: usize,
+    #[case] tx_status: Option<TransactionStatus>,
     #[case] expected_output: Option<usize>,
     #[case] expected_n_active_tasks: usize,
 ) {
     let scheduler = default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, n_active_tasks: 1);
+    if let Some(tx_status) = tx_status {
+        let mut status = scheduler.tx_statuses[tx_index].lock().unwrap();
+        *status = tx_status;
+    }
     assert_eq!(scheduler.try_incarnate(tx_index), expected_output);
     assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), expected_n_active_tasks);
 }
 
 #[rstest]
-#[case::some(1, Some(1), 2, 1)]
-#[case::none(DEFAULT_CHUNK_SIZE, None, DEFAULT_CHUNK_SIZE, 0)]
+#[case::ready(1, Some(TransactionStatus::ReadyToExecute), None, 2, 0)]
+#[case::executed(1, Some(TransactionStatus::Executing), None, 2, 0)]
+#[case::executed(1, Some(TransactionStatus::Executed), Some(1), 2, 1)]
+#[case::aborting(1, Some(TransactionStatus::Aborting), None, 2, 0)]
+#[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, None, None, DEFAULT_CHUNK_SIZE, 0)]
 fn test_next_version_to_validate(
     #[case] validation_index: usize,
+    #[case] tx_status: Option<TransactionStatus>,
     #[case] expected_output: Option<usize>,
     #[case] expected_validation_index: usize,
     #[case] expected_n_active_tasks: usize,
 ) {
     let scheduler =
         default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, validation_index: validation_index);
+    if let Some(tx_status) = tx_status {
+        let mut status = scheduler.tx_statuses[validation_index].lock().unwrap();
+        *status = tx_status;
+    }
     assert_eq!(scheduler.next_version_to_validate(), expected_output);
     assert_eq!(scheduler.validation_index.load(Ordering::Acquire), expected_validation_index);
     assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), expected_n_active_tasks);
 }
 
 #[rstest]
-#[case::some(1, Some(1), 2, 1)]
-#[case::none(DEFAULT_CHUNK_SIZE, None, DEFAULT_CHUNK_SIZE, 0)]
+#[case::ready(1, Some(TransactionStatus::ReadyToExecute), Some(1), 2, 1)]
+#[case::executed(1, Some(TransactionStatus::Executing), None, 2, 0)]
+#[case::executed(1, Some(TransactionStatus::Executed), None, 2, 0)]
+#[case::aborting(1, Some(TransactionStatus::Aborting), None, 2, 0)]
+#[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, None, None, DEFAULT_CHUNK_SIZE, 0)]
 fn test_next_version_to_execute(
     #[case] execution_index: usize,
+    #[case] tx_status: Option<TransactionStatus>,
     #[case] expected_output: Option<usize>,
     #[case] expected_execution_index: usize,
     #[case] expected_n_active_tasks: usize,
 ) {
     let scheduler =
         default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, execution_index: execution_index);
+    if let Some(tx_status) = tx_status {
+        let mut status = scheduler.tx_statuses[execution_index].lock().unwrap();
+        *status = tx_status;
+    }
     assert_eq!(scheduler.next_version_to_execute(), expected_output);
     assert_eq!(scheduler.execution_index.load(Ordering::Acquire), expected_execution_index);
     assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), expected_n_active_tasks);
