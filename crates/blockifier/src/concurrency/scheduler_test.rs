@@ -119,6 +119,107 @@ fn test_next_task(
 }
 
 #[rstest]
+#[case::reduces_validation_index(0, TransactionStatus::Executing, 5, 10)]
+#[case::does_not_reduce_validation_index(10, TransactionStatus::Executing, 5, 0)]
+#[should_panic(expected = "Only executing transactions can gain status executed. Transaction 0 \
+                           is not executing. Transaction status: ReadyToExecute.")]
+#[case::wrong_status_ready(0, TransactionStatus::ReadyToExecute, 5, 0)]
+#[should_panic(expected = "Only executing transactions can gain status executed. Transaction 0 \
+                           is not executing. Transaction status: Executed.")]
+#[case::wrong_status_executed(0, TransactionStatus::Executed, 5, 0)]
+#[should_panic(expected = "Only executing transactions can gain status executed. Transaction 0 \
+                           is not executing. Transaction status: Aborting.")]
+#[case::wrong_status_aborting(0, TransactionStatus::Aborting, 5, 0)]
+fn test_finish_execution(
+    #[case] tx_index: usize,
+    #[case] tx_status: TransactionStatus,
+    #[case] n_active_tasks: usize,
+    #[case] validation_index: usize,
+) {
+    let scheduler = default_scheduler!(
+        chunk_size: DEFAULT_CHUNK_SIZE,
+        validation_index: validation_index,
+        n_active_tasks: n_active_tasks,
+    );
+    scheduler.set_tx_status(tx_index, tx_status);
+    scheduler.finish_execution(tx_index);
+    assert_eq!(*scheduler.lock_tx_status(tx_index), TransactionStatus::Executed);
+    assert_eq!(scheduler.validation_index.load(Ordering::Acquire), min(tx_index, validation_index));
+    assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), n_active_tasks - 1);
+}
+
+#[rstest]
+#[case::abort_validation(TransactionStatus::Executed, true)]
+#[case::wrong_status_ready(TransactionStatus::ReadyToExecute, false)]
+#[case::wrong_status_executing(TransactionStatus::Executing, false)]
+#[case::wrong_status_aborted(TransactionStatus::Aborting, false)]
+fn test_try_validation_abort(
+    #[case] target_status: TransactionStatus,
+    #[case] expected_result: bool,
+) {
+    let scheduler = Scheduler::new(DEFAULT_CHUNK_SIZE);
+    scheduler.set_tx_status(0, target_status);
+    let result = scheduler.try_validation_abort(0);
+    assert_eq!(result, expected_result);
+    if result {
+        assert_eq!(*scheduler.lock_tx_status(0), TransactionStatus::Aborting);
+    }
+}
+
+#[rstest]
+#[case::not_aborted(0, TransactionStatus::Executed, 3, 10, false, None)]
+#[case::returns_execution_task(
+    0,
+    TransactionStatus::Aborting,
+    5,
+    10,
+    true,
+    Some(Task::ExecutionTask(0))
+)]
+#[case::does_not_return_validation_task(10, TransactionStatus::Aborting, 5, 0, true, None)]
+#[should_panic(expected = "Only aborting transactions can be re-executed. Transaction 0 is not \
+                           aborting. Transaction status: ReadyToExecute.")]
+#[case::wrong_status_ready(0, TransactionStatus::ReadyToExecute, 5, 0, true, None)]
+#[should_panic(expected = "Only aborting transactions can be re-executed. Transaction 0 is not \
+                           aborting. Transaction status: Executed.")]
+#[case::wrong_status_executed(0, TransactionStatus::Executed, 5, 0, true, None)]
+#[should_panic(expected = "Only aborting transactions can be re-executed. Transaction 0 is not \
+                           aborting. Transaction status: Executing.")]
+#[case::wrong_status_executing(0, TransactionStatus::Executing, 5, 0, true, None)]
+fn test_finish_validation(
+    #[case] tx_index: usize,
+    #[case] tx_status: TransactionStatus,
+    #[case] n_active_tasks: usize,
+    #[case] execution_index: usize,
+    #[case] aborted: bool,
+    #[case] expected_result: Option<Task>,
+) {
+    let scheduler = default_scheduler!(
+        chunk_size: DEFAULT_CHUNK_SIZE,
+        execution_index: execution_index,
+        n_active_tasks: n_active_tasks,
+    );
+    scheduler.set_tx_status(tx_index, tx_status);
+    let result = scheduler.finish_validation(tx_index, aborted);
+    assert_eq!(result, expected_result);
+    let new_status = scheduler.lock_tx_status(tx_index);
+    let new_n_active_tasks = scheduler.n_active_tasks.load(Ordering::Acquire);
+    if !aborted {
+        assert!(result.is_none());
+        assert_eq!(new_n_active_tasks, n_active_tasks - 1);
+        assert_eq!(*new_status, TransactionStatus::Executed);
+    } else if execution_index > tx_index {
+        assert!(result.is_some());
+        assert_eq!(new_n_active_tasks, n_active_tasks);
+        assert_eq!(*new_status, TransactionStatus::Executing);
+    } else {
+        assert!(result.is_none());
+        assert_eq!(new_n_active_tasks, n_active_tasks - 1);
+        assert_eq!(*new_status, TransactionStatus::ReadyToExecute);
+    }
+}
+
+#[rstest]
 #[case::target_index_lt_validation_index(1, 3)]
 #[case::target_index_eq_validation_index(3, 3)]
 #[case::target_index_eq_validation_index_eq_zero(0, 0)]
