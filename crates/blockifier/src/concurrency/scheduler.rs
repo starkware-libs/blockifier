@@ -128,8 +128,12 @@ impl Scheduler {
     /// Updates a transaction's status to `Executing` if it is ready to execute.
     fn try_incarnate(&self, tx_index: TxIndex) -> Option<TxIndex> {
         if tx_index < self.chunk_size {
-            // TODO(barak, 01/04/2024): complete try_incarnate logic.
-            return Some(tx_index);
+            let mut status =
+                self.tx_statuses[tx_index].lock().expect("Transaction status is poisoned.");
+            if *status == TransactionStatus::ReadyToExecute {
+                *status = TransactionStatus::Executing;
+                return Some(tx_index);
+            }
         }
         self.safe_decrement_n_active_tasks();
         None
@@ -144,8 +148,12 @@ impl Scheduler {
         self.n_active_tasks.fetch_add(1, Ordering::SeqCst);
         let index_to_validate = self.validation_index.fetch_add(1, Ordering::SeqCst);
         if index_to_validate < self.chunk_size {
-            // TODO(barak, 01/04/2024): complete next_version_to_validate logic.
-            return Some(index_to_validate);
+            let status = self.tx_statuses[index_to_validate]
+                .lock()
+                .expect("Transaction status is poisoned.");
+            if *status == TransactionStatus::Executed {
+                return Some(index_to_validate);
+            }
         }
         self.safe_decrement_n_active_tasks();
         None
