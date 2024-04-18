@@ -9,6 +9,7 @@ use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult};
 
 #[cfg(test)]
@@ -27,6 +28,10 @@ pub struct VersionedState<S: StateReader> {
     nonces: VersionedStorage<ContractAddress, Nonce>,
     class_hashes: VersionedStorage<ContractAddress, ClassHash>,
     compiled_class_hashes: VersionedStorage<ClassHash, CompiledClassHash>,
+    // For each key in declared_contracts with value True, the key have to appear in
+    // compiled_contract_classes. For each key in declared_contracts with value False, the key
+    // sohuld not apprear in compiled_contract_classes.
+    declared_contracts: VersionedStorage<ClassHash, bool>,
     compiled_contract_classes: VersionedStorage<ClassHash, ContractClass>,
 }
 
@@ -39,6 +44,7 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: VersionedStorage::default(),
             compiled_class_hashes: VersionedStorage::default(),
             compiled_contract_classes: VersionedStorage::default(),
+            declared_contracts: VersionedStorage::default(),
         }
     }
 
@@ -135,6 +141,9 @@ impl<S: StateReader> VersionedState<S> {
         for (&key, &value) in &writes.compiled_class_hashes {
             self.compiled_class_hashes.write(tx_index, key, value);
         }
+        for (&key, &value) in &writes.declared_contracts {
+            self.declared_contracts.write(tx_index, key, value);
+        }
         for (&key, value) in class_hash_to_class {
             self.compiled_contract_classes.write(tx_index, key, value.clone());
         }
@@ -230,13 +239,20 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
         let mut state = self.state();
         match state.compiled_contract_classes.read(self.tx_index, class_hash) {
             Some(value) => Ok(value),
-            None => {
-                let initial_value = state.initial_state.get_compiled_contract_class(class_hash)?;
-                state
-                    .compiled_contract_classes
-                    .set_initial_value(class_hash, initial_value.clone());
-                Ok(initial_value)
-            }
+            None => match state.initial_state.get_compiled_contract_class(class_hash) {
+                Ok(initial_value) => {
+                    state.declared_contracts.set_initial_value(class_hash, true);
+                    state
+                        .compiled_contract_classes
+                        .set_initial_value(class_hash, initial_value.clone());
+                    Ok(initial_value)
+                }
+                Err(StateError::UndeclaredClassHash(class_hash)) => {
+                    state.declared_contracts.set_initial_value(class_hash, false);
+                    Err(StateError::UndeclaredClassHash(class_hash))?
+                }
+                Err(error) => Err(error)?,
+            },
         }
     }
 }
