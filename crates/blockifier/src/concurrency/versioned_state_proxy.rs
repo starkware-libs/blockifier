@@ -9,6 +9,7 @@ use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult};
 
 #[cfg(test)]
@@ -28,6 +29,7 @@ pub struct VersionedState<S: StateReader> {
     class_hashes: VersionedStorage<ContractAddress, ClassHash>,
     compiled_class_hashes: VersionedStorage<ClassHash, CompiledClassHash>,
     compiled_contract_classes: VersionedStorage<ClassHash, ContractClass>,
+    declared_contracts: VersionedStorage<ClassHash, bool>,
 }
 
 impl<S: StateReader> VersionedState<S> {
@@ -39,6 +41,7 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: VersionedStorage::default(),
             compiled_class_hashes: VersionedStorage::default(),
             compiled_contract_classes: VersionedStorage::default(),
+            declared_contracts: VersionedStorage::default(),
         }
     }
 
@@ -230,13 +233,21 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
         let mut state = self.state();
         match state.compiled_contract_classes.read(self.tx_index, class_hash) {
             Some(value) => Ok(value),
-            None => {
-                let initial_value = state.initial_state.get_compiled_contract_class(class_hash)?;
-                state
-                    .compiled_contract_classes
-                    .set_initial_value(class_hash, initial_value.clone());
-                Ok(initial_value)
-            }
+            None => match state.initial_state.get_compiled_contract_class(class_hash) {
+                Ok(initial_value) => {
+                    let initial_value = initial_value;
+                    state.declared_contracts.set_initial_value(class_hash, true);
+                    state
+                        .compiled_contract_classes
+                        .set_initial_value(class_hash, initial_value.clone());
+                    Ok(initial_value)
+                }
+                Err(StateError::UndeclaredClassHash(class_hash)) => {
+                    state.declared_contracts.set_initial_value(class_hash, false);
+                    Err(StateError::UndeclaredClassHash(class_hash))?
+                }
+                Err(error) => Err(error)?,
+            },
         }
     }
 }
