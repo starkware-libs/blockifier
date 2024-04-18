@@ -1004,21 +1004,43 @@ Execution failed. Failure reason: {expected_error}.
     assert_eq!(tx_execution_error.to_string(), expected_trace);
 }
 
+// TODO(Arni, 1/5/2024): Cover version 0 declare transaction.
+// TODO(Arni, 1/5/2024): Consider version 0 invoke.
 #[rstest]
-#[case::validate(
+#[case::validate_version_1(
     TransactionType::InvokeFunction,
     VALIDATE_ENTRY_POINT_NAME,
     TransactionVersion::ONE
 )]
-#[case::validate_declare(
+#[case::validate_version_3(
+    TransactionType::InvokeFunction,
+    VALIDATE_ENTRY_POINT_NAME,
+    TransactionVersion::THREE
+)]
+#[case::validate_declare_version_1(
     TransactionType::Declare,
     VALIDATE_DECLARE_ENTRY_POINT_NAME,
     TransactionVersion::ONE
 )]
-#[case::validate_deploy(
+#[case::validate_declare_version_2(
+    TransactionType::Declare,
+    VALIDATE_DECLARE_ENTRY_POINT_NAME,
+    TransactionVersion::TWO
+)]
+#[case::validate_declare_version_3(
+    TransactionType::Declare,
+    VALIDATE_DECLARE_ENTRY_POINT_NAME,
+    TransactionVersion::THREE
+)]
+#[case::validate_deploy_version_1(
     TransactionType::DeployAccount,
     VALIDATE_DEPLOY_ENTRY_POINT_NAME,
     TransactionVersion::ONE
+)]
+#[case::validate_deploy_version_3(
+    TransactionType::DeployAccount,
+    VALIDATE_DEPLOY_ENTRY_POINT_NAME,
+    TransactionVersion::THREE
 )]
 fn test_validate_trace(
     #[case] tx_type: TransactionType,

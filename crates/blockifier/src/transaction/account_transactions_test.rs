@@ -480,6 +480,7 @@ fn test_revert_invoke(
 fn test_fail_deploy_account(
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+    #[values(TransactionVersion::ONE, TransactionVersion::THREE)] tx_version: TransactionVersion,
 ) {
     let chain_info = &block_context.chain_info;
     let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
@@ -490,7 +491,7 @@ fn test_fail_deploy_account(
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             tx_type: TransactionType::DeployAccount,
-            tx_version: TransactionVersion::ONE,
+            tx_version,
             scenario: INVALID,
             class_hash: faulty_account_feature_contract.get_class_hash(),
             max_fee: Fee(BALANCE),
