@@ -127,8 +127,17 @@ impl<S: StateReader> VersionedState<S> {
             }
         }
 
-        // TODO(Mohammad, 01/04/2024): Edit the code to handle the case of a deploy preceding a
-        // decalre transaction.
+        for (&class_hash, expected_value) in &reads.declared_contracts {
+            let value = self.declared_contracts.read(tx_index, class_hash).expect(READ_ERR);
+            assert_eq!(
+                value,
+                self.compiled_contract_classes.read(tx_index + 1, class_hash).is_some()
+            );
+
+            if &value != expected_value {
+                return false;
+            }
+        }
 
         // All values in the read set match the values from versioned state, return true.
         true
