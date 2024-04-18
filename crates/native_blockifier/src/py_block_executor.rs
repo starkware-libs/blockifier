@@ -303,12 +303,26 @@ impl PyBlockExecutor {
     }
 
     #[cfg(any(feature = "testing", test))]
-    #[pyo3(signature = (general_config, path))]
+    #[pyo3(signature = (general_config, path, max_state_diff_size))]
     #[staticmethod]
-    fn create_for_testing(general_config: PyGeneralConfig, path: std::path::PathBuf) -> Self {
+    fn create_for_testing(
+        general_config: PyGeneralConfig,
+        path: std::path::PathBuf,
+        max_state_diff_size: usize,
+    ) -> Self {
+        use blockifier::bouncer::BouncerWeights;
         use blockifier::state::global_cache::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
-            bouncer_config: BouncerConfig::max(),
+            bouncer_config: BouncerConfig {
+                block_max_capacity: BouncerWeights {
+                    state_diff_size: max_state_diff_size,
+                    ..BouncerWeights::max(false)
+                },
+                block_max_capacity_with_keccak: BouncerWeights {
+                    state_diff_size: max_state_diff_size,
+                    ..BouncerWeights::max(true)
+                },
+            },
             storage: Box::new(PapyrusStorage::new_for_testing(
                 path,
                 &general_config.starknet_os_config.chain_id,
