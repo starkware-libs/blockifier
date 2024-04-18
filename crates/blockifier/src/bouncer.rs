@@ -177,6 +177,10 @@ impl Bouncer {
         Bouncer { bouncer_config, ..Default::default() }
     }
 
+    pub fn get_accumulated_weights(&self) -> &BouncerWeights {
+        &self.accumulated_weights
+    }
+
     fn _update(
         &mut self,
         tx_weights: BouncerWeights,
@@ -186,6 +190,8 @@ impl Bouncer {
         self.accumulated_weights += tx_weights;
         self.visited_storage_entries.extend(&tx_execution_summary.visited_storage_entries);
         self.executed_class_hashes.extend(&tx_execution_summary.executed_class_hashes);
+        // Note: cancelling writes (0 -> 1 -> 0) will not be removed, but it's fine since fee was
+        // charged for them.
         self.state_changes_keys.extend(state_changes_keys);
     }
 
@@ -196,6 +202,8 @@ impl Bouncer {
         tx_execution_summary: &ExecutionSummary,
         tx_resources: &TransactionResources,
     ) -> TransactionExecutorResult<()> {
+        // The countings here should be linear in the transactional state changes and execution info
+        // rather than the cumulative state attributes.
         let state_changes_keys = self.get_state_changes_keys(state)?;
         let tx_weights =
             self.get_tx_weights(state, tx_execution_summary, tx_resources, &state_changes_keys)?;

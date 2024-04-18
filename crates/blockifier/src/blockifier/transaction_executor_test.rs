@@ -4,9 +4,8 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
-use crate::blockifier::bouncer::BouncerInfo;
 use crate::blockifier::transaction_executor::TransactionExecutor;
-use crate::bouncer::BouncerConfig;
+use crate::bouncer::{BouncerConfig, BouncerWeights};
 use crate::context::BlockContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
@@ -30,25 +29,28 @@ fn tx_executor_test_body<S: StateReader>(
     block_context: BlockContext,
     tx: Transaction,
     charge_fee: bool,
-    expected_bouncer_info: BouncerInfo,
+    expected_bouncer_weights: BouncerWeights,
 ) {
     let mut tx_executor =
         TransactionExecutor::new(state, block_context, BouncerConfig::create_for_testing());
     // TODO(Arni, 30/03/2024): Consider adding a test for the transaction execution info. If A test
     // should not be added, rename the test to `test_bouncer_info`.
-    // TODO(Arni, 30/03/2024): Test all fields of bouncer info.
-    let (_tx_execution_info, bouncer_info) = tx_executor.execute(tx, charge_fee).unwrap();
-
-    assert_eq!(bouncer_info.state_diff_size, expected_bouncer_info.state_diff_size);
-    assert_eq!(bouncer_info.message_segment_length, expected_bouncer_info.message_segment_length);
-    assert_eq!(bouncer_info.n_events, expected_bouncer_info.n_events);
+    // TODO(Arni, 30/03/2024): Test all bouncer weights.
+    let _tx_execution_info = tx_executor.execute(tx, charge_fee).unwrap();
+    let bouncer_weights = tx_executor.bouncer.get_accumulated_weights();
+    assert_eq!(bouncer_weights.state_diff_size, expected_bouncer_weights.state_diff_size);
+    assert_eq!(
+        bouncer_weights.message_segment_length,
+        expected_bouncer_weights.message_segment_length
+    );
+    assert_eq!(bouncer_weights.n_events, expected_bouncer_weights.n_events);
 }
 
 #[rstest]
 #[case::transaction_version_0(
     TransactionVersion::ZERO,
     CairoVersion::Cairo0,
-    BouncerInfo {
+    BouncerWeights {
         state_diff_size: 0,
         message_segment_length: 0,
         n_events: 0,
@@ -58,7 +60,7 @@ fn tx_executor_test_body<S: StateReader>(
 #[case::transaction_version_1(
     TransactionVersion::ONE,
     CairoVersion::Cairo0,
-    BouncerInfo {
+    BouncerWeights {
         state_diff_size: 2,
         message_segment_length: 0,
         n_events: 0,
@@ -68,7 +70,7 @@ fn tx_executor_test_body<S: StateReader>(
 #[case::transaction_version_2(
     TransactionVersion::TWO,
     CairoVersion::Cairo1,
-    BouncerInfo {
+    BouncerWeights {
         state_diff_size: 4,
         message_segment_length: 0,
         n_events: 0,
@@ -78,7 +80,7 @@ fn tx_executor_test_body<S: StateReader>(
 #[case::transaction_version_3(
     TransactionVersion::THREE,
     CairoVersion::Cairo1,
-    BouncerInfo {
+    BouncerWeights {
         state_diff_size: 4,
         message_segment_length: 0,
         n_events: 0,
@@ -91,7 +93,7 @@ fn test_declare(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
     #[case] transaction_version: TransactionVersion,
     #[case] cairo_version: CairoVersion,
-    #[case] expected_bouncer_info: BouncerInfo,
+    #[case] expected_bouncer_weights: BouncerWeights,
 ) {
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let declared_contract = FeatureContract::Empty(cairo_version);
@@ -106,7 +108,7 @@ fn test_declare(
         },
         calculate_class_info_for_testing(declared_contract.get_class()),
     ));
-    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_info);
+    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
 }
 
 #[rstest]
@@ -127,13 +129,13 @@ fn test_deploy_account(
         },
         &mut NonceManager::default(),
     )));
-    let expected_bouncer_info = BouncerInfo {
+    let expected_bouncer_weights = BouncerWeights {
         state_diff_size: 3,
         message_segment_length: 0,
         n_events: 0,
         ..Default::default()
     };
-    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_info);
+    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
 }
 
 #[rstest]
@@ -143,7 +145,7 @@ fn test_deploy_account(
         stark_felt!(3_u32), // x.
         stark_felt!(3_u32)  // y.
     ],
-    BouncerInfo {
+    BouncerWeights {
         state_diff_size: 2,
         message_segment_length: 0,
         n_events: 0,
@@ -157,7 +159,7 @@ fn test_deploy_account(
         stark_felt!(0_u32), // keys length.
         stark_felt!(0_u32)  // data length.
     ],
-    BouncerInfo {
+    BouncerWeights {
         state_diff_size: 2,
         message_segment_length: 0,
         n_events: 1,
@@ -167,7 +169,7 @@ fn test_deploy_account(
 #[case::storage_write_syscall(
     "test_count_actual_storage_changes",
     vec![],
-    BouncerInfo {
+    BouncerWeights {
         state_diff_size: 6,
         message_segment_length: 0,
         n_events: 0,
@@ -181,7 +183,7 @@ fn test_invoke(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
     #[case] entry_point_name: &str,
     #[case] entry_point_args: Vec<StarkFelt>,
-    #[case] expected_bouncer_info: BouncerInfo,
+    #[case] expected_bouncer_weights: BouncerWeights,
 ) {
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
@@ -198,7 +200,7 @@ fn test_invoke(
         calldata,
         version,
     }));
-    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_info);
+    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
 }
 
 #[rstest]
@@ -210,11 +212,11 @@ fn test_l1_handler(block_context: BlockContext, #[values(true, false)] charge_fe
         Fee(1908000000000000),
         test_contract.get_instance_address(0),
     ));
-    let expected_bouncer_info = BouncerInfo {
+    let expected_bouncer_weights = BouncerWeights {
         state_diff_size: 4,
         message_segment_length: 7,
         n_events: 0,
         ..Default::default()
     };
-    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_info);
+    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
 }
