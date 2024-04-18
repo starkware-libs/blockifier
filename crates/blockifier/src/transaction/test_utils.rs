@@ -1,5 +1,5 @@
 use rstest::fixture;
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, InvokeTransactionV0, InvokeTransactionV1,
@@ -263,4 +263,24 @@ pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassI
         ContractClass::V1(_) => 100,
     };
     ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
+}
+
+pub fn emit_n_events_tx(
+    n: u32,
+    account_contract: ContractAddress,
+    contract_address: ContractAddress,
+    nonce: Nonce,
+) -> AccountTransaction {
+    let entry_point_args = vec![
+        stark_felt!(n),     // events_number.
+        stark_felt!(0_u32), // keys length.
+        stark_felt!(0_u32), // data length.
+    ];
+    let calldata = create_calldata(contract_address, "test_emit_events", &entry_point_args);
+    account_invoke_tx(invoke_tx_args! {
+        sender_address: account_contract,
+        calldata,
+        version: TransactionVersion::THREE,
+        nonce
+    })
 }
