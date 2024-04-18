@@ -209,12 +209,23 @@ impl<S: StateReader> StateReader for CachedState<S> {
     }
 
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        let mut cache = self.cache.borrow_mut();
         let class_hash_to_class = &mut *self.class_hash_to_class.borrow_mut();
 
         if let std::collections::hash_map::Entry::Vacant(vacant_entry) =
             class_hash_to_class.entry(class_hash)
         {
-            vacant_entry.insert(self.state.get_compiled_contract_class(class_hash)?);
+            match self.state.get_compiled_contract_class(class_hash) {
+                Err(StateError::UndeclaredClassHash(class_hash)) => {
+                    cache.set_declared_contract_initial_values(class_hash, false);
+                    Err(StateError::UndeclaredClassHash(class_hash))?;
+                }
+                Err(error) => Err(error)?,
+                Ok(contract_class) => {
+                    cache.set_declared_contract_initial_values(class_hash, true);
+                    vacant_entry.insert(contract_class);
+                }
+            }
         }
 
         let contract_class = class_hash_to_class
@@ -284,6 +295,8 @@ impl<S: StateReader> State for CachedState<S> {
         contract_class: ContractClass,
     ) -> StateResult<()> {
         self.class_hash_to_class.get_mut().insert(class_hash, contract_class);
+        let mut cache = self.cache.borrow_mut();
+        cache.declare_contract(class_hash);
         Ok(())
     }
 
@@ -346,15 +359,25 @@ pub struct StateCache {
     pub(crate) class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
     pub(crate) storage_initial_values: HashMap<StorageEntry, StarkFelt>,
     pub(crate) compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
+    pub(crate) declared_contract_initial_values: HashMap<ClassHash, bool>,
 
     // Writer's cached information.
     pub(crate) nonce_writes: HashMap<ContractAddress, Nonce>,
     pub(crate) class_hash_writes: HashMap<ContractAddress, ClassHash>,
     pub(crate) storage_writes: HashMap<StorageEntry, StarkFelt>,
     pub(crate) compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
+    pub(crate) declared_contract_writes: HashMap<ClassHash, bool>,
 }
 
 impl StateCache {
+    fn declare_contract(&mut self, class_hash: ClassHash) {
+        self.declared_contract_writes.insert(class_hash, true);
+    }
+
+    fn set_declared_contract_initial_values(&mut self, class_hash: ClassHash, is_declared: bool) {
+        self.declared_contract_initial_values.insert(class_hash, is_declared);
+    }
+
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
