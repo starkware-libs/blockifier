@@ -18,6 +18,7 @@ use crate::concurrency::versioned_state::{
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
@@ -352,8 +353,15 @@ fn test_validate_read_set(
     transactional_state.get_compiled_class_hash(class_hash).unwrap();
     assert_eq!(transactional_state.cache.borrow().initial_reads.compiled_class_hashes.len(), 1);
 
-    // TODO(OriF 15/5/24): add a check for `get_compiled_contract_class`` once the deploy account
-    // preceding a declare flow is solved.
+    assert!(transactional_state.cache.borrow().initial_reads.declared_contracts.is_empty());
+    let result = transactional_state.get_compiled_contract_class(class_hash);
+    assert!(result.is_err());
+    if let Err(StateError::UndeclaredClassHash(err_class_hash)) = result {
+        assert_eq!(err_class_hash, class_hash);
+    } else {
+        panic!("get_compiled_contract_class returned an unexpected error: {:?}", result);
+    }
+    assert_eq!(transactional_state.cache.borrow().initial_reads.declared_contracts.len(), 1);
 
     assert!(
         safe_versioned_state
