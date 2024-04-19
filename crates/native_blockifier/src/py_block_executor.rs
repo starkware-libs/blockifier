@@ -288,7 +288,7 @@ impl PyBlockExecutor {
     /// (this is true for every partial existence of information at tables).
     #[pyo3(signature = (block_number))]
     pub fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
-        // Clear global class cache, to peroperly revert classes declared in the reverted block.
+        // Clear global class cache, to properly revert classes declared in the reverted block.
         self.global_contract_cache.clear();
         self.storage.revert_block(block_number)
     }
@@ -296,7 +296,7 @@ impl PyBlockExecutor {
     /// Deallocate the transaction executor and close storage connections.
     pub fn close(&mut self) {
         log::debug!("Closing Block Executor.");
-        // If the block was not finalized (due to some exception occuring _in Python_), we need
+        // If the block was not finalized (due to some exception occurring _in Python_), we need
         // to deallocate the transaction executor here to prevent leaks.
         self.teardown_block_execution();
         self.storage.close();
