@@ -14,8 +14,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, TransactionSignature,
-    TransactionVersion,
+    Calldata, DeclareTransactionV2, DeclareTransactionV3, EventContent, EventData, EventKey, Fee,
+    L2ToL1Payload, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 use strum::IntoEnumIterator;
@@ -62,7 +62,7 @@ use crate::transaction::errors::{
 };
 use crate::transaction::objects::{
     FeeType, GasVector, HasRelatedFeeType, StarknetResources, TransactionExecutionInfo,
-    TransactionInfo, TransactionResources,
+    TransactionExecutionResult, TransactionInfo, TransactionResources,
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
@@ -1401,12 +1401,14 @@ fn test_fail_deploy_account_undeclared_class_hash(block_context: BlockContext) {
     );
 }
 
-// TODO(Arni, 1/5/2024): Cover other versions of declare transaction.
+// TODO(Arni, 1/5/2024): Cover version 0 declare transaction.
 // TODO(Arni, 1/5/2024): Consider version 0 invoke.
 #[rstest]
 #[case::validate_version_1(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
 #[case::validate_version_3(TransactionType::InvokeFunction, false, TransactionVersion::THREE)]
 #[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::ONE)]
+#[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::TWO)]
+#[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::THREE)]
 #[case::validate_deploy_version_1(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
 #[case::validate_deploy_version_3(TransactionType::DeployAccount, false, TransactionVersion::THREE)]
 #[case::constructor_version_1(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
@@ -1511,6 +1513,50 @@ fn test_validate_accounts_tx(
 
     // Positive flows.
 
+    // Wrap the execute method of for the rest of the test.
+
+    /// Preforms the execute method of the account transaction. For Declare transactions, it also
+    /// reverts the declare, to allow for multiple tests in the same state.
+    trait WrapedExecutable {
+        fn execute_for_testing(
+            &self,
+            state: &mut CachedState<DictStateReader>,
+            block_context: &BlockContext,
+        ) -> TransactionExecutionResult<TransactionExecutionInfo>;
+    }
+
+    impl WrapedExecutable for AccountTransaction {
+        fn execute_for_testing(
+            &self,
+            state: &mut CachedState<DictStateReader>,
+            block_context: &BlockContext,
+        ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+            let result = self.execute(state, block_context, true, true);
+            if result.is_ok() {
+                if let AccountTransaction::Declare(super::DeclareTransaction {
+                    tx:
+                        starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
+                            class_hash,
+                            ..
+                        }),
+                    ..
+                })
+                | AccountTransaction::Declare(super::DeclareTransaction {
+                    tx:
+                        starknet_api::transaction::DeclareTransaction::V3(DeclareTransactionV3 {
+                            class_hash,
+                            ..
+                        }),
+                    ..
+                }) = self
+                {
+                    state.class_hash_to_class.borrow_mut().remove(class_hash);
+                }
+            }
+            result
+        }
+    }
+
     // Valid logic.
     let nonce_manager = &mut NonceManager::default();
     let account_tx = create_account_tx_for_validate_test(
@@ -1522,7 +1568,7 @@ fn test_validate_accounts_tx(
             ..default_args
         },
     );
-    assert!(account_tx.execute(state, block_context, true, true).err().is_none());
+    assert!(account_tx.execute_for_testing(state, block_context).is_ok());
 
     if tx_type != TransactionType::DeployAccount {
         // Call self (allowed).
@@ -1534,7 +1580,7 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
+        assert!(account_tx.execute_for_testing(state, block_context).is_ok());
     }
 
     if let CairoVersion::Cairo0 = cairo_version {
@@ -1549,7 +1595,8 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
+        assert!(account_tx.execute_for_testing(state, block_context).is_ok());
+
         // Call the syscall get_block_timestamp and assert the returned timestamp was modified
         // for validate.
         let account_tx = create_account_tx_for_validate_test(
@@ -1561,7 +1608,7 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
+        assert!(account_tx.execute_for_testing(state, block_context).is_ok());
     }
 
     if let CairoVersion::Cairo1 = cairo_version {
@@ -1580,7 +1627,7 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
+        assert!(account_tx.execute_for_testing(state, block_context).is_ok());
     }
 }
 
