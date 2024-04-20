@@ -442,7 +442,7 @@ fn test_get_execution_info(
                 (
                     Resource::L1Gas,
                     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
-                    // convertion works.
+                    // conversion works.
                     ResourceBounds {
                         max_amount: max_amount
                             .0
@@ -777,7 +777,7 @@ fn test_send_message_to_l1() {
             vec![
                 to_address,
                 // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
-                // convertion works.
+                // conversion works.
                 stark_felt!(u64::try_from(payload.len()).expect("Failed to convert usize to u64.")),
             ],
             payload.clone(),

@@ -64,7 +64,7 @@ mod Account {
         calldata: Array<felt252>
     ) -> felt252 {
         let to_address = 0;
-        // By calling the `send_message_to_l1` function in validation and exeution, tests can now verify
+        // By calling the `send_message_to_l1` function in validation and execution, tests can now verify
         // the functionality of entry point counters.
         send_message_to_l1_syscall(
             to_address: to_address,
