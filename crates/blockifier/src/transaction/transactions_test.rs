@@ -1513,108 +1513,94 @@ fn test_validate_accounts_tx_negative_flow(
 // TODO(Arni, 1/5/2024): Cover other versions of declare transaction.
 // TODO(Arni, 1/5/2024): Consider version 0 invoke.
 #[rstest]
-#[case::validate_version_1(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
-#[case::validate_version_3(TransactionType::InvokeFunction, false, TransactionVersion::THREE)]
-#[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::ONE)]
-#[case::validate_deploy_version_1(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
-#[case::validate_deploy_version_3(TransactionType::DeployAccount, false, TransactionVersion::THREE)]
-#[case::constructor_version_1(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
-#[case::constructor_version_3(TransactionType::DeployAccount, true, TransactionVersion::THREE)]
+#[case::validate(TransactionType::InvokeFunction, false)]
+#[case::validate_declare(TransactionType::Declare, false)]
+#[case::validate_deploy(TransactionType::DeployAccount, false)]
+#[case::constructor_version(TransactionType::DeployAccount, true)]
 fn test_validate_accounts_tx_positive_flow(
     block_context: BlockContext,
     #[case] tx_type: TransactionType,
     #[case] validate_constructor: bool,
-    #[case] tx_version: TransactionVersion,
+    #[values(
+        TransactionVersion::ZERO,
+        TransactionVersion::ONE,
+        TransactionVersion::TWO,
+        TransactionVersion::THREE
+    )]
+    tx_version: TransactionVersion,
+    #[values(
+        (VALID, None),
+        (CALL_CONTRACT, None),
+        (GET_BLOCK_NUMBER, Some(vec![StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE)])),
+        (GET_BLOCK_TIMESTAMP, Some(vec![StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE)])),
+        (GET_EXECUTION_INFO, Some(vec![
+            StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
+            StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
+            StarkFelt::from(0_u64), // Sequencer address for validate.
+        ]))
+    )
+    ]
+    scenario_and_additional_data: (u64, Option<Vec<StarkFelt>>),
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
+    let scenario = scenario_and_additional_data.0;
+
+    // Skip scenarios that are not applicable.
+    if scenario == GET_BLOCK_NUMBER && !matches!(cairo_version, CairoVersion::Cairo0) {
+        // The scenario GET_BLOCK_NUMBER is applicable for Cairo 0 only.
+        return;
+    }
+    if scenario == GET_BLOCK_TIMESTAMP && !matches!(cairo_version, CairoVersion::Cairo0) {
+        // The scenario GET_BLOCK_TIMESTAMP is applicable for Cairo 0 only.
+        return;
+    }
+    if scenario == GET_EXECUTION_INFO && !matches!(cairo_version, CairoVersion::Cairo1) {
+        // The scenario GET_EXECUTION_INFO is applicable for Cairo 1 only.
+        return;
+    }
+    if scenario == CALL_CONTRACT && matches!(tx_type, TransactionType::DeployAccount) {
+        // The scenario CALL_CONTRACT is not applicable for Deploy Account transactions.
+        return;
+    }
+    if matches!(tx_version, TransactionVersion::ZERO) {
+        // TODO(Arni, 1/5/2024): Cover version 0 invoke and declare.
+        return;
+    }
+    if matches!(tx_version, TransactionVersion::TWO)
+        && (matches!(tx_type, TransactionType::InvokeFunction)
+            || matches!(tx_type, TransactionType::DeployAccount))
+    {
+        // The tx_version TWO is not applicable for InvokeFunction and DeployAccount transactions.
+        return;
+    }
+
     let block_context = &block_context;
     let account_balance = 0;
     let faulty_account = FeatureContract::FaultyAccount(cairo_version);
     let sender_address = faulty_account.get_instance_address(0);
     let class_hash = faulty_account.get_class_hash();
     let state = &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
-    let salt_manager = &mut SaltManager::default();
 
-    let default_args = FaultyAccountTxCreatorArgs {
-        tx_type,
-        tx_version,
-        sender_address,
-        class_hash,
-        validate_constructor,
-        ..Default::default()
-    };
-
-    // Valid logic.
     let nonce_manager = &mut NonceManager::default();
+    let additional_data = if let CALL_CONTRACT = scenario {
+        Some(vec![*sender_address.0.key()])
+    } else {
+        scenario_and_additional_data.1
+    };
     let account_tx = create_account_tx_for_validate_test(
         nonce_manager,
         FaultyAccountTxCreatorArgs {
-            scenario: VALID,
-            contract_address_salt: salt_manager.next_salt(),
-            additional_data: None,
-            ..default_args
+            tx_type,
+            tx_version,
+            scenario,
+            additional_data,
+            sender_address,
+            class_hash,
+            validate_constructor,
+            ..Default::default()
         },
     );
-    assert!(account_tx.execute(state, block_context, true, true).err().is_none());
-
-    if tx_type != TransactionType::DeployAccount {
-        // Call self (allowed).
-        let account_tx = create_account_tx_for_validate_test(
-            nonce_manager,
-            FaultyAccountTxCreatorArgs {
-                scenario: CALL_CONTRACT,
-                additional_data: Some(vec![*sender_address.0.key()]),
-                ..default_args
-            },
-        );
-        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
-    }
-
-    if let CairoVersion::Cairo0 = cairo_version {
-        // Call the syscall get_block_number and assert the returned block number was modified
-        // for validate.
-        let account_tx = create_account_tx_for_validate_test(
-            nonce_manager,
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_BLOCK_NUMBER,
-                contract_address_salt: salt_manager.next_salt(),
-                additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE)]),
-                ..default_args
-            },
-        );
-        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
-        // Call the syscall get_block_timestamp and assert the returned timestamp was modified
-        // for validate.
-        let account_tx = create_account_tx_for_validate_test(
-            nonce_manager,
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_BLOCK_TIMESTAMP,
-                contract_address_salt: salt_manager.next_salt(),
-                additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE)]),
-                ..default_args
-            },
-        );
-        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
-    }
-
-    if let CairoVersion::Cairo1 = cairo_version {
-        let account_tx = create_account_tx_for_validate_test(
-            // Call the syscall get_execution_info and assert the returned block_info was
-            // modified for validate.
-            nonce_manager,
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_EXECUTION_INFO,
-                contract_address_salt: salt_manager.next_salt(),
-                additional_data: Some(vec![
-                    StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
-                    StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
-                    StarkFelt::from(0_u64), // Sequencer address for validate.
-                ]),
-                ..default_args
-            },
-        );
-        assert!(account_tx.execute(state, block_context, true, true).err().is_none());
-    }
+    account_tx.execute(state, block_context, true, true).unwrap();
 }
 
 #[rstest]
