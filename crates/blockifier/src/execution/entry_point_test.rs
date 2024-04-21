@@ -21,9 +21,7 @@ use crate::state::cached_state::CachedState;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{
-    create_calldata, trivial_external_entry_point_new, CairoVersion, NonceManager, BALANCE,
-};
+use crate::test_utils::{create_calldata, trivial_external_entry_point_new, CairoVersion, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::{
     EXECUTE_ENTRY_POINT_NAME, VALIDATE_DECLARE_ENTRY_POINT_NAME, VALIDATE_DEPLOY_ENTRY_POINT_NAME,
@@ -1057,17 +1055,14 @@ fn test_validate_trace(
     let selector = selector_from_name(entry_point_name).0;
 
     // Logic failure.
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: INVALID,
-            tx_type,
-            tx_version,
-            sender_address,
-            class_hash,
-            ..Default::default()
-        },
-    );
+    let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+        scenario: INVALID,
+        tx_type,
+        tx_version,
+        sender_address,
+        class_hash,
+        ..Default::default()
+    });
 
     if let TransactionType::DeployAccount = tx_type {
         // Deploy account uses the actual address as the sender address.

@@ -160,7 +160,6 @@ impl Default for FaultyAccountTxCreatorArgs {
 /// transactions should be used for unit tests. For example, it is not intended to deploy a contract
 /// and later call it.
 pub fn create_account_tx_for_validate_test(
-    nonce_manager: &mut NonceManager,
     faulty_account_tx_creator_args: FaultyAccountTxCreatorArgs,
 ) -> AccountTransaction {
     let FaultyAccountTxCreatorArgs {
@@ -199,7 +198,6 @@ pub fn create_account_tx_for_validate_test(
                     signature,
                     sender_address,
                     version: tx_version,
-                    nonce: nonce_manager.next(sender_address),
                     class_hash,
                 },
                 class_info,
@@ -220,7 +218,7 @@ pub fn create_account_tx_for_validate_test(
                     class_hash,
                     constructor_calldata,
                 },
-                nonce_manager,
+                &mut NonceManager::default(),
             );
             AccountTransaction::DeployAccount(deploy_account_tx)
         }
@@ -232,7 +230,6 @@ pub fn create_account_tx_for_validate_test(
                 sender_address,
                 calldata: execute_calldata,
                 version: tx_version,
-                nonce: nonce_manager.next(sender_address),
             });
             AccountTransaction::Invoke(invoke_tx)
         }
