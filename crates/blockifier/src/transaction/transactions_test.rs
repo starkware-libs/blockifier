@@ -1401,17 +1401,19 @@ fn test_fail_deploy_account_undeclared_class_hash(block_context: BlockContext) {
     );
 }
 
-// TODO(Arni, 1/5/2024): Cover other versions of declare transaction.
+// TODO(Arni, 1/5/2024): Cover version 0 declare.
 // TODO(Arni, 1/5/2024): Consider version 0 invoke.
 #[rstest]
 #[case::validate_version_1(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
 #[case::validate_version_3(TransactionType::InvokeFunction, false, TransactionVersion::THREE)]
 #[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::ONE)]
+#[case::validate_declare_version_2(TransactionType::Declare, false, TransactionVersion::TWO)]
+#[case::validate_declare_version_3(TransactionType::Declare, false, TransactionVersion::THREE)]
 #[case::validate_deploy_version_1(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
 #[case::validate_deploy_version_3(TransactionType::DeployAccount, false, TransactionVersion::THREE)]
 #[case::constructor_version_1(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
 #[case::constructor_version_3(TransactionType::DeployAccount, true, TransactionVersion::THREE)]
-fn test_validate_accounts_tx(
+fn test_validate_accounts_tx_negative_flow(
     block_context: BlockContext,
     #[case] tx_type: TransactionType,
     #[case] validate_constructor: bool,
@@ -1434,8 +1436,6 @@ fn test_validate_accounts_tx(
         validate_constructor,
         ..Default::default()
     };
-
-    // Negative flows.
 
     // Logic failure.
     let account_tx = create_account_tx_for_validate_test(
@@ -1508,8 +1508,41 @@ fn test_validate_accounts_tx(
             validate_constructor,
         );
     }
+}
 
-    // Positive flows.
+// TODO(Arni, 1/5/2024): Cover other versions of declare transaction.
+// TODO(Arni, 1/5/2024): Consider version 0 invoke.
+#[rstest]
+#[case::validate_version_1(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
+#[case::validate_version_3(TransactionType::InvokeFunction, false, TransactionVersion::THREE)]
+#[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::ONE)]
+#[case::validate_deploy_version_1(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
+#[case::validate_deploy_version_3(TransactionType::DeployAccount, false, TransactionVersion::THREE)]
+#[case::constructor_version_1(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
+#[case::constructor_version_3(TransactionType::DeployAccount, true, TransactionVersion::THREE)]
+fn test_validate_accounts_tx_positive_flow(
+    block_context: BlockContext,
+    #[case] tx_type: TransactionType,
+    #[case] validate_constructor: bool,
+    #[case] tx_version: TransactionVersion,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
+    let block_context = &block_context;
+    let account_balance = 0;
+    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
+    let sender_address = faulty_account.get_instance_address(0);
+    let class_hash = faulty_account.get_class_hash();
+    let state = &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
+    let salt_manager = &mut SaltManager::default();
+
+    let default_args = FaultyAccountTxCreatorArgs {
+        tx_type,
+        tx_version,
+        sender_address,
+        class_hash,
+        validate_constructor,
+        ..Default::default()
+    };
 
     // Valid logic.
     let nonce_manager = &mut NonceManager::default();
