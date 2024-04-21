@@ -50,10 +50,10 @@ use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
     create_calldata, create_trivial_calldata, get_syscall_resources, get_tx_resources,
-    test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager, BALANCE,
-    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
-    CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT,
-    MAX_L1_GAS_PRICE, TEST_SEQUENCER_ADDRESS,
+    test_erc20_sequencer_balance_key, CairoVersion, NonceManager, BALANCE, CHAIN_ID_NAME,
+    CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE, CURRENT_BLOCK_TIMESTAMP,
+    CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+    TEST_SEQUENCER_ADDRESS,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
@@ -1426,7 +1426,6 @@ fn test_validate_accounts_tx_negative_flow(
     let sender_address = faulty_account.get_instance_address(0);
     let class_hash = faulty_account.get_class_hash();
     let state = &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
-    let salt_manager = &mut SaltManager::default();
 
     let default_args = FaultyAccountTxCreatorArgs {
         tx_type,
@@ -1440,12 +1439,7 @@ fn test_validate_accounts_tx_negative_flow(
     // Logic failure.
     let account_tx = create_account_tx_for_validate_test(
         &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: INVALID,
-            contract_address_salt: salt_manager.next_salt(),
-            additional_data: None,
-            ..default_args
-        },
+        FaultyAccountTxCreatorArgs { scenario: INVALID, additional_data: None, ..default_args },
     );
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_invalid_scenario!(
@@ -1462,7 +1456,6 @@ fn test_validate_accounts_tx_negative_flow(
             additional_data: Some(vec![stark_felt!("0x1991")]), /* Some address different than
                                                                  * the address of
                                                                  * faulty_account. */
-            contract_address_salt: salt_manager.next_salt(),
             ..default_args
         },
     );
@@ -1479,7 +1472,6 @@ fn test_validate_accounts_tx_negative_flow(
             &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_HASH,
-                contract_address_salt: salt_manager.next_salt(),
                 additional_data: None,
                 ..default_args
             },
@@ -1495,11 +1487,7 @@ fn test_validate_accounts_tx_negative_flow(
         // Try to use the syscall get_sequencer_address (forbidden).
         let account_tx = create_account_tx_for_validate_test(
             &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_SEQUENCER_ADDRESS,
-                contract_address_salt: salt_manager.next_salt(),
-                ..default_args
-            },
+            FaultyAccountTxCreatorArgs { scenario: GET_SEQUENCER_ADDRESS, ..default_args },
         );
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
         check_transaction_execution_error_for_custom_hint!(
@@ -1534,7 +1522,6 @@ fn test_validate_accounts_tx_positive_flow(
     let faulty_account = FeatureContract::FaultyAccount(cairo_version);
     let sender_address = faulty_account.get_instance_address(0);
     let class_hash = faulty_account.get_class_hash();
-    let salt_manager = &mut SaltManager::default();
 
     let default_args = FaultyAccountTxCreatorArgs {
         tx_type,
@@ -1551,7 +1538,6 @@ fn test_validate_accounts_tx_positive_flow(
         &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             scenario: VALID,
-            contract_address_salt: salt_manager.next_salt(),
             additional_data: None,
             declared_contract: Some(FeatureContract::TestContract(declared_contract_cairo_version)),
             ..default_args
@@ -1588,7 +1574,6 @@ fn test_validate_accounts_tx_positive_flow(
             &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_NUMBER,
-                contract_address_salt: salt_manager.next_salt(),
                 additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE)]),
                 declared_contract: Some(FeatureContract::AccountWithoutValidations(
                     declared_contract_cairo_version,
@@ -1607,7 +1592,6 @@ fn test_validate_accounts_tx_positive_flow(
             &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_TIMESTAMP,
-                contract_address_salt: salt_manager.next_salt(),
                 additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE)]),
                 declared_contract: Some(FeatureContract::Empty(declared_contract_cairo_version)),
                 ..default_args
@@ -1626,7 +1610,6 @@ fn test_validate_accounts_tx_positive_flow(
             &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: GET_EXECUTION_INFO,
-                contract_address_salt: salt_manager.next_salt(),
                 additional_data: Some(vec![
                     StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
                     StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
