@@ -1510,12 +1510,14 @@ fn test_validate_accounts_tx_negative_flow(
     }
 }
 
-// TODO(Arni, 1/5/2024): Cover other versions of declare transaction.
-// TODO(Arni, 1/5/2024): Consider version 0 invoke.
+// TODO(Arni, 1/5/2024): Cover version 0 declare.
+// TODO(Arni, 1/5/2024): Consider covering version 0 invoke.
 #[rstest]
 #[case::validate_version_1(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
 #[case::validate_version_3(TransactionType::InvokeFunction, false, TransactionVersion::THREE)]
 #[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::ONE)]
+#[case::validate_declare_version_2(TransactionType::Declare, false, TransactionVersion::TWO)]
+#[case::validate_declare_version_3(TransactionType::Declare, false, TransactionVersion::THREE)]
 #[case::validate_deploy_version_1(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
 #[case::validate_deploy_version_3(TransactionType::DeployAccount, false, TransactionVersion::THREE)]
 #[case::constructor_version_1(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
@@ -1532,7 +1534,6 @@ fn test_validate_accounts_tx_positive_flow(
     let faulty_account = FeatureContract::FaultyAccount(cairo_version);
     let sender_address = faulty_account.get_instance_address(0);
     let class_hash = faulty_account.get_class_hash();
-    let state = &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
     let salt_manager = &mut SaltManager::default();
 
     let default_args = FaultyAccountTxCreatorArgs {
@@ -1544,11 +1545,10 @@ fn test_validate_accounts_tx_positive_flow(
         ..Default::default()
     };
 
-    // Valid logic.
-    let nonce_manager = &mut NonceManager::default();
+    let state = &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
     let declared_contract_cairo_version = CairoVersion::from_declare_tx_version(tx_version);
     let account_tx = create_account_tx_for_validate_test(
-        nonce_manager,
+        &mut NonceManager::default(),
         FaultyAccountTxCreatorArgs {
             scenario: VALID,
             contract_address_salt: salt_manager.next_salt(),
@@ -1562,8 +1562,10 @@ fn test_validate_accounts_tx_positive_flow(
 
     if tx_type != TransactionType::DeployAccount {
         // Call self (allowed).
+        let state =
+            &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
         let account_tx = create_account_tx_for_validate_test(
-            nonce_manager,
+            &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: CALL_CONTRACT,
                 additional_data: Some(vec![*sender_address.0.key()]),
@@ -1580,8 +1582,10 @@ fn test_validate_accounts_tx_positive_flow(
     if let CairoVersion::Cairo0 = cairo_version {
         // Call the syscall get_block_number and assert the returned block number was modified
         // for validate.
+        let state =
+            &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
         let account_tx = create_account_tx_for_validate_test(
-            nonce_manager,
+            &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_NUMBER,
                 contract_address_salt: salt_manager.next_salt(),
@@ -1597,8 +1601,10 @@ fn test_validate_accounts_tx_positive_flow(
 
         // Call the syscall get_block_timestamp and assert the returned timestamp was modified
         // for validate.
+        let state =
+            &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
         let account_tx = create_account_tx_for_validate_test(
-            nonce_manager,
+            &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_TIMESTAMP,
                 contract_address_salt: salt_manager.next_salt(),
@@ -1612,10 +1618,12 @@ fn test_validate_accounts_tx_positive_flow(
     }
 
     if let CairoVersion::Cairo1 = cairo_version {
+        // Call the syscall get_execution_info and assert the returned block_info was
+        // modified for validate.
+        let state =
+            &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
         let account_tx = create_account_tx_for_validate_test(
-            // Call the syscall get_execution_info and assert the returned block_info was
-            // modified for validate.
-            nonce_manager,
+            &mut NonceManager::default(),
             FaultyAccountTxCreatorArgs {
                 scenario: GET_EXECUTION_INFO,
                 contract_address_salt: salt_manager.next_salt(),
