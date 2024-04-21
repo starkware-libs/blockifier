@@ -2,9 +2,9 @@ use rstest::fixture;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, InvokeTransactionV0, InvokeTransactionV1,
-    InvokeTransactionV3, Resource, ResourceBounds, ResourceBoundsMapping, TransactionHash,
-    TransactionSignature, TransactionVersion,
+    Calldata, Fee, InvokeTransactionV0, InvokeTransactionV1, InvokeTransactionV3, Resource,
+    ResourceBounds, ResourceBoundsMapping, TransactionHash, TransactionSignature,
+    TransactionVersion,
 };
 use starknet_api::{calldata, stark_felt};
 use strum::IntoEnumIterator;
@@ -137,8 +137,6 @@ pub struct FaultyAccountTxCreatorArgs {
     // Should be used with tx_type DeployAccount.
     pub class_hash: ClassHash,
     // Should be used with tx_type DeployAccount.
-    pub contract_address_salt: ContractAddressSalt,
-    // Should be used with tx_type DeployAccount.
     pub validate_constructor: bool,
     pub max_fee: Fee,
 }
@@ -152,7 +150,6 @@ impl Default for FaultyAccountTxCreatorArgs {
             additional_data: None,
             sender_address: ContractAddress::default(),
             class_hash: ClassHash::default(),
-            contract_address_salt: ContractAddressSalt::default(),
             validate_constructor: false,
             max_fee: Fee::default(),
         }
@@ -173,7 +170,6 @@ pub fn create_account_tx_for_validate_test(
         additional_data,
         sender_address,
         class_hash,
-        contract_address_salt,
         validate_constructor,
         max_fee,
     } = faulty_account_tx_creator_args;
@@ -222,7 +218,6 @@ pub fn create_account_tx_for_validate_test(
                     signature,
                     version: tx_version,
                     class_hash,
-                    contract_address_salt,
                     constructor_calldata,
                 },
                 nonce_manager,

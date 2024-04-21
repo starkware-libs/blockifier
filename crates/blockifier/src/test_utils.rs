@@ -117,19 +117,6 @@ impl NonceManager {
     }
 }
 
-#[derive(Default)]
-pub struct SaltManager {
-    next_salt: u8,
-}
-
-impl SaltManager {
-    pub fn next_salt(&mut self) -> ContractAddressSalt {
-        let next_contract_address_salt = ContractAddressSalt(stark_felt!(self.next_salt));
-        self.next_salt += 1;
-        next_contract_address_salt
-    }
-}
-
 pub fn pad_address_to_64(address: &str) -> String {
     let trimmed_address = address.strip_prefix("0x").unwrap_or(address);
     String::from("0x") + format!("{trimmed_address:0>64}").as_str()
