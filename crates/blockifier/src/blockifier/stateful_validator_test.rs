@@ -9,7 +9,7 @@ use crate::bouncer::BouncerConfig;
 use crate::context::BlockContext;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
-use crate::test_utils::{CairoVersion, NonceManager, BALANCE};
+use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::test_utils::{
     block_context, create_account_tx_for_validate_test, FaultyAccountTxCreatorArgs, VALID,
@@ -55,13 +55,12 @@ fn test_transaction_validator(
         max_fee: Fee(BALANCE),
         ..Default::default()
     };
-    let nonce_manager = &mut NonceManager::default();
 
     // Positive flow.
-    let tx = create_account_tx_for_validate_test(
-        nonce_manager,
-        FaultyAccountTxCreatorArgs { scenario: VALID, ..transaction_args },
-    );
+    let tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+        scenario: VALID,
+        ..transaction_args
+    });
     if let AccountTransaction::DeployAccount(deploy_tx) = &tx {
         fund_account(chain_info, deploy_tx.contract_address, BALANCE, &mut state.state);
     }

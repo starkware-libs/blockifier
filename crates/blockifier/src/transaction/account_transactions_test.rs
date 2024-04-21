@@ -488,17 +488,14 @@ fn test_fail_deploy_account(
     let state = &mut test_state(chain_info, BALANCE, &[(faulty_account_feature_contract, 0)]);
 
     // Create and execute (failing) deploy account transaction.
-    let deploy_account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            tx_type: TransactionType::DeployAccount,
-            tx_version,
-            scenario: INVALID,
-            class_hash: faulty_account_feature_contract.get_class_hash(),
-            max_fee: Fee(BALANCE),
-            ..Default::default()
-        },
-    );
+    let deploy_account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+        tx_type: TransactionType::DeployAccount,
+        tx_version,
+        scenario: INVALID,
+        class_hash: faulty_account_feature_contract.get_class_hash(),
+        max_fee: Fee(BALANCE),
+        ..Default::default()
+    });
     let fee_token_address = chain_info.fee_token_address(&deploy_account_tx.fee_type());
 
     let deploy_address = match &deploy_account_tx {

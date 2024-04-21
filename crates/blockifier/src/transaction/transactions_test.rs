@@ -1437,10 +1437,11 @@ fn test_validate_accounts_tx_negative_flow(
     };
 
     // Logic failure.
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs { scenario: INVALID, additional_data: None, ..default_args },
-    );
+    let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+        scenario: INVALID,
+        additional_data: None,
+        ..default_args
+    });
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_invalid_scenario!(
         cairo_version,
@@ -1449,16 +1450,13 @@ fn test_validate_accounts_tx_negative_flow(
     );
 
     // Try to call another contract (forbidden).
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: CALL_CONTRACT,
-            additional_data: Some(vec![stark_felt!("0x1991")]), /* Some address different than
-                                                                 * the address of
-                                                                 * faulty_account. */
-            ..default_args
-        },
-    );
+    let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+        scenario: CALL_CONTRACT,
+        additional_data: Some(vec![stark_felt!("0x1991")]), /* Some address different than
+                                                             * the address of
+                                                             * faulty_account. */
+        ..default_args
+    });
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_custom_hint!(
         &error,
@@ -1468,14 +1466,11 @@ fn test_validate_accounts_tx_negative_flow(
 
     if let CairoVersion::Cairo1 = cairo_version {
         // Try to use the syscall get_block_hash (forbidden).
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_BLOCK_HASH,
-                additional_data: None,
-                ..default_args
-            },
-        );
+        let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+            scenario: GET_BLOCK_HASH,
+            additional_data: None,
+            ..default_args
+        });
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
         check_transaction_execution_error_for_custom_hint!(
             &error,
@@ -1485,10 +1480,10 @@ fn test_validate_accounts_tx_negative_flow(
     }
     if let CairoVersion::Cairo0 = cairo_version {
         // Try to use the syscall get_sequencer_address (forbidden).
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs { scenario: GET_SEQUENCER_ADDRESS, ..default_args },
-        );
+        let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+            scenario: GET_SEQUENCER_ADDRESS,
+            ..default_args
+        });
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
         check_transaction_execution_error_for_custom_hint!(
             &error,
@@ -1534,15 +1529,14 @@ fn test_validate_accounts_tx_positive_flow(
 
     let state = &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
     let declared_contract_cairo_version = CairoVersion::from_declare_tx_version(tx_version);
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: VALID,
-            additional_data: None,
-            declared_contract: Some(FeatureContract::TestContract(declared_contract_cairo_version)),
-            ..default_args
-        },
-    );
+    let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+        scenario: VALID,
+
+        additional_data: None,
+
+        declared_contract: Some(FeatureContract::TestContract(declared_contract_cairo_version)),
+        ..default_args
+    });
     let result = account_tx.execute(state, block_context, true, true);
     assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
 
@@ -1550,17 +1544,14 @@ fn test_validate_accounts_tx_positive_flow(
         // Call self (allowed).
         let state =
             &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: CALL_CONTRACT,
-                additional_data: Some(vec![*sender_address.0.key()]),
-                declared_contract: Some(FeatureContract::AccountWithLongValidate(
-                    declared_contract_cairo_version,
-                )),
-                ..default_args
-            },
-        );
+        let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+            scenario: CALL_CONTRACT,
+            additional_data: Some(vec![*sender_address.0.key()]),
+            declared_contract: Some(FeatureContract::AccountWithLongValidate(
+                declared_contract_cairo_version,
+            )),
+            ..default_args
+        });
         let result = account_tx.execute(state, block_context, true, true);
         assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
     }
@@ -1570,17 +1561,14 @@ fn test_validate_accounts_tx_positive_flow(
         // for validate.
         let state =
             &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_BLOCK_NUMBER,
-                additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE)]),
-                declared_contract: Some(FeatureContract::AccountWithoutValidations(
-                    declared_contract_cairo_version,
-                )),
-                ..default_args
-            },
-        );
+        let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+            scenario: GET_BLOCK_NUMBER,
+            additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE)]),
+            declared_contract: Some(FeatureContract::AccountWithoutValidations(
+                declared_contract_cairo_version,
+            )),
+            ..default_args
+        });
         let result = account_tx.execute(state, block_context, true, true);
         assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
 
@@ -1588,15 +1576,12 @@ fn test_validate_accounts_tx_positive_flow(
         // for validate.
         let state =
             &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_BLOCK_TIMESTAMP,
-                additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE)]),
-                declared_contract: Some(FeatureContract::Empty(declared_contract_cairo_version)),
-                ..default_args
-            },
-        );
+        let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+            scenario: GET_BLOCK_TIMESTAMP,
+            additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE)]),
+            declared_contract: Some(FeatureContract::Empty(declared_contract_cairo_version)),
+            ..default_args
+        });
         let result = account_tx.execute(state, block_context, true, true);
         assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
     }
@@ -1606,19 +1591,16 @@ fn test_validate_accounts_tx_positive_flow(
         // modified for validate.
         let state =
             &mut test_state(&block_context.chain_info, account_balance, &[(faulty_account, 1)]);
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_EXECUTION_INFO,
-                additional_data: Some(vec![
-                    StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
-                    StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
-                    StarkFelt::from(0_u64), // Sequencer address for validate.
-                ]),
-                declared_contract: Some(FeatureContract::Empty(declared_contract_cairo_version)),
-                ..default_args
-            },
-        );
+        let account_tx = create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+            scenario: GET_EXECUTION_INFO,
+            additional_data: Some(vec![
+                StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
+                StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
+                StarkFelt::from(0_u64), // Sequencer address for validate.
+            ]),
+            declared_contract: Some(FeatureContract::Empty(declared_contract_cairo_version)),
+            ..default_args
+        });
         let result = account_tx.execute(state, block_context, true, true);
         assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
     }
