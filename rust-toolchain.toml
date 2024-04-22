@@ -1,0 +1,3 @@
+[toolchain]
+# The toolchain used to compile the code
+channel = "nightly-2024-01-12"
