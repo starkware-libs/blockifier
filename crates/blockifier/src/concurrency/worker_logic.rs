@@ -1,15 +1,19 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
-use starknet_api::core::ClassHash;
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::transaction::Fee;
 
+use super::versioned_state_proxy::VersionedStateProxy;
+use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
+use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{CachedState, StateMaps};
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
@@ -26,6 +30,14 @@ pub fn lock_mutex_in_array<T: Debug>(array: &[Mutex<T>], tx_index: TxIndex) -> M
     array[tx_index].lock().unwrap_or_else(|error| {
         panic!("Cell of transaction index {} is poisoned. Data: {:?}.", tx_index, *error.get_ref())
     })
+}
+fn finalize_commit(
+    _fee_token_address: ContractAddress,
+    _tx_versioned_state: &VersionedStateProxy<impl StateReader>,
+    _actual_fee: &Fee,
+    _transactional_state: &mut CachedState<impl StateReader>,
+) -> StateResult<()> {
+    todo!()
 }
 
 pub struct WorkersExecutor<S: StateReader> {
@@ -96,5 +108,77 @@ impl<S: StateReader> WorkersExecutor<S> {
 
     fn validate(&self, _tx_index: TxIndex) -> Task {
         todo!();
+    }
+
+    pub fn try_commit_transaction(&mut self, tx_index: TxIndex) -> StateResult<bool> {
+        let execution_task_outputs = lock_mutex_in_array(&self.execution_outputs, tx_index);
+        let read_set = &execution_task_outputs.as_ref().unwrap().reads;
+        let mut execution_task_outputs = lock_mutex_in_array(&self.execution_outputs, tx_index);
+        let result_tx_info = &mut execution_task_outputs.as_mut().unwrap().result;
+
+        let tx = &self.chunk[tx_index];
+        let versioned_state = &self.state;
+        // TODO(meshi 20/05/2024): remove the redundant cached state.
+        let mut cached_state = CachedState::from(versioned_state.pin_version(tx_index));
+        let mut transactional_state = CachedState::create_transactional(&mut cached_state);
+        let tx_versioned_state = versioned_state.pin_version(tx_index);
+
+        // First, re-validate the transaction.
+        if !tx_versioned_state.validate_reads(read_set) {
+            // Revalidate failed: re-execute the transaction, and commit.
+
+            self.block_context =
+                BlockContext { concurrency_mode: true, ..self.block_context.clone() };
+
+            self.execute_tx(tx_index);
+            let result_tx_info = &mut execution_task_outputs.as_mut().unwrap().result;
+            if result_tx_info.is_err() {
+                // TODO(Meshi, 01/06/2024): Rvert the chanches of the execution before the
+                // re-execution.
+                todo!()
+            }
+            // Another validation after the re-execution for sanity check.
+            assert!(tx_versioned_state.validate_reads(read_set));
+            // TODO(Meshi, 01/06/2024): check if this is also needed in the bouncer.
+            return Ok(true);
+        }
+        // Revalidate succeeded.
+        if result_tx_info.is_err() {
+            // Transaction failed and successfully committed.
+            return Ok(true);
+        }
+        let tx_context = Arc::new(self.block_context.to_tx_context(tx));
+        // Fix the sequencer balance.
+        // There is no need to fix the balance when the sequencer transfers fee to itself, since we
+        // use the sequential fee transfer in this case.
+        if tx_context.tx_info.sender_address() != self.block_context.block_info.sequencer_address {
+            let (sequencer_balance_key_low, sequencer_balance_key_high) =
+                get_sequencer_balance_keys(&tx_context.block_context);
+            let sequencer_balance_low = tx_versioned_state
+                .get_storage_at(tx_context.fee_token_address(), sequencer_balance_key_low)?;
+            let sequencer_balance_high = tx_versioned_state
+                .get_storage_at(tx_context.fee_token_address(), sequencer_balance_key_high)?;
+
+            let tx_info =
+                result_tx_info.as_mut().expect("Transaction info should not be an error here.");
+            if let Some(fee_transfer_call_info) = tx_info.fee_transfer_call_info.as_mut() {
+                // Fix the transfer call info.
+                fill_sequencer_balance_reads(
+                    fee_transfer_call_info,
+                    sequencer_balance_low,
+                    sequencer_balance_high,
+                );
+
+                // Update the sequencer balance in the storage.
+                finalize_commit(
+                    tx_context.fee_token_address(),
+                    &tx_versioned_state,
+                    &tx_info.actual_fee,
+                    &mut transactional_state,
+                )?;
+            }
+        }
+        // TODO(Meshi, 01/06/2024): check if this is also needed in the bouncer.
+        Ok(true)
     }
 }
