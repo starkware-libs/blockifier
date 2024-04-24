@@ -9,14 +9,13 @@ use starknet_api::transaction::Fee;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
-use crate::concurrency::worker_logic::_add_fee_to_sequencer_balance;
+use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::state_api::StateReader;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::transaction::objects::FeeType;
-
 
 #[rstest]
 #[case::no_overflow_zero_sequencer_value_high(Fee(50_u128), felt_to_stark_felt(&Felt252::from(100_u128)), StarkFelt::ZERO)]
@@ -45,7 +44,7 @@ pub fn test_add_fee_to_sequencer_balance(
 
     let fee_token_address = block_context.chain_info.fee_token_address(&FeeType::Strk);
 
-    _add_fee_to_sequencer_balance(
+    add_fee_to_sequencer_balance(
         fee_token_address,
         &tx_versioned_state,
         &actual_fee,
@@ -55,12 +54,14 @@ pub fn test_add_fee_to_sequencer_balance(
         sequencer_value_low,
     );
     let next_tx_versioned_state = safe_versioned_state.pin_version(1);
-    if sequencer_value_low > felt_to_stark_felt(&(Felt252::max_value() - Felt252::from(actual_fee.0))) {
+    if sequencer_value_low
+        > felt_to_stark_felt(&(Felt252::max_value() - Felt252::from(actual_fee.0)))
+    {
         assert_eq!(
             next_tx_versioned_state
                 .get_storage_at(fee_token_address, sequencer_balance_key_high)
                 .unwrap(),
-            felt_to_stark_felt(&(stark_felt_to_felt(sequencer_value_high)+ Felt252::from(1_u8)))
+            felt_to_stark_felt(&(stark_felt_to_felt(sequencer_value_high) + Felt252::from(1_u8)))
         );
     } else {
         assert_eq!(
@@ -74,7 +75,8 @@ pub fn test_add_fee_to_sequencer_balance(
         next_tx_versioned_state
             .get_storage_at(fee_token_address, sequencer_balance_key_low)
             .unwrap(),
-        felt_to_stark_felt(&(stark_felt_to_felt(sequencer_value_low)+ Felt252::from(actual_fee.0)))
+        felt_to_stark_felt(
+            &(stark_felt_to_felt(sequencer_value_low) + Felt252::from(actual_fee.0))
+        )
     );
-
 }
