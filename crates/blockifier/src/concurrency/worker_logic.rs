@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use cairo_felt::Felt252;
 use num_traits::Bounded;
@@ -9,6 +9,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use super::versioned_state_proxy::VersionedStateProxy;
+use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
@@ -17,12 +18,14 @@ use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
 
-fn _add_fee_to_sequencer_balance(
+const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
+
+fn add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
     tx_versioned_state: &VersionedStateProxy<impl StateReader>,
     actual_fee: Fee,
@@ -60,14 +63,15 @@ pub struct ExecutionTaskOutput {
     pub result: TransactionExecutionResult<TransactionExecutionInfo>,
 }
 
-pub struct WorkerExecutor<S: StateReader> {
+pub struct WorkersExecutor<S: StateReader> {
     pub scheduler: Scheduler,
     pub state: ThreadSafeVersionedState<S>,
     pub chunk: Box<[Transaction]>,
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
 }
-impl<S: StateReader> WorkerExecutor<S> {
+
+impl<S: StateReader> WorkersExecutor<S> {
     pub fn run(&self) {
         let mut task = Task::NoTask;
         loop {
@@ -127,5 +131,84 @@ impl<S: StateReader> WorkerExecutor<S> {
 
     fn validate(&self, _tx_index: TxIndex) -> Task {
         todo!();
+    }
+
+    pub fn try_commit_transaction(&mut self, tx_index: TxIndex) -> StateResult<bool> {
+        let execution_task_outputs = lock_mutex_in_array(&self.execution_outputs, tx_index);
+
+        let tx = &self.chunk[tx_index];
+        let tx_versioned_state = self.state.pin_version(tx_index);
+
+        let read_set =
+            &execution_task_outputs.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+        // First, re-validate the transaction.
+        if !tx_versioned_state.validate_reads(read_set) {
+            // Revalidate failed: re-execute the transaction, and commit.
+            self.block_context =
+                BlockContext { concurrency_mode: false, ..self.block_context.clone() };
+            drop(execution_task_outputs);
+            self.execute_tx(tx_index);
+            let mut execution_task_outputs = lock_mutex_in_array(&self.execution_outputs, tx_index);
+            let result_tx_info =
+                &mut execution_task_outputs.as_mut().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).result;
+            if result_tx_info.is_err() {
+                // Transaction rejected.
+                // TODO(Meshi, 01/06/2024): Rvert the chanches of the execution before the
+                // re-execution.
+                todo!()
+            }
+            let read_set =
+                &execution_task_outputs.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+            // Another validation after the re-execution for sanity check.
+            assert!(tx_versioned_state.validate_reads(read_set));
+            // TODO(Meshi, 01/06/2024): check if this is also needed in the bouncer.
+            return Ok(true);
+        }
+
+        // Revalidate succeeded.
+        drop(execution_task_outputs);
+        let mut execution_task_outputs = lock_mutex_in_array(&self.execution_outputs, tx_index);
+        let result_tx_info =
+            &mut execution_task_outputs.as_mut().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).result;
+        if result_tx_info.is_err() {
+            // Transaction rejected - no fee charged. Commit completed.
+            return Ok(true);
+        }
+
+        let tx_context = Arc::new(self.block_context.to_tx_context(tx));
+        // Fix the sequencer balance.
+        // There is no need to fix the balance when the sequencer transfers fee to itself, since we
+        // use the sequential fee transfer in this case.
+        if tx_context.tx_info.sender_address() != self.block_context.block_info.sequencer_address {
+            let tx_info = result_tx_info.as_mut().expect(
+                "Transaction info should not be an error here - rejected transactions pay no fee.",
+            );
+            // Update the sequencer balance in the storage.
+            let mut next_tx_versioned_state = self.state.pin_version(tx_index + 1);
+            let (sequencer_balance_value_low, sequencer_balance_value_high) =
+                next_tx_versioned_state.get_fee_token_balance(
+                    tx_context.block_context.block_info.sequencer_address,
+                    tx_context.fee_token_address(),
+                )?;
+            if let Some(fee_transfer_call_info) = tx_info.fee_transfer_call_info.as_mut() {
+                // Fix the transfer call info.
+                fill_sequencer_balance_reads(
+                    fee_transfer_call_info,
+                    sequencer_balance_value_low,
+                    sequencer_balance_value_high,
+                );
+            }
+            add_fee_to_sequencer_balance(
+                tx_context.fee_token_address(),
+                &tx_versioned_state,
+                tx_info.actual_fee,
+                &self.block_context,
+                sequencer_balance_value_high,
+                sequencer_balance_value_low,
+            );
+        }
+
+        // TODO(Meshi, 01/06/2024): check if this is also needed in the bouncer.
+        Ok(true)
     }
 }
