@@ -48,8 +48,7 @@ pub fn create_fee_transfer_call_info<S: StateReader>(
     account_tx: &AccountTransaction,
     concurrency_mode: bool,
 ) -> CallInfo {
-    let block_context =
-        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+    let block_context = BlockContext::create_for_testing_with_concurrency_mode(concurrency_mode);
     let mut transactional_state = CachedState::create_transactional(state);
     let charge_fee = true;
     let validate = true;

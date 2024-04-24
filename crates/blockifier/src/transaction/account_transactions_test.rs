@@ -1165,7 +1165,7 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     // sequencer_balance_key_high.
     const STORAGE_WRITE_LOW: u128 = 100;
     const STORAGE_READ_LOW: u128 = 50;
-    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let block_context = BlockContext::create_for_testing_with_concurrency_mode(true);
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let account_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account.get_instance_address(0),
