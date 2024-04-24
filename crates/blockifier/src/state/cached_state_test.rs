@@ -27,9 +27,9 @@ fn set_initial_state_values(
     assert!(*state.cache.borrow() == StateCache::default(), "Cache already initialized.");
 
     state.class_hash_to_class.replace(class_hash_to_class);
-    state.cache.get_mut().class_hash_initial_values.extend(class_hash_initial_values);
-    state.cache.get_mut().nonce_initial_values.extend(nonce_initial_values);
-    state.cache.get_mut().storage_initial_values.extend(storage_initial_values);
+    state.cache.get_mut().initial_reads.class_hashes.extend(class_hash_initial_values);
+    state.cache.get_mut().initial_reads.nonces.extend(nonce_initial_values);
+    state.cache.get_mut().initial_reads.storage.extend(storage_initial_values);
 }
 
 #[test]
@@ -112,8 +112,8 @@ fn declare_contract() {
     let class_hash = test_contract.get_class_hash();
     let contract_class = test_contract.get_class();
 
-    assert_eq!(state.cache.borrow().declared_contract_writes.get(&class_hash), None);
-    assert_eq!(state.cache.borrow().declared_contract_initial_values.get(&class_hash), None);
+    assert_eq!(state.cache.borrow().writes.declared_contracts.get(&class_hash), None);
+    assert_eq!(state.cache.borrow().initial_reads.declared_contracts.get(&class_hash), None);
 
     // Reading an undeclared contract class.
     assert_matches!(
@@ -122,12 +122,12 @@ fn declare_contract() {
         undeclared_class_hash == class_hash
     );
     assert_eq!(
-        *state.cache.borrow().declared_contract_initial_values.get(&class_hash).unwrap(),
+        *state.cache.borrow().initial_reads.declared_contracts.get(&class_hash).unwrap(),
         false
     );
 
     state.set_contract_class(class_hash, contract_class).unwrap();
-    assert_eq!(*state.cache.borrow().declared_contract_writes.get(&class_hash).unwrap(), true);
+    assert_eq!(*state.cache.borrow().writes.declared_contracts.get(&class_hash).unwrap(), true);
 }
 
 #[test]

@@ -54,9 +54,9 @@ impl<S: StateReader> VersionedState<S> {
         if tx_index == 0 {
             return true;
         }
-        for (&(contract_address, storage_key), expected_value) in
-            &state_cache.storage_initial_values
-        {
+        // TODO(Yoni, 1/5/2024): pass StateMaps.
+        let reads = &state_cache.initial_reads;
+        for (&(contract_address, storage_key), expected_value) in &reads.storage {
             let value =
                 self.storage.read(tx_index, (contract_address, storage_key)).expect(READ_ERR);
 
@@ -65,7 +65,7 @@ impl<S: StateReader> VersionedState<S> {
             }
         }
 
-        for (&contract_address, expected_value) in &state_cache.nonce_initial_values {
+        for (&contract_address, expected_value) in &reads.nonces {
             let value = self.nonces.read(tx_index, contract_address).expect(READ_ERR);
 
             if &value != expected_value {
@@ -73,7 +73,7 @@ impl<S: StateReader> VersionedState<S> {
             }
         }
 
-        for (&contract_address, expected_value) in &state_cache.class_hash_initial_values {
+        for (&contract_address, expected_value) in &reads.class_hashes {
             let value = self.class_hashes.read(tx_index, contract_address).expect(READ_ERR);
 
             if &value != expected_value {
@@ -82,7 +82,7 @@ impl<S: StateReader> VersionedState<S> {
         }
 
         // Added for symmetry. We currently do not update this initial mapping.
-        for (&class_hash, expected_value) in &state_cache.compiled_class_hash_initial_values {
+        for (&class_hash, expected_value) in &reads.compiled_class_hashes {
             let value = self.compiled_class_hashes.read(tx_index, class_hash).expect(READ_ERR);
 
             if &value != expected_value {
@@ -103,16 +103,18 @@ impl<S: StateReader> VersionedState<S> {
         state_cache: &mut StateCache,
         class_hash_to_class: ContractClassMapping,
     ) {
-        for (&key, &value) in &state_cache.storage_writes {
+        // TODO(Yoni, 1/5/2024): pass StateMaps.
+        let writes = &state_cache.writes;
+        for (&key, &value) in &writes.storage {
             self.storage.write(tx_index, key, value);
         }
-        for (&key, &value) in &state_cache.nonce_writes {
+        for (&key, &value) in &writes.nonces {
             self.nonces.write(tx_index, key, value);
         }
-        for (&key, &value) in &state_cache.class_hash_writes {
+        for (&key, &value) in &writes.class_hashes {
             self.class_hashes.write(tx_index, key, value);
         }
-        for (&key, &value) in &state_cache.compiled_class_hash_writes {
+        for (&key, &value) in &writes.compiled_class_hashes {
             self.compiled_class_hashes.write(tx_index, key, value);
         }
         for (key, value) in class_hash_to_class {
