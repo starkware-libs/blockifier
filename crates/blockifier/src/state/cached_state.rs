@@ -58,13 +58,14 @@ impl<S: StateReader> CachedState<S> {
         self.update_initial_values_of_write_only_access()?;
         let cache = self.cache.borrow();
 
+        let state_maps = cache.writes.subtract(&cache.initial_reads);
         Ok(StateChanges {
-            storage_updates: cache.get_storage_updates(),
-            nonce_updates: cache.get_nonce_updates(),
+            storage_updates: state_maps.storage,
+            nonce_updates: state_maps.nonces,
             // Class hash updates (deployed contracts + replace_class syscall).
-            class_hash_updates: cache.get_class_hash_updates(),
+            class_hash_updates: state_maps.class_hashes,
             // Compiled class hash updates (declare Cairo 1 contract).
-            compiled_class_hash_updates: cache.get_compiled_class_hash_updates(),
+            compiled_class_hash_updates: state_maps.compiled_class_hashes,
         })
     }
 
@@ -137,16 +138,15 @@ impl<S: StateReader> CachedState<S> {
             .unwrap_or_else(|_| panic!("Cannot convert stateDiff to CommitmentStateDiff."));
 
         let state_cache = self.cache.borrow();
-        let class_hash_updates = state_cache.get_class_hash_updates();
-        let storage_diffs = state_cache.get_storage_updates();
-        let nonces = state_cache.get_nonce_updates();
-        let declared_classes = state_cache.writes.compiled_class_hashes.clone();
+        let state_maps = state_cache.writes.subtract(&state_cache.initial_reads);
 
         CommitmentStateDiff {
-            address_to_class_hash: IndexMap::from_iter(class_hash_updates),
-            storage_updates: StorageDiff::from(StorageView(storage_diffs)),
-            class_hash_to_compiled_class_hash: IndexMap::from_iter(declared_classes),
-            address_to_nonce: IndexMap::from_iter(nonces),
+            address_to_class_hash: IndexMap::from_iter(state_maps.class_hashes),
+            storage_updates: StorageDiff::from(StorageView(state_maps.storage)),
+            class_hash_to_compiled_class_hash: IndexMap::from_iter(
+                state_maps.compiled_class_hashes,
+            ),
+            address_to_nonce: IndexMap::from_iter(state_maps.nonces),
         }
     }
 }
@@ -363,6 +363,30 @@ impl StateMaps {
         self.compiled_class_hashes.extend(&other.compiled_class_hashes);
         self.declared_contracts.extend(&other.declared_contracts)
     }
+
+    // Subtracts `other`s mappings from self (see `subtract_mappings` documentation).
+    // Uses strict subtraction whenever it is fine to assume that the source mapping keys is
+    // contained in the other.
+    pub fn subtract(&self, other: &Self) -> StateMaps {
+        StateMaps {
+            nonces: strict_subtract_mappings(&self.nonces, &other.nonces),
+            class_hashes: strict_subtract_mappings(&self.class_hashes, &other.class_hashes),
+            storage: strict_subtract_mappings(&self.storage, &other.storage),
+            // This is not a strict subtraction, as Papyrus does not support the
+            // `get_compiled_class_hash` method. When declaring a Cairo 1 class we update the
+            // writes mapping but cannot update the reads mapping. As a result, the compiled
+            // class hash writes keys are not a subset of compiled class hash initial values keys.
+            compiled_class_hashes: subtract_mappings(
+                &self.compiled_class_hashes,
+                &other.compiled_class_hashes,
+            ),
+            // TODO(Ori, 1/6/2023): make it work with strict.
+            declared_contracts: subtract_mappings(
+                &self.declared_contracts,
+                &other.declared_contracts,
+            ),
+        }
+    }
 }
 /// Caches read and write requests.
 /// The tracked changes are needed for block state commitment.
@@ -473,30 +497,6 @@ impl StateCache {
         compiled_class_hash: CompiledClassHash,
     ) {
         self.writes.compiled_class_hashes.insert(class_hash, compiled_class_hash);
-    }
-
-    fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
-        strict_subtract_mappings(&self.writes.storage, &self.initial_reads.storage)
-    }
-
-    fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
-        strict_subtract_mappings(&self.writes.class_hashes, &self.initial_reads.class_hashes)
-    }
-
-    fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
-        strict_subtract_mappings(&self.writes.nonces, &self.initial_reads.nonces)
-    }
-
-    fn get_compiled_class_hash_updates(&self) -> HashMap<ClassHash, CompiledClassHash> {
-        // This is not a strict subtraction, as Papyrus does not support the
-        // `get_compiled_class_hash` method. When declaring a Cairo 1 class we update the
-        // writes mapping but cannot update the reads mapping. As a result, the compiled
-        // class hash writes keys are not a subset of compiled class hash initial values keys.
-
-        subtract_mappings(
-            &self.writes.compiled_class_hashes,
-            &self.initial_reads.compiled_class_hashes,
-        )
     }
 }
 
