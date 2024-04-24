@@ -70,12 +70,7 @@ impl<S: StateReader> CachedState<S> {
 
     pub fn update_cache(&mut self, cache_updates: StateCache) {
         let mut cache = self.cache.borrow_mut();
-
-        cache.writes.nonces.extend(cache_updates.writes.nonces);
-        cache.writes.class_hashes.extend(cache_updates.writes.class_hashes);
-        cache.writes.storage.extend(cache_updates.writes.storage);
-        cache.writes.compiled_class_hashes.extend(cache_updates.writes.compiled_class_hashes);
-        cache.writes.declared_contracts.extend(cache_updates.writes.declared_contracts)
+        cache.writes.extend(&cache_updates.writes);
     }
 
     pub fn update_contract_class_cache(
@@ -360,6 +355,15 @@ pub struct StateMaps {
     pub(crate) declared_contracts: HashMap<ClassHash, bool>,
 }
 
+impl StateMaps {
+    pub fn extend(&mut self, other: &Self) {
+        self.nonces.extend(&other.nonces);
+        self.class_hashes.extend(&other.class_hashes);
+        self.storage.extend(&other.storage);
+        self.compiled_class_hashes.extend(&other.compiled_class_hashes);
+        self.declared_contracts.extend(&other.declared_contracts)
+    }
+}
 /// Caches read and write requests.
 /// The tracked changes are needed for block state commitment.
 

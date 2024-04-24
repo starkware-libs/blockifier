@@ -574,3 +574,26 @@ fn test_state_changes_keys() {
         }
     )
 }
+
+#[rstest]
+fn test_state_maps() {
+    let contract_address1 = contract_address!("0x101");
+    let storage_key1 = StorageKey(patricia_key!("0x102"));
+    let class_hash1 = ClassHash(stark_felt!("0x103"));
+    let nonce1 = Nonce(stark_felt!("0x104"));
+    let compiled_class_hash1 = CompiledClassHash(stark_felt!("0x105"));
+    let some_felt1 = stark_felt!("0x106");
+    let maps = StateMaps {
+        nonces: HashMap::from([(contract_address1, nonce1)]),
+        class_hashes: HashMap::from([(contract_address1, class_hash1)]),
+        storage: HashMap::from([((contract_address1, storage_key1), some_felt1)]),
+        compiled_class_hashes: HashMap::from([(class_hash1, compiled_class_hash1)]),
+        declared_contracts: HashMap::from([(class_hash1, true)]),
+    };
+
+    // Test that `extend` extends all hash maps (by constructing `maps` without default values).
+    let mut empty = StateMaps::default();
+    empty.extend(&maps);
+
+    assert_eq!(maps, empty);
+}
