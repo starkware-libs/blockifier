@@ -23,11 +23,11 @@ use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecution
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
 
-const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
-
 #[cfg(test)]
 #[path = "worker_logic_test.rs"]
-pub mod test;
+mod test;
+
+const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
 
 #[derive(Debug)]
 pub struct ExecutionTaskOutput {
