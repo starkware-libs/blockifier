@@ -1197,8 +1197,8 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
     let transactional_cache = transactional_state.cache.borrow();
     for storage in [
-        transactional_cache.storage_initial_values.clone(),
-        transactional_cache.storage_writes.clone(),
+        transactional_cache.initial_reads.storage.clone(),
+        transactional_cache.writes.storage.clone(),
     ] {
         for seq_key in [sequencer_balance_key_low, sequencer_balance_key_high] {
             assert!(storage.get(&(fee_token_address, seq_key)).is_none());
@@ -1224,8 +1224,8 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
 
     account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
     // Check that the sequencer balance was not changed.
-    let storage_write = transactional_state.cache.borrow().storage_writes.clone();
-    let storage_initial_values = transactional_state.cache.borrow().storage_initial_values.clone();
+    let storage_write = transactional_state.cache.borrow().writes.storage.clone();
+    let storage_initial_values = transactional_state.cache.borrow().initial_reads.storage.clone();
 
     for (seq_write_val, expexted_write_val) in [
         (
