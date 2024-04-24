@@ -141,7 +141,7 @@ impl<S: StateReader> VersionedState<S> {
     }
 }
 
-pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
+pub struct ThreadSafeVersionedState<S: StateReader>(pub Arc<Mutex<VersionedState<S>>>);
 pub type LockedVersionedState<'a, S> = MutexGuard<'a, VersionedState<S>>;
 
 impl<S: StateReader> ThreadSafeVersionedState<S> {
