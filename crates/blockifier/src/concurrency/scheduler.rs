@@ -180,3 +180,8 @@ enum TransactionStatus {
     Executed,
     Aborting,
 }
+
+pub struct CommitStatus {
+    pub tx_index: TxIndex,
+    pub wave: usize,
+}
