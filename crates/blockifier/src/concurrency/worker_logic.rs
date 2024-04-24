@@ -1,10 +1,23 @@
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
+use std::ops::Deref;
+use std::sync::Arc;
 
+use cairo_felt::Felt252;
+
+use super::versioned_state_proxy::ThreadSafeVersionedState;
+use super::TxIndex;
+use crate::abi::abi_utils::get_fee_token_var_address;
+use crate::concurrency::fee_utils::fix_concurrency_fee_transfer_call_info;
 use crate::concurrency::versioned_state_proxy::VersionedStateProxy;
-use crate::context::TransactionContext;
+use crate::context::{BlockContext, TransactionContext};
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_address_and_keys;
-use crate::state::cached_state::{StateCache, StateMaps};
-use crate::state::state_api::StateReader;
+use crate::state::cached_state::{CachedState, StateCache, StateMaps};
+use crate::state::state_api::{State, StateReader};
+use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
+use crate::transaction::transactions::ExecutableTransaction;
 
 // All transactions only uptate the sequencer balance when commited,
 // these changes are not visible to other transactions through execution.
@@ -42,4 +55,73 @@ pub fn revalidate_sequencer_balance_reads<S: StateReader>(
         .lock()
         .unwrap()
         .validate_read_set(versioned_state.tx_index, &new_state_cache.initial_reads)
+}
+
+pub fn commit_transaction<S: StateReader>(
+    versioned_state: &mut ThreadSafeVersionedState<S>,
+    tx_index: &TxIndex,
+    block_context: &mut BlockContext,
+    tx_list: Vec<&AccountTransaction>,
+    read_set: &StateCache,
+    transactions_info: &mut [TransactionExecutionResult<TransactionExecutionInfo>],
+) {
+    let result_tx_info = &transactions_info[*tx_index];
+    if result_tx_info.is_err() {
+        // check if it has place in the bouncer
+        // update commmit index
+        return;
+    }
+    let tx_info = result_tx_info.as_ref().unwrap();
+    let account_tx = tx_list[*tx_index];
+    let tx_context = Arc::new(block_context.to_tx_context(account_tx));
+    let mut cached_state = CachedState::from(versioned_state.pin_version(*tx_index));
+    // TODO(Meshi): chenge this when the chached state will be updated to fit concurrency mode.
+    let mut transactional_state = CachedState::create_transactional(&mut cached_state);
+    let (sequencer_address, sequencer_balance_key_low, _sequencer_balance_key_high) =
+        get_sequencer_address_and_keys(&tx_context.block_context);
+    if tx_context.tx_info.sender_address() == block_context.block_info.sequencer_address {
+        // check if it has place in the bouncer
+        // update commmit index
+        return;
+    }
+    if !revalidate_sequencer_balance_reads(
+        &mut versioned_state.pin_version(*tx_index),
+        &tx_context,
+        read_set,
+    ) {
+        block_context.concurrency_mode = false;
+        account_tx.execute_raw(&mut transactional_state, block_context, true, true).unwrap();
+        // check if it has place in the bouncer
+    } else {
+        // check if it has place in the bouncer
+        let sequencer_balance = versioned_state
+            .pin_version(*tx_index)
+            .get_storage_at(tx_context.fee_token_address(), sequencer_balance_key_low);
+        let mut call_info =  match &tx_info.fee_transfer_call_info{
+            Some(call_info) => call_info,
+            None => return,
+        };
+        fix_concurrency_fee_transfer_call_info(
+            &mut call_info,
+            sequencer_balance.unwrap(),
+        );
+        transactions_info[*tx_index] = Ok(TransactionExecutionInfo{
+            fee_transfer_call_info: Some(*call_info),
+            ..*tx_info
+        });
+        let sender_balance_key = get_fee_token_var_address(tx_context.fee_token_address());
+        let sender_balance_value = transactional_state
+            .get_storage_at(tx_context.fee_token_address(), sender_balance_key)
+            .unwrap();
+        let value = stark_felt_to_felt(sender_balance_value) + Felt252::from(tx_info.actual_fee.0);
+        transactional_state
+            .set_storage_at(
+                tx_context.fee_token_address(),
+                sender_balance_key,
+                felt_to_stark_felt(&value),
+            )
+            .unwrap();
+    }
+
+    // update commmit index
 }
