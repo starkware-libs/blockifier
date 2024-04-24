@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use cairo_felt::Felt252;
 use num_traits::Bounded;
@@ -9,6 +9,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use super::versioned_state_proxy::VersionedStateProxy;
+use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
@@ -17,18 +18,20 @@ use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
 
-fn _add_fee_to_sequencer_balance(
+const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
+
+fn add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
     tx_versioned_state: &VersionedStateProxy<impl StateReader>,
     actual_fee: Fee,
     block_context: &BlockContext,
-    sequencer_balance_value_high: StarkFelt,
     sequencer_balance_value_low: StarkFelt,
+    sequencer_balance_value_high: StarkFelt,
 ) {
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(block_context);
@@ -67,6 +70,7 @@ pub struct WorkerExecutor<S: StateReader> {
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
 }
+
 impl<S: StateReader> WorkerExecutor<S> {
     pub fn run(&self) {
         let mut task = Task::NoTask;
@@ -127,5 +131,72 @@ impl<S: StateReader> WorkerExecutor<S> {
 
     fn validate(&self, _tx_index: TxIndex) -> Task {
         todo!();
+    }
+
+    pub fn try_commit_transaction(&mut self, tx_index: TxIndex) -> StateResult<bool> {
+        let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
+
+        let tx = &self.chunk[tx_index];
+        let tx_versioned_state = self.state.pin_version(tx_index);
+
+        let read_set = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+        let validate_reads = tx_versioned_state.validate_reads(read_set);
+        drop(execution_output);
+
+        // First, re-validate the transaction.
+        if !validate_reads {
+            // Revalidate failed: re-execute the transaction, and commit.
+            // TODO(Meshi, 01/06/2024): Delete the transaction writes.
+            self.execute_tx(tx_index);
+            let execution_task_outputs = lock_mutex_in_array(&self.execution_outputs, tx_index);
+            let read_set =
+                &execution_task_outputs.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+            // Another validation after the re-execution for sanity check.
+            assert!(tx_versioned_state.validate_reads(read_set));
+        }
+
+        // Revalidate succeeded.
+        let mut execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
+        let result_tx_info =
+            &mut execution_output.as_mut().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).result;
+        if result_tx_info.is_err() {
+            // Transaction rejected - no fee charged. Commit completed.
+            return Ok(true);
+        }
+
+        let tx_context = Arc::new(self.block_context.to_tx_context(tx));
+        // Fix the sequencer balance.
+        // There is no need to fix the balance when the sequencer transfers fee to itself, since we
+        // use the sequential fee transfer in this case.
+        if tx_context.tx_info.sender_address() != self.block_context.block_info.sequencer_address {
+            if let Ok(tx_info) = result_tx_info.as_mut() {
+                // Update the sequencer balance in the storage.
+                let mut next_tx_versioned_state = self.state.pin_version(tx_index + 1);
+                let (sequencer_balance_value_low, sequencer_balance_value_high) =
+                    next_tx_versioned_state.get_fee_token_balance(
+                        tx_context.block_context.block_info.sequencer_address,
+                        tx_context.fee_token_address(),
+                    )?;
+                if let Some(fee_transfer_call_info) = tx_info.fee_transfer_call_info.as_mut() {
+                    // Fix the transfer call info.
+                    fill_sequencer_balance_reads(
+                        fee_transfer_call_info,
+                        sequencer_balance_value_low,
+                        sequencer_balance_value_high,
+                    );
+                }
+                add_fee_to_sequencer_balance(
+                    tx_context.fee_token_address(),
+                    &tx_versioned_state,
+                    tx_info.actual_fee,
+                    &self.block_context,
+                    sequencer_balance_value_low,
+                    sequencer_balance_value_high,
+                );
+            }
+        }
+
+        // TODO(Meshi, 01/06/2024): check if this is also needed in the bouncer.
+        Ok(true)
     }
 }
