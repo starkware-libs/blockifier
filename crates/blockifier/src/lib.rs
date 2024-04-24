@@ -12,7 +12,6 @@
 pub mod abi;
 pub mod blockifier;
 pub mod bouncer;
-#[cfg(feature = "concurrency")]
 pub mod concurrency;
 pub mod context;
 pub mod execution;
