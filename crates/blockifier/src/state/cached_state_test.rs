@@ -249,6 +249,9 @@ fn cached_state_state_diff_conversion() {
 
     let mut state = CachedState::default();
 
+    // Some unused class hash.
+    let class_hash = FeatureContract::Empty(CairoVersion::Cairo0).get_class_hash();
+
     // Populate the initial value in the state cache (the init above is only for the StateReader).
     set_initial_state_values(
         &mut state,
@@ -259,8 +262,9 @@ fn cached_state_state_diff_conversion() {
     );
 
     // Declare a new class.
-    let class_hash = FeatureContract::Empty(CairoVersion::Cairo0).get_class_hash(); // Some unused class hash.
     let compiled_class_hash = CompiledClassHash(stark_felt!(1_u8));
+    // Cache the initial read value, as in regular flow.
+    state.get_compiled_contract_class(class_hash).unwrap_err();
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
     // Write the initial value using key contract_address1.
@@ -271,6 +275,9 @@ fn cached_state_state_diff_conversion() {
     state.set_storage_at(contract_address2, key_y, new_value).unwrap();
     assert!(state.increment_nonce(contract_address2).is_ok());
     let new_class_hash = class_hash!("0x11111111");
+
+    // Cache the initial read value, as in regular flow.
+    state.get_class_hash_at(contract_address2).unwrap();
     assert!(state.set_class_hash_at(contract_address2, new_class_hash).is_ok());
 
     // Only changes to contract_address2 should be shown, since contract_address_0 wasn't changed
@@ -297,9 +304,15 @@ fn create_state_changes_for_test<S: StateReader>(
     let key = StorageKey(patricia_key!("0x10"));
     let storage_val: StarkFelt = stark_felt!("0x1");
 
+    // Fill the initial read value, as in regular flow.
+    state.get_class_hash_at(contract_address).unwrap();
     state.set_class_hash_at(contract_address, class_hash).unwrap();
+
     state.set_storage_at(contract_address, key, storage_val).unwrap();
     state.increment_nonce(contract_address2).unwrap();
+
+    // Fill the initial read value, as in regular flow.
+    state.get_compiled_contract_class(class_hash).unwrap_err();
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
     // Assign the existing value to the storage (this shouldn't be considered a change).

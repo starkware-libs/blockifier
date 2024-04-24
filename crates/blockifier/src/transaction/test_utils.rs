@@ -205,6 +205,7 @@ pub fn create_account_tx_for_validate_test(
                     version: tx_version,
                     nonce: nonce_manager.next(sender_address),
                     class_hash,
+                    compiled_class_hash: declared_contract.get_compiled_class_hash(),
                 },
                 class_info,
             )

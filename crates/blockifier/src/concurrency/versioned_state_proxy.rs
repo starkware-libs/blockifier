@@ -42,7 +42,7 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    // Note: Invoke this function after `update_initial_values_of_write_only_access`.
+    // Note: Invoke this function after `update_initial_storage_values_of_write_only_access`.
     // Transactions that overwrite previously written values are not charged. Hence, altering a
     // write-only cell can impact the fee calculation, leading to a re-execution.
     // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared

@@ -1,7 +1,7 @@
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::StarkHash;
-use starknet_api::{class_hash, contract_address, patricia_key};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::test_utils::{get_raw_contract_class, CairoVersion};
@@ -143,6 +143,13 @@ impl FeatureContract {
 
     pub fn get_class_hash(&self) -> ClassHash {
         class_hash!(self.get_integer_base())
+    }
+
+    pub fn get_compiled_class_hash(&self) -> CompiledClassHash {
+        match self.cairo_version() {
+            CairoVersion::Cairo0 => CompiledClassHash(StarkFelt::ZERO),
+            CairoVersion::Cairo1 => CompiledClassHash(stark_felt!(self.get_integer_base())),
+        }
     }
 
     /// Returns the address of the instance with the given instance ID.

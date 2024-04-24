@@ -104,6 +104,7 @@ fn test_declare(
         declare_tx_args! {
             sender_address: account_contract.get_instance_address(0),
             class_hash: declared_contract.get_class_hash(),
+            compiled_class_hash: declared_contract.get_compiled_class_hash(),
             version: transaction_version,
             resource_bounds: l1_resource_bounds(0, DEFAULT_STRK_L1_GAS_PRICE),
         },

@@ -255,6 +255,7 @@ fn test_max_fee_limit_validate(
     let account_tx = declare_tx(
         declare_tx_args! {
             class_hash: grindy_class_hash,
+            compiled_class_hash: grindy_validate_account.get_compiled_class_hash(),
             sender_address: account_address,
             max_fee: Fee(MAX_FEE),
             nonce: nonce_manager.next(account_address),
