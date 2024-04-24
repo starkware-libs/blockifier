@@ -346,7 +346,7 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct StateMaps {
     pub(crate) nonces: HashMap<ContractAddress, Nonce>,
     pub(crate) class_hashes: HashMap<ContractAddress, ClassHash>,
