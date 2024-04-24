@@ -533,49 +533,6 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
     }
 }
 
-impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
-    fn set_storage_at(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-        value: StarkFelt,
-    ) -> StateResult<()> {
-        self.0.set_storage_at(contract_address, key, value)
-    }
-
-    fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
-        self.0.increment_nonce(contract_address)
-    }
-
-    fn set_class_hash_at(
-        &mut self,
-        contract_address: ContractAddress,
-        class_hash: ClassHash,
-    ) -> StateResult<()> {
-        self.0.set_class_hash_at(contract_address, class_hash)
-    }
-
-    fn set_contract_class(
-        &mut self,
-        class_hash: ClassHash,
-        contract_class: ContractClass,
-    ) -> StateResult<()> {
-        self.0.set_contract_class(class_hash, contract_class)
-    }
-
-    fn set_compiled_class_hash(
-        &mut self,
-        class_hash: ClassHash,
-        compiled_class_hash: CompiledClassHash,
-    ) -> StateResult<()> {
-        self.0.set_compiled_class_hash(class_hash, compiled_class_hash)
-    }
-
-    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>) {
-        self.0.add_visited_pcs(class_hash, pcs)
-    }
-}
-
 pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 
 /// Adds the ability to perform a transactional execution.
