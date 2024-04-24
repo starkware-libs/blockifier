@@ -393,7 +393,7 @@ impl AccountTransaction {
         let fee_transfer_call_info =
             AccountTransaction::execute_fee_transfer(&mut transfer_state, tx_context, actual_fee);
         // Commit without updating the sequencer balance.
-        let storage_writes = &mut transfer_state.cache.get_mut().storage_writes;
+        let storage_writes = &mut transfer_state.cache.get_mut().writes.storage;
         storage_writes.remove(&(fee_address, sequencer_balance_key_low));
         storage_writes.remove(&(fee_address, sequencer_balance_key_high));
         transfer_state.commit();
