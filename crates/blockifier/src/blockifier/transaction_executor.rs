@@ -1,7 +1,5 @@
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ClassHash;
 use thiserror::Error;
@@ -10,9 +8,7 @@ use crate::bouncer::{Bouncer, BouncerConfig};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
-use crate::state::cached_state::{
-    CachedState, CommitmentStateDiff, StorageEntry, TransactionalState,
-};
+use crate::state::cached_state::{CachedState, CommitmentStateDiff};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::account_transaction::AccountTransaction;
@@ -149,51 +145,4 @@ impl<S: StateReader> TransactionExecutor<S> {
 
         Ok((self.state.to_state_diff(), visited_segments))
     }
-}
-
-/// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
-/// executed classes by the current transaction.
-pub fn get_casm_hash_calculation_resources<S: StateReader>(
-    state: &mut TransactionalState<'_, S>,
-    block_executed_class_hashes: &HashSet<ClassHash>,
-    tx_executed_class_hashes: &HashSet<ClassHash>,
-) -> TransactionExecutorResult<ExecutionResources> {
-    let newly_executed_class_hashes: HashSet<&ClassHash> =
-        tx_executed_class_hashes.difference(block_executed_class_hashes).collect();
-
-    let mut casm_hash_computation_resources = ExecutionResources::default();
-
-    for class_hash in newly_executed_class_hashes {
-        let class = state.get_compiled_contract_class(*class_hash)?;
-        casm_hash_computation_resources += &class.estimate_casm_hash_computation_resources();
-    }
-
-    Ok(casm_hash_computation_resources)
-}
-
-/// Returns the estimated VM resources for Patricia tree updates, or hash invocations
-/// (done by the OS), required by the execution of the current transaction.
-// For each tree: n_visited_leaves * log(n_initialized_leaves)
-// as the height of a Patricia tree with N uniformly distributed leaves is ~log(N),
-// and number of visited leaves includes reads and writes.
-pub fn get_particia_update_resources(
-    block_visited_storage_entries: &HashSet<StorageEntry>,
-    tx_visited_storage_entries: &HashSet<StorageEntry>,
-) -> TransactionExecutorResult<ExecutionResources> {
-    let newly_visited_storage_entries: HashSet<&StorageEntry> =
-        tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
-    let n_newly_visited_leaves = newly_visited_storage_entries.len();
-
-    const TREE_HEIGHT_UPPER_BOUND: usize = 24;
-    let n_updates = n_newly_visited_leaves * TREE_HEIGHT_UPPER_BOUND;
-
-    let patricia_update_resources = ExecutionResources {
-        // TODO(Yoni, 1/5/2024): re-estimate this.
-        n_steps: 32 * n_updates,
-        // For each Patricia update there are two hash calculations.
-        builtin_instance_counter: HashMap::from([(HASH_BUILTIN_NAME.to_string(), 2 * n_updates)]),
-        n_memory_holes: 0,
-    };
-
-    Ok(patricia_update_resources)
 }
