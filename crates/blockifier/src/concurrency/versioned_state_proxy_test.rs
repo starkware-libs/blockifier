@@ -379,3 +379,44 @@ fn test_apply_writes_reexecute_scenario(
     // The class hash should be updated.
     assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
 }
+
+#[rstest]
+fn test_versioned_proxy_state_flow(versioned_state: Arc<Mutex<VersionedState<DictStateReader>>>) {
+    let contract_address = contract_address!("0x1");
+    let class_hash = ClassHash(stark_felt!(27_u8));
+
+    let mut block_state = CachedState::from(DictStateReader::default());
+    let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
+    let mut transactional_states: Vec<CachedState<VersionedStateProxy<DictStateReader>>> =
+        (0..4).map(|i| CachedState::from(safe_versioned_state.pin_version(i))).collect();
+
+    // Clients class hash values.
+    let class_hash_1 = ClassHash(stark_felt!(76_u8));
+    let class_hash_3 = ClassHash(stark_felt!(234_u8));
+
+    transactional_states[1].set_class_hash_at(contract_address, class_hash_1).unwrap();
+    transactional_states[3].set_class_hash_at(contract_address, class_hash_3).unwrap();
+
+    // Clients contract class values.
+    let contract_class_0 = FeatureContract::TestContract(CairoVersion::Cairo0).get_class();
+    let contract_class_2 =
+        FeatureContract::AccountWithLongValidate(CairoVersion::Cairo1).get_class();
+
+    transactional_states[0].set_contract_class(class_hash, contract_class_0).unwrap();
+    transactional_states[2].set_contract_class(class_hash, contract_class_2.clone()).unwrap();
+
+    // Apply the changes.
+    for (i, transactional_state) in transactional_states.iter_mut().enumerate().take(4) {
+        versioned_state.lock().unwrap().apply_writes(
+            i,
+            &transactional_state.cache.borrow().writes,
+            &transactional_state.class_hash_to_class.borrow().clone(),
+        );
+    }
+
+    // Check the final state.
+    versioned_state.lock().unwrap().commit(4, &mut block_state);
+
+    assert!(block_state.get_class_hash_at(contract_address).unwrap() == class_hash_3);
+    assert!(block_state.get_compiled_contract_class(class_hash).unwrap() == contract_class_2);
+}
