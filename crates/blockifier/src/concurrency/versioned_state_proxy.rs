@@ -8,7 +8,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{ContractClassMapping, StateCache};
+use crate::state::cached_state::{ContractClassMapping, StateMaps};
 use crate::state::state_api::{State, StateReader, StateResult};
 
 #[cfg(test)]
@@ -42,20 +42,16 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    // Note: Invoke this function after `update_initial_values_of_write_only_access`.
-    // Transactions that overwrite previously written values are not charged. Hence, altering a
-    // write-only cell can impact the fee calculation, leading to a re-execution.
     // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared
     // object (probabily `VersionedState`). As RefCell operations are not thread-safe. Therefore,
     // accessing this function should be protected by a mutex to ensure thread safety.
-    pub fn validate_read_set(&mut self, tx_index: TxIndex, state_cache: &mut StateCache) -> bool {
+    pub fn validate_read_set(&mut self, tx_index: TxIndex, reads: &StateMaps) -> bool {
         // If is the first transaction in the chunk, then the read set is valid. Since it has no
         // predecessors, there's nothing to compare it to.
         if tx_index == 0 {
             return true;
         }
-        // TODO(Yoni, 1/5/2024): pass StateMaps.
-        let reads = &state_cache.initial_reads;
+
         for (&(contract_address, storage_key), expected_value) in &reads.storage {
             let value =
                 self.storage.read(tx_index, (contract_address, storage_key)).expect(READ_ERR);
@@ -100,11 +96,9 @@ impl<S: StateReader> VersionedState<S> {
     pub fn apply_writes(
         &mut self,
         tx_index: TxIndex,
-        state_cache: &mut StateCache,
+        writes: &StateMaps,
         class_hash_to_class: ContractClassMapping,
     ) {
-        // TODO(Yoni, 1/5/2024): pass StateMaps.
-        let writes = &state_cache.writes;
         for (&key, &value) in &writes.storage {
             self.storage.write(tx_index, key, value);
         }
