@@ -13,7 +13,9 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::{CairoVersion, NonceManager, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
+use crate::transaction::errors::{
+    TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
+};
 use crate::transaction::test_utils::{
     block_context, create_account_tx_for_validate_test, FaultyAccountTxCreatorArgs, INVALID, VALID,
 };
@@ -77,11 +79,27 @@ fn test_transaction_validator(
         FaultyAccountTxCreatorArgs { scenario: VALID, additional_data: None, ..default_args },
     );
 
+    // Max fee too low.
+    let temp_nonce_manager = &mut NonceManager::default();
+    let tx_max_fee_too_low = create_account_tx_for_validate_test(
+        if let TransactionType::DeployAccount = tx_type {
+            temp_nonce_manager
+        } else {
+            nonce_manager
+        },
+        FaultyAccountTxCreatorArgs {
+            scenario: VALID,
+            additional_data: None,
+            max_fee: Fee(1),
+            ..default_args
+        },
+    );
+
     // Positive flow.
     let tx_valid_scenario = if let TransactionType::DeployAccount = tx_type {
         create_account_tx_for_validate_test(
             &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs { scenario: VALID, ..default_args },
+            FaultyAccountTxCreatorArgs { scenario: VALID, additional_data: None, ..default_args },
         )
     } else {
         create_account_tx_for_validate_test(
@@ -148,6 +166,35 @@ fn test_transaction_validator(
                 && account_nonce == Nonce(stark_felt!(2_u32))
                 && incoming_tx_nonce == Nonce(stark_felt!(1_u32))
         );
+    }
+
+    if tx_version < TransactionVersion::THREE {
+        let error = stateful_validator.perform_validations(tx_max_fee_too_low, None).unwrap_err();
+        if let TransactionType::DeployAccount = tx_type {
+            assert_matches!(
+                error,
+                StatefulValidatorError::TransactionExecutorError(
+                    TransactionExecutorError::TransactionExecutionError(
+                        TransactionExecutionError::TransactionPreValidationError(
+                            TransactionPreValidationError::TransactionFeeError(
+                                TransactionFeeError::MaxFeeTooLow {max_fee, .. }
+                            )
+                        )
+                    )
+                )
+                    if max_fee == Fee(1)
+            );
+        } else {
+            assert_matches!(
+                error,
+                StatefulValidatorError::TransactionPreValidationError(
+                    TransactionPreValidationError::TransactionFeeError(
+                        TransactionFeeError::MaxFeeTooLow {max_fee, .. }
+                    )
+                )
+                if max_fee == Fee(1)
+            );
+        }
     }
 
     stateful_validator.perform_validations(tx_valid_scenario, None).unwrap()
