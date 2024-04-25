@@ -23,7 +23,7 @@ fn global_contract_cache_update() {
 
     let temp_storage_path = tempfile::tempdir().unwrap().into_path();
     let mut block_executor =
-        PyBlockExecutor::create_for_testing(PyGeneralConfig::default(), temp_storage_path);
+        PyBlockExecutor::create_for_testing(PyGeneralConfig::default(), temp_storage_path, 4000);
     block_executor
         .append_block(
             0,
