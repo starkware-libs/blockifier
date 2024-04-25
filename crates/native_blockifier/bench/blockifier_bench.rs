@@ -19,12 +19,14 @@ use blockifier::test_utils::{CairoVersion, NonceManager, BALANCE, MAX_FEE};
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use criterion::{criterion_group, criterion_main, Criterion};
+use rand::{Rng, SeedableRng};
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 use starknet_api::{calldata, stark_felt};
 
 const N_ACCOUNTS: u16 = 10000;
+const RANDOM_SEED: u64 = 0;
 
 pub fn transfers_benchmark(c: &mut Criterion) {
     let account_contract = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
@@ -37,11 +39,19 @@ pub fn transfers_benchmark(c: &mut Criterion) {
     let nonce_manager = &mut NonceManager::default();
 
     let mut sender_account = 0;
+    let mut random_generator = rand::rngs::StdRng::seed_from_u64(RANDOM_SEED);
     // Create a benchmark group called "transfers", which iterates over the accounts round-robin
     // and performs transfers.
     c.bench_function("transfers", |benchmark| {
         benchmark.iter(|| {
-            do_transfer(sender_account, &accounts, nonce_manager, block_context, &mut state);
+            do_transfer(
+                sender_account,
+                &accounts,
+                nonce_manager,
+                block_context,
+                &mut state,
+                &mut random_generator,
+            );
             sender_account = (sender_account + 1) % accounts.len();
         })
     });
@@ -53,9 +63,10 @@ fn do_transfer(
     nonce_manager: &mut NonceManager,
     block_context: &BlockContext,
     state: &mut CachedState<DictStateReader>,
+    random_generator: &mut rand::rngs::StdRng,
 ) {
     let n_accounts = accounts.len();
-    let recipient_account = (sender_account + 1) % n_accounts;
+    let recipient_account = random_generator.gen::<usize>() % n_accounts;
     let sender_address = accounts[sender_account];
     let recipient_account_address = accounts[recipient_account];
     let nonce = nonce_manager.next(sender_address);
