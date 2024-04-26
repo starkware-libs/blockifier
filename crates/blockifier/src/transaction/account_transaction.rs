@@ -7,7 +7,8 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
 
-use crate::abi::abi_utils::selector_from_name;
+use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::abi::sierra_types::next_storage_key;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
@@ -301,8 +302,8 @@ impl AccountTransaction {
         Ok(())
     }
 
-    fn handle_fee(
-        state: &mut dyn State,
+    fn handle_fee<S: StateReader>(
+        state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
         charge_fee: bool,
@@ -315,8 +316,14 @@ impl AccountTransaction {
         // TODO(Amos, 8/04/2024): Add test for this assert.
         Self::assert_actual_fee_in_bounds(&tx_context, actual_fee)?;
 
-        // Charge fee.
-        let fee_transfer_call_info = Self::execute_fee_transfer(state, tx_context, actual_fee)?;
+        let fee_transfer_call_info = if tx_context.block_context.concurrency_mode
+            && tx_context.block_context.block_info.sequencer_address
+                != tx_context.tx_info.sender_address()
+        {
+            Self::concurrency_execute_fee_transfer(state, tx_context, actual_fee)?
+        } else {
+            Self::execute_fee_transfer(state, tx_context, actual_fee)?
+        };
 
         Ok(Some(fee_transfer_call_info))
     }
@@ -332,8 +339,6 @@ impl AccountTransaction {
         let msb_amount = StarkFelt::from(0_u8);
 
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
-
-        // TODO(Gilad): add test that correct fee address is taken, once we add V3 test support.
         let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
@@ -357,6 +362,41 @@ impl AccountTransaction {
         Ok(fee_transfer_call
             .execute(state, &mut ExecutionResources::default(), &mut context)
             .map_err(TransactionFeeError::ExecuteFeeTransferError)?)
+    }
+
+    /// Handles fee transfer in concurrent execution.
+    ///
+    /// Accessing and updating the sequencer balance at this stage is a bottleneck; this function
+    /// manipulates the state to avoid that part.
+    /// Note: the returned transfer call info is partial, and should be completed at the commit
+    /// stage, as well as the actual sequencer balance.
+    fn concurrency_execute_fee_transfer<S: StateReader>(
+        state: &mut TransactionalState<'_, S>,
+        tx_context: Arc<TransactionContext>,
+        actual_fee: Fee,
+    ) -> TransactionExecutionResult<CallInfo> {
+        let TransactionContext { block_context, tx_info } = tx_context.as_ref();
+        let fee_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
+        let sequencer_address = block_context.block_info.sequencer_address;
+        let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
+        let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
+            .expect("Cannot get sequencer balance high key.");
+        let mut transfer_state = CachedState::create_transactional(state);
+
+        // Set the initial sequencer balance to avoid tarnishing the read-set of the transaction.
+        let cache = transfer_state.cache.get_mut();
+        for key in [sequencer_balance_key_low, sequencer_balance_key_high] {
+            cache.set_storage_initial_value(fee_address, key, StarkFelt::ZERO);
+        }
+
+        let fee_transfer_call_info =
+            AccountTransaction::execute_fee_transfer(&mut transfer_state, tx_context, actual_fee);
+        // Commit without updating the sequencer balance.
+        let storage_writes = &mut transfer_state.cache.get_mut().writes.storage;
+        storage_writes.remove(&(fee_address, sequencer_balance_key_low));
+        storage_writes.remove(&(fee_address, sequencer_balance_key_high));
+        transfer_state.commit();
+        fee_transfer_call_info
     }
 
     fn run_execute<S: State>(
@@ -628,7 +668,6 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
             validate,
             charge_fee,
         )?;
-
         let fee_transfer_call_info = Self::handle_fee(state, tx_context, final_fee, charge_fee)?;
 
         let tx_execution_info = TransactionExecutionInfo {

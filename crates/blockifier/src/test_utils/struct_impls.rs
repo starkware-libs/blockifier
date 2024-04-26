@@ -161,6 +161,10 @@ impl BlockContext {
             ..Self::create_for_account_testing()
         }
     }
+
+    pub fn create_for_account_testing_with_concurrency_mode(concurrency_mode: bool) -> Self {
+        Self { concurrency_mode, ..Self::create_for_account_testing() }
+    }
 }
 
 impl CallExecution {
