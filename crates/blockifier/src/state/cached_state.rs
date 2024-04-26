@@ -70,11 +70,7 @@ impl<S: StateReader> CachedState<S> {
 
     pub fn update_cache(&mut self, cache_updates: StateCache) {
         let mut cache = self.cache.borrow_mut();
-
-        cache.nonce_writes.extend(cache_updates.nonce_writes);
-        cache.class_hash_writes.extend(cache_updates.class_hash_writes);
-        cache.storage_writes.extend(cache_updates.storage_writes);
-        cache.compiled_class_hash_writes.extend(cache_updates.compiled_class_hash_writes);
+        cache.writes.extend(&cache_updates.writes);
     }
 
     pub fn update_contract_class_cache(
@@ -100,30 +96,32 @@ impl<S: StateReader> CachedState<S> {
 
         // Eliminate storage writes that are identical to the initial value (no change). Assumes
         // that `set_storage_at` does not affect the state field.
-        for contract_storage_key in cache.storage_writes.keys() {
-            if !cache.storage_initial_values.contains_key(contract_storage_key) {
+        for contract_storage_key in cache.writes.storage.keys() {
+            if !cache.initial_reads.storage.contains_key(contract_storage_key) {
                 // First access to this cell was write; cache initial value.
-                cache.storage_initial_values.insert(
+                cache.initial_reads.storage.insert(
                     *contract_storage_key,
                     self.state.get_storage_at(contract_storage_key.0, contract_storage_key.1)?,
                 );
             }
         }
 
-        for contract_address in cache.class_hash_writes.keys() {
-            if !cache.class_hash_initial_values.contains_key(contract_address) {
+        for contract_address in cache.writes.class_hashes.keys() {
+            if !cache.initial_reads.class_hashes.contains_key(contract_address) {
                 // First access to this cell was write; cache initial value.
                 cache
-                    .class_hash_initial_values
+                    .initial_reads
+                    .class_hashes
                     .insert(*contract_address, self.state.get_class_hash_at(*contract_address)?);
             }
         }
 
-        for contract_address in cache.nonce_writes.keys() {
-            if !cache.nonce_initial_values.contains_key(contract_address) {
+        for contract_address in cache.writes.nonces.keys() {
+            if !cache.initial_reads.nonces.contains_key(contract_address) {
                 // First access to this cell was write; cache initial value.
                 cache
-                    .nonce_initial_values
+                    .initial_reads
+                    .nonces
                     .insert(*contract_address, self.state.get_nonce_at(*contract_address)?);
             }
         }
@@ -142,7 +140,7 @@ impl<S: StateReader> CachedState<S> {
         let class_hash_updates = state_cache.get_class_hash_updates();
         let storage_diffs = state_cache.get_storage_updates();
         let nonces = state_cache.get_nonce_updates();
-        let declared_classes = state_cache.compiled_class_hash_writes.clone();
+        let declared_classes = state_cache.writes.compiled_class_hashes.clone();
 
         CommitmentStateDiff {
             address_to_class_hash: IndexMap::from_iter(class_hash_updates),
@@ -348,6 +346,24 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
     }
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct StateMaps {
+    pub(crate) nonces: HashMap<ContractAddress, Nonce>,
+    pub(crate) class_hashes: HashMap<ContractAddress, ClassHash>,
+    pub(crate) storage: HashMap<StorageEntry, StarkFelt>,
+    pub(crate) compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
+    pub(crate) declared_contracts: HashMap<ClassHash, bool>,
+}
+
+impl StateMaps {
+    pub fn extend(&mut self, other: &Self) {
+        self.nonces.extend(&other.nonces);
+        self.class_hashes.extend(&other.class_hashes);
+        self.storage.extend(&other.storage);
+        self.compiled_class_hashes.extend(&other.compiled_class_hashes);
+        self.declared_contracts.extend(&other.declared_contracts)
+    }
+}
 /// Caches read and write requests.
 /// The tracked changes are needed for block state commitment.
 
@@ -355,27 +371,19 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct StateCache {
     // Reader's cached information; initial values, read before any write operation (per cell).
-    pub(crate) nonce_initial_values: HashMap<ContractAddress, Nonce>,
-    pub(crate) class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    pub(crate) storage_initial_values: HashMap<StorageEntry, StarkFelt>,
-    pub(crate) compiled_class_hash_initial_values: HashMap<ClassHash, CompiledClassHash>,
-    pub(crate) declared_contract_initial_values: HashMap<ClassHash, bool>,
+    pub(crate) initial_reads: StateMaps,
 
     // Writer's cached information.
-    pub(crate) nonce_writes: HashMap<ContractAddress, Nonce>,
-    pub(crate) class_hash_writes: HashMap<ContractAddress, ClassHash>,
-    pub(crate) storage_writes: HashMap<StorageEntry, StarkFelt>,
-    pub(crate) compiled_class_hash_writes: HashMap<ClassHash, CompiledClassHash>,
-    pub(crate) declared_contract_writes: HashMap<ClassHash, bool>,
+    pub(crate) writes: StateMaps,
 }
 
 impl StateCache {
     fn declare_contract(&mut self, class_hash: ClassHash) {
-        self.declared_contract_writes.insert(class_hash, true);
+        self.writes.declared_contracts.insert(class_hash, true);
     }
 
     fn set_declared_contract_initial_values(&mut self, class_hash: ClassHash, is_declared: bool) {
-        self.declared_contract_initial_values.insert(class_hash, is_declared);
+        self.initial_reads.declared_contracts.insert(class_hash, is_declared);
     }
 
     fn get_storage_at(
@@ -384,15 +392,17 @@ impl StateCache {
         key: StorageKey,
     ) -> Option<&StarkFelt> {
         let contract_storage_key = (contract_address, key);
-        self.storage_writes
+        self.writes
+            .storage
             .get(&contract_storage_key)
-            .or_else(|| self.storage_initial_values.get(&contract_storage_key))
+            .or_else(|| self.initial_reads.storage.get(&contract_storage_key))
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> Option<&Nonce> {
-        self.nonce_writes
+        self.writes
+            .nonces
             .get(&contract_address)
-            .or_else(|| self.nonce_initial_values.get(&contract_address))
+            .or_else(|| self.initial_reads.nonces.get(&contract_address))
     }
 
     pub fn set_storage_initial_value(
@@ -402,7 +412,7 @@ impl StateCache {
         value: StarkFelt,
     ) {
         let contract_storage_key = (contract_address, key);
-        self.storage_initial_values.insert(contract_storage_key, value);
+        self.initial_reads.storage.insert(contract_storage_key, value);
     }
 
     fn set_storage_value(
@@ -412,21 +422,22 @@ impl StateCache {
         value: StarkFelt,
     ) {
         let contract_storage_key = (contract_address, key);
-        self.storage_writes.insert(contract_storage_key, value);
+        self.writes.storage.insert(contract_storage_key, value);
     }
 
     fn set_nonce_initial_value(&mut self, contract_address: ContractAddress, nonce: Nonce) {
-        self.nonce_initial_values.insert(contract_address, nonce);
+        self.initial_reads.nonces.insert(contract_address, nonce);
     }
 
     fn set_nonce_value(&mut self, contract_address: ContractAddress, nonce: Nonce) {
-        self.nonce_writes.insert(contract_address, nonce);
+        self.writes.nonces.insert(contract_address, nonce);
     }
 
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> Option<&ClassHash> {
-        self.class_hash_writes
+        self.writes
+            .class_hashes
             .get(&contract_address)
-            .or_else(|| self.class_hash_initial_values.get(&contract_address))
+            .or_else(|| self.initial_reads.class_hashes.get(&contract_address))
     }
 
     fn set_class_hash_initial_value(
@@ -434,17 +445,18 @@ impl StateCache {
         contract_address: ContractAddress,
         class_hash: ClassHash,
     ) {
-        self.class_hash_initial_values.insert(contract_address, class_hash);
+        self.initial_reads.class_hashes.insert(contract_address, class_hash);
     }
 
     fn set_class_hash_write(&mut self, contract_address: ContractAddress, class_hash: ClassHash) {
-        self.class_hash_writes.insert(contract_address, class_hash);
+        self.writes.class_hashes.insert(contract_address, class_hash);
     }
 
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> Option<&CompiledClassHash> {
-        self.compiled_class_hash_writes
+        self.writes
+            .compiled_class_hashes
             .get(&class_hash)
-            .or_else(|| self.compiled_class_hash_initial_values.get(&class_hash))
+            .or_else(|| self.initial_reads.compiled_class_hashes.get(&class_hash))
     }
 
     fn set_compiled_class_hash_initial_value(
@@ -452,7 +464,7 @@ impl StateCache {
         class_hash: ClassHash,
         compiled_class_hash: CompiledClassHash,
     ) {
-        self.compiled_class_hash_initial_values.insert(class_hash, compiled_class_hash);
+        self.initial_reads.compiled_class_hashes.insert(class_hash, compiled_class_hash);
     }
 
     fn set_compiled_class_hash_write(
@@ -460,19 +472,19 @@ impl StateCache {
         class_hash: ClassHash,
         compiled_class_hash: CompiledClassHash,
     ) {
-        self.compiled_class_hash_writes.insert(class_hash, compiled_class_hash);
+        self.writes.compiled_class_hashes.insert(class_hash, compiled_class_hash);
     }
 
     fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
-        strict_subtract_mappings(&self.storage_writes, &self.storage_initial_values)
+        strict_subtract_mappings(&self.writes.storage, &self.initial_reads.storage)
     }
 
     fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
-        strict_subtract_mappings(&self.class_hash_writes, &self.class_hash_initial_values)
+        strict_subtract_mappings(&self.writes.class_hashes, &self.initial_reads.class_hashes)
     }
 
     fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
-        strict_subtract_mappings(&self.nonce_writes, &self.nonce_initial_values)
+        strict_subtract_mappings(&self.writes.nonces, &self.initial_reads.nonces)
     }
 
     fn get_compiled_class_hash_updates(&self) -> HashMap<ClassHash, CompiledClassHash> {
@@ -482,8 +494,8 @@ impl StateCache {
         // class hash writes keys are not a subset of compiled class hash initial values keys.
 
         subtract_mappings(
-            &self.compiled_class_hash_writes,
-            &self.compiled_class_hash_initial_values,
+            &self.writes.compiled_class_hashes,
+            &self.initial_reads.compiled_class_hashes,
         )
     }
 }
@@ -522,49 +534,6 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
 
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         self.0.get_compiled_class_hash(class_hash)
-    }
-}
-
-impl<'a, S: State + ?Sized> State for MutRefState<'a, S> {
-    fn set_storage_at(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-        value: StarkFelt,
-    ) -> StateResult<()> {
-        self.0.set_storage_at(contract_address, key, value)
-    }
-
-    fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
-        self.0.increment_nonce(contract_address)
-    }
-
-    fn set_class_hash_at(
-        &mut self,
-        contract_address: ContractAddress,
-        class_hash: ClassHash,
-    ) -> StateResult<()> {
-        self.0.set_class_hash_at(contract_address, class_hash)
-    }
-
-    fn set_contract_class(
-        &mut self,
-        class_hash: ClassHash,
-        contract_class: ContractClass,
-    ) -> StateResult<()> {
-        self.0.set_contract_class(class_hash, contract_class)
-    }
-
-    fn set_compiled_class_hash(
-        &mut self,
-        class_hash: ClassHash,
-        compiled_class_hash: CompiledClassHash,
-    ) -> StateResult<()> {
-        self.0.set_compiled_class_hash(class_hash, compiled_class_hash)
-    }
-
-    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>) {
-        self.0.add_visited_pcs(class_hash, pcs)
     }
 }
 
