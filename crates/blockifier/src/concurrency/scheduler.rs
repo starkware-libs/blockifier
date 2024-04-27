@@ -9,6 +9,10 @@ use crate::concurrency::TxIndex;
 #[path = "scheduler_test.rs"]
 pub mod test;
 
+#[cfg(test)]
+#[path = "flow_test.rs"]
+pub mod flow_test;
+
 #[derive(Debug, Default)]
 pub struct Scheduler {
     execution_index: AtomicUsize,
@@ -63,10 +67,6 @@ impl Scheduler {
 
         let index_to_validate = self.validation_index.load(Ordering::Acquire);
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
-
-        if min(index_to_validate, index_to_execute) >= self.chunk_size {
-            return Task::NoTask;
-        }
 
         if index_to_validate < index_to_execute {
             if let Some(tx_index) = self.next_version_to_validate() {
