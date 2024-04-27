@@ -241,6 +241,11 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
             .into_inner()
             .expect("No other mutex should hold the versioned state while calling this method.")
     }
+
+    #[cfg(test)]
+    pub fn state(&self) -> LockedVersionedState<'_, S> {
+        self.0.lock().expect("Failed to acquire state lock.")
+    }
 }
 
 impl<S: StateReader> Clone for ThreadSafeVersionedState<S> {
