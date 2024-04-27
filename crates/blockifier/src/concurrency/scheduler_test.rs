@@ -6,10 +6,9 @@ use pretty_assertions::assert_eq;
 use rstest::rstest;
 
 use crate::concurrency::scheduler::{Scheduler, Task, TransactionStatus};
+use crate::concurrency::test_utils::DEFAULT_CHUNK_SIZE;
 use crate::concurrency::TxIndex;
 use crate::default_scheduler;
-
-const DEFAULT_CHUNK_SIZE: usize = 100;
 
 #[rstest]
 fn test_new(#[values(0, 1, 32)] chunk_size: usize) {
