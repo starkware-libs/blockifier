@@ -1,4 +1,3 @@
-use std::cmp::min;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard, TryLockError};
 
@@ -8,6 +7,10 @@ use crate::concurrency::TxIndex;
 #[cfg(test)]
 #[path = "scheduler_test.rs"]
 pub mod test;
+
+#[cfg(test)]
+#[path = "flow_test.rs"]
+pub mod flow_test;
 
 pub struct TransactionCommitter<'a> {
     scheduler: &'a Scheduler,
@@ -83,10 +86,6 @@ impl Scheduler {
 
         let index_to_validate = self.validation_index.load(Ordering::Acquire);
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
-
-        if min(index_to_validate, index_to_execute) >= self.chunk_size {
-            return Task::NoTask;
-        }
 
         if index_to_validate < index_to_execute {
             if let Some(tx_index) = self.next_version_to_validate() {

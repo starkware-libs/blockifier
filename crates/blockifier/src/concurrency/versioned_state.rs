@@ -209,6 +209,11 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
     }
+
+    #[cfg(test)]
+    pub fn state(&self) -> LockedVersionedState<'_, S> {
+        self.0.lock().expect("Failed to acquire state lock.")
+    }
 }
 
 impl<S: StateReader> Clone for ThreadSafeVersionedState<S> {
