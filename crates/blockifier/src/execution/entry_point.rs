@@ -15,7 +15,9 @@ use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::execution::common_hints::ExecutionMode;
-use crate::execution::errors::{EntryPointExecutionError, PreExecutionError};
+use crate::execution::errors::{
+    ConstructorEntryPointExecutionError, EntryPointExecutionError, PreExecutionError,
+};
 use crate::execution::execution_utils::execute_entry_point_call;
 use crate::state::state_api::State;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionExecutionResult, TransactionInfo};
@@ -31,6 +33,7 @@ pub const FAULTY_CLASS_HASH: &str =
     "0x1A7820094FEAF82D53F53F214B81292D717E7BB9A92BB2488092CD306F3993F";
 
 pub type EntryPointExecutionResult<T> = Result<T, EntryPointExecutionError>;
+pub type ConstructorEntryPointExecutionResult<T> = Result<T, ConstructorEntryPointExecutionError>;
 
 /// Represents a the type of the call (used for debugging).
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize)]
@@ -292,12 +295,16 @@ pub fn execute_constructor_entry_point(
     ctor_context: ConstructorContext,
     calldata: Calldata,
     remaining_gas: u64,
-) -> EntryPointExecutionResult<CallInfo> {
+) -> ConstructorEntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
-    let contract_class = state.get_compiled_contract_class(ctor_context.class_hash)?;
+    let contract_class =
+        state.get_compiled_contract_class(ctor_context.class_hash).map_err(|error| {
+            ConstructorEntryPointExecutionError::new(error.into(), &ctor_context, None)
+        })?;
     let Some(constructor_selector) = contract_class.constructor_selector() else {
         // Contract has no constructor.
-        return handle_empty_constructor(ctor_context, calldata, remaining_gas);
+        return handle_empty_constructor(&ctor_context, calldata, remaining_gas)
+            .map_err(|error| ConstructorEntryPointExecutionError::new(error, &ctor_context, None));
     };
 
     let constructor_call = CallEntryPoint {
@@ -312,11 +319,18 @@ pub fn execute_constructor_entry_point(
         initial_gas: remaining_gas,
     };
 
-    constructor_call.execute(state, resources, context)
+    constructor_call.execute(state, resources, context).map_err(|error| {
+        ConstructorEntryPointExecutionError::ExecutionError {
+            error,
+            class_hash: ctor_context.class_hash,
+            contract_address: ctor_context.storage_address,
+            constructor_selector: Some(constructor_selector),
+        }
+    })
 }
 
 pub fn handle_empty_constructor(
-    ctor_context: ConstructorContext,
+    ctor_context: &ConstructorContext,
     calldata: Calldata,
     remaining_gas: u64,
 ) -> EntryPointExecutionResult<CallInfo> {

@@ -309,7 +309,8 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         );
         let call_info = deployment_result.map_err(|error| {
             TransactionExecutionError::ContractConstructorExecutionFailed {
-                error,
+                // TODO(Dori, 5/5/2024): Add the constructor error to the error enum.
+                error: error.into(),
                 class_hash,
                 storage_address: self.contract_address,
             }
