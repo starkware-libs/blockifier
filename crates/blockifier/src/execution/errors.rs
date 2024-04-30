@@ -7,7 +7,7 @@ use cairo_vm::vm::errors::trace_errors::TraceError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use num_bigint::{BigInt, TryFromBigIntError};
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use thiserror::Error;
@@ -99,6 +99,20 @@ pub enum EntryPointExecutionError {
 }
 
 #[derive(Debug, Error)]
+pub enum DeployError {
+    #[error(
+        "Error in the contract class {class_hash:?} constructor (selector: \
+         {constructor_selector:?}): {error}"
+    )]
+    ExecutionError {
+        #[source]
+        error: EntryPointExecutionError,
+        class_hash: ClassHash,
+        constructor_selector: Option<EntryPointSelector>,
+    },
+}
+
+#[derive(Debug, Error)]
 pub enum ContractClassError {
     #[error(
         "Sierra program length must be > 0 for Cairo1, and == 0 for Cairo0. Got: \
@@ -132,11 +146,6 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             storage_address,
             selector,
         } => {
-            // TODO(zuphit): activate the match on this type once all selectors are available.
-            // | TransactionExecutionError::ContractConstructorExecutionFailed {
-            //     error,
-            //     storage_address,
-            //     ..
             // } => {
             let depth: usize = 0;
             error_stack.push(format!(
@@ -146,6 +155,29 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
                 *storage_address.0.key(),
                 class_hash,
                 selector.0
+            ));
+            extract_entry_point_execution_error_into_stack_trace(
+                &mut error_stack,
+                depth + 1,
+                error,
+            );
+        }
+        TransactionExecutionError::ContractConstructorExecutionFailed {
+            error: DeployError::ExecutionError { error, class_hash, constructor_selector },
+            storage_address,
+        } => {
+            let depth: usize = 0;
+            error_stack.push(format!(
+                "{}: Error in the contract class constructor (contract address: {}, class hash: \
+                 {}, selector: {}):",
+                depth,
+                *storage_address.0.key(),
+                class_hash,
+                if let Some(constructor_selector) = constructor_selector {
+                    constructor_selector.0.to_string()
+                } else {
+                    "UNKNOWN".into()
+                },
             ));
             extract_entry_point_execution_error_into_stack_trace(
                 &mut error_stack,
