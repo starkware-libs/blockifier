@@ -6,7 +6,6 @@ pub mod initial_test_state;
 pub mod invoke;
 pub mod prices;
 pub mod struct_impls;
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -115,6 +114,15 @@ impl NonceManager {
             self.next_nonce.insert(account_address, current - 1);
         }
     }
+}
+
+// TODO(Yoni, 1/1/2025): move to SN API.
+/// A utility macro to create a [`Nonce`] from a hex string / unsigned integer representation.
+#[macro_export]
+macro_rules! nonce {
+    ($s:expr) => {
+        starknet_api::core::Nonce(starknet_api::hash::StarkHash::try_from($s).unwrap())
+    };
 }
 
 #[derive(Default)]

@@ -166,7 +166,7 @@ impl PyBlockExecutor {
         let charge_fee = true;
         let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
         let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-        let tx_execution_info = self.tx_executor().execute(tx, charge_fee)?;
+        let tx_execution_info = self.tx_executor().execute(&tx, charge_fee)?;
         let typed_tx_execution_info = TypedTransactionExecutionInfo {
             info: ThinTransactionExecutionInfo::from_tx_execution_info(
                 &self.tx_executor().block_context,
@@ -195,7 +195,7 @@ impl PyBlockExecutor {
         for (tx, optional_py_class_info) in txs_with_class_infos.into_iter() {
             let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
             let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-            let tx_execution_info = self.tx_executor().execute(tx, charge_fee)?;
+            let tx_execution_info = self.tx_executor().execute(&tx, charge_fee)?;
             let typed_tx_execution_info = TypedTransactionExecutionInfo {
                 info: ThinTransactionExecutionInfo::from_tx_execution_info(
                     &self.tx_executor().block_context,

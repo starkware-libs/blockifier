@@ -276,15 +276,15 @@ pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassI
 }
 
 pub fn emit_n_events_tx(
-    n: u32,
+    n: usize,
     account_contract: ContractAddress,
     contract_address: ContractAddress,
     nonce: Nonce,
 ) -> AccountTransaction {
     let entry_point_args = vec![
-        stark_felt!(n),     // events_number.
-        stark_felt!(0_u32), // keys length.
-        stark_felt!(0_u32), // data length.
+        stark_felt!(u32::try_from(n).unwrap()), // events_number.
+        stark_felt!(0_u32),                     // keys length.
+        stark_felt!(0_u32),                     // data length.
     ];
     let calldata = create_calldata(contract_address, "test_emit_events", &entry_point_args);
     account_invoke_tx(invoke_tx_args! {
