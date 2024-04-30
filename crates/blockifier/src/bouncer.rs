@@ -248,7 +248,7 @@ impl Bouncer {
         additional_os_resources += &get_particia_update_resources(
             &self.visited_storage_entries,
             &tx_execution_summary.visited_storage_entries,
-        )?;
+        );
 
         let vm_resources = &additional_os_resources + &tx_resources.vm_resources;
 
@@ -304,7 +304,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
 pub fn get_particia_update_resources(
     block_visited_storage_entries: &HashSet<StorageEntry>,
     tx_visited_storage_entries: &HashSet<StorageEntry>,
-) -> TransactionExecutorResult<ExecutionResources> {
+) -> ExecutionResources {
     let newly_visited_storage_entries: HashSet<&StorageEntry> =
         tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
     let n_newly_visited_leaves = newly_visited_storage_entries.len();
@@ -312,13 +312,11 @@ pub fn get_particia_update_resources(
     const TREE_HEIGHT_UPPER_BOUND: usize = 24;
     let n_updates = n_newly_visited_leaves * TREE_HEIGHT_UPPER_BOUND;
 
-    let patricia_update_resources = ExecutionResources {
+    ExecutionResources {
         // TODO(Yoni, 1/5/2024): re-estimate this.
         n_steps: 32 * n_updates,
         // For each Patricia update there are two hash calculations.
         builtin_instance_counter: HashMap::from([(HASH_BUILTIN_NAME.to_string(), 2 * n_updates)]),
         n_memory_holes: 0,
-    };
-
-    Ok(patricia_update_resources)
+    }
 }

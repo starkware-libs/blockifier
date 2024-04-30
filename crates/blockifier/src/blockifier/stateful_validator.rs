@@ -91,7 +91,7 @@ impl<S: StateReader> StatefulValidator<S> {
     }
 
     fn execute(&mut self, tx: AccountTransaction) -> StatefulValidatorResult<()> {
-        self.tx_executor.execute(Transaction::AccountTransaction(tx), true)?;
+        self.tx_executor.execute(&Transaction::AccountTransaction(tx), true)?;
         Ok(())
     }
 

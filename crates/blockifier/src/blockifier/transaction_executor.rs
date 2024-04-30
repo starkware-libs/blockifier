@@ -59,11 +59,11 @@ impl<S: StateReader> TransactionExecutor<S> {
     }
 
     /// Executes the given transaction on the state maintained by the executor.
-    /// Returns the execution trace and the resources consumed by the transaction (required for the
-    /// bouncer).
+    /// Returns the execution result (info or error) if there is room for the transaction;
+    /// Otherwise, returns BlockFull error.
     pub fn execute(
         &mut self,
-        tx: Transaction,
+        tx: &Transaction,
         charge_fee: bool,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
@@ -86,6 +86,25 @@ impl<S: StateReader> TransactionExecutor<S> {
                 Err(TransactionExecutorError::TransactionExecutionError(error))
             }
         }
+    }
+
+    /// Executes the given transactions on the state maintained by the executor.
+    /// Stops if and when there is no more room in the block, and returns the executed transactions'
+    /// results.
+    pub fn execute_chunk(
+        &mut self,
+        txs: &Vec<Transaction>,
+        charge_fee: bool,
+    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        let mut results = Vec::new();
+        for tx in txs {
+            match self.execute(tx, charge_fee) {
+                Ok(tx_execution_info) => results.push(Ok(tx_execution_info)),
+                Err(TransactionExecutorError::BlockFull) => break,
+                Err(error) => results.push(Err(error)),
+            }
+        }
+        results
     }
 
     pub fn validate(
