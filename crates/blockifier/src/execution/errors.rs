@@ -7,7 +7,7 @@ use cairo_vm::vm::errors::trace_errors::TraceError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use num_bigint::{BigInt, TryFromBigIntError};
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use thiserror::Error;
@@ -96,6 +96,30 @@ pub enum EntryPointExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     TraceError(#[from] TraceError),
+}
+
+#[derive(Debug, Error)]
+pub enum ConstructorEntryPointExecutionError {
+    #[error(
+        "Error in the contract class {class_hash:?} constructor (selector: \
+         {constructor_selector:?}, address: {contract_address:?}): {error}"
+    )]
+    ExecutionError {
+        #[source]
+        error: EntryPointExecutionError,
+        class_hash: ClassHash,
+        contract_address: ContractAddress,
+        constructor_selector: Option<EntryPointSelector>,
+    },
+}
+
+// TODO(Dori, 5/5/2024): Delete this converter.
+impl From<ConstructorEntryPointExecutionError> for EntryPointExecutionError {
+    fn from(value: ConstructorEntryPointExecutionError) -> Self {
+        match value {
+            ConstructorEntryPointExecutionError::ExecutionError { error, .. } => error,
+        }
+    }
 }
 
 #[derive(Debug, Error)]

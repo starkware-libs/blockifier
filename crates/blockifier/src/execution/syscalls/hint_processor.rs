@@ -28,7 +28,7 @@ use crate::abi::sierra_types::SierraTypeError;
 use crate::execution::call_info::{CallInfo, OrderedEvent, OrderedL2ToL1Message};
 use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::execution::execution_utils::{
     felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
     write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
@@ -61,6 +61,8 @@ pub enum SyscallExecutionError {
     ForbiddenClassReplacement { class_hash: ClassHash },
     #[error("Invalid address domain: {address_domain}.")]
     InvalidAddressDomain { address_domain: StarkFelt },
+    #[error(transparent)]
+    ConstructorEntryPointExecutionError(#[from] ConstructorEntryPointExecutionError),
     #[error(transparent)]
     EntryPointExecutionError(#[from] EntryPointExecutionError),
     #[error("{error}")]

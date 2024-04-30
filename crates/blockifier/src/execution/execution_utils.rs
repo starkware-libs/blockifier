@@ -19,6 +19,8 @@ use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
+use super::entry_point::ConstructorEntryPointExecutionResult;
+use super::errors::ConstructorEntryPointExecutionError;
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
@@ -221,27 +223,39 @@ pub fn execute_deployment(
     ctor_context: ConstructorContext,
     constructor_calldata: Calldata,
     remaining_gas: u64,
-) -> EntryPointExecutionResult<CallInfo> {
+) -> ConstructorEntryPointExecutionResult<CallInfo> {
+    // Utility to reduce boilerplate.
+    let wrap_error_no_selector =
+        |error: StateError| ConstructorEntryPointExecutionError::ExecutionError {
+            error: error.into(),
+            class_hash: ctor_context.class_hash,
+            contract_address: ctor_context.storage_address,
+            constructor_selector: None,
+        };
+
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
     let deployed_contract_address = ctor_context.storage_address;
-    let current_class_hash = state.get_class_hash_at(deployed_contract_address)?;
+    let current_class_hash =
+        state.get_class_hash_at(deployed_contract_address).map_err(wrap_error_no_selector)?;
     if current_class_hash != ClassHash::default() {
-        return Err(StateError::UnavailableContractAddress(deployed_contract_address).into());
+        return Err(wrap_error_no_selector(StateError::UnavailableContractAddress(
+            deployed_contract_address,
+        )));
     }
 
-    state.set_class_hash_at(deployed_contract_address, ctor_context.class_hash)?;
+    state
+        .set_class_hash_at(deployed_contract_address, ctor_context.class_hash)
+        .map_err(wrap_error_no_selector)?;
 
-    let call_info = execute_constructor_entry_point(
+    execute_constructor_entry_point(
         state,
         resources,
         context,
         ctor_context,
         constructor_calldata,
         remaining_gas,
-    )?;
-
-    Ok(call_info)
+    )
 }
 
 pub fn write_stark_felt(

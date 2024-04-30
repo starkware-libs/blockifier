@@ -39,7 +39,7 @@ use crate::execution::deprecated_syscalls::{
     SyscallResponse,
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::execution::execution_utils::{
     felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
     ReadOnlySegment, ReadOnlySegments,
@@ -57,6 +57,8 @@ pub enum DeprecatedSyscallExecutionError {
     BadSyscallPointer { expected_ptr: Relocatable, actual_ptr: Relocatable },
     #[error(transparent)]
     EntryPointExecutionError(#[from] EntryPointExecutionError),
+    #[error(transparent)]
+    ConstructorEntryPointExecutionError(#[from] ConstructorEntryPointExecutionError),
     #[error("{error}")]
     CallContractExecutionError {
         class_hash: ClassHash,
