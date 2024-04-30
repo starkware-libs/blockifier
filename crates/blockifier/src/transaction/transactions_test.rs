@@ -1407,6 +1407,8 @@ fn test_fail_deploy_account_undeclared_class_hash(block_context: BlockContext) {
 #[case::validate_version_1(TransactionType::InvokeFunction, false, TransactionVersion::ONE)]
 #[case::validate_version_3(TransactionType::InvokeFunction, false, TransactionVersion::THREE)]
 #[case::validate_declare_version_1(TransactionType::Declare, false, TransactionVersion::ONE)]
+#[case::validate_declare_version_2(TransactionType::Declare, false, TransactionVersion::TWO)]
+#[case::validate_declare_version_3(TransactionType::Declare, false, TransactionVersion::THREE)]
 #[case::validate_deploy_version_1(TransactionType::DeployAccount, false, TransactionVersion::ONE)]
 #[case::validate_deploy_version_3(TransactionType::DeployAccount, false, TransactionVersion::THREE)]
 #[case::constructor_version_1(TransactionType::DeployAccount, true, TransactionVersion::ONE)]
@@ -1519,6 +1521,9 @@ fn test_validate_accounts_tx(
             scenario: VALID,
             contract_address_salt: salt_manager.next_salt(),
             additional_data: None,
+            declared_contract: Some(FeatureContract::TestContract(
+                CairoVersion::from_declare_tx_version(tx_version),
+            )),
             ..default_args
         },
     );
@@ -1532,6 +1537,9 @@ fn test_validate_accounts_tx(
             FaultyAccountTxCreatorArgs {
                 scenario: CALL_CONTRACT,
                 additional_data: Some(vec![*sender_address.0.key()]),
+                declared_contract: Some(FeatureContract::AccountWithLongValidate(
+                    CairoVersion::from_declare_tx_version(tx_version),
+                )),
                 ..default_args
             },
         );
@@ -1548,6 +1556,9 @@ fn test_validate_accounts_tx(
                 scenario: GET_BLOCK_NUMBER,
                 contract_address_salt: salt_manager.next_salt(),
                 additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE)]),
+                declared_contract: Some(FeatureContract::AccountWithoutValidations(
+                    CairoVersion::from_declare_tx_version(tx_version),
+                )),
                 ..default_args
             },
         );
@@ -1562,6 +1573,9 @@ fn test_validate_accounts_tx(
                 scenario: GET_BLOCK_TIMESTAMP,
                 contract_address_salt: salt_manager.next_salt(),
                 additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE)]),
+                declared_contract: Some(FeatureContract::Empty(
+                    CairoVersion::from_declare_tx_version(tx_version),
+                )),
                 ..default_args
             },
         );
@@ -1582,6 +1596,9 @@ fn test_validate_accounts_tx(
                     StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
                     StarkFelt::from(0_u64), // Sequencer address for validate.
                 ]),
+                declared_contract: Some(FeatureContract::Empty(
+                    CairoVersion::from_declare_tx_version(tx_version),
+                )),
                 ..default_args
             },
         );
