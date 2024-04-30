@@ -1522,9 +1522,8 @@ fn test_validate_accounts_tx(
             ..default_args
         },
     );
-    account_tx
-        .execute(state, block_context, true, true)
-        .unwrap_or_else(|err| panic!("Execution failed: {:?}", err));
+    let result = account_tx.execute(state, block_context, true, true);
+    assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
 
     if tx_type != TransactionType::DeployAccount {
         // Call self (allowed).
@@ -1536,9 +1535,8 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        account_tx
-            .execute(state, block_context, true, true)
-            .unwrap_or_else(|err| panic!("Execution failed: {:?}", err));
+        let result = account_tx.execute(state, block_context, true, true);
+        assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
     }
 
     if let CairoVersion::Cairo0 = cairo_version {
@@ -1553,9 +1551,8 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        account_tx
-            .execute(state, block_context, true, true)
-            .unwrap_or_else(|err| panic!("Execution failed: {:?}", err));
+        let result = account_tx.execute(state, block_context, true, true);
+        assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
 
         // Call the syscall get_block_timestamp and assert the returned timestamp was modified
         // for validate.
@@ -1568,9 +1565,8 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        account_tx
-            .execute(state, block_context, true, true)
-            .unwrap_or_else(|err| panic!("Execution failed: {:?}", err));
+        let result = account_tx.execute(state, block_context, true, true);
+        assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
     }
 
     if let CairoVersion::Cairo1 = cairo_version {
@@ -1589,9 +1585,8 @@ fn test_validate_accounts_tx(
                 ..default_args
             },
         );
-        account_tx
-            .execute(state, block_context, true, true)
-            .unwrap_or_else(|err| panic!("Execution failed: {:?}", err));
+        let result = account_tx.execute(state, block_context, true, true);
+        assert!(result.is_ok(), "Execution failed: {:?}", result.unwrap_err());
     }
 }
 
