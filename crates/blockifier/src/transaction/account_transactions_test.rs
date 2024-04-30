@@ -477,6 +477,67 @@ fn test_revert_invoke(
 }
 
 #[rstest]
+/// Tests that hitting an execution error in an account contract constructor outputs the correct
+/// traceback (including correct class hash, contract address and constructor entry point selector).
+fn test_account_ctor_frame_stack_trace(
+    block_context: BlockContext,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
+    let chain_info = &block_context.chain_info;
+    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
+    let state = &mut test_state(chain_info, BALANCE, &[(faulty_account, 0)]);
+    let class_hash = faulty_account.get_class_hash();
+
+    // Create and execute deploy account transaction that passes validation and fails in the ctor.
+    let deploy_account_tx = create_account_tx_for_validate_test(
+        &mut NonceManager::default(),
+        FaultyAccountTxCreatorArgs {
+            tx_type: TransactionType::DeployAccount,
+            scenario: INVALID,
+            class_hash,
+            max_fee: Fee(BALANCE),
+            validate_constructor: true,
+            ..Default::default()
+        },
+    );
+
+    // Fund the account so it can afford the deployment.
+    let deploy_address = match &deploy_account_tx {
+        AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
+        _ => unreachable!("deploy_account_tx is a DeployAccount"),
+    };
+    fund_account(chain_info, deploy_address, BALANCE * 2, &mut state.state);
+
+    let expected_selector = selector_from_name("constructor").0;
+    let expected_address = deploy_address.0.key();
+    let expected_error = format!(
+        "Contract constructor execution has failed:
+0: Error in the contract class constructor (contract address: {expected_address}, class hash: \
+         {class_hash}, selector: {expected_selector}):
+"
+    ) + match cairo_version {
+        CairoVersion::Cairo0 => {
+            "Error at pc=0:223:
+Cairo traceback (most recent call last):
+Unknown location (pc=0:195)
+Unknown location (pc=0:179)
+
+An ASSERT_EQ instruction failed: 1 != 0.
+"
+        }
+        CairoVersion::Cairo1 => {
+            "Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f ('Invalid \
+             scenario').
+"
+        }
+    };
+
+    // Compare expected and actual error.
+    let error = deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
+    assert_eq!(error.to_string(), expected_error);
+}
+
+#[rstest]
 /// Tests that failing account deployment should not change state (no fee charge or nonce bump).
 fn test_fail_deploy_account(
     block_context: BlockContext,
