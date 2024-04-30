@@ -97,7 +97,7 @@ impl<S: StateReader> VersionedState<S> {
         &mut self,
         tx_index: TxIndex,
         writes: &StateMaps,
-        class_hash_to_class: ContractClassMapping,
+        class_hash_to_class: &ContractClassMapping,
     ) {
         for (&key, &value) in &writes.storage {
             self.storage.write(tx_index, key, value);
@@ -111,13 +111,14 @@ impl<S: StateReader> VersionedState<S> {
         for (&key, &value) in &writes.compiled_class_hashes {
             self.compiled_class_hashes.write(tx_index, key, value);
         }
-        for (key, value) in class_hash_to_class {
+        for (&key, value) in class_hash_to_class {
             self.compiled_contract_classes.write(tx_index, key, value.clone());
         }
     }
 }
 
 pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
+pub type LockedVersionedState<'a, S> = MutexGuard<'a, VersionedState<S>>;
 
 impl<S: StateReader> ThreadSafeVersionedState<S> {
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
@@ -131,7 +132,7 @@ pub struct VersionedStateProxy<S: StateReader> {
 }
 
 impl<S: StateReader> VersionedStateProxy<S> {
-    fn state(&self) -> MutexGuard<'_, VersionedState<S>> {
+    pub fn state(&self) -> LockedVersionedState<'_, S> {
         self.state.lock().expect("Failed to acquire state lock.")
     }
 }
