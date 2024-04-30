@@ -230,18 +230,24 @@ macro_rules! check_entry_point_execution_error_for_custom_hint {
 
 #[macro_export]
 macro_rules! check_transaction_execution_error_inner {
-    ($error:expr, $expected_hint:expr, $variant:ident $(,)?) => {
-        match $error {
-            $crate::transaction::errors::TransactionExecutionError::ContractConstructorExecutionFailed {
-                error: $crate::execution::errors::DeployError::ExecutionError { error, .. },
-                ..
-            } => {
-                $crate::check_entry_point_execution_error!(error, $expected_hint)
+    ($error:expr, $expected_hint:expr, $validate_constructor:expr $(,)?) => {
+        if $validate_constructor {
+            match $error {
+                $crate::transaction::errors::TransactionExecutionError::ContractConstructorExecutionFailed {
+                    error: $crate::execution::errors::DeployError::ExecutionError { error, .. },
+                    ..
+                } => {
+                    $crate::check_entry_point_execution_error!(error, $expected_hint)
+                }
+                _ => panic!("Unexpected structure for error: {:?}", $error),
             }
-            $crate::transaction::errors::TransactionExecutionError::ValidateTransactionError { error, .. } => {
-                $crate::check_entry_point_execution_error!(error, $expected_hint)
+        } else {
+            match $error {
+                $crate::transaction::errors::TransactionExecutionError::ValidateTransactionError { error, .. } => {
+                    $crate::check_entry_point_execution_error!(error, $expected_hint)
+                }
+                _ => panic!("Unexpected structure for error: {:?}", $error),
             }
-            _ => panic!("Unexpected structure for error: {:?}", $error),
         }
     };
 }
@@ -249,19 +255,11 @@ macro_rules! check_transaction_execution_error_inner {
 #[macro_export]
 macro_rules! check_transaction_execution_error_for_custom_hint {
     ($error:expr, $expected_hint:expr, $validate_constructor:expr $(,)?) => {
-        if $validate_constructor {
-            $crate::check_transaction_execution_error_inner!(
-                $error,
-                Some($expected_hint),
-                ContractConstructorExecutionFailed,
-            );
-        } else {
-            $crate::check_transaction_execution_error_inner!(
-                $error,
-                Some($expected_hint),
-                ValidateTransactionError,
-            );
-        }
+        $crate::check_transaction_execution_error_inner!(
+            $error,
+            Some($expected_hint),
+            $validate_constructor,
+        );
     };
 }
 
@@ -272,19 +270,11 @@ macro_rules! check_transaction_execution_error_for_invalid_scenario {
     ($cairo_version:expr, $error:expr, $validate_constructor:expr $(,)?) => {
         match $cairo_version {
             CairoVersion::Cairo0 => {
-                if $validate_constructor {
-                    $crate::check_transaction_execution_error_inner!(
-                        $error,
-                        None::<&str>,
-                        ContractConstructorExecutionFailed,
-                    );
-                } else {
-                    $crate::check_transaction_execution_error_inner!(
-                        $error,
-                        None::<&str>,
-                        ValidateTransactionError,
-                    );
-                }
+                $crate::check_transaction_execution_error_inner!(
+                    $error,
+                    None::<&str>,
+                    $validate_constructor,
+                );
             }
             CairoVersion::Cairo1 => {
                 if let $crate::transaction::errors::TransactionExecutionError::ValidateTransactionError {
