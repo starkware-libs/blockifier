@@ -310,7 +310,6 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         let call_info = deployment_result.map_err(|error| {
             TransactionExecutionError::ContractConstructorExecutionFailed {
                 error,
-                class_hash,
                 storage_address: self.contract_address,
             }
         })?;
