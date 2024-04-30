@@ -19,13 +19,14 @@ use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
+use super::errors::EntryPointExecutionError;
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
     execute_constructor_entry_point, CallEntryPoint, ConstructorContext,
     EntryPointExecutionContext, EntryPointExecutionResult,
 };
-use crate::execution::errors::PostExecutionError;
+use crate::execution::errors::{DeployError, PostExecutionError};
 use crate::execution::{deprecated_entry_point_execution, entry_point_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
@@ -221,16 +222,36 @@ pub fn execute_deployment(
     ctor_context: ConstructorContext,
     constructor_calldata: Calldata,
     remaining_gas: u64,
-) -> EntryPointExecutionResult<CallInfo> {
+) -> Result<CallInfo, DeployError> {
     // Address allocation in the state is done before calling the constructor, so that it is
     // visible from it.
+    let class_hash_to_deploy = ctor_context.class_hash;
     let deployed_contract_address = ctor_context.storage_address;
-    let current_class_hash = state.get_class_hash_at(deployed_contract_address)?;
+    let current_class_hash =
+        state.get_class_hash_at(deployed_contract_address).map_err(|error| {
+            DeployError::ExecutionError {
+                error: error.into(),
+                class_hash: class_hash_to_deploy,
+                constructor_selector: None,
+            }
+        })?;
     if current_class_hash != ClassHash::default() {
-        return Err(StateError::UnavailableContractAddress(deployed_contract_address).into());
+        return Err(DeployError::ExecutionError {
+            error: EntryPointExecutionError::from(StateError::UnavailableContractAddress(
+                deployed_contract_address,
+            )),
+            class_hash: class_hash_to_deploy,
+            constructor_selector: None,
+        });
     }
 
-    state.set_class_hash_at(deployed_contract_address, ctor_context.class_hash)?;
+    state.set_class_hash_at(deployed_contract_address, ctor_context.class_hash).map_err(
+        |error| DeployError::ExecutionError {
+            error: error.into(),
+            class_hash: class_hash_to_deploy,
+            constructor_selector: None,
+        },
+    )?;
 
     let call_info = execute_constructor_entry_point(
         state,
