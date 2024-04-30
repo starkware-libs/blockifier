@@ -130,6 +130,7 @@ pub struct FaultyAccountTxCreatorArgs {
     pub tx_type: TransactionType,
     pub tx_version: TransactionVersion,
     pub scenario: u64,
+    pub max_fee: Fee,
     // Should be None unless scenario is CALL_CONTRACT.
     pub additional_data: Option<Vec<StarkFelt>>,
     // Should be use with tx_type Declare or InvokeFunction.
@@ -140,7 +141,8 @@ pub struct FaultyAccountTxCreatorArgs {
     pub contract_address_salt: ContractAddressSalt,
     // Should be used with tx_type DeployAccount.
     pub validate_constructor: bool,
-    pub max_fee: Fee,
+    // Should be used with tx_type Declare.
+    pub declared_contract: Option<FeatureContract>,
 }
 
 impl Default for FaultyAccountTxCreatorArgs {
@@ -155,6 +157,7 @@ impl Default for FaultyAccountTxCreatorArgs {
             contract_address_salt: ContractAddressSalt::default(),
             validate_constructor: false,
             max_fee: Fee::default(),
+            declared_contract: None,
         }
     }
 }
@@ -176,6 +179,7 @@ pub fn create_account_tx_for_validate_test(
         contract_address_salt,
         validate_constructor,
         max_fee,
+        declared_contract,
     } = faulty_account_tx_creator_args;
 
     // The first felt of the signature is used to set the scenario. If the scenario is
@@ -188,13 +192,13 @@ pub fn create_account_tx_for_validate_test(
 
     match tx_type {
         TransactionType::Declare => {
-            // It does not matter which class is declared for this test.
-            let declared_contract_cairo_version = match tx_version {
-                TransactionVersion::ZERO | TransactionVersion::ONE => CairoVersion::Cairo0,
-                TransactionVersion::TWO | TransactionVersion::THREE => CairoVersion::Cairo1,
-                _ => panic!("Transaction version {:?} is not supported.", tx_version),
+            let declared_contract = match declared_contract {
+                Some(declared_contract) => declared_contract,
+                None => {
+                    // It does not matter which class is declared for this test.
+                    FeatureContract::TestContract(CairoVersion::from_declare_tx_version(tx_version))
+                }
             };
-            let declared_contract = FeatureContract::TestContract(declared_contract_cairo_version);
             let class_hash = declared_contract.get_class_hash();
             let class_info = calculate_class_info_for_testing(declared_contract.get_class());
             declare_tx(

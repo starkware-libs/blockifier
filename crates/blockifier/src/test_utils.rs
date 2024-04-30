@@ -19,6 +19,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Resource, ResourceBounds, ResourceBoundsMapping,
+    TransactionVersion,
 };
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
@@ -58,6 +59,18 @@ pub enum CairoVersion {
 impl Default for CairoVersion {
     fn default() -> Self {
         Self::Cairo0
+    }
+}
+
+impl CairoVersion {
+    // A declare transaction of the given version, can be used to declare contracts of the returned
+    // cairo version.
+    pub fn from_declare_tx_version(tx_version: TransactionVersion) -> Self {
+        match tx_version {
+            TransactionVersion::ZERO | TransactionVersion::ONE => CairoVersion::Cairo0,
+            TransactionVersion::TWO | TransactionVersion::THREE => CairoVersion::Cairo1,
+            _ => panic!("Transaction version {:?} is not supported.", tx_version),
+        }
     }
 }
 
