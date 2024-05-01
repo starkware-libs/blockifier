@@ -146,13 +146,16 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             class_hash,
             storage_address,
             selector,
-        } => {
-            // TODO(zuphit): activate the match on this type once all selectors are available.
-            // | TransactionExecutionError::ContractConstructorExecutionFailed {
-            //     error,
-            //     storage_address,
-            //     ..
-            // } => {
+        }
+        | TransactionExecutionError::ContractConstructorExecutionFailed(
+            ConstructorEntryPointExecutionError::ExecutionError {
+                error,
+                class_hash,
+                contract_address: storage_address,
+                // TODO(Dori, 5/5/2024): Also handle the no-selector case.
+                constructor_selector: Some(selector),
+            },
+        ) => {
             let depth: usize = 0;
             error_stack.push(format!(
                 "{}: Error in the called contract (contract address: {}, class hash: {}, \
