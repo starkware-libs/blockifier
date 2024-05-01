@@ -10,7 +10,7 @@ use starknet_api::transaction::TransactionHash;
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
 use crate::py_state_diff::PyBlockInfo;
-use crate::py_transaction::{py_account_tx, PyClassInfo};
+use crate::py_transaction::{py_account_tx, PyClassInfo, PY_TX_PARSING_ERR};
 use crate::py_utils::PyFelt;
 use crate::state_readers::py_state_reader::PyStateReader;
 
@@ -65,7 +65,7 @@ impl PyValidator {
         optional_py_class_info: Option<PyClassInfo>,
         deploy_account_tx_hash: Option<PyFelt>,
     ) -> NativeBlockifierResult<()> {
-        let account_tx = py_account_tx(tx, optional_py_class_info)?;
+        let account_tx = py_account_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
         let deploy_account_tx_hash = deploy_account_tx_hash.map(|hash| TransactionHash(hash.0));
         self.stateful_validator.perform_validations(account_tx, deploy_account_tx_hash)?;
 
