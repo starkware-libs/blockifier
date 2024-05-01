@@ -51,8 +51,15 @@ thiserror.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
+criterion = { workspace = true, features = ["html_reports"] }
 glob.workspace = true
 pretty_assertions.workspace = true
+rand.workspace = true
 regex.workspace = true
 rstest.workspace = true
 test-case.workspace = true
+
+[[bench]]
+path = "bench/blockifier_bench.rs"
+name = "blockifier_bench"
+harness = false
