@@ -30,7 +30,7 @@ use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType};
-use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::execution::syscalls::SyscallSelector;
@@ -1362,10 +1362,14 @@ fn test_deploy_account_tx(
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         error,
-        TransactionExecutionError::ContractConstructorExecutionFailed {
-            error: EntryPointExecutionError::StateError(StateError::UnavailableContractAddress(_)),
-            ..
-        }
+        TransactionExecutionError::ContractConstructorExecutionFailed(
+            ConstructorEntryPointExecutionError::ExecutionError {
+                error: EntryPointExecutionError::StateError(
+                    StateError::UnavailableContractAddress(_)
+                ),
+                ..
+            }
+        )
     );
 }
 
@@ -1394,9 +1398,14 @@ fn test_fail_deploy_account_undeclared_class_hash(block_context: BlockContext) {
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     assert_matches!(
         error,
-        TransactionExecutionError::ContractConstructorExecutionFailed{
-            error: EntryPointExecutionError::StateError(StateError::UndeclaredClassHash(class_hash)), ..
-        }
+        TransactionExecutionError::ContractConstructorExecutionFailed(
+            ConstructorEntryPointExecutionError::ExecutionError {
+                error: EntryPointExecutionError::StateError(
+                    StateError::UndeclaredClassHash(class_hash)
+                ),
+                ..
+            }
+        )
         if class_hash == undeclared_hash
     );
 }
