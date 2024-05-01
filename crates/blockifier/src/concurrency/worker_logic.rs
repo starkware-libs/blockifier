@@ -7,6 +7,10 @@ use crate::fee::fee_utils::get_sequencer_address_and_keys;
 use crate::state::cached_state::StateMaps;
 use crate::state::state_api::StateReader;
 
+#[cfg(test)]
+#[path = "worker_logic_test.rs"]
+mod test;
+
 // All transactions only uptate the sequencer balance when commited,
 // these changes are not visible to other transactions through execution.
 // Therefore we need to check that the value read by the transaction is still valid.
