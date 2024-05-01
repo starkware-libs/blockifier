@@ -12,7 +12,7 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV2, Fee, ResourceBoundsMapping,
-    TransactionHash, TransactionVersion,
+    TransactionHash, TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
@@ -534,6 +534,80 @@ An ASSERT_EQ instruction failed: 1 != 0.
 
     // Compare expected and actual error.
     let error = deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
+    assert_eq!(error.to_string(), expected_error);
+}
+
+#[rstest]
+/// Tests that hitting an execution error in an contract constructor during a deplot syscall outputs
+/// the correct traceback (including correct class hash, contract address and constructor entry
+/// point selector).
+fn test_contract_ctor_frame_stack_trace(
+    block_context: BlockContext,
+    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
+) {
+    let chain_info = &block_context.chain_info;
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let faulty_ctor = FeatureContract::FaultyAccount(cairo_version);
+    // Declare both classes, but only "deploy" the dummy account.
+    let state = &mut test_state(chain_info, BALANCE, &[(account, 1), (faulty_ctor, 0)]);
+    let class_hash = account.get_class_hash();
+
+    let salt = stark_felt!(7_u8);
+    let ctor_arg = stark_felt!(1_u8); // validate_constructor arg: set to true to fail deployment.
+    let signature = TransactionSignature(vec![stark_felt!(INVALID)]);
+    let expected_deployed_address = calculate_contract_address(
+        ContractAddressSalt(salt),
+        class_hash,
+        &calldata![ctor_arg],
+        account.get_instance_address(0),
+    )
+    .unwrap();
+
+    // Invoke the deploy_contract function on the dummy account to deploy the faulty contract.
+    let invoke_deploy_tx = account_invoke_tx(invoke_tx_args! {
+        sender_address: account.get_instance_address(0),
+        signature,
+        calldata: create_calldata(
+            account.get_instance_address(0),
+            "deploy_contract",
+            &[
+                faulty_ctor.get_class_hash().0, // Calldata: class hash.
+                salt,
+                stark_felt!(1_u8), // Calldata: ctor args length.
+                ctor_arg,
+            ]
+        ),
+        version: TransactionVersion::ONE,
+        nonce: Nonce(stark_felt!(0_u8)),
+    });
+
+    let expected_selector = selector_from_name("constructor").0;
+    let expected_address = expected_deployed_address.0.key();
+    let expected_error = format!(
+        "Contract constructor execution has failed:
+0: Error in the called contract (contract address: {expected_address}, class hash: {class_hash}, \
+         selector: {expected_selector}):
+"
+    ) + match cairo_version {
+        CairoVersion::Cairo0 => {
+            "Error at pc=0:223:
+Cairo traceback (most recent call last):
+Unknown location (pc=0:195)
+Unknown location (pc=0:179)
+
+An ASSERT_EQ instruction failed: 1 != 0.
+"
+        }
+        CairoVersion::Cairo1 => {
+            "Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f ('Invalid \
+             scenario').
+"
+        }
+    };
+
+    // Compare expected and actual error.
+    let error =
+        invoke_deploy_tx.execute(state, &block_context, true, true).unwrap().revert_error.unwrap();
     assert_eq!(error.to_string(), expected_error);
 }
 

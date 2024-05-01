@@ -1,8 +1,9 @@
-#[starknet::contract]
+#[starknet::contract(account)]
 mod Account {
     use array::{ArrayTrait, SpanTrait};
-    use starknet::{ContractAddress, call_contract_syscall};
+    use starknet::{ClassHash, ContractAddress, call_contract_syscall};
     use starknet::info::SyscallResultTrait;
+    use starknet::syscalls;
     use zeroable::Zeroable;
 
     #[storage]
@@ -49,6 +50,20 @@ mod Account {
             entry_point_selector: selector,
             calldata: calldata.span()
         ).unwrap_syscall()
+    }
+
+    #[external(v0)]
+    fn deploy_contract(
+        self: @ContractState,
+        class_hash: ClassHash,
+        contract_address_salt: felt252,
+        calldata: Array::<felt252>,
+    ) -> ContractAddress {
+        let (address, _) = syscalls::deploy_syscall(
+            class_hash, contract_address_salt, calldata.span(), false
+        )
+            .unwrap_syscall();
+        address
     }
 }
 

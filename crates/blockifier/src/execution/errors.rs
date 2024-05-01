@@ -102,7 +102,7 @@ pub enum EntryPointExecutionError {
 #[derive(Debug, Error)]
 pub enum ConstructorEntryPointExecutionError {
     #[error(
-        "Error in the contract class {class_hash:?} constructor (selector: \
+        "Error in the contract class {class_hash} constructor (selector: \
          {constructor_selector:?}, address: {contract_address:?}): {error}"
     )]
     ExecutionError {
