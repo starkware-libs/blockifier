@@ -108,3 +108,11 @@ pub trait State: StateReader {
     //   entry points do not affect the final set of PCs.
     fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>);
 }
+
+pub trait TemporaryState: StateReader {
+    /// Commits changes in the child (wrapping) state to its parent.
+    fn commit(self);
+
+    /// Drops `self`.
+    fn abort(self);
+}

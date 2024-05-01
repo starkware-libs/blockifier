@@ -10,7 +10,7 @@ use starknet_api::state::StorageKey;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader, StateResult};
+use crate::state::state_api::{State, StateReader, StateResult, TemporaryState};
 use crate::utils::{strict_subtract_mappings, subtract_mappings};
 
 #[cfg(test)]
@@ -540,9 +540,9 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
 pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
 
 /// Adds the ability to perform a transactional execution.
-impl<'a, S: StateReader> TransactionalState<'a, S> {
+impl<'a, S: StateReader> TemporaryState for TransactionalState<'a, S> {
     /// Commits changes in the child (wrapping) state to its parent.
-    pub fn commit(self) {
+    fn commit(self) {
         let state = self.state.0;
         let child_cache = self.cache.into_inner();
         state.update_cache(child_cache.writes);
@@ -551,7 +551,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
     }
 
     /// Drops `self`.
-    pub fn abort(self) {}
+    fn abort(self) {}
 }
 
 /// Holds uncommitted changes induced on Starknet contracts.
