@@ -20,7 +20,7 @@ use crate::execution::entry_point::{
 use crate::execution::execution_utils::execute_deployment;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{State, StateReader, Transactional};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{

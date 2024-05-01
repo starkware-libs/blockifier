@@ -10,7 +10,7 @@ use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
 use crate::state::cached_state::{CachedState, CommitmentStateDiff};
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{State, StateReader, Transactional};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionInfo;

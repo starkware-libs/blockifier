@@ -19,7 +19,7 @@ use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_boun
 use crate::fee::gas_usage::{compute_discounted_gas_from_gas_vector, estimate_minimal_gas_vector};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, StateChanges, TransactionalState};
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{State, StateReader, Transactional};
 use crate::transaction::constants;
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
