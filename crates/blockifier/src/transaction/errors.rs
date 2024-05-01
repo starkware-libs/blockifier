@@ -5,7 +5,10 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
-use crate::execution::errors::{gen_transaction_execution_error_trace, EntryPointExecutionError};
+use crate::execution::errors::{
+    gen_transaction_execution_error_trace, ConstructorEntryPointExecutionError,
+    EntryPointExecutionError,
+};
 use crate::fee::fee_checks::FeeCheckError;
 use crate::state::errors::StateError;
 
@@ -56,12 +59,8 @@ pub enum TransactionExecutionError {
          version {cairo_version:?}."
     )]
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
-    #[error("Contract constructor execution has failed: {error}")]
-    ContractConstructorExecutionFailed {
-        error: EntryPointExecutionError,
-        class_hash: ClassHash,
-        storage_address: ContractAddress,
-    },
+    #[error(transparent)]
+    ContractConstructorExecutionFailed(#[from] ConstructorEntryPointExecutionError),
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
     #[error("Transaction execution has failed:\n{}", gen_transaction_execution_error_trace(self))]

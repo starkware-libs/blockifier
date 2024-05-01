@@ -113,15 +113,6 @@ pub enum ConstructorEntryPointExecutionError {
     },
 }
 
-// TODO(Dori, 5/5/2024): Delete this converter.
-impl From<ConstructorEntryPointExecutionError> for EntryPointExecutionError {
-    fn from(value: ConstructorEntryPointExecutionError) -> Self {
-        match value {
-            ConstructorEntryPointExecutionError::ExecutionError { error, .. } => error,
-        }
-    }
-}
-
 #[derive(Debug, Error)]
 pub enum ContractClassError {
     #[error(
