@@ -59,7 +59,10 @@ pub enum TransactionExecutionError {
          version {cairo_version:?}."
     )]
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
-    #[error(transparent)]
+    #[error(
+        "Contract constructor execution has failed:\n{}",
+        gen_transaction_execution_error_trace(self)
+    )]
     ContractConstructorExecutionFailed(#[from] ConstructorEntryPointExecutionError),
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
