@@ -299,22 +299,14 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             storage_address: self.contract_address,
             caller_address: ContractAddress::default(),
         };
-        let deployment_result = execute_deployment(
+        let call_info = execute_deployment(
             state,
             resources,
             context,
             ctor_context,
             self.constructor_calldata(),
             *remaining_gas,
-        );
-        let call_info = deployment_result.map_err(|error| {
-            TransactionExecutionError::ContractConstructorExecutionFailed {
-                // TODO(Dori, 5/5/2024): Add the constructor error to the error enum.
-                error: error.into(),
-                class_hash,
-                storage_address: self.contract_address,
-            }
-        })?;
+        )?;
         update_remaining_gas(remaining_gas, &call_info);
 
         Ok(Some(call_info))
