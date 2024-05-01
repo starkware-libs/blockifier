@@ -5,6 +5,8 @@ use starknet_api::deprecated_contract_class::{
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
+use crate::abi::abi_utils::selector_from_name;
+use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
 use crate::test_utils::{get_raw_contract_class, CairoVersion};
 
@@ -182,15 +184,16 @@ impl FeatureContract {
     /// Fetch PC locations from the compiled contract to compute the expected PC locations in the
     /// traceback. Computation is not robust, but as long as the cairo function itself is not
     /// edited, this computation should be stable.
-    pub fn get_entry_point_offset(
+    fn get_offset(
         &self,
         entry_point_selector: EntryPointSelector,
+        entry_point_type: EntryPointType,
     ) -> EntryPointOffset {
         match self.get_class() {
             ContractClass::V0(class) => {
                 class
                     .entry_points_by_type
-                    .get(&EntryPointType::External)
+                    .get(&entry_point_type)
                     .unwrap()
                     .iter()
                     .find(|ep| ep.selector == entry_point_selector)
@@ -200,7 +203,7 @@ impl FeatureContract {
             ContractClass::V1(class) => {
                 class
                     .entry_points_by_type
-                    .get(&EntryPointType::External)
+                    .get(&entry_point_type)
                     .unwrap()
                     .iter()
                     .find(|ep| ep.selector == entry_point_selector)
@@ -208,5 +211,21 @@ impl FeatureContract {
                     .offset
             }
         }
+    }
+
+    pub fn get_entry_point_offset(
+        &self,
+        entry_point_selector: EntryPointSelector,
+    ) -> EntryPointOffset {
+        self.get_offset(entry_point_selector, EntryPointType::External)
+    }
+
+    pub fn get_ctor_offset(
+        &self,
+        entry_point_selector: Option<EntryPointSelector>,
+    ) -> EntryPointOffset {
+        let selector =
+            entry_point_selector.unwrap_or(selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME));
+        self.get_offset(selector, EntryPointType::Constructor)
     }
 }
