@@ -145,8 +145,16 @@ pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>
 pub type LockedVersionedState<'a, S> = MutexGuard<'a, VersionedState<S>>;
 
 impl<S: StateReader> ThreadSafeVersionedState<S> {
+    pub fn new(versioned_state: VersionedState<S>) -> Self {
+        ThreadSafeVersionedState(Arc::new(Mutex::new(versioned_state)))
+    }
+
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
+    }
+
+    pub fn state(&self) -> LockedVersionedState<'_, S> {
+        self.0.lock().expect("Failed to acquire state lock.")
     }
 }
 
