@@ -7,13 +7,14 @@ use cairo_vm::vm::errors::trace_errors::TraceError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
 use num_bigint::{BigInt, TryFromBigIntError};
-use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use thiserror::Error;
 
 use super::deprecated_syscalls::hint_processor::DeprecatedSyscallExecutionError;
 use super::syscalls::hint_processor::SyscallExecutionError;
+use crate::execution::entry_point::ConstructorContext;
 use crate::execution::execution_utils::format_panic_data;
 use crate::state::errors::StateError;
 use crate::transaction::errors::TransactionExecutionError;
@@ -96,6 +97,45 @@ pub enum EntryPointExecutionError {
     StateError(#[from] StateError),
     #[error(transparent)]
     TraceError(#[from] TraceError),
+}
+
+#[derive(Debug, Error)]
+pub enum ConstructorEntryPointExecutionError {
+    #[error(
+        "Error in the contract class {class_hash:?} constructor (selector: \
+         {constructor_selector:?}, address: {contract_address:?}): {error}"
+    )]
+    ExecutionError {
+        #[source]
+        error: EntryPointExecutionError,
+        class_hash: ClassHash,
+        contract_address: ContractAddress,
+        constructor_selector: Option<EntryPointSelector>,
+    },
+}
+
+impl ConstructorEntryPointExecutionError {
+    pub fn new(
+        error: EntryPointExecutionError,
+        ctor_context: &ConstructorContext,
+        selector: Option<EntryPointSelector>,
+    ) -> Self {
+        Self::ExecutionError {
+            error,
+            class_hash: ctor_context.class_hash,
+            contract_address: ctor_context.storage_address,
+            constructor_selector: selector,
+        }
+    }
+}
+
+// TODO(Dori, 5/5/2024): Delete this converter.
+impl From<ConstructorEntryPointExecutionError> for EntryPointExecutionError {
+    fn from(value: ConstructorEntryPointExecutionError) -> Self {
+        match value {
+            ConstructorEntryPointExecutionError::ExecutionError { error, .. } => error,
+        }
+    }
 }
 
 #[derive(Debug, Error)]
