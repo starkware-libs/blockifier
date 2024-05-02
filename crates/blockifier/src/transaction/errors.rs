@@ -5,10 +5,8 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
-use crate::execution::errors::{
-    gen_transaction_execution_error_trace, ConstructorEntryPointExecutionError,
-    EntryPointExecutionError,
-};
+use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
+use crate::execution::stack_trace::gen_transaction_execution_error_trace;
 use crate::fee::fee_checks::FeeCheckError;
 use crate::state::errors::StateError;
 
