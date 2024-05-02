@@ -39,7 +39,6 @@ use crate::versioned_constants::VersionedConstants;
 use crate::{invoke_tx_args, retdata};
 
 const INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET: usize = 117;
-const ACCOUNT_PC_OFFSET: usize = 82;
 
 #[test]
 fn test_call_info_iteration() {
@@ -687,15 +686,11 @@ An ASSERT_EQ instruction failed: 1 != 0.
 "
     );
 
-    let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
     let expected_trace_cairo1 = format!(
         "Transaction execution has failed:
 0: Error in the called contract (contract address: {account_address_felt}, class hash: \
          {account_contract_hash}, selector: {execute_selector_felt}):
-Error at pc=0:797:
-Cairo traceback (most recent call last):
-Unknown location (pc=0:{account_pc_location})
-
+Error at pc=0:767:
 1: Error in the called contract (contract address: {test_contract_address_felt}, class hash: \
          {test_contract_hash}, selector: {external_entry_point_selector_felt}):
 Error at pc=0:612:
@@ -813,15 +808,11 @@ Unknown location (pc=0:{expected_pc1})
         }
         CairoVersion::Cairo1 => {
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
-            let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
             format!(
                 "Transaction execution has failed:
 0: Error in the called contract (contract address: {account_address_felt}, class hash: \
                  {account_contract_hash}, selector: {execute_selector_felt}):
-Error at pc=0:797:
-Cairo traceback (most recent call last):
-Unknown location (pc=0:{account_pc_location})
-
+Error at pc=0:767:
 1: Error in the called contract (contract address: {contract_address_felt}, class hash: \
                  {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:9193:
@@ -972,16 +963,12 @@ Unknown location (pc=0:{expected_pc3})
         }
         CairoVersion::Cairo1 => {
             let pc_location = entry_point_offset.0 + INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET;
-            let account_pc_location = account_entry_point_offset.0 + ACCOUNT_PC_OFFSET;
             let expected_pc = expected_pcs.0;
             format!(
                 "Transaction execution has failed:
 0: Error in the called contract (contract address: {account_address_felt}, class hash: \
                  {account_contract_hash}, selector: {execute_selector_felt}):
-Error at pc=0:797:
-Cairo traceback (most recent call last):
-Unknown location (pc=0:{account_pc_location})
-
+Error at pc=0:767:
 1: Error in the called contract (contract address: {address_felt}, class hash: \
                  {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
 Error at pc=0:9193:

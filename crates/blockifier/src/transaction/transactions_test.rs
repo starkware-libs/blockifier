@@ -120,26 +120,18 @@ fn expected_validate_call_info(
             if entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME { 7 } else { 2 }
         }
     };
-    let n_memory_holes = match cairo_version {
-        CairoVersion::Cairo1
-            if entry_point_selector_name == constants::VALIDATE_ENTRY_POINT_NAME =>
-        {
-            1
-        }
-        _ => 0,
-    };
     let n_steps = match (entry_point_selector_name, cairo_version) {
         (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 13_usize,
-        (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 69_usize,
+        (constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 40_usize,
         (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 12_usize,
-        (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 50_usize,
+        (constants::VALIDATE_DECLARE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 32_usize,
         (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo0) => 21_usize,
-        (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 188_usize,
+        (constants::VALIDATE_ENTRY_POINT_NAME, CairoVersion::Cairo1) => 112_usize,
         (selector, _) => panic!("Selector {selector} is not a known validate selector."),
     };
     let resources = ExecutionResources {
         n_steps,
-        n_memory_holes,
+        n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(
             RANGE_CHECK_BUILTIN_NAME.to_string(),
             n_range_checks,
@@ -345,14 +337,14 @@ fn add_kzg_da_resources_to_resources_mapping(
 #[case::with_cairo1_account(
     ExpectedResultTestInvokeTx{
         resources: &get_syscall_resources(SyscallSelector::CallContract) + &ExecutionResources {
-            n_steps: 348,
-            n_memory_holes: 1,
+            n_steps: 219,
+            n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 8)]),
         },
-        validate_gas_consumed: 14360, // The gas consumption results from parsing the input
+        validate_gas_consumed: 4740, // The gas consumption results from parsing the input
             // arguments.
-        execute_gas_consumed: 103660,
-        inner_call_initial_gas: 9999681980,
+        execute_gas_consumed: 88160,
+        inner_call_initial_gas: 9999707100,
     },
     CairoVersion::Cairo1)]
 fn test_invoke_tx(
