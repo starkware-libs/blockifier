@@ -143,14 +143,27 @@ pub enum ContractClassError {
 
 // A set of functions used to extract error trace from a recursive error object.
 
+type ErrorStack = Vec<String>;
+
 pub const TRACE_LENGTH_CAP: usize = 15000;
 pub const TRACE_EXTRA_CHARS_SLACK: usize = 100;
 
+fn finalize_error_stack(error_stack: &ErrorStack) -> String {
+    let error_stack_str = error_stack.join("\n");
+
+    // When the trace string is too long, trim it in a way that keeps both the beginning and end.
+    if error_stack_str.len() > TRACE_LENGTH_CAP + TRACE_EXTRA_CHARS_SLACK {
+        error_stack_str[..(TRACE_LENGTH_CAP / 2)].to_string()
+            + "\n\n...\n\n"
+            + &error_stack_str[(error_stack_str.len() - TRACE_LENGTH_CAP / 2)..]
+    } else {
+        error_stack_str
+    }
+}
+
 /// Extracts the error trace from a `TransactionExecutionError`. This is a top level function.
 pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) -> String {
-    let mut error_stack: Vec<String> = Vec::new();
-
-    match error {
+    let error_stack = match error {
         TransactionExecutionError::ExecutionError {
             error,
             class_hash,
@@ -171,37 +184,37 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
                 // TODO(Dori, 5/5/2024): Also handle the no-selector case.
                 constructor_selector: Some(selector),
             },
-        ) => {
-            let depth: usize = 0;
-            error_stack.push(format!(
-                "{}: Error in the called contract (contract address: {}, class hash: {}, \
-                 selector: {}):",
-                depth,
-                *storage_address.0.key(),
-                class_hash,
-                selector.0
-            ));
-            extract_entry_point_execution_error_into_stack_trace(
-                &mut error_stack,
-                depth + 1,
-                error,
-            );
-        }
+        ) => gen_error_trace_from_entry_point_error(
+            error,
+            storage_address,
+            class_hash,
+            Some(selector),
+        ),
         _ => {
-            error_stack.push(error.to_string());
+            vec![error.to_string()]
         }
-    }
+    };
 
-    let error_stack_str = error_stack.join("\n");
+    finalize_error_stack(&error_stack)
+}
 
-    // When the trace string is too long, trim it in a way that keeps both the beginning and end.
-    if error_stack_str.len() > TRACE_LENGTH_CAP + TRACE_EXTRA_CHARS_SLACK {
-        error_stack_str[..(TRACE_LENGTH_CAP / 2)].to_string()
-            + "\n\n...\n\n"
-            + &error_stack_str[(error_stack_str.len() - TRACE_LENGTH_CAP / 2)..]
-    } else {
-        error_stack_str
-    }
+/// Generate error stack from top-level entry point execution error.
+fn gen_error_trace_from_entry_point_error(
+    error: &EntryPointExecutionError,
+    storage_address: &ContractAddress,
+    class_hash: &ClassHash,
+    entry_point_selector: Option<&EntryPointSelector>,
+) -> ErrorStack {
+    let mut error_stack: ErrorStack = ErrorStack::new();
+    error_stack.push(frame_preamble(
+        0,
+        "Error in the called contract",
+        storage_address,
+        class_hash,
+        entry_point_selector,
+    ));
+    extract_entry_point_execution_error_into_stack_trace(&mut error_stack, 1, error);
+    error_stack
 }
 
 fn extract_cairo_run_error_into_stack_trace(
@@ -271,6 +284,51 @@ fn extract_virtual_machine_error_into_stack_trace(
     }
 }
 
+fn frame_preamble(
+    depth: usize,
+    preamble_text: &str,
+    storage_address: &ContractAddress,
+    class_hash: &ClassHash,
+    selector: Option<&EntryPointSelector>,
+) -> String {
+    format!(
+        "{}: {} (contract address: {}, class hash: {}, selector: {}):",
+        depth,
+        preamble_text,
+        storage_address.0.key(),
+        class_hash,
+        if let Some(selector) = selector {
+            format!("{}", selector.0)
+        } else {
+            "UNKNOWN".to_string()
+        }
+    )
+}
+
+fn call_contract_preamble(
+    depth: usize,
+    storage_address: &ContractAddress,
+    class_hash: &ClassHash,
+    selector: &EntryPointSelector,
+) -> String {
+    frame_preamble(
+        depth,
+        "Error in the called contract",
+        storage_address,
+        class_hash,
+        Some(selector),
+    )
+}
+
+fn library_call_preamble(
+    depth: usize,
+    storage_address: &ContractAddress,
+    class_hash: &ClassHash,
+    selector: &EntryPointSelector,
+) -> String {
+    frame_preamble(depth, "Error in a library call", storage_address, class_hash, Some(selector))
+}
+
 fn extract_syscall_execution_error_into_stack_trace(
     error_stack: &mut Vec<String>,
     depth: usize,
@@ -283,15 +341,7 @@ fn extract_syscall_execution_error_into_stack_trace(
             selector,
             error,
         } => {
-            let call_contract_preamble = format!(
-                "{}: Error in the called contract (contract address: {}, class hash: {}, \
-                 selector: {}):",
-                depth,
-                storage_address.0.key(),
-                class_hash,
-                selector.0
-            );
-            error_stack.push(call_contract_preamble);
+            error_stack.push(call_contract_preamble(depth, storage_address, class_hash, selector));
             extract_syscall_execution_error_into_stack_trace(error_stack, depth + 1, error)
         }
         SyscallExecutionError::LibraryCallExecutionError {
@@ -300,14 +350,7 @@ fn extract_syscall_execution_error_into_stack_trace(
             selector,
             error,
         } => {
-            let libcall_preamble = format!(
-                "{}: Error in a library call (contract address: {}, class hash: {}, selector: {}):",
-                depth,
-                storage_address.0.key(),
-                class_hash,
-                selector.0
-            );
-            error_stack.push(libcall_preamble);
+            error_stack.push(library_call_preamble(depth, storage_address, class_hash, selector));
             extract_syscall_execution_error_into_stack_trace(error_stack, depth + 1, error);
         }
         SyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
@@ -335,15 +378,7 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
             selector,
             error,
         } => {
-            let call_contract_preamble = format!(
-                "{}: Error in the called contract (contract address: {}, class hash: {}, \
-                 selector: {}):",
-                depth,
-                storage_address.0.key(),
-                class_hash,
-                selector.0
-            );
-            error_stack.push(call_contract_preamble);
+            error_stack.push(call_contract_preamble(depth, storage_address, class_hash, selector));
             extract_deprecated_syscall_execution_error_into_stack_trace(
                 error_stack,
                 depth + 1,
@@ -356,14 +391,7 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
             selector,
             error,
         } => {
-            let libcall_preamble = format!(
-                "{}: Error in a library call (contract address: {}, class hash: {}, selector: {}):",
-                depth,
-                storage_address.0.key(),
-                class_hash,
-                selector.0
-            );
-            error_stack.push(libcall_preamble);
+            error_stack.push(library_call_preamble(depth, storage_address, class_hash, selector));
             extract_deprecated_syscall_execution_error_into_stack_trace(
                 error_stack,
                 depth + 1,
