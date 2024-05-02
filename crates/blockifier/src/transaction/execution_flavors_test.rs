@@ -2,7 +2,7 @@ use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
@@ -11,7 +11,6 @@ use crate::context::{BlockContext, ChainInfo};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::SyscallSelector;
 use crate::fee::fee_utils::{calculate_tx_fee, get_fee_by_gas_vector};
-use crate::invoke_tx_args;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
@@ -29,6 +28,7 @@ use crate::transaction::objects::{FeeType, GasVector, TransactionExecutionInfo};
 use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds, INVALID};
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::ExecutableTransaction;
+use crate::{invoke_tx_args, nonce};
 const VALIDATE_GAS_OVERHEAD: u64 = 21;
 
 struct FlavorTestInitialState {
@@ -173,7 +173,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     };
 
     // First scenario: invalid nonce. Regardless of flags, should fail.
-    let invalid_nonce = Nonce(stark_felt!(7_u8));
+    let invalid_nonce = nonce!(7_u8);
     let account_nonce = state.get_nonce_at(account_address).unwrap();
     let result = account_invoke_tx(
         invoke_tx_args! {nonce: invalid_nonce, ..pre_validation_base_args.clone()},

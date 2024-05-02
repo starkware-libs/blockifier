@@ -6,14 +6,14 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::core::{calculate_contract_address, ChainId, Nonce, PatriciaKey};
+use starknet_api::core::{calculate_contract_address, ChainId, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EventContent, EventData, EventKey, Fee, TransactionHash,
     TransactionVersion,
 };
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -38,7 +38,7 @@ use crate::transaction::objects::{
     CommonAccountFields, DeprecatedTransactionInfo, TransactionInfo,
 };
 use crate::versioned_constants::VersionedConstants;
-use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
+use crate::{check_entry_point_execution_error_for_custom_hint, nonce, retdata, storage_key};
 
 #[test]
 fn test_storage_read_write() {
@@ -147,7 +147,7 @@ fn test_nested_library_call() {
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
         resources: storage_entry_point_resources.clone(),
         storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value + 1)],
-        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
+        accessed_storage_keys: HashSet::from([storage_key!(key + 1)]),
         ..Default::default()
     };
     let mut library_call_resources = &get_syscall_resources(DeprecatedSyscallSelector::LibraryCall)
@@ -169,7 +169,7 @@ fn test_nested_library_call() {
         execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
         resources: storage_entry_point_resources.clone(),
         storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value)],
-        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+        accessed_storage_keys: HashSet::from([storage_key!(key)]),
         ..Default::default()
     };
 
@@ -234,7 +234,7 @@ fn test_call_contract() {
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
         },
         storage_read_values: vec![StarkFelt::ZERO, stark_felt!(value)],
-        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+        accessed_storage_keys: HashSet::from([storage_key!(key)]),
         ..Default::default()
     };
     let expected_call_info = CallInfo {
@@ -451,7 +451,7 @@ fn test_tx_info(#[values(false, true)] only_query: bool) {
     }
     let tx_hash = TransactionHash(stark_felt!(1991_u16));
     let max_fee = Fee(0);
-    let nonce = Nonce(stark_felt!(3_u16));
+    let nonce = nonce!(3_u16);
     let sender_address = test_contract.get_instance_address(0);
     let expected_tx_info = calldata![
         felt_to_stark_felt(&version), // Transaction version.

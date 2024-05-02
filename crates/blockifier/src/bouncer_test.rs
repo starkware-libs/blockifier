@@ -2,9 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use rstest::rstest;
-use starknet_api::core::{ClassHash, ContractAddress};
-use starknet_api::hash::StarkFelt;
-use starknet_api::state::StorageKey;
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::hash::StarkHash;
+use starknet_api::{class_hash, contract_address, patricia_key};
 
 use super::BouncerConfig;
 use crate::blockifier::transaction_executor::{
@@ -14,6 +14,7 @@ use crate::bouncer::{Bouncer, BouncerWeights, BuiltinCount};
 use crate::context::BlockContext;
 use crate::execution::call_info::ExecutionSummary;
 use crate::state::cached_state::{CachedState, StateChangesKeys};
+use crate::storage_key;
 use crate::test_utils::initial_test_state::test_state;
 use crate::transaction::errors::TransactionExecutionError;
 
@@ -78,10 +79,10 @@ fn test_block_weights_has_room() {
 #[rstest]
 #[case::empty_initial_bouncer(Bouncer::new(BouncerConfig::default()))]
 #[case::non_empty_initial_bouncer(Bouncer {
-    executed_class_hashes: HashSet::from([ClassHash(StarkFelt::from(0_u128))]),
+    executed_class_hashes: HashSet::from([class_hash!(0_u128)]),
     visited_storage_entries: HashSet::from([(
-        ContractAddress::from(0_u128),
-        StorageKey::from(0_u128),
+        contract_address!(0_u128),
+        storage_key!(0_u128),
     )]),
     state_changes_keys: StateChangesKeys::create_for_testing(HashSet::from([
         ContractAddress::from(0_u128),
@@ -106,13 +107,10 @@ fn test_block_weights_has_room() {
 })]
 fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
     let execution_summary_to_update = ExecutionSummary {
-        executed_class_hashes: HashSet::from([
-            ClassHash(StarkFelt::from(1_u128)),
-            ClassHash(StarkFelt::from(2_u128)),
-        ]),
+        executed_class_hashes: HashSet::from([class_hash!(1_u128), class_hash!(2_u128)]),
         visited_storage_entries: HashSet::from([
-            (ContractAddress::from(1_u128), StorageKey::from(1_u128)),
-            (ContractAddress::from(2_u128), StorageKey::from(2_u128)),
+            (ContractAddress::from(1_u128), storage_key!(1_u128)),
+            (ContractAddress::from(2_u128), storage_key!(2_u128)),
         ]),
         ..Default::default()
     };

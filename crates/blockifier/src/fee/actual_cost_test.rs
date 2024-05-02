@@ -1,5 +1,4 @@
 use rstest::{fixture, rstest};
-use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, L2ToL1Payload, TransactionVersion};
@@ -11,7 +10,6 @@ use crate::fee::gas_usage::{
     get_consumed_message_to_l2_emissions_cost, get_log_message_to_l1_emissions_cost,
     get_message_segment_length,
 };
-use crate::invoke_tx_args;
 use crate::state::cached_state::StateChangesCount;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
@@ -22,7 +20,7 @@ use crate::transaction::test_utils::{account_invoke_tx, calculate_class_info_for
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::VersionedConstants;
-
+use crate::{invoke_tx_args, nonce};
 #[fixture]
 fn versioned_constants() -> &'static VersionedConstants {
     VersionedConstants::latest_constants()
@@ -344,7 +342,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         sender_address: account_contract_address,
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(1_u8)),
+        nonce: nonce!(1_u8),
     });
 
     let calldata_length = account_tx.calldata_length();
