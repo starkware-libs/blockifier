@@ -27,13 +27,12 @@ use crate::errors::{
     NativeBlockifierResult,
 };
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
-use crate::py_transaction::{py_tx, PyClassInfo};
+use crate::py_transaction::{get_py_tx_type, py_tx, PyClassInfo, PY_TX_PARSING_ERR};
 use crate::py_transaction_execution_info::PyBouncerConfig;
 use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
 
-pub(crate) type RawTransactionExecutionInfo = Vec<u8>;
 pub(crate) type PyVisitedSegmentsMapping = Vec<(PyFelt, Vec<usize>)>;
 
 #[cfg(test)]
@@ -164,8 +163,8 @@ impl PyBlockExecutor {
         optional_py_class_info: Option<PyClassInfo>,
     ) -> NativeBlockifierResult<Py<PyBytes>> {
         let charge_fee = true;
-        let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
-        let tx: Transaction = py_tx(tx, optional_py_class_info)?;
+        let tx_type: String = get_py_tx_type(tx).expect(PY_TX_PARSING_ERR).to_string();
+        let tx: Transaction = py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
         let tx_execution_info = self.tx_executor().execute(&tx, charge_fee)?;
         let typed_tx_execution_info = TypedTransactionExecutionInfo {
             info: ThinTransactionExecutionInfo::from_tx_execution_info(
@@ -177,37 +176,12 @@ impl PyBlockExecutor {
 
         // Convert to PyBytes:
         let raw_tx_execution_info = Python::with_gil(|py| {
-            let bytes_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info).unwrap();
+            let bytes_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)
+                .expect("Failed serializing execution info.");
             PyBytes::new(py, &bytes_tx_execution_info).into()
         });
 
         Ok(raw_tx_execution_info)
-    }
-
-    #[pyo3(signature = (txs_with_class_infos))]
-    pub fn execute_txs(
-        &mut self,
-        txs_with_class_infos: Vec<(&PyAny, Option<PyClassInfo>)>,
-    ) -> NativeBlockifierResult<Vec<RawTransactionExecutionInfo>> {
-        let charge_fee = true;
-        let mut result_vec = Vec::new();
-
-        for (tx, optional_py_class_info) in txs_with_class_infos.into_iter() {
-            let tx_type: String = tx.getattr("tx_type")?.getattr("name")?.extract()?;
-            let tx: Transaction = py_tx(tx, optional_py_class_info)?;
-            let tx_execution_info = self.tx_executor().execute(&tx, charge_fee)?;
-            let typed_tx_execution_info = TypedTransactionExecutionInfo {
-                info: ThinTransactionExecutionInfo::from_tx_execution_info(
-                    &self.tx_executor().block_context,
-                    tx_execution_info,
-                ),
-                tx_type,
-            };
-            let raw_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)?;
-            result_vec.push(raw_tx_execution_info);
-        }
-
-        Ok(result_vec)
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of

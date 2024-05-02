@@ -17,6 +17,8 @@ use crate::py_deploy_account::py_deploy_account;
 use crate::py_invoke_function::py_invoke_function;
 use crate::py_l1_handler::py_l1_handler;
 
+pub(crate) const PY_TX_PARSING_ERR: &str = "Failed parsing Py transaction.";
+
 // Structs.
 
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -122,7 +124,7 @@ pub fn py_tx(
     tx: &PyAny,
     optional_py_class_info: Option<PyClassInfo>,
 ) -> NativeBlockifierResult<Transaction> {
-    let tx_type: &str = tx.getattr("tx_type")?.getattr("name")?.extract()?;
+    let tx_type = get_py_tx_type(tx)?;
     let tx_type: TransactionType =
         tx_type.parse().map_err(NativeBlockifierInputError::ParseError)?;
 
@@ -141,6 +143,11 @@ pub fn py_tx(
         TransactionType::L1Handler => py_l1_handler(tx)?.into(),
     })
 }
+
+pub fn get_py_tx_type(tx: &PyAny) -> NativeBlockifierResult<&str> {
+    Ok(tx.getattr("tx_type")?.getattr("name")?.extract()?)
+}
+
 #[derive(FromPyObject)]
 pub struct PyClassInfo {
     raw_contract_class: String,
