@@ -2,6 +2,7 @@ use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::errors::vm_exception::VmException;
+use itertools::Itertools;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 
 use super::deprecated_syscalls::hint_processor::DeprecatedSyscallExecutionError;
@@ -9,27 +10,112 @@ use super::syscalls::hint_processor::SyscallExecutionError;
 use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::transaction::errors::TransactionExecutionError;
 
-type ErrorStack = Vec<String>;
-
 pub const TRACE_LENGTH_CAP: usize = 15000;
 pub const TRACE_EXTRA_CHARS_SLACK: usize = 100;
 
-fn finalize_error_stack(error_stack: &ErrorStack) -> String {
-    let error_stack_str = error_stack.join("\n");
+enum PreambleType {
+    CallContract,
+    LibraryCall,
+    Constructor,
+}
 
-    // When the trace string is too long, trim it in a way that keeps both the beginning and end.
-    if error_stack_str.len() > TRACE_LENGTH_CAP + TRACE_EXTRA_CHARS_SLACK {
-        error_stack_str[..(TRACE_LENGTH_CAP / 2)].to_string()
-            + "\n\n...\n\n"
-            + &error_stack_str[(error_stack_str.len() - TRACE_LENGTH_CAP / 2)..]
-    } else {
-        error_stack_str
+impl PreambleType {
+    pub fn text(&self) -> &str {
+        match self {
+            Self::CallContract => "Error in the called contract",
+            Self::LibraryCall => "Error in a library call",
+            Self::Constructor => "Error in the contract class constructor",
+        }
+    }
+}
+
+pub struct EntryPointErrorFrame {
+    depth: usize,
+    preamble_type: PreambleType,
+    storage_address: ContractAddress,
+    class_hash: ClassHash,
+    selector: Option<EntryPointSelector>,
+}
+
+impl EntryPointErrorFrame {
+    fn preamble_text(&self) -> String {
+        format!(
+            "{}: {} (contract address: {}, class hash: {}, selector: {}):",
+            self.depth,
+            self.preamble_type.text(),
+            self.storage_address.0.key(),
+            self.class_hash,
+            if let Some(selector) = self.selector {
+                format!("{}", selector.0)
+            } else {
+                "UNKNOWN".to_string()
+            }
+        )
+    }
+}
+
+impl From<&EntryPointErrorFrame> for String {
+    fn from(value: &EntryPointErrorFrame) -> Self {
+        value.preamble_text()
+    }
+}
+
+pub enum Frame {
+    EntryPoint(EntryPointErrorFrame),
+    StringFrame(String),
+}
+
+impl From<&Frame> for String {
+    fn from(value: &Frame) -> Self {
+        match value {
+            Frame::EntryPoint(entry_point_frame) => entry_point_frame.into(),
+            Frame::StringFrame(error) => error.clone(),
+        }
+    }
+}
+
+impl From<EntryPointErrorFrame> for Frame {
+    fn from(value: EntryPointErrorFrame) -> Self {
+        Frame::EntryPoint(value)
+    }
+}
+
+impl From<String> for Frame {
+    fn from(value: String) -> Self {
+        Frame::StringFrame(value)
+    }
+}
+
+#[derive(Default)]
+pub struct ErrorStack {
+    stack: Vec<Frame>,
+}
+
+impl From<ErrorStack> for String {
+    fn from(value: ErrorStack) -> Self {
+        let error_stack_str = value.stack.iter().map(String::from).join("\n");
+
+        // When the trace string is too long, trim it in a way that keeps both the beginning and
+        // end.
+        if error_stack_str.len() > TRACE_LENGTH_CAP + TRACE_EXTRA_CHARS_SLACK {
+            error_stack_str[..(TRACE_LENGTH_CAP / 2)].to_string()
+                + "\n\n...\n\n"
+                + &error_stack_str[(error_stack_str.len() - TRACE_LENGTH_CAP / 2)..]
+        } else {
+            error_stack_str
+        }
+    }
+}
+
+impl ErrorStack {
+    pub fn push(&mut self, frame: Frame) {
+        self.stack.push(frame);
     }
 }
 
 /// Extracts the error trace from a `TransactionExecutionError`. This is a top level function.
-pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) -> String {
-    let error_stack = match error {
+pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) -> ErrorStack {
+    match error {
         TransactionExecutionError::ExecutionError {
             error,
             class_hash,
@@ -46,7 +132,7 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             storage_address,
             class_hash,
             Some(selector),
-            false,
+            PreambleType::CallContract,
         ),
         TransactionExecutionError::ContractConstructorExecutionFailed(
             ConstructorEntryPointExecutionError::ExecutionError {
@@ -60,14 +146,15 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             storage_address,
             class_hash,
             constructor_selector.as_ref(),
-            true,
+            PreambleType::Constructor,
         ),
         _ => {
-            vec![error.to_string()]
+            // Top-level error is unrelated to Cairo execution, no "real" frames.
+            let mut stack = ErrorStack::default();
+            stack.push(Frame::StringFrame(error.to_string()));
+            stack
         }
-    };
-
-    finalize_error_stack(&error_stack)
+    }
 }
 
 /// Generate error stack from top-level entry point execution error.
@@ -76,52 +163,50 @@ fn gen_error_trace_from_entry_point_error(
     storage_address: &ContractAddress,
     class_hash: &ClassHash,
     entry_point_selector: Option<&EntryPointSelector>,
-    is_ctor: bool,
+    preamble_type: PreambleType,
 ) -> ErrorStack {
-    let mut error_stack: ErrorStack = ErrorStack::new();
-    let preamble = if is_ctor {
-        ctor_preamble(0, storage_address, class_hash, entry_point_selector)
-    } else {
-        frame_preamble(
-            0,
-            "Error in the called contract",
-            storage_address,
-            class_hash,
-            entry_point_selector,
-        )
-    };
-    error_stack.push(preamble);
+    let mut error_stack: ErrorStack = ErrorStack::default();
+    error_stack.push(
+        EntryPointErrorFrame {
+            depth: 0,
+            preamble_type,
+            storage_address: *storage_address,
+            class_hash: *class_hash,
+            selector: entry_point_selector.copied(),
+        }
+        .into(),
+    );
     extract_entry_point_execution_error_into_stack_trace(&mut error_stack, 1, error);
     error_stack
 }
 
 fn extract_cairo_run_error_into_stack_trace(
-    error_stack: &mut Vec<String>,
+    error_stack: &mut ErrorStack,
     depth: usize,
     error: &CairoRunError,
 ) {
     if let CairoRunError::VmException(vm_exception) = error {
         return extract_vm_exception_into_stack_trace(error_stack, depth, vm_exception);
     }
-    error_stack.push(error.to_string());
+    error_stack.push(error.to_string().into());
 }
 
 fn extract_vm_exception_into_stack_trace(
-    error_stack: &mut Vec<String>,
+    error_stack: &mut ErrorStack,
     depth: usize,
     vm_exception: &VmException,
 ) {
     let vm_exception_preamble = format!("Error at pc=0:{}:", vm_exception.pc);
-    error_stack.push(vm_exception_preamble);
+    error_stack.push(vm_exception_preamble.into());
 
     if let Some(traceback) = &vm_exception.traceback {
-        error_stack.push(traceback.to_string());
+        error_stack.push(traceback.to_string().into());
     }
     extract_virtual_machine_error_into_stack_trace(error_stack, depth, &vm_exception.inner_exc)
 }
 
 fn extract_virtual_machine_error_into_stack_trace(
-    error_stack: &mut Vec<String>,
+    error_stack: &mut ErrorStack,
     depth: usize,
     vm_error: &VirtualMachineError,
 ) {
@@ -134,7 +219,7 @@ fn extract_virtual_machine_error_into_stack_trace(
                     internal_vm_error,
                 );
             }
-            error_stack.push(boxed_hint_error.1.to_string());
+            error_stack.push(boxed_hint_error.1.to_string().into());
         }
         VirtualMachineError::Other(anyhow_error) => {
             let syscall_exec_err = anyhow_error.downcast_ref::<SyscallExecutionError>();
@@ -157,73 +242,13 @@ fn extract_virtual_machine_error_into_stack_trace(
             }
         }
         _ => {
-            error_stack.push(format!("{}\n", vm_error));
+            error_stack.push(format!("{}\n", vm_error).into());
         }
     }
 }
 
-fn frame_preamble(
-    depth: usize,
-    preamble_text: &str,
-    storage_address: &ContractAddress,
-    class_hash: &ClassHash,
-    selector: Option<&EntryPointSelector>,
-) -> String {
-    format!(
-        "{}: {} (contract address: {}, class hash: {}, selector: {}):",
-        depth,
-        preamble_text,
-        storage_address.0.key(),
-        class_hash,
-        if let Some(selector) = selector {
-            format!("{}", selector.0)
-        } else {
-            "UNKNOWN".to_string()
-        }
-    )
-}
-
-fn ctor_preamble(
-    depth: usize,
-    storage_address: &ContractAddress,
-    class_hash: &ClassHash,
-    selector: Option<&EntryPointSelector>,
-) -> String {
-    frame_preamble(
-        depth,
-        "Error in the contract class constructor",
-        storage_address,
-        class_hash,
-        selector,
-    )
-}
-
-fn call_contract_preamble(
-    depth: usize,
-    storage_address: &ContractAddress,
-    class_hash: &ClassHash,
-    selector: &EntryPointSelector,
-) -> String {
-    frame_preamble(
-        depth,
-        "Error in the called contract",
-        storage_address,
-        class_hash,
-        Some(selector),
-    )
-}
-
-fn library_call_preamble(
-    depth: usize,
-    storage_address: &ContractAddress,
-    class_hash: &ClassHash,
-    selector: &EntryPointSelector,
-) -> String {
-    frame_preamble(depth, "Error in a library call", storage_address, class_hash, Some(selector))
-}
-
 fn extract_syscall_execution_error_into_stack_trace(
-    error_stack: &mut Vec<String>,
+    error_stack: &mut ErrorStack,
     depth: usize,
     syscall_error: &SyscallExecutionError,
 ) {
@@ -234,7 +259,16 @@ fn extract_syscall_execution_error_into_stack_trace(
             selector,
             error,
         } => {
-            error_stack.push(call_contract_preamble(depth, storage_address, class_hash, selector));
+            error_stack.push(
+                EntryPointErrorFrame {
+                    depth,
+                    preamble_type: PreambleType::CallContract,
+                    storage_address: *storage_address,
+                    class_hash: *class_hash,
+                    selector: Some(*selector),
+                }
+                .into(),
+            );
             extract_syscall_execution_error_into_stack_trace(error_stack, depth + 1, error)
         }
         SyscallExecutionError::LibraryCallExecutionError {
@@ -243,28 +277,37 @@ fn extract_syscall_execution_error_into_stack_trace(
             selector,
             error,
         } => {
-            error_stack.push(library_call_preamble(depth, storage_address, class_hash, selector));
+            error_stack.push(
+                EntryPointErrorFrame {
+                    depth,
+                    preamble_type: PreambleType::LibraryCall,
+                    storage_address: *storage_address,
+                    class_hash: *class_hash,
+                    selector: Some(*selector),
+                }
+                .into(),
+            );
             extract_syscall_execution_error_into_stack_trace(error_stack, depth + 1, error);
         }
         SyscallExecutionError::ConstructorEntryPointExecutionError(
             ConstructorEntryPointExecutionError::ExecutionError {
-                error: entry_point_error,
+                error,
                 class_hash,
                 contract_address,
                 constructor_selector,
             },
         ) => {
-            error_stack.push(ctor_preamble(
-                depth,
-                contract_address,
-                class_hash,
-                constructor_selector.as_ref(),
-            ));
-            extract_entry_point_execution_error_into_stack_trace(
-                error_stack,
-                depth,
-                entry_point_error,
-            )
+            error_stack.push(
+                EntryPointErrorFrame {
+                    depth,
+                    preamble_type: PreambleType::Constructor,
+                    storage_address: *contract_address,
+                    class_hash: *class_hash,
+                    selector: *constructor_selector,
+                }
+                .into(),
+            );
+            extract_entry_point_execution_error_into_stack_trace(error_stack, depth, error)
         }
         SyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
             extract_entry_point_execution_error_into_stack_trace(
@@ -274,13 +317,13 @@ fn extract_syscall_execution_error_into_stack_trace(
             )
         }
         _ => {
-            error_stack.push(syscall_error.to_string());
+            error_stack.push(syscall_error.to_string().into());
         }
     }
 }
 
 fn extract_deprecated_syscall_execution_error_into_stack_trace(
-    error_stack: &mut Vec<String>,
+    error_stack: &mut ErrorStack,
     depth: usize,
     syscall_error: &DeprecatedSyscallExecutionError,
 ) {
@@ -291,7 +334,16 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
             selector,
             error,
         } => {
-            error_stack.push(call_contract_preamble(depth, storage_address, class_hash, selector));
+            error_stack.push(
+                EntryPointErrorFrame {
+                    depth,
+                    preamble_type: PreambleType::CallContract,
+                    storage_address: *storage_address,
+                    class_hash: *class_hash,
+                    selector: Some(*selector),
+                }
+                .into(),
+            );
             extract_deprecated_syscall_execution_error_into_stack_trace(
                 error_stack,
                 depth + 1,
@@ -304,7 +356,16 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
             selector,
             error,
         } => {
-            error_stack.push(library_call_preamble(depth, storage_address, class_hash, selector));
+            error_stack.push(
+                EntryPointErrorFrame {
+                    depth,
+                    preamble_type: PreambleType::LibraryCall,
+                    storage_address: *storage_address,
+                    class_hash: *class_hash,
+                    selector: Some(*selector),
+                }
+                .into(),
+            );
             extract_deprecated_syscall_execution_error_into_stack_trace(
                 error_stack,
                 depth + 1,
@@ -313,23 +374,23 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
         }
         DeprecatedSyscallExecutionError::ConstructorEntryPointExecutionError(
             ConstructorEntryPointExecutionError::ExecutionError {
-                error: entry_point_error,
+                error,
                 class_hash,
                 contract_address,
                 constructor_selector,
             },
         ) => {
-            error_stack.push(ctor_preamble(
-                depth,
-                contract_address,
-                class_hash,
-                constructor_selector.as_ref(),
-            ));
-            extract_entry_point_execution_error_into_stack_trace(
-                error_stack,
-                depth,
-                entry_point_error,
-            )
+            error_stack.push(
+                EntryPointErrorFrame {
+                    depth,
+                    preamble_type: PreambleType::Constructor,
+                    storage_address: *contract_address,
+                    class_hash: *class_hash,
+                    selector: *constructor_selector,
+                }
+                .into(),
+            );
+            extract_entry_point_execution_error_into_stack_trace(error_stack, depth, error)
         }
         DeprecatedSyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
             extract_entry_point_execution_error_into_stack_trace(
@@ -338,12 +399,12 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
                 entry_point_error,
             )
         }
-        _ => error_stack.push(syscall_error.to_string()),
+        _ => error_stack.push(syscall_error.to_string().into()),
     }
 }
 
 fn extract_entry_point_execution_error_into_stack_trace(
-    error_stack: &mut Vec<String>,
+    error_stack: &mut ErrorStack,
     depth: usize,
     entry_point_error: &EntryPointExecutionError,
 ) {
@@ -351,6 +412,6 @@ fn extract_entry_point_execution_error_into_stack_trace(
         EntryPointExecutionError::CairoRunError(cairo_run_error) => {
             extract_cairo_run_error_into_stack_trace(error_stack, depth, cairo_run_error)
         }
-        _ => error_stack.push(format!("{}\n", entry_point_error)),
+        _ => error_stack.push(format!("{}\n", entry_point_error).into()),
     }
 }
