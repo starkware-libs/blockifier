@@ -1,5 +1,7 @@
-use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::deprecated_contract_class::{
+    ContractClass as DeprecatedContractClass, EntryPointOffset, EntryPointType,
+};
 use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
@@ -175,5 +177,36 @@ impl FeatureContract {
 
     pub fn get_raw_class(&self) -> String {
         get_raw_contract_class(&self.get_compiled_path())
+    }
+
+    /// Fetch PC locations from the compiled contract to compute the expected PC locations in the
+    /// traceback. Computation is not robust, but as long as the cairo function itself is not
+    /// edited, this computation should be stable.
+    pub fn get_entry_point_offset(
+        &self,
+        entry_point_selector: EntryPointSelector,
+    ) -> EntryPointOffset {
+        match self.get_class() {
+            ContractClass::V0(class) => {
+                class
+                    .entry_points_by_type
+                    .get(&EntryPointType::External)
+                    .unwrap()
+                    .iter()
+                    .find(|ep| ep.selector == entry_point_selector)
+                    .unwrap()
+                    .offset
+            }
+            ContractClass::V1(class) => {
+                class
+                    .entry_points_by_type
+                    .get(&EntryPointType::External)
+                    .unwrap()
+                    .iter()
+                    .find(|ep| ep.selector == entry_point_selector)
+                    .unwrap()
+                    .offset
+            }
+        }
     }
 }
