@@ -1259,7 +1259,7 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
         transactional_cache.writes.storage.clone(),
     ] {
         for seq_key in [sequencer_balance_key_low, sequencer_balance_key_high] {
-            assert!(storage.get(&(fee_token_address, seq_key)).is_none());
+            assert!(!storage.contains_key(&(fee_token_address, seq_key)));
         }
     }
 
