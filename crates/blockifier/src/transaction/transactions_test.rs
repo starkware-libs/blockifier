@@ -76,7 +76,7 @@ use crate::versioned_constants::VersionedConstants;
 use crate::{
     check_transaction_execution_error_for_custom_hint,
     check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
-    deploy_account_tx_args, invoke_tx_args, retdata,
+    deploy_account_tx_args, invoke_tx_args, nonce, retdata,
 };
 
 static VERSIONED_CONSTANTS: Lazy<VersionedConstants> =
@@ -484,7 +484,7 @@ fn test_invoke_tx(
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
-    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
+    assert_eq!(nonce_from_state, nonce!(1_u8));
 
     // Test final balances.
     validate_final_balances(
@@ -989,7 +989,7 @@ fn test_invalid_nonce(
     let mut transactional_state = CachedState::create_transactional(state);
 
     // Strict, negative flow: account nonce = 0, incoming tx nonce = 1.
-    let invalid_nonce = Nonce(stark_felt!(1_u8));
+    let invalid_nonce = nonce!(1_u8);
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
     let invalid_tx_context = block_context.to_tx_context(&invalid_tx);
@@ -1008,7 +1008,7 @@ fn test_invalid_nonce(
     // Non-strict.
 
     // Positive flow: account nonce = 0, incoming tx nonce = 1.
-    let valid_nonce = Nonce(stark_felt!(1_u8));
+    let valid_nonce = nonce!(1_u8);
     let valid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: valid_nonce, ..valid_invoke_tx_args.clone() });
 
@@ -1018,7 +1018,7 @@ fn test_invalid_nonce(
         .unwrap();
 
     // Negative flow: account nonce = 1, incoming tx nonce = 0.
-    let invalid_nonce = Nonce(stark_felt!(0_u8));
+    let invalid_nonce = nonce!(0_u8);
     let invalid_tx =
         account_invoke_tx(invoke_tx_args! { nonce: invalid_nonce, ..valid_invoke_tx_args.clone() });
     let invalid_tx_context = block_context.to_tx_context(&invalid_tx);
@@ -1031,7 +1031,7 @@ fn test_invalid_nonce(
         pre_validation_err,
         TransactionPreValidationError::InvalidNonce {address, account_nonce, incoming_tx_nonce}
         if (address, account_nonce, incoming_tx_nonce) ==
-        (valid_invoke_tx_args.sender_address, Nonce(stark_felt!(1_u8)), invalid_nonce)
+        (valid_invoke_tx_args.sender_address, nonce!(1_u8), invalid_nonce)
     );
 }
 
@@ -1184,8 +1184,7 @@ fn test_declare_tx(
     assert_eq!(actual_execution_info, expected_execution_info);
 
     // Test nonce update. V0 transactions do not update nonce.
-    let expected_nonce =
-        Nonce(stark_felt!(if tx_version == TransactionVersion::ZERO { 0_u8 } else { 1_u8 }));
+    let expected_nonce = nonce!(if tx_version == TransactionVersion::ZERO { 0_u8 } else { 1_u8 });
     let nonce_from_state = state.get_nonce_at(sender_address).unwrap();
     assert_eq!(nonce_from_state, expected_nonce);
 
@@ -1327,7 +1326,7 @@ fn test_deploy_account_tx(
 
     // Test nonce update.
     let nonce_from_state = state.get_nonce_at(deployed_account_address).unwrap();
-    assert_eq!(nonce_from_state, Nonce(stark_felt!(1_u8)));
+    assert_eq!(nonce_from_state, nonce!(1_u8));
 
     // Test final balances.
     validate_final_balances(
@@ -1966,7 +1965,7 @@ fn test_emit_event_exceeds_limit(
         sender_address: account_contract.get_instance_address(0),
         calldata: execute_calldata,
         version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(0_u8)),
+        nonce: nonce!(0_u8),
     });
     let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
     match &expected_error {

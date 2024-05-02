@@ -5,9 +5,7 @@ use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
@@ -52,7 +50,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
 use crate::{
     check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
-    deploy_account_tx_args, invoke_tx_args,
+    deploy_account_tx_args, invoke_tx_args, nonce, storage_key,
 };
 
 #[rstest]
@@ -575,7 +573,7 @@ fn test_fail_deploy_account(
     check_transaction_execution_error_for_invalid_scenario!(cairo_version, error, false);
 
     // Assert nonce and balance are unchanged, and that no contract was deployed at the address.
-    assert_eq!(state.get_nonce_at(deploy_address).unwrap(), Nonce(stark_felt!(0_u8)));
+    assert_eq!(state.get_nonce_at(deploy_address).unwrap(), nonce!(0_u8));
     assert_eq!(
         state.get_fee_token_balance(deploy_address, fee_token_address).unwrap(),
         initial_balance
@@ -1105,8 +1103,7 @@ fn test_count_actual_storage_changes(
     let fee_1 = execution_info.actual_fee;
     let state_changes_1 = state.get_actual_state_changes().unwrap();
 
-    let cell_write_storage_change =
-        ((contract_address, StorageKey(patricia_key!(15_u8))), stark_felt!(1_u8));
+    let cell_write_storage_change = ((contract_address, storage_key!(15_u8)), stark_felt!(1_u8));
     let mut expected_sequencer_total_fee = initial_sequencer_balance + Felt252::from(fee_1.0);
     let mut expected_sequencer_fee_update = (
         (fee_token_address, sequencer_fee_token_var_address),

@@ -1,12 +1,10 @@
 use rstest::rstest;
-use starknet_api::core::Nonce;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::blockifier::stateful_validator::StatefulValidator;
 use crate::bouncer::BouncerConfig;
 use crate::context::BlockContext;
+use crate::nonce;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::{CairoVersion, NonceManager, BALANCE};
@@ -70,7 +68,7 @@ fn test_transaction_validator(
     let mut stateful_validator = StatefulValidator::create(
         state,
         block_context,
-        Nonce(stark_felt!(0_u32)),
+        nonce!(0_u32),
         BouncerConfig::create_for_testing(),
     );
 

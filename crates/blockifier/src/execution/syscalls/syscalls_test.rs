@@ -9,7 +9,7 @@ use num_traits::Pow;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::{
-    calculate_contract_address, ChainId, ContractAddress, EthAddress, Nonce, PatriciaKey,
+    calculate_contract_address, ChainId, ContractAddress, EthAddress, PatriciaKey,
 };
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -19,7 +19,7 @@ use starknet_api::transaction::{
     L2ToL1Payload, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping, Tip,
     TransactionHash, TransactionVersion,
 };
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -50,8 +50,7 @@ use crate::transaction::objects::{
     CommonAccountFields, CurrentTransactionInfo, DeprecatedTransactionInfo, TransactionInfo,
 };
 use crate::versioned_constants::VersionedConstants;
-use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
-
+use crate::{check_entry_point_execution_error_for_custom_hint, nonce, retdata, storage_key};
 pub const REQUIRED_GAS_STORAGE_READ_WRITE_TEST: u64 = 27150;
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 105680;
 pub const REQUIRED_GAS_LIBRARY_CALL_TEST: u64 = REQUIRED_GAS_CALL_CONTRACT_TEST;
@@ -374,7 +373,7 @@ fn test_get_execution_info(
 
     let tx_hash = TransactionHash(stark_felt!(1991_u16));
     let max_fee = Fee(42);
-    let nonce = Nonce(stark_felt!(3_u16));
+    let nonce = nonce!(3_u16);
     let sender_address = test_contract_address;
 
     let expected_tx_info: Vec<StarkFelt>;
@@ -622,7 +621,7 @@ fn test_nested_library_call() {
         },
         resources: storage_entry_point_resources.clone(),
         storage_read_values: vec![stark_felt!(value + 1)],
-        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key + 1))]),
+        accessed_storage_keys: HashSet::from([storage_key!(key + 1)]),
         ..Default::default()
     };
     let library_call_resources = &get_syscall_resources(SyscallSelector::LibraryCall)
@@ -651,7 +650,7 @@ fn test_nested_library_call() {
         },
         resources: storage_entry_point_resources,
         storage_read_values: vec![stark_felt!(value)],
-        accessed_storage_keys: HashSet::from([StorageKey(patricia_key!(key))]),
+        accessed_storage_keys: HashSet::from([storage_key!(key)]),
         ..Default::default()
     };
 

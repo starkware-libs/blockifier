@@ -8,9 +8,8 @@ use rstest::rstest;
 use starknet_api::core::{EntryPointSelector, PatriciaKey};
 use starknet_api::deprecated_contract_class::{EntryPointOffset, EntryPointType};
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, TransactionVersion};
-use starknet_api::{calldata, patricia_key, stark_felt};
+use starknet_api::{calldata, stark_felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::context::{BlockContext, ChainInfo};
@@ -36,7 +35,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::versioned_constants::VersionedConstants;
-use crate::{invoke_tx_args, retdata};
+use crate::{invoke_tx_args, retdata, storage_key};
 
 const INNER_CALL_CONTRACT_IN_CALL_CHAIN_OFFSET: usize = 117;
 
@@ -539,10 +538,7 @@ fn test_storage_related_members() {
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
     assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), value]);
-    assert_eq!(
-        actual_call_info.accessed_storage_keys,
-        HashSet::from([StorageKey(patricia_key!(key))])
-    );
+    assert_eq!(actual_call_info.accessed_storage_keys, HashSet::from([storage_key!(key)]));
 }
 
 #[test]

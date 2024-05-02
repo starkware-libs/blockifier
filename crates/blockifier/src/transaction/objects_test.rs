@@ -1,7 +1,7 @@
 use rstest::rstest;
+use starknet_api::class_hash;
 use starknet_api::core::ClassHash;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::hash::StarkHash;
 
 use crate::execution::call_info::{
     CallExecution, CallInfo, ExecutionSummary, OrderedEvent, TestExecutionSummary,
@@ -11,10 +11,7 @@ use crate::transaction::objects::TransactionExecutionInfo;
 
 fn shared_call_info() -> CallInfo {
     CallInfo {
-        call: CallEntryPoint {
-            class_hash: Some(ClassHash(stark_felt!("0x1"))),
-            ..Default::default()
-        },
+        call: CallEntryPoint { class_hash: Some(class_hash!("0x1")), ..Default::default() },
         ..Default::default()
     }
 }
@@ -114,9 +111,9 @@ fn test_events_counter_in_transaction_execution_info_with_inner_call_info(
 
 #[rstest]
 #[case(
-    TestExecutionSummary::new(1, 2, ClassHash(stark_felt!("0x1")), "0x1", "0x1"),
-    TestExecutionSummary::new(2, 3, ClassHash(stark_felt!("0x2")), "0x2", "0x2"),
-    TestExecutionSummary::new(3, 4, ClassHash(stark_felt!("0x3")), "0x3", "0x3")
+    TestExecutionSummary::new(1, 2, class_hash!("0x1"), "0x1", "0x1"),
+    TestExecutionSummary::new(2, 3, class_hash!("0x2"), "0x2", "0x2"),
+    TestExecutionSummary::new(3, 4, class_hash!("0x3"), "0x3", "0x3")
 )]
 fn test_summarize(
     #[case] validate_params: TestExecutionSummary,

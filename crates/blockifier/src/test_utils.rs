@@ -138,6 +138,25 @@ macro_rules! nonce {
     };
 }
 
+// TODO(Yoni, 1/1/2025): move to SN API.
+/// A utility macro to create a [`StorageKey`] from a hex string / unsigned integer representation.
+#[macro_export]
+macro_rules! storage_key {
+    ($s:expr) => {
+        starknet_api::state::StorageKey(starknet_api::patricia_key!($s))
+    };
+}
+
+// TODO(Yoni, 1/1/2025): move to SN API.
+/// A utility macro to create a [`CompiledClassHash`] from a hex string / unsigned integer
+/// representation.
+#[macro_export]
+macro_rules! compiled_class_hash {
+    ($s:expr) => {
+        starknet_api::core::CompiledClassHash(starknet_api::hash::StarkHash::try_from($s).unwrap())
+    };
+}
+
 #[derive(Default)]
 pub struct SaltManager {
     next_salt: u8,
