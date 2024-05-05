@@ -62,6 +62,7 @@ pub fn pre_process_block(
     block_info: BlockInfo,
     chain_info: ChainInfo,
     versioned_constants: VersionedConstants,
+    concurrency_mode: bool,
 ) -> StateResult<BlockContext> {
     let should_block_hash_be_provided =
         block_info.block_number >= BlockNumber(constants::STORED_BLOCK_HASH_BUFFER);
@@ -80,7 +81,7 @@ pub fn pre_process_block(
         return Err(StateError::OldBlockHashNotProvided);
     }
 
-    Ok(BlockContext { block_info, chain_info, versioned_constants, concurrency_mode: false })
+    Ok(BlockContext { block_info, chain_info, versioned_constants, concurrency_mode })
 }
 
 pub struct BlockNumberHashPair {

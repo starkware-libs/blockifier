@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use blockifier::blockifier::block::{
     pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
 };
+use blockifier::blockifier::config::TransactionExecutorConfig;
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
@@ -87,6 +88,7 @@ pub(crate) struct TypedTransactionExecutionInfo {
 #[pyclass]
 pub struct PyBlockExecutor {
     pub bouncer_config: BouncerConfig,
+    pub tx_executor_config: TransactionExecutorConfig,
     pub general_config: PyGeneralConfig,
     pub versioned_constants: VersionedConstants,
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
@@ -118,6 +120,7 @@ impl PyBlockExecutor {
 
         Self {
             bouncer_config: bouncer_config.into(),
+            tx_executor_config: TransactionExecutorConfig::default(),
             general_config,
             versioned_constants,
             tx_executor: None,
@@ -143,10 +146,15 @@ impl PyBlockExecutor {
             &self.general_config,
             &next_block_info,
             &self.versioned_constants,
+            self.tx_executor_config.concurrency_config.enabled,
         )?;
 
-        let tx_executor =
-            TransactionExecutor::new(state, block_context, self.bouncer_config.clone());
+        let tx_executor = TransactionExecutor::new(
+            state,
+            block_context,
+            self.bouncer_config.clone(),
+            self.tx_executor_config.clone(),
+        );
         self.tx_executor = Some(tx_executor);
 
         Ok(())
@@ -297,6 +305,7 @@ impl PyBlockExecutor {
                     ..BouncerWeights::max(true)
                 },
             },
+            tx_executor_config: TransactionExecutorConfig::default(),
             storage: Box::new(PapyrusStorage::new_for_testing(
                 path,
                 &general_config.starknet_os_config.chain_id,
@@ -329,6 +338,7 @@ impl PyBlockExecutor {
         use blockifier::state::global_cache::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
             bouncer_config: BouncerConfig::max(),
+            tx_executor_config: TransactionExecutorConfig::default(),
             storage: Box::new(storage),
             general_config: PyGeneralConfig::default(),
             versioned_constants: VersionedConstants::latest_constants().clone(),
@@ -438,6 +448,7 @@ fn pre_process_block(
     general_config: &PyGeneralConfig,
     block_info: &PyBlockInfo,
     versioned_constants: &VersionedConstants,
+    concurrency_mode: bool,
 ) -> NativeBlockifierResult<BlockContext> {
     let old_block_number_and_hash = old_block_number_and_hash
         .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
@@ -460,6 +471,7 @@ fn pre_process_block(
         block_info,
         chain_info,
         versioned_constants.clone(),
+        concurrency_mode,
     )?;
 
     Ok(block_context)
