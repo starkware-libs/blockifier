@@ -5,6 +5,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
+use crate::blockifier::config::TransactionExecutorConfig;
 use crate::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
 use crate::bouncer::{Bouncer, BouncerConfig, BouncerWeights};
 use crate::context::BlockContext;
@@ -34,8 +35,12 @@ fn tx_executor_test_body<S: StateReader>(
     charge_fee: bool,
     expected_bouncer_weights: BouncerWeights,
 ) {
-    let mut tx_executor =
-        TransactionExecutor::new(state, block_context, BouncerConfig::create_for_testing());
+    let mut tx_executor = TransactionExecutor::new(
+        state,
+        block_context,
+        BouncerConfig::create_for_testing(),
+        TransactionExecutorConfig::default(),
+    );
     // TODO(Arni, 30/03/2024): Consider adding a test for the transaction execution info. If A test
     // should not be added, rename the test to `test_bouncer_info`.
     // TODO(Arni, 30/03/2024): Test all bouncer weights.
@@ -258,6 +263,7 @@ fn test_bouncing(
             },
             ..BouncerConfig::default()
         },
+        TransactionExecutorConfig::default(),
     );
     tx_executor.bouncer.set_accumulated_weights(initial_bouncer_weights);
 
@@ -288,7 +294,12 @@ fn test_execute_chunk_bouncing(block_context: BlockContext) {
         },
         ..BouncerConfig::default()
     };
-    let mut tx_executor = TransactionExecutor::new(state, block_context, bouncer_config.clone());
+    let mut tx_executor = TransactionExecutor::new(
+        state,
+        block_context,
+        bouncer_config.clone(),
+        TransactionExecutorConfig::default(),
+    );
 
     let txs: Vec<Transaction> = [
         emit_n_events_tx(1, account_address, contract_address, nonce!(0_u32)),

@@ -4,6 +4,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ClassHash;
 use thiserror::Error;
 
+use crate::blockifier::config::TransactionExecutorConfig;
 use crate::bouncer::{Bouncer, BouncerConfig};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -38,6 +39,8 @@ pub type VisitedSegmentsMapping = Vec<(ClassHash, Vec<usize>)>;
 pub struct TransactionExecutor<S: StateReader> {
     pub block_context: BlockContext,
     pub bouncer: Bouncer,
+    // Note: this config must not affect the execution result (e.g. state diff and traces).
+    pub config: TransactionExecutorConfig,
 
     // State-related fields.
     pub state: CachedState<S>,
@@ -48,11 +51,13 @@ impl<S: StateReader> TransactionExecutor<S> {
         state: CachedState<S>,
         block_context: BlockContext,
         bouncer_config: BouncerConfig,
+        config: TransactionExecutorConfig,
     ) -> Self {
         log::debug!("Initializing Transaction Executor...");
         // Note: the state might not be empty even at this point; it is the creator's
         // responsibility to tune the bouncer according to pre and post block process.
-        let tx_executor = Self { block_context, bouncer: Bouncer::new(bouncer_config), state };
+        let tx_executor =
+            Self { block_context, bouncer: Bouncer::new(bouncer_config), config, state };
         log::debug!("Initialized Transaction Executor.");
 
         tx_executor
@@ -92,6 +97,18 @@ impl<S: StateReader> TransactionExecutor<S> {
     /// Stops if and when there is no more room in the block, and returns the executed transactions'
     /// results.
     pub fn execute_chunk(
+        &mut self,
+        txs: &[Transaction],
+        charge_fee: bool,
+    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        if !self.config.concurrency_config.enabled {
+            self.execute_chunk_sequentially(txs, charge_fee)
+        } else {
+            todo!()
+        }
+    }
+
+    pub fn execute_chunk_sequentially(
         &mut self,
         txs: &[Transaction],
         charge_fee: bool,

@@ -29,6 +29,7 @@ fn test_pre_process_block() {
         block_info,
         ChainInfo::default(),
         VersionedConstants::default(),
+        false,
     )
     .unwrap();
 
@@ -48,7 +49,8 @@ fn test_pre_process_block() {
             None,
             block_info,
             ChainInfo::default(),
-            VersionedConstants::default()
+            VersionedConstants::default(),
+            false,
         )
         .is_ok()
     );
@@ -61,6 +63,7 @@ fn test_pre_process_block() {
         block_info,
         ChainInfo::default(),
         VersionedConstants::default(),
+        false,
     );
     assert_eq!(
         format!(
