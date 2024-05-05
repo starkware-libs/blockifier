@@ -3,6 +3,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionHash;
 use thiserror::Error;
 
+use crate::blockifier::config::TransactionExecutorConfig;
 use crate::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
 use crate::bouncer::BouncerConfig;
 use crate::context::{BlockContext, TransactionContext};
@@ -48,7 +49,12 @@ impl<S: StateReader> StatefulValidator<S> {
         max_nonce_for_validation_skip: Nonce,
         bouncer_config: BouncerConfig,
     ) -> Self {
-        let tx_executor = TransactionExecutor::new(state, block_context, bouncer_config);
+        let tx_executor = TransactionExecutor::new(
+            state,
+            block_context,
+            bouncer_config,
+            TransactionExecutorConfig::default(),
+        );
         Self { tx_executor, max_nonce_for_validation_skip }
     }
 
