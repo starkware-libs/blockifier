@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use blockifier::blockifier::block::{
     pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
 };
-use blockifier::blockifier::transaction_executor::TransactionExecutor;
+use blockifier::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::execution::call_info::CallInfo;
@@ -14,7 +14,7 @@ use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionE
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyList};
 use pyo3::{FromPyObject, PyAny, Python};
 use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
@@ -33,6 +33,7 @@ use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
 
+pub(crate) type RawTransactionExecutionResult = Vec<u8>;
 pub(crate) type PyVisitedSegmentsMapping = Vec<(PyFelt, Vec<usize>)>;
 
 #[cfg(test)]
@@ -41,6 +42,7 @@ mod py_block_executor_test;
 
 const MAX_STEPS_PER_TX: u32 = 4_000_000;
 const MAX_VALIDATE_STEPS_PER_TX: u32 = 1_000_000;
+const RESULT_SERIALIZE_ERR: &str = "Failed serializing execution info.";
 
 /// Stripped down `TransactionExecutionInfo` for Python serialization, containing only the required
 /// fields.
@@ -82,6 +84,26 @@ pub(crate) struct TypedTransactionExecutionInfo {
     #[serde(flatten)]
     pub info: ThinTransactionExecutionInfo,
     pub tx_type: String,
+}
+
+impl TypedTransactionExecutionInfo {
+    pub fn from_tx_execution_info(
+        block_context: &BlockContext,
+        tx_execution_info: TransactionExecutionInfo,
+        tx_type: String,
+    ) -> Self {
+        TypedTransactionExecutionInfo {
+            info: ThinTransactionExecutionInfo::from_tx_execution_info(
+                block_context,
+                tx_execution_info,
+            ),
+            tx_type,
+        }
+    }
+
+    pub fn serialize(self) -> RawTransactionExecutionResult {
+        serde_json::to_vec(&self).expect(RESULT_SERIALIZE_ERR)
+    }
 }
 
 #[pyclass]
@@ -166,22 +188,80 @@ impl PyBlockExecutor {
         let tx_type: String = get_py_tx_type(tx).expect(PY_TX_PARSING_ERR).to_string();
         let tx: Transaction = py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
         let tx_execution_info = self.tx_executor().execute(&tx, charge_fee)?;
-        let typed_tx_execution_info = TypedTransactionExecutionInfo {
-            info: ThinTransactionExecutionInfo::from_tx_execution_info(
-                &self.tx_executor().block_context,
-                tx_execution_info,
-            ),
+        let typed_tx_execution_info = TypedTransactionExecutionInfo::from_tx_execution_info(
+            &self.tx_executor().block_context,
+            tx_execution_info,
             tx_type,
-        };
+        );
 
         // Convert to PyBytes:
         let raw_tx_execution_info = Python::with_gil(|py| {
-            let bytes_tx_execution_info = serde_json::to_vec(&typed_tx_execution_info)
-                .expect("Failed serializing execution info.");
+            let bytes_tx_execution_info = typed_tx_execution_info.serialize();
             PyBytes::new(py, &bytes_tx_execution_info).into()
         });
 
         Ok(raw_tx_execution_info)
+    }
+
+    /// Executes the given transactions on the Blockifier state.
+    /// Stops if and when there is no more room in the block, and returns the executed transactions'
+    /// results as a PyList of (success (bool), serialized result (bytes)) tuples.
+    #[pyo3(signature = (txs_with_class_infos))]
+    pub fn execute_txs(
+        &mut self,
+        txs_with_class_infos: Vec<(&PyAny, Option<PyClassInfo>)>,
+    ) -> Py<PyList> {
+        let charge_fee = true;
+
+        // Parse Py transactions.
+        let (tx_types, txs): (Vec<String>, Vec<Transaction>) = txs_with_class_infos
+            .into_iter()
+            .map(|(tx, optional_py_class_info)| {
+                (
+                    get_py_tx_type(tx).expect(PY_TX_PARSING_ERR).to_string(),
+                    py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR),
+                )
+            })
+            .unzip();
+
+        // Run.
+        let results = self.tx_executor().execute_chunk(&txs, charge_fee);
+
+        // Process results.
+        // TODO(Yoni, 15/5/2024): serialize concurrently.
+        let block_context = &self.tx_executor().block_context;
+        let serialized_results: Vec<(bool, RawTransactionExecutionResult)> = results
+            .into_iter()
+            // Note: there might be less results than txs (if there is no room for all of them).
+            .zip(tx_types)
+            .map(|(result, tx_type)| match result {
+                Ok(tx_execution_info) => (
+                    true,
+                    TypedTransactionExecutionInfo::from_tx_execution_info(
+                        block_context,
+                        tx_execution_info,
+                        tx_type,
+                    )
+                    .serialize(),
+                ),
+                Err(error) => (false, serialize_failure_reason(error)),
+            })
+            .collect();
+
+        // Convert to Py types and allocate it on Python's heap, to be visible for Python's
+        // garbage collector.
+        Python::with_gil(|py| {
+            let py_serialized_results: Vec<(bool, Py<PyBytes>)> = serialized_results
+                .into_iter()
+                .map(|(success, execution_result)| {
+                    // Note that PyList converts the inner elements recursively, yet the default
+                    // conversion of the execution result (Vec<u8>) is to a list of integers, which
+                    // might be less efficient than bytes.
+                    (success, PyBytes::new(py, &execution_result).into())
+                })
+                .collect();
+            PyList::new(py, py_serialized_results).into()
+        })
     }
 
     /// Returns the state diff and a list of contract class hash with the corresponding list of
@@ -463,4 +543,9 @@ fn pre_process_block(
     )?;
 
     Ok(block_context)
+}
+
+fn serialize_failure_reason(error: TransactionExecutorError) -> RawTransactionExecutionResult {
+    // TODO(Yoni, 1/7/2024): re-consider this serialization.
+    serde_json::to_vec(&format!("{}", error)).expect(RESULT_SERIALIZE_ERR)
 }
