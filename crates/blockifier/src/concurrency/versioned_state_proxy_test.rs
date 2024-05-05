@@ -280,7 +280,7 @@ fn test_validate_read_set(
     let transactional_state = CachedState::from(safe_versioned_state.pin_version(1));
 
     // Validating tx index 0 always succeeds.
-    assert!(safe_versioned_state.state().validate_read_set(0, &StateMaps::default()));
+    assert!(safe_versioned_state.pin_version(0).validate_read_set(&StateMaps::default()));
 
     assert!(transactional_state.cache.borrow().initial_reads.storage.is_empty());
     transactional_state.get_storage_at(contract_address, storage_key).unwrap();
@@ -303,8 +303,8 @@ fn test_validate_read_set(
 
     assert!(
         safe_versioned_state
-            .state()
-            .validate_read_set(1, &transactional_state.cache.borrow().initial_reads)
+            .pin_version(1)
+            .validate_read_set(&transactional_state.cache.borrow().initial_reads)
     );
 }
 
@@ -329,8 +329,7 @@ fn test_apply_writes(
     transactional_states[0].set_contract_class(class_hash, contract_class_0.clone()).unwrap();
     assert_eq!(transactional_states[0].class_hash_to_class.borrow().len(), 1);
 
-    safe_versioned_state.state().apply_writes(
-        0,
+    safe_versioned_state.pin_version(0).apply_writes(
         &transactional_states[0].cache.borrow().writes,
         &transactional_states[0].class_hash_to_class.borrow().clone(),
     );
@@ -358,8 +357,7 @@ fn test_apply_writes_reexecute_scenario(
     // updated.
     assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash);
 
-    safe_versioned_state.state().apply_writes(
-        0,
+    safe_versioned_state.pin_version(0).apply_writes(
         &transactional_states[0].cache.borrow().writes,
         &transactional_states[0].class_hash_to_class.borrow().clone(),
     );
