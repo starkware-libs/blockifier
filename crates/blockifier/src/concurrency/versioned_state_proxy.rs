@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -9,7 +9,7 @@ use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
-use crate::state::state_api::{State, StateReader, StateResult};
+use crate::state::state_api::{StateReader, StateResult};
 
 #[cfg(test)]
 #[path = "versioned_state_proxy_test.rs"]
@@ -156,71 +156,6 @@ pub struct VersionedStateProxy<S: StateReader> {
 impl<S: StateReader> VersionedStateProxy<S> {
     pub fn state(&self) -> LockedVersionedState<'_, S> {
         self.state.lock().expect("Failed to acquire state lock.")
-    }
-}
-
-// TODO: Remove.
-impl<S: StateReader> State for VersionedStateProxy<S> {
-    fn set_storage_at(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-        value: StarkFelt,
-    ) -> StateResult<()> {
-        let mut state = self.state();
-        state.storage.write(self.tx_index, (contract_address, key), value);
-
-        Ok(())
-    }
-
-    fn set_class_hash_at(
-        &mut self,
-        contract_address: ContractAddress,
-        class_hash: ClassHash,
-    ) -> StateResult<()> {
-        let mut state = self.state();
-        state.class_hashes.write(self.tx_index, contract_address, class_hash);
-
-        Ok(())
-    }
-
-    fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
-        let mut state = self.state();
-        let current_nonce = state.nonces.read(self.tx_index, contract_address).unwrap();
-
-        let current_nonce_as_u64: u64 =
-            usize::try_from(current_nonce.0)?.try_into().expect("Failed to convert usize to u64.");
-        let next_nonce_val = 1_u64 + current_nonce_as_u64;
-        let next_nonce = Nonce(StarkFelt::from(next_nonce_val));
-        state.nonces.write(self.tx_index, contract_address, next_nonce);
-
-        Ok(())
-    }
-
-    fn set_compiled_class_hash(
-        &mut self,
-        class_hash: ClassHash,
-        compiled_class_hash: CompiledClassHash,
-    ) -> StateResult<()> {
-        let mut state = self.state();
-        state.compiled_class_hashes.write(self.tx_index, class_hash, compiled_class_hash);
-
-        Ok(())
-    }
-
-    fn set_contract_class(
-        &mut self,
-        class_hash: ClassHash,
-        contract_class: ContractClass,
-    ) -> StateResult<()> {
-        let mut state = self.state();
-        state.compiled_contract_classes.write(self.tx_index, class_hash, contract_class);
-
-        Ok(())
-    }
-
-    fn add_visited_pcs(&mut self, _class_hash: ClassHash, _pcs: &HashSet<usize>) {
-        todo!()
     }
 }
 

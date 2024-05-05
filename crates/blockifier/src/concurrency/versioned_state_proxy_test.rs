@@ -12,7 +12,7 @@ use crate::concurrency::versioned_state_proxy::{
     ThreadSafeVersionedState, VersionedState, VersionedStateProxy,
 };
 use crate::context::BlockContext;
-use crate::state::cached_state::CachedState;
+use crate::state::cached_state::{CachedState, StateMaps};
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
@@ -49,7 +49,7 @@ fn test_versioned_state_proxy() {
     let versioned_state = Arc::new(Mutex::new(VersionedState::new(cached_state)));
 
     let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
-    let mut versioned_state_proxys: Vec<VersionedStateProxy<CachedState<DictStateReader>>> =
+    let versioned_state_proxys: Vec<VersionedStateProxy<CachedState<DictStateReader>>> =
         (0..20).map(|i| safe_versioned_state.pin_version(i)).collect();
 
     // Read initial data
@@ -78,14 +78,48 @@ fn test_versioned_state_proxy() {
     let compiled_class_hash_v18 = compiled_class_hash!(30_u8);
     let contract_class_v11 = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
 
-    versioned_state_proxys[3].set_storage_at(contract_address, new_key, stark_felt_v3).unwrap();
-    versioned_state_proxys[4].increment_nonce(contract_address).unwrap();
-    versioned_state_proxys[7].set_class_hash_at(contract_address, class_hash_v7).unwrap();
-    versioned_state_proxys[10].set_class_hash_at(contract_address, class_hash_v10).unwrap();
-    versioned_state_proxys[18]
-        .set_compiled_class_hash(class_hash, compiled_class_hash_v18)
-        .unwrap();
-    versioned_state_proxys[11].set_contract_class(class_hash, contract_class_v11.clone()).unwrap();
+    versioned_state_proxys[3].state().apply_writes(
+        3,
+        &StateMaps {
+            storage: HashMap::from([((contract_address, new_key), stark_felt_v3)]),
+            ..Default::default()
+        },
+        &HashMap::default(),
+    );
+    versioned_state_proxys[4].state().apply_writes(
+        4,
+        &StateMaps { nonces: HashMap::from([(contract_address, nonce_v4)]), ..Default::default() },
+        &HashMap::default(),
+    );
+    versioned_state_proxys[7].state().apply_writes(
+        7,
+        &StateMaps {
+            class_hashes: HashMap::from([(contract_address, class_hash_v7)]),
+            ..Default::default()
+        },
+        &HashMap::default(),
+    );
+    versioned_state_proxys[10].state().apply_writes(
+        10,
+        &StateMaps {
+            class_hashes: HashMap::from([(contract_address, class_hash_v10)]),
+            ..Default::default()
+        },
+        &HashMap::default(),
+    );
+    versioned_state_proxys[18].state().apply_writes(
+        18,
+        &StateMaps {
+            compiled_class_hashes: HashMap::from([(class_hash, compiled_class_hash_v18)]),
+            ..Default::default()
+        },
+        &HashMap::default(),
+    );
+    versioned_state_proxys[11].state().apply_writes(
+        11,
+        &StateMaps::default(),
+        &HashMap::from([(class_hash, contract_class_v11.clone())]),
+    );
 
     // Read the data
     assert_eq!(versioned_state_proxys[2].get_nonce_at(contract_address).unwrap(), nonce);
