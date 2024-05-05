@@ -152,10 +152,6 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
     }
-
-    pub fn state(&self) -> LockedVersionedState<'_, S> {
-        self.0.lock().expect("Failed to acquire state lock.")
-    }
 }
 
 pub struct VersionedStateProxy<S: StateReader> {
@@ -164,8 +160,16 @@ pub struct VersionedStateProxy<S: StateReader> {
 }
 
 impl<S: StateReader> VersionedStateProxy<S> {
-    pub fn state(&self) -> LockedVersionedState<'_, S> {
+    fn state(&self) -> LockedVersionedState<'_, S> {
         self.state.lock().expect("Failed to acquire state lock.")
+    }
+
+    pub fn validate_read_set(&self, reads: &StateMaps) -> bool {
+        self.state().validate_read_set(self.tx_index, reads)
+    }
+
+    pub fn apply_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
+        self.state().apply_writes(self.tx_index, writes, class_hash_to_class)
     }
 }
 
