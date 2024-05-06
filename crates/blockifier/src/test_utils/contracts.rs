@@ -6,6 +6,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1};
+use crate::test_utils::cairo_compile::{cairo0_compile, cairo1_compile};
 use crate::test_utils::{get_raw_contract_class, CairoVersion};
 
 // This file contains featured contracts, used for tests. Use the function 'test_state' in
@@ -51,8 +52,10 @@ const SECURITY_TEST_CONTRACT_NAME: &str = "security_tests_contract";
 const TEST_CONTRACT_NAME: &str = "test_contract";
 
 // ERC20 contract is in a unique location.
+const ERC20_BASE_NAME: &str = "ERC20";
 const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+const ERC20_CONTRACT_SOURCE_PATH: &str = "./ERC20_without_some_syscalls/ERC20/ERC20.cairo";
 
 /// Enum representing all feature contracts.
 /// The contracts that are implemented in both Cairo versions include a version field.
@@ -69,7 +72,7 @@ pub enum FeatureContract {
 }
 
 impl FeatureContract {
-    fn cairo_version(&self) -> CairoVersion {
+    pub fn cairo_version(&self) -> CairoVersion {
         match self {
             Self::AccountWithLongValidate(version)
             | Self::AccountWithoutValidations(version)
@@ -114,9 +117,8 @@ impl FeatureContract {
             }
     }
 
-    pub fn get_compiled_path(&self) -> String {
-        let cairo_version = self.cairo_version();
-        let contract_name = match self {
+    fn contract_base_name(&self) -> &str {
+        match self {
             Self::AccountWithLongValidate(_) => ACCOUNT_LONG_VALIDATE_NAME,
             Self::AccountWithoutValidations(_) => ACCOUNT_WITHOUT_VALIDATIONS_NAME,
             Self::Empty(_) => EMPTY_CONTRACT_NAME,
@@ -124,8 +126,31 @@ impl FeatureContract {
             Self::LegacyTestContract => LEGACY_CONTRACT_NAME,
             Self::SecurityTests => SECURITY_TEST_CONTRACT_NAME,
             Self::TestContract(_) => TEST_CONTRACT_NAME,
+            Self::ERC20 => ERC20_BASE_NAME,
+        }
+    }
+
+    pub fn get_source_path(&self) -> String {
+        match self {
+            // Special case: ERC20 contract in a different location.
+            Self::ERC20 => ERC20_CONTRACT_SOURCE_PATH.into(),
+            _not_erc20 => format!(
+                "feature_contracts/cairo{}/{}.cairo",
+                match self.cairo_version() {
+                    CairoVersion::Cairo0 => "0",
+                    CairoVersion::Cairo1 => "1",
+                },
+                self.contract_base_name()
+            ),
+        }
+    }
+
+    pub fn get_compiled_path(&self) -> String {
+        let cairo_version = self.cairo_version();
+        let contract_name = match self {
             // ERC20 is a special case - not in the feature_contracts directory.
             Self::ERC20 => return ERC20_CONTRACT_PATH.into(),
+            _not_erc20 => self.contract_base_name(),
         };
         format!(
             "feature_contracts/cairo{}/compiled/{}{}.json",
@@ -139,6 +164,31 @@ impl FeatureContract {
                 CairoVersion::Cairo1 => ".casm",
             }
         )
+    }
+
+    /// Compiles the feature contract and returns the compiled contract as a byte vector.
+    /// Panics if the contract is ERC20, as ERC20 contract recompilation is not supported.
+    pub fn compile(&self) -> Vec<u8> {
+        if matches!(self, Self::ERC20) {
+            panic!("ERC20 contract recompilation not supported.");
+        }
+        match self.cairo_version() {
+            CairoVersion::Cairo0 => {
+                let extra_arg: Option<String> = match self {
+                    // Account contracts require the account_contract flag.
+                    FeatureContract::AccountWithLongValidate(_)
+                    | FeatureContract::AccountWithoutValidations(_)
+                    | FeatureContract::FaultyAccount(_) => Some("--account_contract".into()),
+                    FeatureContract::SecurityTests => Some("--disable_hint_validation".into()),
+                    FeatureContract::Empty(_)
+                    | FeatureContract::TestContract(_)
+                    | FeatureContract::LegacyTestContract => None,
+                    FeatureContract::ERC20 => unreachable!(),
+                };
+                cairo0_compile(self.get_source_path(), extra_arg, false)
+            }
+            CairoVersion::Cairo1 => cairo1_compile(self.get_source_path()),
+        }
     }
 
     pub fn set_cairo_version(&mut self, version: CairoVersion) {
@@ -202,5 +252,10 @@ impl FeatureContract {
                 vec![contract].into_iter()
             }
         })
+    }
+
+    pub fn all_feature_contracts() -> impl Iterator<Item = Self> {
+        // ERC20 is a special case - not in the feature_contracts directory.
+        Self::all_contracts().filter(|contract| !matches!(contract, Self::ERC20))
     }
 }
