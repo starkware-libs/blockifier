@@ -27,7 +27,7 @@ use crate::errors::{
     InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
     NativeBlockifierResult,
 };
-use crate::py_objects::PyBouncerConfig;
+use crate::py_objects::{PyBouncerConfig, PyConcurrencyConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::{get_py_tx_type, py_tx, PyClassInfo, PY_TX_PARSING_ERR};
 use crate::py_utils::{int_to_chain_id, PyFelt};
@@ -122,9 +122,10 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (bouncer_config, general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
+    #[pyo3(signature = (bouncer_config, concurrency_config, general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
     pub fn create(
         bouncer_config: PyBouncerConfig,
+        concurrency_config: PyConcurrencyConfig,
         general_config: PyGeneralConfig,
         validate_max_n_steps: u32,
         max_recursion_depth: usize,
@@ -142,7 +143,9 @@ impl PyBlockExecutor {
 
         Self {
             bouncer_config: bouncer_config.into(),
-            tx_executor_config: TransactionExecutorConfig::default(),
+            tx_executor_config: TransactionExecutorConfig {
+                concurrency_config: concurrency_config.into(),
+            },
             general_config,
             versioned_constants,
             tx_executor: None,
@@ -365,9 +368,10 @@ impl PyBlockExecutor {
     }
 
     #[cfg(any(feature = "testing", test))]
-    #[pyo3(signature = (general_config, path, max_state_diff_size))]
+    #[pyo3(signature = (concurrency_config, general_config, path, max_state_diff_size))]
     #[staticmethod]
     fn create_for_testing(
+        concurrency_config: PyConcurrencyConfig,
         general_config: PyGeneralConfig,
         path: std::path::PathBuf,
         max_state_diff_size: usize,
@@ -385,7 +389,9 @@ impl PyBlockExecutor {
                     ..BouncerWeights::max(true)
                 },
             },
-            tx_executor_config: TransactionExecutorConfig::default(),
+            tx_executor_config: TransactionExecutorConfig {
+                concurrency_config: concurrency_config.into(),
+            },
             storage: Box::new(PapyrusStorage::new_for_testing(
                 path,
                 &general_config.starknet_os_config.chain_id,

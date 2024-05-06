@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use blockifier::abi::constants;
+use blockifier::blockifier::config::ConcurrencyConfig;
 use blockifier::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use pyo3::prelude::*;
@@ -61,5 +62,22 @@ fn hash_map_into_bouncer_weights(mut data: HashMap<String, usize>) -> BouncerWei
             .expect("state_diff_size must be present"),
         n_events: data.remove(constants::N_EVENTS).expect("n_events must be present"),
         builtin_count: BuiltinCount::from(data),
+    }
+}
+
+#[derive(Debug, Default, FromPyObject)]
+pub struct PyConcurrencyConfig {
+    pub enabled: bool,
+    pub n_workers: usize,
+    pub chunk_size: usize,
+}
+
+impl From<PyConcurrencyConfig> for ConcurrencyConfig {
+    fn from(py_concurrency_config: PyConcurrencyConfig) -> Self {
+        ConcurrencyConfig {
+            enabled: py_concurrency_config.enabled,
+            n_workers: py_concurrency_config.n_workers,
+            chunk_size: py_concurrency_config.chunk_size,
+        }
     }
 }
