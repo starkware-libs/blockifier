@@ -152,20 +152,20 @@ fn test_decrease_execution_index(#[case] target_index: TxIndex, #[case] executio
 }
 
 #[rstest]
-#[case::ready_to_execute(0, TransactionStatus::ReadyToExecute, Some(0))]
-#[case::executing(0, TransactionStatus::Executing, None)]
-#[case::executed(0, TransactionStatus::Executed, None)]
-#[case::aborting(0, TransactionStatus::Aborting, None)]
-#[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, TransactionStatus::ReadyToExecute, None)]
+#[case::ready_to_execute(0, TransactionStatus::ReadyToExecute, true)]
+#[case::executing(0, TransactionStatus::Executing, false)]
+#[case::executed(0, TransactionStatus::Executed, false)]
+#[case::aborting(0, TransactionStatus::Aborting, false)]
+#[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, TransactionStatus::ReadyToExecute, false)]
 fn test_try_incarnate(
     #[case] tx_index: TxIndex,
     #[case] tx_status: TransactionStatus,
-    #[case] expected_output: Option<TxIndex>,
+    #[case] expected_output: bool,
 ) {
     let scheduler = default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, n_active_tasks: 1);
     scheduler.set_tx_status(tx_index, tx_status);
     assert_eq!(scheduler.try_incarnate(tx_index), expected_output);
-    if expected_output.is_some() {
+    if expected_output {
         assert_eq!(*scheduler.lock_tx_status(tx_index), TransactionStatus::Executing);
         assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), 1);
     } else {
