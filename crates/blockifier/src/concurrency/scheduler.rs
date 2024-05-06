@@ -45,7 +45,7 @@ impl Scheduler {
     }
 
     /// Returns the done marker.
-    pub fn done(&self) -> bool {
+    fn done(&self) -> bool {
         self.done_marker.load(Ordering::Acquire)
     }
 
@@ -97,17 +97,18 @@ impl Scheduler {
     /// Updates the Scheduler that a validation task has been finished and triggers the creation of
     /// new tasks in case of failure: schedules validation for higher transactions + re-executes the
     /// current transaction (if ready).
-    pub fn finish_validation(&self, tx_index: TxIndex, aborted: bool) -> Option<Task> {
+    pub fn finish_validation(&self, tx_index: TxIndex, aborted: bool) -> Task {
         if aborted {
             self.set_ready_status(tx_index);
             if self.execution_index.load(Ordering::Acquire) > tx_index
                 && self.try_incarnate(tx_index)
             {
-                return Some(Task::ExecutionTask(tx_index));
+                return Task::ExecutionTask(tx_index);
             }
         }
         self.safe_decrement_n_active_tasks();
-        None
+
+        Task::NoTask
     }
 
     /// Checks if all transactions have been executed and validated.
