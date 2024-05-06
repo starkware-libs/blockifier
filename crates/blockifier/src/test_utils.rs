@@ -71,6 +71,13 @@ impl CairoVersion {
             _ => panic!("Transaction version {:?} is not supported.", tx_version),
         }
     }
+
+    pub fn other(&self) -> Self {
+        match self {
+            Self::Cairo0 => Self::Cairo1,
+            Self::Cairo1 => Self::Cairo0,
+        }
+    }
 }
 
 // Storage keys.
