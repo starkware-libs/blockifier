@@ -222,6 +222,11 @@ impl Bouncer {
 
         // Check if the transaction can fit the current block available capacity.
         if !max_capacity.has_room(self.accumulated_weights + tx_weights) {
+            log::debug!(
+                "Transaction cannot be added to the current block, block capacity reached; \
+                 transaction weights: {tx_weights:?}, block weights: {:?}.",
+                self.accumulated_weights
+            );
             Err(TransactionExecutorError::BlockFull)?
         }
 
