@@ -4,7 +4,7 @@ use cairo_lang_starknet_classes::NestedIntList;
 use pyo3::{pyfunction, PyResult};
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_transaction_execution_info::PyExecutionResources;
+use crate::py_objects::PyExecutionResources;
 
 #[pyfunction]
 pub fn raise_error_for_testing() -> NativeBlockifierResult<()> {

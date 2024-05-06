@@ -12,13 +12,13 @@ pub mod py_declare;
 pub mod py_deploy_account;
 pub mod py_invoke_function;
 pub mod py_l1_handler;
+pub mod py_objects;
 pub mod py_state_diff;
 #[cfg(any(feature = "testing", test))]
 pub mod py_test_utils;
 // TODO(Dori, 1/4/2023): If and when supported in the Python build environment, use #[cfg(test)].
 pub mod py_testing_wrappers;
 pub mod py_transaction;
-pub mod py_transaction_execution_info;
 pub mod py_utils;
 pub mod py_validator;
 pub mod state_readers;
@@ -27,10 +27,7 @@ pub mod test_utils;
 
 use errors::{add_py_exceptions, UndeclaredClassHashError};
 use py_block_executor::PyBlockExecutor;
-use py_transaction_execution_info::{
-    PyCallInfo, PyExecutionResources, PyOrderedEvent, PyOrderedL2ToL1Message,
-    PyTransactionExecutionInfo,
-};
+use py_objects::PyExecutionResources;
 use py_validator::PyValidator;
 use pyo3::prelude::*;
 use storage::StorageConfig;
@@ -48,11 +45,7 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     pyo3_log::init();
 
     py_module.add_class::<PyBlockExecutor>()?;
-    py_module.add_class::<PyCallInfo>()?;
-    py_module.add_class::<PyOrderedEvent>()?;
-    py_module.add_class::<PyOrderedL2ToL1Message>()?;
     py_module.add_class::<PyStateDiff>()?;
-    py_module.add_class::<PyTransactionExecutionInfo>()?;
     py_module.add_class::<PyValidator>()?;
     py_module.add_class::<PyExecutionResources>()?;
     py_module.add_class::<StorageConfig>()?;
