@@ -509,7 +509,6 @@ fn test_post_run_validation_security_failure() {
 }
 
 // Tests correct update of the fields: `storage_read_values` and `accessed_storage_keys`.
-// Note read values also contain the reads performed right before a write operation.
 #[test]
 fn test_storage_related_members() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -521,7 +520,7 @@ fn test_storage_related_members() {
         ..trivial_external_entry_point_new(test_contract)
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), stark_felt!(39_u8)]);
+    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(39_u8)]);
     assert_eq!(
         actual_call_info.accessed_storage_keys,
         HashSet::from([get_storage_var_address("number_map", &[stark_felt!(1_u8)])])
@@ -537,7 +536,7 @@ fn test_storage_related_members() {
         ..trivial_external_entry_point_new(test_contract)
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(0_u8), value]);
+    assert_eq!(actual_call_info.storage_read_values, vec![value]);
     assert_eq!(actual_call_info.accessed_storage_keys, HashSet::from([storage_key!(key)]));
 }
 
