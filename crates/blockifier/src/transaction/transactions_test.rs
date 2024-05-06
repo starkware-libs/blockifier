@@ -216,14 +216,9 @@ fn expected_fee_transfer_call_info(
             ..Default::default()
         },
         resources: Prices::FeeTransfer(account_address, *fee_type).into(),
-        // We read sender balance, write (which starts with read) sender balance, then the same for
-        // recipient. We read Uint256(BALANCE, 0) twice, then Uint256(0, 0) twice.
+        // We read sender and recipient balance - Uint256(BALANCE, 0) then Uint256(0, 0).
         storage_read_values: vec![
             stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
             stark_felt!(0_u8),
             stark_felt!(0_u8),
             stark_felt!(0_u8),

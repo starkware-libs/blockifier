@@ -146,7 +146,7 @@ fn test_nested_library_call() {
         call: nested_storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value + 1)]),
         resources: storage_entry_point_resources.clone(),
-        storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value + 1)],
+        storage_read_values: vec![stark_felt!(value + 1)],
         accessed_storage_keys: HashSet::from([storage_key!(key + 1)]),
         ..Default::default()
     };
@@ -168,7 +168,7 @@ fn test_nested_library_call() {
         call: storage_entry_point,
         execution: CallExecution::from_retdata(retdata![stark_felt!(value)]),
         resources: storage_entry_point_resources.clone(),
-        storage_read_values: vec![stark_felt!(0_u8), stark_felt!(value)],
+        storage_read_values: vec![stark_felt!(value)],
         accessed_storage_keys: HashSet::from([storage_key!(key)]),
         ..Default::default()
     };
@@ -233,7 +233,7 @@ fn test_call_contract() {
             n_memory_holes: 0,
             builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 2)]),
         },
-        storage_read_values: vec![StarkFelt::ZERO, stark_felt!(value)],
+        storage_read_values: vec![stark_felt!(value)],
         accessed_storage_keys: HashSet::from([storage_key!(key)]),
         ..Default::default()
     };
