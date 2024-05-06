@@ -10,6 +10,7 @@ use starknet_api::core::ClassHash;
 use starknet_api::hash::{StarkFelt, StarkHash};
 
 use crate::py_block_executor::{PyBlockExecutor, PyGeneralConfig};
+use crate::py_objects::PyConcurrencyConfig;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_utils::PyFelt;
 use crate::test_utils::MockStorage;
@@ -22,8 +23,12 @@ fn global_contract_cache_update() {
     let class_hash = class_hash!("0x1");
 
     let temp_storage_path = tempfile::tempdir().unwrap().into_path();
-    let mut block_executor =
-        PyBlockExecutor::create_for_testing(PyGeneralConfig::default(), temp_storage_path, 4000);
+    let mut block_executor = PyBlockExecutor::create_for_testing(
+        PyConcurrencyConfig::default(),
+        PyGeneralConfig::default(),
+        temp_storage_path,
+        4000,
+    );
     block_executor
         .append_block(
             0,
