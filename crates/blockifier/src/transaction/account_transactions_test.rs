@@ -27,7 +27,7 @@ use crate::fee::fee_utils::get_fee_by_gas_vector;
 use crate::fee::gas_usage::estimate_minimal_gas_vector;
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::state_api::{State, StateReader};
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
@@ -59,7 +59,7 @@ fn test_fee_enforcement(
     #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
     #[values(true, false)] zero_bounds: bool,
 ) {
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+    let account = TestContracts::AccountWithoutValidations(CairoVersion::Cairo0);
     let state = &mut test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
     let deploy_account_tx = deploy_account_tx(
         deploy_account_tx_args! {
@@ -245,7 +245,7 @@ fn test_max_fee_limit_validate(
     let chain_info = &block_context.chain_info;
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(chain_info, CairoVersion::Cairo0);
-    let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
+    let grindy_validate_account = TestContracts::AccountWithLongValidate(CairoVersion::Cairo0);
     let grindy_class_hash = grindy_validate_account.get_class_hash();
     let block_info = &block_context.block_info;
     let class_info = calculate_class_info_for_testing(grindy_validate_account.get_class());
@@ -419,8 +419,8 @@ fn test_revert_invoke(
     #[case] transaction_version: TransactionVersion,
     #[case] fee_type: FeeType,
 ) {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo0);
+    let account = TestContracts::AccountWithoutValidations(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(test_contract, 1), (account, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
@@ -482,7 +482,7 @@ fn test_account_ctor_frame_stack_trace(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let chain_info = &block_context.chain_info;
-    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
+    let faulty_account = TestContracts::FaultyAccount(cairo_version);
     let state = &mut test_state(chain_info, BALANCE, &[(faulty_account, 0)]);
     let class_hash = faulty_account.get_class_hash();
 
@@ -543,7 +543,7 @@ fn test_fail_deploy_account(
     #[values(TransactionVersion::ONE, TransactionVersion::THREE)] tx_version: TransactionVersion,
 ) {
     let chain_info = &block_context.chain_info;
-    let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
+    let faulty_account_feature_contract = TestContracts::FaultyAccount(cairo_version);
     let state = &mut test_state(chain_info, BALANCE, &[(faulty_account_feature_contract, 0)]);
 
     // Create and execute (failing) deploy account transaction.
@@ -1009,7 +1009,7 @@ fn test_deploy_account_constructor_storage_write(
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    let grindy_account = FeatureContract::AccountWithLongValidate(cairo_version);
+    let grindy_account = TestContracts::AccountWithLongValidate(cairo_version);
     let class_hash = grindy_account.get_class_hash();
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(grindy_account, 1)]);
@@ -1058,8 +1058,8 @@ fn test_count_actual_storage_changes(
     let fee_token_address = chain_info.fee_token_address(&fee_type);
 
     // Create initial state
-    let test_contract = FeatureContract::TestContract(cairo_version);
-    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let test_contract = TestContracts::TestContract(cairo_version);
+    let account_contract = TestContracts::AccountWithoutValidations(cairo_version);
     let mut state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
     let account_address = account_contract.get_instance_address(0);
     let contract_address = test_contract.get_instance_address(0);
@@ -1227,8 +1227,8 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     const STORAGE_WRITE_LOW: u128 = 100;
     const STORAGE_READ_LOW: u128 = 50;
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
-    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let empty_contract = TestContracts::Empty(CairoVersion::Cairo1);
+    let account = TestContracts::AccountWithoutValidations(CairoVersion::Cairo1);
     let chain_info = &block_context.chain_info;
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
     let class_hash = empty_contract.get_class_hash();

@@ -16,7 +16,7 @@ use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_checks::{FeeCheckError, FeeCheckReportFields, PostExecutionReport};
 use crate::fee::fee_utils::calculate_l1_gas_by_vm_usage;
 use crate::invoke_tx_args;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::objects::GasVector;
@@ -143,7 +143,7 @@ fn test_discounted_gas_overdraft(
     block_context.block_info.gas_prices.strk_l1_gas_price = gas_price.try_into().unwrap();
     block_context.block_info.gas_prices.strk_l1_data_gas_price = data_gas_price.try_into().unwrap();
 
-    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+    let account = TestContracts::AccountWithoutValidations(CairoVersion::Cairo0);
     let mut state = test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
     let tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account.get_instance_address(0),

@@ -11,7 +11,7 @@ use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::context::BlockContext;
 use blockifier::invoke_tx_args;
 use blockifier::state::cached_state::CachedState;
-use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::test_utils::contracts::TestContracts;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::initial_test_state::test_state;
 use blockifier::test_utils::invoke::invoke_tx;
@@ -32,7 +32,7 @@ const RUN_VALIDATION: bool = false;
 const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(StarkFelt::ONE);
 
 pub fn transfers_benchmark(c: &mut Criterion) {
-    let account_contract = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
+    let account_contract = TestContracts::AccountWithLongValidate(CairoVersion::Cairo0);
     let block_context = &BlockContext::create_for_account_testing();
     let mut state =
         test_state(block_context.chain_info(), BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);

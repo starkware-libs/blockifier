@@ -13,7 +13,7 @@ use crate::execution::syscalls::SyscallSelector;
 use crate::fee::fee_utils::{calculate_tx_fee, get_fee_by_gas_vector};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
@@ -43,9 +43,9 @@ fn create_flavors_test_state(
     chain_info: &ChainInfo,
     cairo_version: CairoVersion,
 ) -> FlavorTestInitialState {
-    let test_contract = FeatureContract::TestContract(cairo_version);
-    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let faulty_account_contract = FeatureContract::FaultyAccount(cairo_version);
+    let test_contract = TestContracts::TestContract(cairo_version);
+    let account_contract = TestContracts::AccountWithoutValidations(cairo_version);
+    let faulty_account_contract = TestContracts::FaultyAccount(cairo_version);
     let state = test_state(
         chain_info,
         BALANCE,

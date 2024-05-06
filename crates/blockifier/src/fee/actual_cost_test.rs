@@ -11,7 +11,7 @@ use crate::fee::gas_usage::{
     get_message_segment_length,
 };
 use crate::state::cached_state::StateChangesCount;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{create_calldata, create_trivial_calldata, CairoVersion, BALANCE, MAX_FEE};
 use crate::transaction::constants;
@@ -49,7 +49,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
 
     // Declare.
     for cairo_version in [CairoVersion::Cairo0, CairoVersion::Cairo1] {
-        let empty_contract = FeatureContract::Empty(cairo_version).get_class();
+        let empty_contract = TestContracts::Empty(cairo_version).get_class();
         let class_info = calculate_class_info_for_testing(empty_contract);
         let declare_tx_starknet_resources = StarknetResources::new(
             0,
@@ -285,8 +285,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
     let versioned_constants = &block_context.versioned_constants;
     let chain_info = &block_context.chain_info;
-    let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
-    let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
+    let account_contract = TestContracts::AccountWithoutValidations(account_cairo_version);
+    let test_contract = TestContracts::TestContract(test_contract_cairo_version);
     let account_contract_address = account_contract.get_instance_address(0);
     let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
 

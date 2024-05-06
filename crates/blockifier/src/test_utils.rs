@@ -28,7 +28,7 @@ use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::SyscallSelector;
 use crate::state::cached_state::StateChangesCount;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::transaction::objects::StarknetResources;
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::{const_max, u128_from_usize};
@@ -187,7 +187,7 @@ pub fn get_raw_contract_class(contract_path: &str) -> String {
     fs::read_to_string(path).unwrap()
 }
 
-pub fn trivial_external_entry_point_new(contract: FeatureContract) -> CallEntryPoint {
+pub fn trivial_external_entry_point_new(contract: TestContracts) -> CallEntryPoint {
     let address = contract.get_instance_address(0);
     trivial_external_entry_point_with_address(address)
 }

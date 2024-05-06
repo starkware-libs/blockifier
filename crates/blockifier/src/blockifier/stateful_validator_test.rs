@@ -5,7 +5,7 @@ use crate::blockifier::stateful_validator::StatefulValidator;
 use crate::bouncer::BouncerConfig;
 use crate::context::BlockContext;
 use crate::nonce;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::{CairoVersion, NonceManager, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
@@ -35,7 +35,7 @@ fn test_transaction_validator(
 
     // TODO(Arni, 1/5/2024): Add test for insufficient balance.
     let account_balance = BALANCE;
-    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
+    let faulty_account = TestContracts::FaultyAccount(cairo_version);
     let sender_address = faulty_account.get_instance_address(0);
     let class_hash = faulty_account.get_class_hash();
 

@@ -10,7 +10,7 @@ use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::retdata;
 use crate::state::cached_state::CachedState;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{CairoVersion, BALANCE};
@@ -19,7 +19,7 @@ use crate::versioned_constants::VersionedConstants;
 #[rstest]
 fn test_calculate_contract_address() {
     let chain_info = &ChainInfo::create_for_testing();
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo0);
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
     fn run_test(

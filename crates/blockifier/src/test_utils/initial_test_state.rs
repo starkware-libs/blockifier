@@ -8,7 +8,7 @@ use strum::IntoEnumIterator;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::context::ChainInfo;
 use crate::state::cached_state::CachedState;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::transaction::objects::FeeType;
 
@@ -40,13 +40,13 @@ pub fn fund_account(
 pub fn test_state_reader(
     chain_info: &ChainInfo,
     initial_balances: u128,
-    contract_instances: &[(FeatureContract, u16)],
+    contract_instances: &[(TestContracts, u16)],
 ) -> DictStateReader {
     let mut class_hash_to_class = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20 = FeatureContract::ERC20;
+    let erc20 = TestContracts::ERC20;
     class_hash_to_class.insert(erc20.get_class_hash(), erc20.get_class());
     address_to_class_hash
         .insert(chain_info.fee_token_address(&FeeType::Eth), erc20.get_class_hash());
@@ -71,9 +71,9 @@ pub fn test_state_reader(
         for instance in 0..*n_instances {
             let instance_address = contract.get_instance_address(instance);
             match contract {
-                FeatureContract::AccountWithLongValidate(_)
-                | FeatureContract::AccountWithoutValidations(_)
-                | FeatureContract::FaultyAccount(_) => {
+                TestContracts::AccountWithLongValidate(_)
+                | TestContracts::AccountWithoutValidations(_)
+                | TestContracts::FaultyAccount(_) => {
                     fund_account(chain_info, instance_address, initial_balances, &mut state_reader);
                 }
                 _ => (),
@@ -88,7 +88,7 @@ pub fn test_state_reader(
 pub fn test_state(
     chain_info: &ChainInfo,
     initial_balances: u128,
-    contract_instances: &[(FeatureContract, u16)],
+    contract_instances: &[(TestContracts, u16)],
 ) -> CachedState<DictStateReader> {
     CachedState::from(test_state_reader(chain_info, initial_balances, contract_instances))
 }

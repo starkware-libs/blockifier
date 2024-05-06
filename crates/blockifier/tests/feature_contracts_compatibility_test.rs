@@ -1,7 +1,7 @@
 use std::fs;
 use std::process::Command;
 
-use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::test_utils::contracts::TestContracts;
 use blockifier::test_utils::CairoVersion;
 use pretty_assertions::assert_eq;
 
@@ -119,9 +119,9 @@ fn verify_and_get_files(cairo_version: CairoVersion) -> Vec<(String, String, Str
 
 #[test]
 fn verify_feature_contracts_match_enum() {
-    let mut compiled_paths_from_enum: Vec<String> = FeatureContract::all_contracts()
+    let mut compiled_paths_from_enum: Vec<String> = TestContracts::all_contracts()
         // ERC20 is a special case - not in the feature_contracts directory.
-        .filter(|contract| !matches!(contract, FeatureContract::ERC20))
+        .filter(|contract| !matches!(contract, TestContracts::ERC20))
         .map(|contract| contract.get_compiled_path())
         .collect();
     let mut compiled_paths_on_filesystem: Vec<String> = verify_and_get_files(CairoVersion::Cairo0)

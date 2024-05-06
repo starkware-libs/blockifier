@@ -37,7 +37,7 @@ use crate::execution::syscalls::hint_processor::{
 };
 use crate::execution::syscalls::SyscallSelector;
 use crate::state::state_api::{State, StateReader};
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
     calldata_for_deploy_test, create_calldata, get_syscall_resources,
@@ -57,7 +57,7 @@ pub const REQUIRED_GAS_LIBRARY_CALL_TEST: u64 = REQUIRED_GAS_CALL_CONTRACT_TEST;
 
 #[test]
 fn test_storage_read_write() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
@@ -86,13 +86,13 @@ fn test_storage_read_write() {
 
 #[test]
 fn test_call_contract() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let calldata = create_calldata(
-        FeatureContract::TestContract(CairoVersion::Cairo1).get_instance_address(0),
+        TestContracts::TestContract(CairoVersion::Cairo1).get_instance_address(0),
         "test_storage_read_write",
         &[
             stark_felt!(405_u16), // Calldata: address.
@@ -174,7 +174,7 @@ fn emit_events(
     keys: &[StarkFelt],
     data: &[StarkFelt],
 ) -> Result<CallInfo, EntryPointExecutionError> {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
     let calldata = Calldata(
@@ -200,7 +200,7 @@ fn emit_events(
 
 #[test]
 fn test_get_block_hash() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
@@ -249,7 +249,7 @@ fn test_get_block_hash() {
 
 #[test]
 fn test_keccak() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
@@ -266,7 +266,7 @@ fn test_keccak() {
     );
 }
 
-fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
+fn verify_compiler_version(contract: TestContracts, expected_version: &str) {
     // Read and parse file content.
     let raw_contract: serde_json::Value =
         serde_json::from_str(&contract.get_raw_class()).expect("Error parsing JSON");
@@ -327,8 +327,8 @@ fn test_get_execution_info(
     is_legacy: bool,
     only_query: bool,
 ) {
-    let legacy_contract = FeatureContract::LegacyTestContract;
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let legacy_contract = TestContracts::LegacyTestContract;
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let state = &mut test_state(
         &ChainInfo::create_for_testing(),
         BALANCE,
@@ -497,12 +497,12 @@ fn test_get_execution_info(
 
 #[test]
 fn test_library_call() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
     let inner_entry_point_selector = selector_from_name("test_storage_read_write");
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let calldata = calldata![
         test_contract.get_class_hash().0, // Class hash.
         inner_entry_point_selector.0,     // Function selector.
@@ -529,7 +529,7 @@ fn test_library_call() {
 
 #[test]
 fn test_library_call_assert_fails() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
     let inner_entry_point_selector = selector_from_name("assert_eq");
@@ -554,7 +554,7 @@ fn test_library_call_assert_fails() {
 
 #[test]
 fn test_nested_library_call() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
@@ -677,9 +677,9 @@ fn test_nested_library_call() {
 
 #[test]
 fn test_replace_class() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
-    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
-    let empty_contract_cairo0 = FeatureContract::Empty(CairoVersion::Cairo0);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
+    let empty_contract = TestContracts::Empty(CairoVersion::Cairo1);
+    let empty_contract_cairo0 = TestContracts::Empty(CairoVersion::Cairo0);
     let mut state = test_state(
         &ChainInfo::create_for_testing(),
         BALANCE,
@@ -727,7 +727,7 @@ fn test_replace_class() {
 
 #[test]
 fn test_secp256k1() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
@@ -746,7 +746,7 @@ fn test_secp256k1() {
 
 #[test]
 fn test_secp256r1() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
@@ -765,7 +765,7 @@ fn test_secp256r1() {
 
 #[test]
 fn test_send_message_to_l1() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
@@ -830,8 +830,8 @@ fn test_deploy(
     #[case] available_for_deployment: bool,
     #[case] expected_error: Option<String>,
 ) {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
-    let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
+    let empty_contract = TestContracts::Empty(CairoVersion::Cairo1);
     let mut state =
         test_state(&ChainInfo::create_for_testing(), 0, &[(empty_contract, 0), (test_contract, 1)]);
 
@@ -894,7 +894,7 @@ fn test_deploy(
 
 #[test]
 fn test_out_of_gas() {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 

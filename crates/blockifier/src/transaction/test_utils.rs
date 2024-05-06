@@ -14,7 +14,7 @@ use crate::context::{BlockContext, ChainInfo};
 use crate::execution::contract_class::{ClassInfo, ContractClass};
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::State;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::{deploy_account_tx, DeployAccountTxArgs};
 use crate::test_utils::dict_state_reader::DictStateReader;
@@ -114,9 +114,9 @@ pub fn deploy_and_fund_account(
 
 /// Initializes a state and returns a `TestInitData` instance.
 pub fn create_test_init_data(chain_info: &ChainInfo, cairo_version: CairoVersion) -> TestInitData {
-    let account = FeatureContract::AccountWithoutValidations(cairo_version);
-    let test_contract = FeatureContract::TestContract(cairo_version);
-    let erc20 = FeatureContract::ERC20;
+    let account = TestContracts::AccountWithoutValidations(cairo_version);
+    let test_contract = TestContracts::TestContract(cairo_version);
+    let erc20 = TestContracts::ERC20;
     let state = test_state(chain_info, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
     TestInitData {
         state,
@@ -142,7 +142,7 @@ pub struct FaultyAccountTxCreatorArgs {
     // Should be used with tx_type DeployAccount.
     pub validate_constructor: bool,
     // Should be used with tx_type Declare.
-    pub declared_contract: Option<FeatureContract>,
+    pub declared_contract: Option<TestContracts>,
 }
 
 impl Default for FaultyAccountTxCreatorArgs {
@@ -196,7 +196,7 @@ pub fn create_account_tx_for_validate_test(
                 Some(declared_contract) => declared_contract,
                 None => {
                     // It does not matter which class is declared for this test.
-                    FeatureContract::TestContract(CairoVersion::from_declare_tx_version(tx_version))
+                    TestContracts::TestContract(CairoVersion::from_declare_tx_version(tx_version))
                 }
             };
             let class_hash = declared_contract.get_class_hash();

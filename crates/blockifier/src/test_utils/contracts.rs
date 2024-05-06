@@ -57,7 +57,7 @@ const ERC20_CONTRACT_PATH: &str =
 /// Enum representing all feature contracts.
 /// The contracts that are implemented in both Cairo versions include a version field.
 #[derive(Clone, Copy, Debug, EnumIter)]
-pub enum FeatureContract {
+pub enum TestContracts {
     AccountWithLongValidate(CairoVersion),
     AccountWithoutValidations(CairoVersion),
     ERC20,
@@ -68,7 +68,7 @@ pub enum FeatureContract {
     TestContract(CairoVersion),
 }
 
-impl FeatureContract {
+impl TestContracts {
     fn cairo_version(&self) -> CairoVersion {
         match self {
             Self::AccountWithLongValidate(version)

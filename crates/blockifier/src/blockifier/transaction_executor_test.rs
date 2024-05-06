@@ -11,7 +11,7 @@ use crate::bouncer::{Bouncer, BouncerConfig, BouncerWeights};
 use crate::context::BlockContext;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::initial_test_state::test_state;
@@ -103,8 +103,8 @@ fn test_declare(
     #[case] cairo_version: CairoVersion,
     #[case] expected_bouncer_weights: BouncerWeights,
 ) {
-    let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
-    let declared_contract = FeatureContract::Empty(cairo_version);
+    let account_contract = TestContracts::AccountWithoutValidations(account_cairo_version);
+    let declared_contract = TestContracts::Empty(cairo_version);
     let state = test_state(&block_context.chain_info, BALANCE, &[(account_contract, 1)]);
 
     let tx = Transaction::AccountTransaction(declare_tx(
@@ -126,7 +126,7 @@ fn test_deploy_account(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
     #[values(true, false)] charge_fee: bool,
 ) {
-    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let account_contract = TestContracts::AccountWithoutValidations(cairo_version);
     let state = test_state(&block_context.chain_info, BALANCE, &[(account_contract, 0)]);
 
     let tx = Transaction::AccountTransaction(AccountTransaction::DeployAccount(deploy_account_tx(
@@ -193,8 +193,8 @@ fn test_invoke(
     #[case] entry_point_args: Vec<StarkFelt>,
     #[case] expected_bouncer_weights: BouncerWeights,
 ) {
-    let test_contract = FeatureContract::TestContract(cairo_version);
-    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let test_contract = TestContracts::TestContract(cairo_version);
+    let account_contract = TestContracts::AccountWithoutValidations(cairo_version);
     let state = test_state(
         &block_context.chain_info,
         BALANCE,
@@ -213,7 +213,7 @@ fn test_invoke(
 
 #[rstest]
 fn test_l1_handler(block_context: BlockContext, #[values(true, false)] charge_fee: bool) {
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo1);
     let state = test_state(&block_context.chain_info, BALANCE, &[(test_contract, 1)]);
 
     let tx = Transaction::L1HandlerTransaction(L1HandlerTransaction::create_for_testing(

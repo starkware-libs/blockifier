@@ -16,7 +16,7 @@ use crate::concurrency::versioned_state_proxy::{
 use crate::context::BlockContext;
 use crate::state::cached_state::{CachedState, StateMaps};
 use crate::state::state_api::{State, StateReader};
-use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::contracts::TestContracts;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
@@ -56,7 +56,7 @@ pub fn safe_versioned_state(
 #[test]
 fn test_versioned_state_proxy() {
     // Test data
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let test_contract = TestContracts::TestContract(CairoVersion::Cairo0);
     let contract_address = contract_address!("0x1");
     let key = storage_key!("0x10");
     let stark_felt = stark_felt!(13_u8);
@@ -104,7 +104,7 @@ fn test_versioned_state_proxy() {
     let class_hash_v7 = class_hash!(28_u8);
     let class_hash_v10 = class_hash!(29_u8);
     let compiled_class_hash_v18 = compiled_class_hash!(30_u8);
-    let contract_class_v11 = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
+    let contract_class_v11 = TestContracts::TestContract(CairoVersion::Cairo1).get_class();
 
     versioned_state_proxys[3].state().apply_writes(
         3,
@@ -192,9 +192,8 @@ fn test_run_parallel_txs() {
     let zero_bounds = true;
 
     // Test Accounts
-    let grindy_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
-    let account_without_validation =
-        FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+    let grindy_account = TestContracts::AccountWithLongValidate(CairoVersion::Cairo0);
+    let account_without_validation = TestContracts::AccountWithoutValidations(CairoVersion::Cairo0);
 
     // Initiate States
     let versioned_state = Arc::new(Mutex::new(VersionedState::new(test_state(
@@ -324,7 +323,7 @@ fn test_apply_writes(
     assert_eq!(transactional_states[0].cache.borrow().writes.class_hashes.len(), 1);
 
     // Transaction 0 contract class.
-    let contract_class_0 = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
+    let contract_class_0 = TestContracts::TestContract(CairoVersion::Cairo1).get_class();
     assert!(transactional_states[0].class_hash_to_class.borrow().is_empty());
     transactional_states[0].set_contract_class(class_hash, contract_class_0.clone()).unwrap();
     assert_eq!(transactional_states[0].class_hash_to_class.borrow().len(), 1);
