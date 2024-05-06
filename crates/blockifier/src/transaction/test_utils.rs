@@ -116,7 +116,7 @@ pub fn deploy_and_fund_account(
 pub fn create_test_init_data(chain_info: &ChainInfo, cairo_version: CairoVersion) -> TestInitData {
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
-    let erc20 = FeatureContract::ERC20;
+    let erc20 = FeatureContract::ERC20(CairoVersion::Cairo0);
     let state = test_state(chain_info, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
     TestInitData {
         state,
