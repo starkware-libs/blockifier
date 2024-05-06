@@ -27,9 +27,9 @@ use crate::errors::{
     InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
     NativeBlockifierResult,
 };
+use crate::py_objects::PyBouncerConfig;
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::{get_py_tx_type, py_tx, PyClassInfo, PY_TX_PARSING_ERR};
-use crate::py_transaction_execution_info::PyBouncerConfig;
 use crate::py_utils::{int_to_chain_id, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
