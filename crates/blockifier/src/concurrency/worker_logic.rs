@@ -2,18 +2,47 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::Mutex;
 
-use starknet_api::core::ClassHash;
+use cairo_felt::Felt252;
+use sha3::digest::generic_array::sequence;
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::transaction::Fee;
 
+use super::versioned_state_proxy::VersionedStateProxy;
+use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
-use crate::state::cached_state::{CachedState, StateMaps};
-use crate::state::state_api::StateReader;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::fee::fee_utils::get_sequencer_balance_keys;
+use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
+
+#[cfg(test)]
+#[path = "worker_logic_test.rs"]
+pub mod test;
+
+fn _add_fee_to_sequencer_balance(
+    fee_token_adress: ContractAddress,
+    pinned_versioned_state: &VersionedStateProxy<impl StateReader>,
+    actual_fee: &Fee,
+    sequencer_keys: (StorageKey, StorageKey),
+    sequencer_values: (StarkFelt, StarkFelt),
+) {
+    let value = stark_felt_to_felt(sequencer_values.0) + Felt252::from(actual_fee.0);
+    let writes = StateMaps {
+        storage: HashMap::from([(
+            (fee_token_adress, sequencer_keys.0),
+            felt_to_stark_felt(&value),
+        )]),
+        ..StateMaps::default()
+    };
+    pinned_versioned_state.apply_writes(&writes, &ContractClassMapping::default());
+}
 
 #[derive(Debug)]
 pub struct ExecutionTaskOutput {
