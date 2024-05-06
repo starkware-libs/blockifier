@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -10,6 +10,7 @@ use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
 use crate::state::state_api::{StateReader, StateResult};
+use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 
 #[cfg(test)]
 #[path = "versioned_state_proxy_test.rs"]
@@ -154,6 +155,12 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
     }
 }
 
+impl<S: StateReader> Clone for ThreadSafeVersionedState<S> {
+    fn clone(&self) -> Self {
+        ThreadSafeVersionedState(Arc::clone(&self.0))
+    }
+}
+
 pub struct VersionedStateProxy<S: StateReader> {
     pub tx_index: TxIndex,
     pub state: Arc<Mutex<VersionedState<S>>>,
@@ -239,4 +246,11 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
             }
         }
     }
+}
+
+pub struct TxInputOutput {
+    pub reads: StateMaps,
+    pub writes: StateMaps,
+    pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
+    pub result: TransactionExecutionResult<TransactionExecutionInfo>,
 }
