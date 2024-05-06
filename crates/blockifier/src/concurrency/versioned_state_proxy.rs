@@ -154,6 +154,12 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
     }
 }
 
+impl<S: StateReader> Clone for ThreadSafeVersionedState<S> {
+    fn clone(&self) -> Self {
+        ThreadSafeVersionedState(Arc::clone(&self.0))
+    }
+}
+
 pub struct VersionedStateProxy<S: StateReader> {
     pub tx_index: TxIndex,
     pub state: Arc<Mutex<VersionedState<S>>>,
