@@ -55,6 +55,7 @@ strum = "0.24.1"
 strum_macros = "0.24.3"
 tempfile = "3.7.0"
 test-case = "2.2.2"
+toml = "0.8"
 thiserror = "1.0.37"
 
 [workspace.lints.rust]
