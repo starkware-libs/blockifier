@@ -436,6 +436,7 @@ dependencies = [
  "strum_macros 0.24.3",
  "test-case",
  "thiserror",
+ "toml",
 ]
 
 [[package]]
