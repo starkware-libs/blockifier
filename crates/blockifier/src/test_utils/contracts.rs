@@ -50,7 +50,7 @@ const TEST_CONTRACT_NAME: &str = "test_contract";
 
 // ERC20 contract is in a unique location.
 const ERC20_CONTRACT_PATH: &str =
-    "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
+    "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls";
 
 /// Enum representing all feature contracts.
 /// The contracts that are implemented in both Cairo versions include a version field.
@@ -58,7 +58,7 @@ const ERC20_CONTRACT_PATH: &str =
 pub enum FeatureContract {
     AccountWithLongValidate(CairoVersion),
     AccountWithoutValidations(CairoVersion),
-    ERC20,
+    ERC20(CairoVersion),
     Empty(CairoVersion),
     FaultyAccount(CairoVersion),
     LegacyTestContract,
@@ -73,8 +73,9 @@ impl FeatureContract {
             | Self::AccountWithoutValidations(version)
             | Self::Empty(version)
             | Self::FaultyAccount(version)
-            | Self::TestContract(version) => *version,
-            Self::SecurityTests | Self::ERC20 => CairoVersion::Cairo0,
+            | Self::TestContract(version)
+            | Self::ERC20(version) => *version,
+            Self::SecurityTests => CairoVersion::Cairo0,
             Self::LegacyTestContract => CairoVersion::Cairo1,
         }
     }
@@ -93,7 +94,7 @@ impl FeatureContract {
                 Self::AccountWithLongValidate(_) => ACCOUNT_LONG_VALIDATE_BASE,
                 Self::AccountWithoutValidations(_) => ACCOUNT_WITHOUT_VALIDATIONS_BASE,
                 Self::Empty(_) => EMPTY_CONTRACT_BASE,
-                Self::ERC20 => ERC20_CONTRACT_BASE,
+                Self::ERC20(_) => ERC20_CONTRACT_BASE,
                 Self::FaultyAccount(_) => FAULTY_ACCOUNT_BASE,
                 Self::LegacyTestContract => LEGACY_CONTRACT_BASE,
                 Self::SecurityTests => SECURITY_TEST_CONTRACT_BASE,
@@ -112,7 +113,16 @@ impl FeatureContract {
             Self::SecurityTests => SECURITY_TEST_CONTRACT_NAME,
             Self::TestContract(_) => TEST_CONTRACT_NAME,
             // ERC20 is a special case - not in the feature_contracts directory.
-            Self::ERC20 => return ERC20_CONTRACT_PATH.into(),
+            Self::ERC20(_) => {
+                return format!(
+                    "{}{}.json",
+                    ERC20_CONTRACT_PATH,
+                    match cairo_version {
+                        CairoVersion::Cairo0 => "_compiled",
+                        CairoVersion::Cairo1 => ".casm",
+                    }
+                );
+            }
         };
         format!(
             "./feature_contracts/cairo{}/compiled/{}{}.json",
@@ -134,8 +144,9 @@ impl FeatureContract {
             | Self::AccountWithoutValidations(v)
             | Self::Empty(v)
             | Self::FaultyAccount(v)
-            | Self::TestContract(v) => *v = version,
-            Self::ERC20 | Self::LegacyTestContract | Self::SecurityTests => {
+            | Self::TestContract(v)
+            | Self::ERC20(v) => *v = version,
+            Self::LegacyTestContract | Self::SecurityTests => {
                 panic!("{self:?} contract has no configurable version.")
             }
         }
