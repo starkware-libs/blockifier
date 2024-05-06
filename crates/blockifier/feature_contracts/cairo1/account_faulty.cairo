@@ -1,6 +1,6 @@
 use core::option::OptionTrait;
 use core::traits::TryInto;
-#[starknet::contract]
+#[starknet::contract(account)]
 
 // A dummy account contract with faulty validations.
 
@@ -69,7 +69,7 @@ mod Account {
         send_message_to_l1_syscall(
             to_address: to_address,
             payload: calldata.span()
-        );
+        ).unwrap_syscall();
         faulty_validate()
     }
 
@@ -85,7 +85,7 @@ mod Account {
         send_message_to_l1_syscall(
             to_address: to_address,
             payload: calldata.span()
-        );
+        ).unwrap_syscall();
 
         starknet::VALIDATED
     }
