@@ -2,18 +2,58 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::Mutex;
 
-use starknet_api::core::ClassHash;
+use cairo_felt::Felt252;
+use num_traits::Bounded;
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
+use starknet_api::transaction::Fee;
 
+use super::versioned_state_proxy::VersionedStateProxy;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
-use crate::state::cached_state::{CachedState, StateMaps};
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
 use crate::state::state_api::StateReader;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
+
+#[cfg(test)]
+#[path = "worker_logic_test.rs"]
+pub mod test;
+
+fn _add_fee_to_sequencer_balance(
+    fee_token_address: ContractAddress,
+    pinned_versioned_state: &VersionedStateProxy<impl StateReader>,
+    actual_fee: &Fee,
+    sequencer_keys: (StorageKey, StorageKey),
+    sequencer_values: (StarkFelt, StarkFelt),
+) {
+    let felt_fee = Felt252::from(actual_fee.0);
+    let (sequencer_new_value_low, reminder) =
+        if stark_felt_to_felt(sequencer_values.0) < Felt252::max_value() - felt_fee.clone() {
+            (stark_felt_to_felt(sequencer_values.0) + felt_fee, Felt252::from(0))
+        } else {
+            (
+                Felt252::max_value(),
+                Felt252::max_value() - stark_felt_to_felt(sequencer_values.0) + felt_fee,
+            )
+        };
+
+    let sequencer_value_high = stark_felt_to_felt(sequencer_values.1) + reminder;
+    let writes = StateMaps {
+        storage: HashMap::from([
+            ((fee_token_address, sequencer_keys.0), felt_to_stark_felt(&sequencer_new_value_low)),
+            ((fee_token_address, sequencer_keys.1), felt_to_stark_felt(&sequencer_value_high)),
+        ]),
+        ..StateMaps::default()
+    };
+    pinned_versioned_state.apply_writes(&writes, &ContractClassMapping::default());
+}
 
 #[derive(Debug)]
 pub struct ExecutionTaskOutput {
