@@ -5,6 +5,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use strum::IntoEnumIterator;
 
+use super::CairoVersion;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::context::ChainInfo;
 use crate::state::cached_state::CachedState;
@@ -41,12 +42,13 @@ pub fn test_state_reader(
     chain_info: &ChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u16)],
+    erc20_contract_version: CairoVersion,
 ) -> DictStateReader {
     let mut class_hash_to_class = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
 
     // Declare and deploy account and ERC20 contracts.
-    let erc20 = FeatureContract::ERC20;
+    let erc20 = FeatureContract::ERC20(erc20_contract_version);
     class_hash_to_class.insert(erc20.get_class_hash(), erc20.get_class());
     address_to_class_hash
         .insert(chain_info.fee_token_address(&FeeType::Eth), erc20.get_class_hash());
@@ -80,7 +82,6 @@ pub fn test_state_reader(
             }
         }
     }
-
     state_reader
 }
 
@@ -90,5 +91,23 @@ pub fn test_state(
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u16)],
 ) -> CachedState<DictStateReader> {
-    CachedState::from(test_state_reader(chain_info, initial_balances, contract_instances))
+    CachedState::from(test_state_reader(
+        chain_info,
+        initial_balances,
+        contract_instances,
+        CairoVersion::Cairo0,
+    ))
+}
+
+pub fn test_state_cairo1(
+    chain_info: &ChainInfo,
+    initial_balances: u128,
+    contract_instances: &[(FeatureContract, u16)],
+) -> CachedState<DictStateReader> {
+    CachedState::from(test_state_reader(
+        chain_info,
+        initial_balances,
+        contract_instances,
+        CairoVersion::Cairo1,
+    ))
 }
