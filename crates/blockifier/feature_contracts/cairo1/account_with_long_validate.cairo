@@ -1,4 +1,4 @@
-#[starknet::contract]
+#[starknet::contract(account)]
 mod Account {
     use array::{ArrayTrait, SpanTrait};
     use starknet::{ContractAddress, call_contract_syscall};
