@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use itertools::FoldWhile::{Continue, Done};
+use itertools::Itertools;
 use starknet_api::core::ClassHash;
 use thiserror::Error;
 
@@ -96,19 +98,39 @@ impl<S: StateReader> TransactionExecutor<S> {
     /// Executes the given transactions on the state maintained by the executor.
     /// Stops if and when there is no more room in the block, and returns the executed transactions'
     /// results.
-    pub fn execute_chunk(
+    pub fn execute_txs(
         &mut self,
         txs: &[Transaction],
         charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         if !self.config.concurrency_config.enabled {
-            self.execute_chunk_sequentially(txs, charge_fee)
+            self.execute_txs_sequentially(txs, charge_fee)
         } else {
-            todo!()
+            txs.chunks(self.config.concurrency_config.chunk_size)
+                .fold_while(Vec::new(), |mut results, chunk| {
+                    let chunk_results = self.execute_chunk(chunk, charge_fee);
+                    if chunk_results.len() < chunk.len() {
+                        // Block is full.
+                        results.extend(chunk_results);
+                        Done(results)
+                    } else {
+                        results.extend(chunk_results);
+                        Continue(results)
+                    }
+                })
+                .into_inner()
         }
     }
 
-    pub fn execute_chunk_sequentially(
+    pub fn execute_chunk(
+        &mut self,
+        _chunk: &[Transaction],
+        _charge_fee: bool,
+    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        todo!()
+    }
+
+    pub fn execute_txs_sequentially(
         &mut self,
         txs: &[Transaction],
         charge_fee: bool,
