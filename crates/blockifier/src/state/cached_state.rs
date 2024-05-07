@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
+use serde::Serialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -555,7 +556,7 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
 }
 
 /// Holds uncommitted changes induced on Starknet contracts.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CommitmentStateDiff {
     // Contract instance attributes (per address).
     pub address_to_class_hash: IndexMap<ContractAddress, ClassHash>,
