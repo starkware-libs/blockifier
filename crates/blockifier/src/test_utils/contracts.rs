@@ -57,6 +57,9 @@ const ERC20_CONTRACT_PATH: &str =
     "./ERC20_without_some_syscalls/ERC20/erc20_contract_without_some_syscalls_compiled.json";
 const ERC20_CONTRACT_SOURCE_PATH: &str = "./ERC20_without_some_syscalls/ERC20/ERC20.cairo";
 
+// Legacy contract is compiled with a fixed version of the compiler.
+const LEGACY_CONTRACT_COMPILER_TAG: &str = "v2.1.0";
+
 /// Enum representing all feature contracts.
 /// The contracts that are implemented in both Cairo versions include a version field.
 #[derive(Clone, Copy, Debug, EnumIter)]
@@ -187,7 +190,13 @@ impl FeatureContract {
                 };
                 cairo0_compile(self.get_source_path(), extra_arg, false)
             }
-            CairoVersion::Cairo1 => cairo1_compile(self.get_source_path()),
+            CairoVersion::Cairo1 => {
+                let tag_override = match self {
+                    Self::LegacyTestContract => Some(LEGACY_CONTRACT_COMPILER_TAG.into()),
+                    _ => None,
+                };
+                cairo1_compile(self.get_source_path(), tag_override)
+            }
         }
     }
 
