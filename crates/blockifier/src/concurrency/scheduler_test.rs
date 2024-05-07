@@ -66,7 +66,7 @@ fn test_lock_tx_status() {
 }
 
 #[rstest]
-#[should_panic(expected = "Status of transaction index 0 is poisoned. Data: ReadyToExecute.")]
+#[should_panic(expected = "Cell of transaction index 0 is poisoned. Data: ReadyToExecute.")]
 fn test_lock_tx_status_poisoned() {
     let scheduler = Arc::new(Scheduler::new(DEFAULT_CHUNK_SIZE));
     let scheduler_clone = scheduler.clone();
