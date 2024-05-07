@@ -69,7 +69,7 @@ impl<S: StateReader> VersionedState<S> {
     // accessing this function should be protected by a mutex to ensure thread safety.
     // TODO: Consider coupling the tx index with the read set to ensure any mismatch between them
     // will cause the validation to fail.
-    fn validate_read_set(&mut self, tx_index: TxIndex, reads: &StateMaps) -> bool {
+    fn validate_reads(&mut self, tx_index: TxIndex, reads: &StateMaps) -> bool {
         // If is the first transaction in the chunk, then the read set is valid. Since it has no
         // predecessors, there's nothing to compare it to.
         if tx_index == 0 {
@@ -170,8 +170,8 @@ impl<S: StateReader> VersionedStateProxy<S> {
         self.state.lock().expect("Failed to acquire state lock.")
     }
 
-    pub fn validate_read_set(&self, reads: &StateMaps) -> bool {
-        self.state().validate_read_set(self.tx_index, reads)
+    pub fn validate_reads(&self, reads: &StateMaps) -> bool {
+        self.state().validate_reads(self.tx_index, reads)
     }
 
     pub fn apply_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
