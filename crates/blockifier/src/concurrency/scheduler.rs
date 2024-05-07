@@ -2,6 +2,7 @@ use std::cmp::min;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
+use crate::concurrency::worker_logic::lock_mutex_in_array;
 use crate::concurrency::TxIndex;
 
 #[cfg(test)]
@@ -132,13 +133,7 @@ impl Scheduler {
     }
 
     fn lock_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {
-        self.tx_statuses[tx_index].lock().unwrap_or_else(|error| {
-            panic!(
-                "Status of transaction index {} is poisoned. Data: {:?}.",
-                tx_index,
-                *error.get_ref()
-            )
-        })
+        lock_mutex_in_array(&self.tx_statuses, tx_index)
     }
 
     fn set_executed_status(&self, tx_index: TxIndex) {
