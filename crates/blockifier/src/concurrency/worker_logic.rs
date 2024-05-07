@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::fmt::Debug;
+use std::sync::{Mutex, MutexGuard};
 
 use starknet_api::core::ClassHash;
 
@@ -7,19 +8,13 @@ use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
-use crate::state::cached_state::StateMaps;
+use crate::state::cached_state::{CachedState, StateMaps};
 use crate::state::state_api::StateReader;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transactions::ExecutableTransaction;
 
-pub struct ConcurrentExecutionContext<S: StateReader> {
-    pub scheduler: Scheduler,
-    pub state: ThreadSafeVersionedState<S>,
-    pub chunk: Box<[Transaction]>,
-    pub execution_outputs: Box<[Mutex<ExecutionTaskOutput>]>,
-    pub block_context: BlockContext,
-}
-
+#[derive(Debug)]
 pub struct ExecutionTaskOutput {
     pub reads: StateMaps,
     pub writes: StateMaps,
@@ -27,32 +22,79 @@ pub struct ExecutionTaskOutput {
     pub result: TransactionExecutionResult<TransactionExecutionInfo>,
 }
 
-// TODO(Noa, 15/05/2024): Re-consider the necessity of the Arc (as opposed to a reference), given
-// concurrent code.
-pub fn run<S: StateReader>(execution_context: Arc<ConcurrentExecutionContext<S>>) {
-    let scheduler = &execution_context.scheduler;
-    let mut task = Task::NoTask;
-    loop {
-        task = match task {
-            Task::ExecutionTask(tx_index) => {
-                execute(&execution_context, tx_index);
-                Task::NoTask
-            }
-            Task::ValidationTask(tx_index) => validate(&execution_context, tx_index),
-            Task::NoTask => scheduler.next_task(),
-            Task::Done => break,
-        };
+pub fn lock_mutex_in_array<T: Debug>(array: &[Mutex<T>], tx_index: TxIndex) -> MutexGuard<'_, T> {
+    array[tx_index].lock().unwrap_or_else(|error| {
+        panic!("Cell of transaction index {} is poisoned. Data: {:?}.", tx_index, *error.get_ref())
+    })
+}
+
+pub struct WorkersExecutor<S: StateReader> {
+    pub scheduler: Scheduler,
+    pub state: ThreadSafeVersionedState<S>,
+    pub chunk: Box<[Transaction]>,
+    pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
+    pub block_context: BlockContext,
+}
+impl<S: StateReader> WorkersExecutor<S> {
+    pub fn run(&self) {
+        let scheduler = &self.scheduler;
+        let mut task = Task::NoTask;
+        loop {
+            task = match task {
+                Task::ExecutionTask(tx_index) => {
+                    self.execute(tx_index);
+                    Task::NoTask
+                }
+                Task::ValidationTask(tx_index) => self.validate(tx_index),
+                Task::NoTask => scheduler.next_task(),
+                Task::Done => break,
+            };
+        }
     }
-}
 
-fn execute<S: StateReader>(_execution_context: &ConcurrentExecutionContext<S>, _tx_index: TxIndex) {
-    // TODO(Noa, 15/05/2024): share code with `try_commit`.
-    todo!();
-}
+    fn execute(&self, tx_index: TxIndex) {
+        self.execute_tx(tx_index);
+        self.scheduler.finish_execution(tx_index)
+    }
 
-fn validate<S: StateReader>(
-    _execution_context: &ConcurrentExecutionContext<S>,
-    _tx_index: TxIndex,
-) -> Task {
-    todo!();
+    fn execute_tx(&self, tx_index: TxIndex) {
+        let tx_versioned_state = self.state.pin_version(tx_index);
+        let tx = &self.chunk[tx_index];
+        // TODO(Noa, 15/05/2024): remove the redundant cached state.
+        let mut tx_state = CachedState::new(tx_versioned_state);
+        let mut transactional_state = CachedState::create_transactional(&mut tx_state);
+        let validate = true;
+        let charge_fee = true;
+
+        let execution_result =
+            tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
+
+        if execution_result.is_ok() {
+            let class_hash_to_class = transactional_state.class_hash_to_class.borrow();
+            // TODO(Noa, 15/05/2024): use `tx_versioned_state` when we add support to transactional
+            // versioned state.
+            self.state
+                .pin_version(tx_index)
+                .apply_writes(&transactional_state.cache.borrow().writes, &class_hash_to_class);
+        }
+
+        // Write the transaction execution outputs.
+        let tx_reads_writes = transactional_state.cache.take();
+        // In case of a failed transaction, we don't record its writes and visited pcs.
+        let (writes, visited_pcs) = match execution_result {
+            Ok(_) => (tx_reads_writes.writes, transactional_state.visited_pcs),
+            Err(_) => (StateMaps::default(), HashMap::default()),
+        };
+        let mut execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
+        *execution_output = Some(ExecutionTaskOutput {
+            reads: tx_reads_writes.initial_reads,
+            writes,
+            visited_pcs,
+            result: execution_result,
+        });
+    }
+
+    fn validate(&self, _tx_index: TxIndex) -> Task {
+        todo!();
+    }
 }
