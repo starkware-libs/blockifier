@@ -18,17 +18,38 @@ on:
 jobs:
   verify_cairo_file_dependencies:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      # Checkout blockifier into a dedicated directory - technical requirement in order to be able to checkout `cairo` in a sibling directory.
+      - name: checkout blockifier into `blockifier` directory.
+        uses: actions/checkout@v4
+        with:
+          repository: 'starkware-libs/blockifier'
+          path: 'blockifier'
+
+      - name: Read Cairo1 Tag to compile contracts with from Blockifier.
+        id: read-tag
+        # GITHUB_ENV is a variable github allocates for dynamic stuff inside workflow like our usage, name not customizable.
+        run: echo "TAG=$(cat blockifier/crates/blockifier/tests/cairo1_compiler_tag.txt)" >> $GITHUB_ENV
+
+      - name: checkout cairo1 repo in order to compile cairo1 contracts.
+        uses: actions/checkout@v4
+        with:
+          repository: 'starkware-libs/cairo'
+          fetch-tags: tags
+          ref: ${{ env.TAG }}
+          path: 'cairo'
+
+      - uses: actions-rs/toolchain@master
         with:
           components: rustfmt
-          toolchain: nightly-2024-01-12
+          toolchain: nightly-2023-07-05
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
           cache: 'pip'
       - run:
-          pip install -r crates/blockifier/tests/requirements.txt;
+          cd blockifier &&
+          pip install -r crates/blockifier/tests/requirements.txt &&
           cargo test verify_feature_contracts -- --include-ignored

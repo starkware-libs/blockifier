@@ -136,10 +136,6 @@ fn verify_feature_contracts_match_enum() {
 fn verify_feature_contracts(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    if std::env::var("CI").is_ok() && matches!(cairo_version, CairoVersion::Cairo1) {
-        // TODO(Dori, 1/6/2024): Support Cairo1 contracts in the CI and remove this `if` statement.
-        return;
-    }
     let fix_features = std::env::var("FIX_FEATURE_TEST").is_ok();
     verify_feature_contracts_compatibility(fix_features, cairo_version)
 }
