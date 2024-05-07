@@ -96,19 +96,39 @@ impl<S: StateReader> TransactionExecutor<S> {
     /// Executes the given transactions on the state maintained by the executor.
     /// Stops if and when there is no more room in the block, and returns the executed transactions'
     /// results.
-    pub fn execute_chunk(
+    pub fn execute_txs(
         &mut self,
         txs: &[Transaction],
         charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         if !self.config.concurrency_config.enabled {
-            self.execute_chunk_sequentially(txs, charge_fee)
+            self.execute_txs_sequentially(txs, charge_fee)
         } else {
-            todo!()
+            let mut results = Vec::new();
+            for chunk in txs.chunks(self.config.concurrency_config.chunk_size) {
+                let chunk_results = self.execute_chunk(chunk, charge_fee);
+                let chunk_results_len = chunk_results.len();
+                results.extend(chunk_results);
+
+                if chunk_results_len < chunk.len() {
+                    // Block is full.
+                    break;
+                }
+            }
+
+            results
         }
     }
 
-    pub fn execute_chunk_sequentially(
+    pub fn execute_chunk(
+        &mut self,
+        _chunk: &[Transaction],
+        _charge_fee: bool,
+    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        todo!()
+    }
+
+    pub fn execute_txs_sequentially(
         &mut self,
         txs: &[Transaction],
         charge_fee: bool,

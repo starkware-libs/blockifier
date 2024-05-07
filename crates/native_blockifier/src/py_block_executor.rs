@@ -236,7 +236,7 @@ impl PyBlockExecutor {
             .unzip();
 
         // Run.
-        let results = self.tx_executor().execute_chunk(&txs, charge_fee);
+        let results = self.tx_executor().execute_txs(&txs, charge_fee);
 
         // Process results.
         // TODO(Yoni, 15/5/2024): serialize concurrently.
