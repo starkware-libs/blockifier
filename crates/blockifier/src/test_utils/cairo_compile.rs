@@ -148,14 +148,35 @@ fn verify_cairo0_compiler_deps() {
 }
 
 fn verify_cairo1_compiler_deps(git_tag_override: Option<String>) {
-    // TODO(Dori, 1/6/2024): Check repo exists.
+    let cairo_repo_path = local_cairo1_compiler_repo_path();
     let tag = git_tag_override.unwrap_or(format!("v{}", cairo1_compiler_version()));
+
+    // Check if the path is a directory.
+    assert!(
+        cairo_repo_path.is_dir(),
+        "Cannot verify Cairo1 contracts, Cairo repo not found at {0}.\n\
+        Please run:\n\
+        git clone https://github.com/starkware-libs/cairo {0} && git -C {0} checkout {1}\n\
+        Then rerun the test.",
+        cairo_repo_path.to_string_lossy(),
+        tag
+    );
+
     // Checkout the required version in the compiler repo.
     run_and_verify_output(Command::new("git").args([
         "-C",
         // TODO(Dori, 1/6/2024): Handle CI case (repo path will be different).
-        local_cairo1_compiler_repo_path().to_str().unwrap(),
+        cairo_repo_path.to_str().unwrap(),
         "checkout",
+        &tag,
+    ]));
+
+    // Verify that the checked out tag is as expected.
+    run_and_verify_output(Command::new("git").args([
+        "-C",
+        cairo_repo_path.to_str().unwrap(),
+        "rev-parse",
+        "--verify",
         &tag,
     ]));
 }
