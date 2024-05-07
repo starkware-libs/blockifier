@@ -169,7 +169,6 @@ fn verify_cairo1_compiler_deps(git_tag_override: Option<String>) {
     // Checkout the required version in the compiler repo.
     run_and_verify_output(Command::new("git").args([
         "-C",
-        // TODO(Dori, 1/6/2024): Handle CI case (repo path will be different).
         cairo_repo_path.to_str().unwrap(),
         "checkout",
         &tag,

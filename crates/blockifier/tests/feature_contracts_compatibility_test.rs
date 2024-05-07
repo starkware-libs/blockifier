@@ -19,32 +19,23 @@ const FIX_COMMAND: &str = "FIX_FEATURE_TEST=1 cargo test -- --ignored";
 // ```
 // Then, run the FIX_COMMAND above.
 
-// This test currently doesn't support Cairo1 contracts. To fix them you'll need to compile them one
-// by one:
-// 1. Clone the [cairo repo](https://github.com/starkware-libs/cairo).
-// 2. Checkout the commit defined in [the root Cargo.toml](../../../../Cargo.toml).
-// 3. From within the compiler repo root directory, run:
-// ```
-// PREFIX=~/workspace/blockifier/crates/blockifier/feature_contracts/cairo1
-// CONTRACT_NAME=<contract_base_filename>
-// cargo run --release --bin starknet-compile -- --single-file \
-//   $PREFIX/$CONTRACT_NAME.cairo \
-//   $PREFIX/compiled/$CONTRACT_NAME.sierra.json
-// cargo run --release --bin starknet-sierra-compile \
-//   $PREFIX/compiled/$CONTRACT_NAME.sierra.json \
-//   $PREFIX/compiled/$CONTRACT_NAME.casm.json
-// ```
-// TODO(Gilad, 1/1/2024): New year's resolution: support Cairo1 in the test.
+// To test Cairo1 feature contracts, first clone the Cairo repo and checkout the required tag.
+// The repo should be located next to the blockifier repo:
+// <WORKSPACE_DIR>/
+// - blockifier/
+// - cairo/
+// Then, run the FIX_COMMAND above.
 
 // Checks that:
 // 1. `TEST_CONTRACTS` dir exists and contains only `.cairo` files and the subdirectory
 // `COMPILED_CONTRACTS_SUBDIR`.
 // 2. for each `X.cairo` file in `TEST_CONTRACTS` there exists an `X_compiled.json` file in
 // `COMPILED_CONTRACTS_SUBDIR` which equals `starknet-compile-deprecated X.cairo --no_debug_info`.
-fn verify_feature_contracts_compatibility(fix: bool, cairo_version: CairoVersion) {
-    for contract in FeatureContract::all_feature_contracts()
-        .filter(|contract| contract.cairo_version() == cairo_version)
-    {
+fn verify_feature_contracts_compatibility(
+    fix: bool,
+    contracts_to_test: impl Iterator<Item = FeatureContract>,
+) {
+    for contract in contracts_to_test {
         // Compare output of cairo-file on file with existing compiled file.
         let expected_compiled_output = contract.compile();
         let existing_compiled_path = contract.get_compiled_path();
@@ -135,15 +126,28 @@ fn verify_feature_contracts_match_enum() {
     assert_eq!(compiled_paths_from_enum, compiled_paths_on_filesystem);
 }
 
+fn is_env_var_set(env_var: &str) -> bool {
+    std::env::var(env_var).is_ok()
+}
+
 #[rstest]
 #[ignore]
 fn verify_feature_contracts(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    if std::env::var("CI").is_ok() && matches!(cairo_version, CairoVersion::Cairo1) {
-        // TODO(Dori, 1/6/2024): Support Cairo1 contracts in the CI and remove this `if` statement.
-        return;
-    }
-    let fix_features = std::env::var("FIX_FEATURE_TEST").is_ok();
-    verify_feature_contracts_compatibility(fix_features, cairo_version)
+    let fix_features = is_env_var_set("FIX_FEATURE_TEST");
+    let legacy_mode = is_env_var_set("LEGACY");
+    let ci_mode = is_env_var_set("CI");
+
+    let contracts_to_test = FeatureContract::all_feature_contracts().filter(|contract| {
+        // If called with LEGACY environment variable set, only test legacy contracts (from CI
+        // or not).
+        // If tested from the CI *without* the LEGACY environment variable set, test only
+        // non-legacy contracts of the respective cairo version.
+        // If not tested from CI, test all contracts of the requested cairo version.
+        contract.cairo_version() == cairo_version
+            && (if legacy_mode { contract.is_legacy() } else { !ci_mode || !contract.is_legacy() })
+    });
+
+    verify_feature_contracts_compatibility(fix_features, contracts_to_test)
 }
