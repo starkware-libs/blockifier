@@ -59,6 +59,7 @@ pub struct WorkersExecutor<S: StateReader> {
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
 }
+
 impl<S: StateReader> WorkersExecutor<S> {
     pub fn run(&self) {
         let mut task = Task::NoTask;
@@ -121,7 +122,7 @@ impl<S: StateReader> WorkersExecutor<S> {
         todo!();
     }
 
-    pub fn try_commit_transaction(&mut self, tx_index: TxIndex) -> StateResult<bool> {
+    pub fn try_commit_transaction(&self, tx_index: TxIndex) -> StateResult<bool> {
         let mut execution_task_outputs = lock_mutex_in_array(&self.execution_outputs, tx_index);
         let result_tx_info = &mut execution_task_outputs.as_mut().unwrap().result;
 
@@ -136,9 +137,13 @@ impl<S: StateReader> WorkersExecutor<S> {
         if !tx_versioned_state.validate_reads(&transactional_state.cache.borrow().initial_reads) {
             // Revalidate failed: re-execute the transaction, and commit.
 
-            self.block_context =
-                BlockContext { concurrency_mode: true, ..self.block_context.clone() };
+            // let new_execution_context = ConcurrentExecutionContext {
+            //     block_context: BlockContext{concurrency_mode: false, ..block_context.clone()},
+            //     .. execution_context.clone()
+            // };
 
+            // self.block_context =
+            //     BlockContext { concurrency_mode: true, ..self.block_context.clone() };
             self.execute_tx(tx_index);
             let result_tx_info = &mut execution_task_outputs.as_mut().unwrap().result;
             if result_tx_info.is_err() {
