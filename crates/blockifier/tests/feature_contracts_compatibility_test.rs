@@ -11,6 +11,28 @@ const CAIRO1_FEATURE_CONTRACTS_DIR: &str = "feature_contracts/cairo1";
 const COMPILED_CONTRACTS_SUBDIR: &str = "compiled";
 const FIX_COMMAND: &str = "FIX_FEATURE_TEST=1 cargo test -- --ignored";
 
+enum ContractFilter {
+    Cairo0,
+    Cairo1,
+    Legacy,
+    NonLegacy,
+}
+
+impl ContractFilter {
+    pub fn filter(&self, contract: &FeatureContract) -> bool {
+        match self {
+            ContractFilter::Cairo0 => matches!(contract.cairo_version(), CairoVersion::Cairo0),
+            ContractFilter::Cairo1 => matches!(contract.cairo_version(), CairoVersion::Cairo1),
+            ContractFilter::Legacy => {
+                matches!(contract.cairo_version(), CairoVersion::Cairo1) && contract.is_legacy()
+            }
+            ContractFilter::NonLegacy => {
+                matches!(contract.cairo_version(), CairoVersion::Cairo1) && !contract.is_legacy()
+            }
+        }
+    }
+}
+
 // To fix Cairo0 feature contracts, first enter a python venv and install the requirements:
 // ```
 // python -m venv tmp_venv
@@ -41,9 +63,9 @@ const FIX_COMMAND: &str = "FIX_FEATURE_TEST=1 cargo test -- --ignored";
 // `COMPILED_CONTRACTS_SUBDIR`.
 // 2. for each `X.cairo` file in `TEST_CONTRACTS` there exists an `X_compiled.json` file in
 // `COMPILED_CONTRACTS_SUBDIR` which equals `starknet-compile-deprecated X.cairo --no_debug_info`.
-fn verify_feature_contracts_compatibility(fix: bool, cairo_version: CairoVersion) {
-    for contract in FeatureContract::all_feature_contracts()
-        .filter(|contract| contract.cairo_version() == cairo_version)
+fn verify_feature_contracts_compatibility(fix: bool, contract_filter: ContractFilter) {
+    for contract in
+        FeatureContract::all_feature_contracts().filter(|contract| contract_filter.filter(contract))
     {
         // Compare output of cairo-file on file with existing compiled file.
         let expected_compiled_output = contract.compile();
@@ -140,10 +162,18 @@ fn verify_feature_contracts_match_enum() {
 fn verify_feature_contracts(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
-    if std::env::var("CI").is_ok() && matches!(cairo_version, CairoVersion::Cairo1) {
-        // TODO(Dori, 1/6/2024): Support Cairo1 contracts in the CI and remove this `if` statement.
-        return;
-    }
     let fix_features = std::env::var("FIX_FEATURE_TEST").is_ok();
-    verify_feature_contracts_compatibility(fix_features, cairo_version)
+    let legacy_mode = std::env::var("LEGACY").is_ok();
+    let contract_filter = if matches!(cairo_version, CairoVersion::Cairo0) {
+        // There is no legacy contract in Cairo0.
+        ContractFilter::Cairo0
+    } else if std::env::var("CI").is_err() {
+        // Non-CI mode, we can dynamically checkout the correct cairo compiler version.
+        ContractFilter::Cairo1
+    } else {
+        // In the CI we cannot dynamically checkout the correct cairo compiler version, so either
+        // legacy or non-legacy contracts can be tested, but not both.
+        if legacy_mode { ContractFilter::Legacy } else { ContractFilter::NonLegacy }
+    };
+    verify_feature_contracts_compatibility(fix_features, contract_filter)
 }
