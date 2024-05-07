@@ -282,7 +282,7 @@ fn test_bouncing(
 }
 
 #[rstest]
-fn test_execute_chunk_bouncing(block_context: BlockContext) {
+fn test_execute_txs_bouncing(block_context: BlockContext) {
     let TestInitData { state, account_address, contract_address, .. } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);
 
@@ -321,7 +321,7 @@ fn test_execute_chunk_bouncing(block_context: BlockContext) {
     .collect();
 
     // Run.
-    let results = tx_executor.execute_chunk(&txs, true);
+    let results = tx_executor.execute_txs(&txs, true);
 
     // Check execution results.
     let expected_offset = 3;
@@ -341,12 +341,12 @@ fn test_execute_chunk_bouncing(block_context: BlockContext) {
 
     // Check idempotency: excess transactions should not be added.
     let remaining_txs = &txs[expected_offset..];
-    let remaining_tx_results = tx_executor.execute_chunk(remaining_txs, true);
+    let remaining_tx_results = tx_executor.execute_txs(remaining_txs, true);
     assert_eq!(remaining_tx_results.len(), 0);
 
     // Reset the bouncer and add the remaining transactions.
     tx_executor.bouncer = Bouncer::new(bouncer_config);
-    let remaining_tx_results = tx_executor.execute_chunk(remaining_txs, true);
+    let remaining_tx_results = tx_executor.execute_txs(remaining_txs, true);
 
     assert_eq!(remaining_tx_results.len(), 2);
     assert!(remaining_tx_results[0].is_ok());
