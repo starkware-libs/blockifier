@@ -1,6 +1,7 @@
 use std::fs;
 
-use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::test_utils::cairo_compile::cairo1_compiler_tag;
+use blockifier::test_utils::contracts::{FeatureContract, LEGACY_CONTRACT_COMPILER_TAG};
 use blockifier::test_utils::CairoVersion;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -107,6 +108,16 @@ fn verify_and_get_files(cairo_version: CairoVersion) -> Vec<(String, String, Str
     }
 
     paths
+}
+
+#[test]
+fn test_cairo1_compiler_version_ci_files() {
+    // For all except the legacy contract.
+    let on_file = include_str!("cairo1_compiler_tag.txt").trim().to_string();
+    assert_eq!(on_file, cairo1_compiler_tag());
+    // Legacy contract
+    let on_file = include_str!("legacy_cairo1_compiler_tag.txt").trim().to_string();
+    assert_eq!(on_file, LEGACY_CONTRACT_COMPILER_TAG);
 }
 
 #[test]
