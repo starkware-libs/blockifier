@@ -124,6 +124,7 @@ impl<S: StateReader> VersionedState<S> {
         class_hash_to_class: &ContractClassMapping,
     ) {
         for (&key, &value) in &writes.storage {
+            println!("Writing to storage: {:?} -> {:?}", key, value);
             self.storage.write(tx_index, key, value);
         }
         for (&key, &value) in &writes.nonces {
@@ -176,6 +177,7 @@ impl<S: StateReader> VersionedStateProxy<S> {
 
     pub fn apply_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
         self.state().apply_writes(self.tx_index, writes, class_hash_to_class)
+
     }
 }
 

@@ -2,18 +2,20 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use cairo_felt::Felt252;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::transaction::Fee;
 
-use super::versioned_state_proxy::VersionedStateProxy;
+use super::versioned_state_proxy::{ThreadSafeVersionedState, VersionedStateProxy};
+use super::TxIndex;
+use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
 use crate::concurrency::scheduler::{Scheduler, Task};
-use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
-use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{CachedState, StateMaps};
-use crate::state::state_api::{StateReader, StateResult};
+use crate::state::state_api::{State, StateReader, StateResult};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
@@ -31,14 +33,25 @@ pub fn lock_mutex_in_array<T: Debug>(array: &[Mutex<T>], tx_index: TxIndex) -> M
         panic!("Cell of transaction index {} is poisoned. Data: {:?}.", tx_index, *error.get_ref())
     })
 }
+
 fn finalize_commit(
-    _fee_token_address: ContractAddress,
-    _tx_versioned_state: &VersionedStateProxy<impl StateReader>,
-    _actual_fee: &Fee,
-    _transactional_state: &mut CachedState<impl StateReader>,
+    fee_token_adress: ContractAddress,
+    pinned_versioned_state: &VersionedStateProxy<impl StateReader>,
+    actual_fee: &Fee,
+    transactional_state: &mut CachedState<impl StateReader>,
 ) -> StateResult<()> {
-    todo!()
+    let sequencer_balance_key = get_fee_token_var_address(fee_token_adress);
+    let sequencer_balance_value =
+        pinned_versioned_state.get_storage_at(fee_token_adress, sequencer_balance_key)?;
+    let value = stark_felt_to_felt(sequencer_balance_value) + Felt252::from(actual_fee.0);
+    transactional_state.set_storage_at(
+        fee_token_adress,
+        sequencer_balance_key,
+        felt_to_stark_felt(&value),
+    )?;
+    Ok(())
 }
+
 
 pub struct WorkersExecutor<S: StateReader> {
     pub scheduler: Scheduler,
@@ -47,6 +60,7 @@ pub struct WorkersExecutor<S: StateReader> {
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
 }
+
 impl<S: StateReader> WorkersExecutor<S> {
     pub fn run(&self) {
         let scheduler = &self.scheduler;
@@ -126,6 +140,11 @@ impl<S: StateReader> WorkersExecutor<S> {
         // First, re-validate the transaction.
         if !tx_versioned_state.validate_reads(read_set) {
             // Revalidate failed: re-execute the transaction, and commit.
+
+            // let new_execution_context = ConcurrentExecutionContext {
+            //     block_context: BlockContext{concurrency_mode: false, ..block_context.clone()},
+            //     .. execution_context.clone()
+            // };
 
             self.block_context =
                 BlockContext { concurrency_mode: true, ..self.block_context.clone() };
