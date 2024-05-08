@@ -6,7 +6,7 @@ use starknet_api::core::ClassHash;
 
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
-use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
+use crate::concurrency::versioned_state_proxy::{ThreadSafeVersionedState, VersionedStateProxy};
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::state::cached_state::{CachedState, StateMaps};
@@ -56,7 +56,8 @@ impl<S: StateReader> WorkerExecutor<S> {
         let tx = &self.chunk[tx_index];
         // TODO(Noa, 15/05/2024): remove the redundant cached state.
         let mut tx_state = CachedState::new(tx_versioned_state);
-        let mut transactional_state = CachedState::create_transactional(&mut tx_state);
+        let mut transactional_state =
+            CachedState::<CachedState<VersionedStateProxy<S>>>::create_transactional(&mut tx_state);
         let validate = true;
         let charge_fee = true;
 
