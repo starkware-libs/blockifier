@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -51,7 +50,7 @@ impl<S: StateReader> VersionedState<S> {
             nonces: self.nonces.get_writes_from_index(from_index),
             class_hashes: self.class_hashes.get_writes_from_index(from_index),
             compiled_class_hashes: self.compiled_class_hashes.get_writes_from_index(from_index),
-            declared_contracts: HashMap::new(),
+            declared_contracts: self.declared_contracts.get_writes_from_index(from_index),
         }
     }
 
