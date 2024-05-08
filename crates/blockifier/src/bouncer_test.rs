@@ -193,10 +193,11 @@ fn test_bouncer_try_update(
 ) {
     use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 
+    use crate::test_utils::dict_state_reader::DictStateReader;
     use crate::transaction::objects::TransactionResources;
 
     let state = &mut test_state(&BlockContext::create_for_account_testing().chain_info, 0, &[]);
-    let mut transactional_state = CachedState::create_transactional(state);
+    let mut transactional_state = CachedState::<CachedState<DictStateReader>>::create_transactional(state);
 
     // Setup the bouncer.
     let block_max_capacity = BouncerWeights {
