@@ -24,7 +24,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::SyscallSelector;
 use crate::fee::fee_utils::{get_fee_by_gas_vector, get_sequencer_balance_keys};
 use crate::fee::gas_usage::estimate_minimal_gas_vector;
-use crate::state::cached_state::{CachedState, StateChangesCount};
+use crate::state::cached_state::StateChangesCount;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
@@ -992,6 +992,8 @@ fn test_count_actual_storage_changes(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     // FeeType according to version.
+
+    use crate::state::cached_state::TransactionalState;
     let chain_info = &block_context.chain_info;
     let fee_token_address = chain_info.fee_token_address(&fee_type);
 
@@ -1026,7 +1028,7 @@ fn test_count_actual_storage_changes(
     // Run transactions; using transactional state to count only storage changes of the current
     // transaction.
     // First transaction: storage cell value changes from 0 to 1.
-    let mut state = CachedState::create_transactional(&mut state);
+    let mut state = TransactionalState::create_transactional(&mut state);
     let invoke_args = invoke_tx_args! {
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
@@ -1039,7 +1041,7 @@ fn test_count_actual_storage_changes(
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
     let fee_1 = execution_info.actual_fee;
-    let state_changes_1 = state.get_actual_state_changes().unwrap();
+    let state_changes_1 = state.cached_state.get_actual_state_changes().unwrap();
 
     let cell_write_storage_change = ((contract_address, storage_key!(15_u8)), stark_felt!(1_u8));
     let mut expected_sequencer_total_fee = initial_sequencer_balance + Felt252::from(fee_1.0);
@@ -1075,7 +1077,7 @@ fn test_count_actual_storage_changes(
     assert_eq!(state_changes_count_1, expected_state_changes_count_1);
 
     // Second transaction: storage cell starts and ends with value 1.
-    let mut state = CachedState::create_transactional(&mut state);
+    let mut state = TransactionalState::create_transactional(&mut state);
     let account_tx = account_invoke_tx(InvokeTxArgs {
         nonce: nonce_manager.next(account_address),
         ..invoke_args.clone()
@@ -1083,7 +1085,7 @@ fn test_count_actual_storage_changes(
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
     let fee_2 = execution_info.actual_fee;
-    let state_changes_2 = state.get_actual_state_changes().unwrap();
+    let state_changes_2 = state.cached_state.get_actual_state_changes().unwrap();
 
     expected_sequencer_total_fee += Felt252::from(fee_2.0);
     expected_sequencer_fee_update.1 = felt_to_stark_felt(&expected_sequencer_total_fee);
@@ -1111,7 +1113,7 @@ fn test_count_actual_storage_changes(
     assert_eq!(state_changes_count_2, expected_state_changes_count_2);
 
     // Transfer transaction: transfer 1 ETH to recepient.
-    let mut state = CachedState::create_transactional(&mut state);
+    let mut state = TransactionalState::create_transactional(&mut state);
     let account_tx = account_invoke_tx(InvokeTxArgs {
         nonce: nonce_manager.next(account_address),
         calldata: transfer_calldata,
@@ -1120,7 +1122,7 @@ fn test_count_actual_storage_changes(
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
     let fee_transfer = execution_info.actual_fee;
-    let state_changes_transfer = state.get_actual_state_changes().unwrap();
+    let state_changes_transfer = state.cached_state.get_actual_state_changes().unwrap();
     let transfer_receipient_storage_change = (
         (fee_token_address, get_fee_token_var_address(contract_address!(recipient))),
         felt_to_stark_felt(&transfer_amount),
@@ -1161,6 +1163,8 @@ fn test_count_actual_storage_changes(
 
 #[rstest]
 fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] fee_type: FeeType) {
+    use crate::state::cached_state::TransactionalState;
+
     // TODO(Meshi, 01/06/2024): make the test so it will include changes in
     // sequencer_balance_key_high.
     const STORAGE_WRITE_LOW: u128 = 100;
@@ -1182,9 +1186,9 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
 
     // Case 1: The transaction did not read form/ write to the sequenser balance before executing
     // fee transfer.
-    let mut transactional_state = CachedState::create_transactional(state);
+    let mut transactional_state = TransactionalState::create_transactional(state);
     account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
-    let transactional_cache = transactional_state.cache.borrow();
+    let transactional_cache = transactional_state.cached_state.cache.borrow();
     for storage in [
         transactional_cache.initial_reads.storage.clone(),
         transactional_cache.writes.storage.clone(),
@@ -1214,7 +1218,7 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
         STORAGE_READ_LOW,
         &mut state.state,
     );
-    let mut transactional_state = CachedState::create_transactional(state);
+    let mut transactional_state = TransactionalState::create_transactional(state);
 
     // Invokes transfer to the sequencer.
     let account_tx = account_invoke_tx(invoke_tx_args! {
@@ -1227,8 +1231,9 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     account_tx.execute_raw(&mut transactional_state, &block_context, true, true).unwrap();
 
     // Check that the sequencer balance was not changed.
-    let storage_writes = transactional_state.cache.borrow().writes.storage.clone();
-    let storage_initial_reads = transactional_state.cache.borrow().initial_reads.storage.clone();
+    let storage_writes = transactional_state.cached_state.cache.borrow().writes.storage.clone();
+    let storage_initial_reads =
+        transactional_state.cached_state.cache.borrow().initial_reads.storage.clone();
 
     for (seq_write_val, expexted_write_val) in [
         (

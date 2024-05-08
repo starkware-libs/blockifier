@@ -969,6 +969,8 @@ fn test_invalid_nonce(
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
 ) {
+    use crate::state::cached_state::TransactionalState;
+
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let state = &mut test_state(
@@ -981,7 +983,7 @@ fn test_invalid_nonce(
         calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
         max_fee: Fee(MAX_FEE)
     };
-    let mut transactional_state = CachedState::create_transactional(state);
+    let mut transactional_state = TransactionalState::create_transactional(state);
 
     // Strict, negative flow: account nonce = 0, incoming tx nonce = 1.
     let invalid_nonce = nonce!(1_u8);
