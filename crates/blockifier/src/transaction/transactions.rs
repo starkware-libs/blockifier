@@ -18,9 +18,9 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::execute_deployment;
-use crate::state::cached_state::{CachedState, TransactionalState};
+use crate::state::cached_state::TransactionalState;
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{State, UpdatableState};
 use crate::transaction::constants;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{
@@ -41,18 +41,18 @@ macro_rules! implement_inner_tx_getter_calls {
     };
 }
 
-pub trait ExecutableTransaction<S: StateReader>: Sized {
+pub trait ExecutableTransaction<U: UpdatableState>: Sized {
     /// Executes the transaction in a transactional manner
     /// (if it fails, given state does not modify).
     fn execute(
         &self,
-        state: &mut CachedState<S>,
+        state: &mut U,
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
-        let mut transactional_state = CachedState::create_transactional(state);
+        let mut transactional_state = TransactionalState::create_transactional(state);
         let execution_result =
             self.execute_raw(&mut transactional_state, block_context, charge_fee, validate);
 
@@ -76,7 +76,7 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
     /// for automatic handling of such cases.
     fn execute_raw(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
