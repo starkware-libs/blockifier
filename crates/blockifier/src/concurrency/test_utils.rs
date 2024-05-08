@@ -6,7 +6,7 @@ use starknet_api::{class_hash, contract_address, patricia_key};
 use crate::concurrency::versioned_state::{ThreadSafeVersionedState, VersionedState};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
-use crate::state::cached_state::CachedState;
+use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::state_api::StateReader;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::transaction::account_transaction::AccountTransaction;
@@ -69,7 +69,7 @@ pub fn create_fee_transfer_call_info<S: StateReader>(
 ) -> CallInfo {
     let block_context =
         BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
-    let mut transactional_state = CachedState::create_transactional(state);
+    let mut transactional_state = TransactionalState::create(state);
     let charge_fee = true;
     let validate = true;
     let execution_info = account_tx

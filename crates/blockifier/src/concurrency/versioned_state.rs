@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -9,7 +9,7 @@ use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
-use crate::state::state_api::{StateReader, StateResult};
+use crate::state::state_api::{StateReader, StateResult, UpdatableState};
 
 #[cfg(test)]
 #[path = "versioned_state_test.rs"]
@@ -71,7 +71,7 @@ impl<S: StateReader> VersionedState<S> {
         T: StateReader,
     {
         let writes = self.get_writes_up_to_index(from_index);
-        parent_state.update_cache(writes);
+        parent_state.update_cache(&writes);
 
         parent_state.update_contract_class_cache(
             self.compiled_contract_classes.get_writes_up_to_index(from_index),
@@ -212,12 +212,20 @@ impl<S: StateReader> VersionedStateProxy<S> {
         self.state().validate_reads(self.tx_index, reads)
     }
 
-    pub fn apply_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
-        self.state().apply_writes(self.tx_index, writes, class_hash_to_class)
-    }
-
     pub fn delete_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
         self.state().delete_writes(self.tx_index, writes, class_hash_to_class);
+    }
+}
+
+// TODO(OriF, 15/5/24): Consider using visited_pcs.
+impl<S: StateReader> UpdatableState for VersionedStateProxy<S> {
+    fn apply_writes(
+        &mut self,
+        writes: &StateMaps,
+        class_hash_to_class: &ContractClassMapping,
+        _visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
+    ) {
+        self.state().apply_writes(self.tx_index, writes, class_hash_to_class)
     }
 }
 
