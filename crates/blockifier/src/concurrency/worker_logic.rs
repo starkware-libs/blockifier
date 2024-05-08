@@ -17,7 +17,9 @@ use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
-use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::cached_state::{
+    CachedState, ContractClassMapping, StateMaps, TransactionalState,
+};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
@@ -97,7 +99,7 @@ impl<S: StateReader> WorkerExecutor<S> {
         let tx = &self.chunk[tx_index];
         // TODO(Noa, 15/05/2024): remove the redundant cached state.
         let mut tx_state = CachedState::new(tx_versioned_state);
-        let mut transactional_state = CachedState::create_transactional(&mut tx_state);
+        let mut transactional_state = TransactionalState::create_transactional(&mut tx_state);
         let validate = true;
         let charge_fee = true;
 
@@ -105,19 +107,20 @@ impl<S: StateReader> WorkerExecutor<S> {
             tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
 
         if execution_result.is_ok() {
-            let class_hash_to_class = transactional_state.class_hash_to_class.borrow();
+            let class_hash_to_class = transactional_state.cached_state.class_hash_to_class.borrow();
             // TODO(Noa, 15/05/2024): use `tx_versioned_state` when we add support to transactional
             // versioned state.
-            self.state
-                .pin_version(tx_index)
-                .apply_writes(&transactional_state.cache.borrow().writes, &class_hash_to_class);
+            self.state.pin_version(tx_index).apply_writes(
+                &transactional_state.cached_state.cache.borrow().writes,
+                &class_hash_to_class,
+            );
         }
 
         // Write the transaction execution outputs.
-        let tx_reads_writes = transactional_state.cache.take();
+        let tx_reads_writes = transactional_state.cached_state.cache.take();
         // In case of a failed transaction, we don't record its writes and visited pcs.
         let (writes, visited_pcs) = match execution_result {
-            Ok(_) => (tx_reads_writes.writes, transactional_state.visited_pcs),
+            Ok(_) => (tx_reads_writes.writes, transactional_state.cached_state.visited_pcs),
             Err(_) => (StateMaps::default(), HashMap::default()),
         };
         let mut execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);

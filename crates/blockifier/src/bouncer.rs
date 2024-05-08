@@ -12,7 +12,7 @@ use crate::blockifier::transaction_executor::{
 use crate::execution::call_info::ExecutionSummary;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
-use crate::state::state_api::StateReader;
+use crate::state::state_api::{StateReader, UpdatableState};
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ExecutionResourcesTraits, TransactionResources};
 
@@ -197,9 +197,9 @@ impl Bouncer {
     }
 
     /// Updates the bouncer with a new transaction.
-    pub fn try_update<S: StateReader>(
+    pub fn try_update<U: UpdatableState>(
         &mut self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         tx_execution_summary: &ExecutionSummary,
         tx_resources: &TransactionResources,
     ) -> TransactionExecutorResult<()> {
@@ -235,9 +235,9 @@ impl Bouncer {
         Ok(())
     }
 
-    pub fn get_tx_weights<S: StateReader>(
+    pub fn get_tx_weights(
         &mut self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut dyn StateReader,
         tx_execution_summary: &ExecutionSummary,
         tx_resources: &TransactionResources,
         state_changes_keys: &StateChangesKeys,
@@ -267,11 +267,11 @@ impl Bouncer {
         })
     }
 
-    pub fn get_state_changes_keys<S: StateReader>(
+    pub fn get_state_changes_keys<U: UpdatableState>(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
     ) -> TransactionExecutorResult<StateChangesKeys> {
-        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        let tx_state_changes_keys = state.cached_state.get_actual_state_changes()?.into_keys();
         Ok(tx_state_changes_keys.difference(&self.state_changes_keys))
     }
 
@@ -283,8 +283,8 @@ impl Bouncer {
 
 /// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
 /// executed classes by the current transaction.
-pub fn get_casm_hash_calculation_resources<S: StateReader>(
-    state: &mut TransactionalState<'_, S>,
+pub fn get_casm_hash_calculation_resources(
+    state: &mut dyn StateReader,
     block_executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
 ) -> TransactionExecutorResult<ExecutionResources> {
