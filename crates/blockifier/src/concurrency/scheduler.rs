@@ -12,16 +12,24 @@ pub mod test;
 pub struct Scheduler {
     execution_index: AtomicUsize,
     validation_index: AtomicUsize,
-    /// Read twice upon checking the chunk completion. Used to detect if validation or execution
-    /// index decreased from their observed values after ensuring that the number of active tasks
-    /// is zero.
+    // The index of the next transaction to commit. `commit_index` is protected by `commit_lock`.
+    // There will be no concurrent access to `commit_index`, but the rust compiler cannot infer
+    // that this is the case, so we use a Mutex to protect it.
+    // TODO(Avi, 15/05/2024): Consider defining an ExplicitSyncWrapper for this.
+    commit_index: Mutex<usize>,
+    // Used to lock the commit index when committing transactions. This is necessary to make sure
+    // the process of committing transactions is sequential.
+    commit_lock: AtomicBool,
+    // Read twice upon checking the chunk completion. Used to detect if validation or execution
+    // index decreased from their observed values after ensuring that the number of active tasks
+    // is zero.
     decrease_counter: AtomicUsize,
     n_active_tasks: AtomicUsize,
     chunk_size: usize,
     // TODO(Avi, 15/05/2024): Consider using RwLock instead of Mutex.
     tx_statuses: Box<[Mutex<TransactionStatus>]>,
-    /// Updated by the `check_done` procedure, providing a cheap way for all threads to exit their
-    /// main loops.
+    // Updated by the `check_done` procedure, providing a cheap way for all threads to exit their
+    // main loops.
     done_marker: AtomicBool,
 }
 
@@ -30,6 +38,8 @@ impl Scheduler {
         Scheduler {
             execution_index: AtomicUsize::new(0),
             validation_index: AtomicUsize::new(chunk_size),
+            commit_index: Mutex::new(0),
+            commit_lock: AtomicBool::new(false),
             decrease_counter: AtomicUsize::new(0),
             n_active_tasks: AtomicUsize::new(0),
             chunk_size,
@@ -105,6 +115,46 @@ impl Scheduler {
         self.safe_decrement_n_active_tasks();
 
         Task::NoTask
+    }
+
+    /// Tries to commit the next transaction in the chunk. Returns the index of the transaction to
+    /// commit if successful, or None if the transaction is not yet executed.
+    /// Assumes that the caller has already acquired the commit lock.
+    pub fn try_commit(&self) -> Option<usize> {
+        let mut commit_index = self.commit_index.lock().expect(
+            "This lock should always succeed, since commit_lock must be successfully acquired \
+             before calling this method",
+        );
+        // FIXME: Do we want the thread to wait for the status lock to be available?
+        let mut status = self.lock_tx_status(*commit_index);
+        if *status == TransactionStatus::Executed {
+            *status = TransactionStatus::Committed;
+            *commit_index += 1;
+            if *commit_index == self.chunk_size {
+                self.done_marker.store(true, Ordering::Release);
+            }
+            return Some(*commit_index - 1);
+        }
+        None
+    }
+
+    /// This method is called after a transaction gets re-executed during a commit. It decreases the
+    /// validation index to ensure that higher transactions are validated. There is no need to set
+    /// the transaction status to Executed, as it is already set to Committed.
+    pub fn finish_execution_during_commit(&self, tx_index: TxIndex) {
+        // We skipped decreasing the validation index when the transaction was executed, so we do it
+        // now.
+        self.decrease_validation_index(tx_index + 1);
+    }
+
+    fn try_commit_lock(&self) -> bool {
+        self.commit_lock
+            .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+    }
+
+    fn unlock_commit_lock(&self) {
+        self.commit_lock.store(false, Ordering::Release);
     }
 
     /// Checks if all transactions have been executed and validated.
@@ -235,4 +285,5 @@ enum TransactionStatus {
     Executing,
     Executed,
     Aborting,
+    Committed,
 }
