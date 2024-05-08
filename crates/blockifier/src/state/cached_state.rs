@@ -10,7 +10,7 @@ use starknet_api::state::StorageKey;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader, StateResult};
+use crate::state::state_api::{State, StateReader, StateResult, UpdatableState};
 use crate::utils::{strict_subtract_mappings, subtract_mappings};
 
 #[cfg(test)]
@@ -44,10 +44,11 @@ impl<S: StateReader> CachedState<S> {
         }
     }
 
-    /// Creates a transactional instance from the given cached state.
+    /// Creates a transactional instance from the given updatable state.
     /// It allows performing buffered modifying actions on the given state, which
-    /// will either all happen (will be committed) or none of them (will be discarded).
-    pub fn create_transactional(state: &mut CachedState<S>) -> TransactionalState<'_, S> {
+    /// will either all happen (will be updated in the state and  committed)
+    /// or none of them (will be discarded).
+    pub fn create_transactional<U: UpdatableState>(state: &mut U) -> TransactionalState<'_, U> {
         CachedState::new(MutRefState::new(state))
     }
 
@@ -148,6 +149,19 @@ impl<S: StateReader> CachedState<S> {
             class_hash_to_compiled_class_hash: IndexMap::from_iter(declared_classes),
             address_to_nonce: IndexMap::from_iter(nonces),
         }
+    }
+}
+
+impl<S: StateReader> UpdatableState for CachedState<S> {
+    fn apply_writes(
+        &mut self,
+        writes: StateMaps,
+        class_hash_to_class: ContractClassMapping,
+        visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
+    ) {
+        self.update_cache(writes);
+        self.update_contract_class_cache(class_hash_to_class);
+        self.update_visited_pcs_cache(visited_pcs);
     }
 }
 
@@ -502,16 +516,16 @@ impl StateCache {
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
 /// Used to pass ownership to a `CachedState`.
-pub struct MutRefState<'a, S: State + ?Sized>(&'a mut S);
+pub struct MutRefState<'a, U: UpdatableState + ?Sized>(&'a mut U);
 
-impl<'a, S: State + ?Sized> MutRefState<'a, S> {
-    pub fn new(state: &'a mut S) -> Self {
+impl<'a, U: UpdatableState + ?Sized> MutRefState<'a, U> {
+    pub fn new(state: &'a mut U) -> Self {
         Self(state)
     }
 }
 
 /// Proxies inner object to expose `State` functionality.
-impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
+impl<'a, U: UpdatableState + ?Sized> StateReader for MutRefState<'a, U> {
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -537,17 +551,19 @@ impl<'a, S: State + ?Sized> StateReader for MutRefState<'a, S> {
     }
 }
 
-pub type TransactionalState<'a, S> = CachedState<MutRefState<'a, CachedState<S>>>;
+pub type TransactionalState<'a, U> = CachedState<MutRefState<'a, U>>;
 
 /// Adds the ability to perform a transactional execution.
-impl<'a, S: StateReader> TransactionalState<'a, S> {
+impl<'a, U: UpdatableState> TransactionalState<'a, U> {
     /// Commits changes in the child (wrapping) state to its parent.
     pub fn commit(self) {
         let state = self.state.0;
         let child_cache = self.cache.into_inner();
-        state.update_cache(child_cache.writes);
-        state.update_contract_class_cache(self.class_hash_to_class.into_inner());
-        state.update_visited_pcs_cache(&self.visited_pcs);
+        state.apply_writes(
+            child_cache.writes,
+            self.class_hash_to_class.into_inner(),
+            &self.visited_pcs,
+        )
     }
 
     /// Drops `self`.
