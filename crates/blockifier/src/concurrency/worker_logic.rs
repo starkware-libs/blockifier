@@ -17,8 +17,8 @@ use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
-use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
-use crate::state::state_api::{StateReader, StateResult};
+use crate::state::cached_state::{ContractClassMapping, StateMaps, TransactionalState};
+use crate::state::state_api::{StateReader, StateResult, UpdatableState};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
@@ -94,11 +94,10 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     }
 
     fn execute_tx(&self, tx_index: TxIndex) {
-        let tx_versioned_state = self.state.pin_version(tx_index);
+        let mut tx_versioned_state = self.state.pin_version(tx_index);
         let tx = &self.chunk[tx_index];
-        // TODO(Noa, 15/05/2024): remove the redundant cached state.
-        let mut tx_state = CachedState::new(tx_versioned_state);
-        let mut transactional_state = CachedState::create_transactional(&mut tx_state);
+        let mut transactional_state =
+            TransactionalState::create_transactional(&mut tx_versioned_state);
         let validate = true;
         let charge_fee = true;
 
@@ -111,6 +110,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             self.state.pin_version(tx_index).apply_writes(
                 &transactional_state.cache.borrow().writes,
                 &transactional_state.class_hash_to_class.borrow(),
+                &HashMap::default(),
             );
         }
 
@@ -167,7 +167,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
 
         let tx = &self.chunk[tx_index];
-        let tx_versioned_state = self.state.pin_version(tx_index);
+        let mut tx_versioned_state = self.state.pin_version(tx_index);
 
         let reads = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
         let reads_valid = tx_versioned_state.validate_reads(reads);
@@ -215,7 +215,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 }
                 add_fee_to_sequencer_balance(
                     tx_context.fee_token_address(),
-                    &tx_versioned_state,
+                    &mut tx_versioned_state,
                     tx_info.actual_fee,
                     &self.block_context,
                     sequencer_balance_value_low,
@@ -234,7 +234,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 #[allow(dead_code)]
 fn add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
-    tx_versioned_state: &VersionedStateProxy<impl StateReader>,
+    tx_versioned_state: &mut VersionedStateProxy<impl StateReader>,
     actual_fee: Fee,
     block_context: &BlockContext,
     sequencer_balance_value_low: StarkFelt,
@@ -259,5 +259,5 @@ fn add_fee_to_sequencer_balance(
         ]),
         ..StateMaps::default()
     };
-    tx_versioned_state.apply_writes(&writes, &ContractClassMapping::default());
+    tx_versioned_state.apply_writes(&writes, &ContractClassMapping::default(), &HashMap::default());
 }
