@@ -17,7 +17,9 @@ use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
-use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::cached_state::{
+    CachedState, ContractClassMapping, StateMaps, TransactionalState,
+};
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
@@ -98,7 +100,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let tx = &self.chunk[tx_index];
         // TODO(Noa, 15/05/2024): remove the redundant cached state.
         let mut tx_state = CachedState::new(tx_versioned_state);
-        let mut transactional_state = CachedState::create_transactional(&mut tx_state);
+        let mut transactional_state = TransactionalState::create_transactional(&mut tx_state);
         let validate = true;
         let charge_fee = true;
 
