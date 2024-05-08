@@ -343,7 +343,7 @@ fn test_state_changes_merge(
     // Create a transactional state containing the `create_state_changes_for_test` logic, get the
     // state changes and then commit.
     let mut state: CachedState<DictStateReader> = CachedState::default();
-    let mut transactional_state = CachedState::create_transactional(&mut state);
+    let mut transactional_state = CachedState::<DictStateReader>::create_transactional(&mut state);
     let block_context = BlockContext::create_for_testing();
     let fee_token_address = block_context.chain_info.fee_token_addresses.eth_fee_token_address;
     let state_changes1 =
@@ -352,7 +352,7 @@ fn test_state_changes_merge(
 
     // After performing `commit`, the transactional state is moved (into state).  We need to create
     // a new transactional state that wraps `state` to continue.
-    let mut transactional_state = CachedState::create_transactional(&mut state);
+    let mut transactional_state = CachedState::<DictStateReader>::create_transactional(&mut state);
     // Make sure that `get_actual_state_changes` on a newly created transactional state returns null
     // state changes and that merging null state changes with non-null state changes results in the
     // non-null state changes, no matter the order.

@@ -19,7 +19,7 @@ use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_boun
 use crate::fee::gas_usage::{compute_discounted_gas_from_gas_vector, estimate_minimal_gas_vector};
 use crate::retdata;
 use crate::state::cached_state::{CachedState, StateChanges, TransactionalState};
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{State, StateReader, UpdatableState};
 use crate::transaction::constants;
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
@@ -302,9 +302,9 @@ impl AccountTransaction {
         Ok(())
     }
 
-    fn handle_fee<S: StateReader>(
+    fn handle_fee<U: UpdatableState>(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
         charge_fee: bool,
@@ -371,8 +371,8 @@ impl AccountTransaction {
     /// manipulates the state to avoid that part.
     /// Note: the returned transfer call info is partial, and should be completed at the commit
     /// stage, as well as the actual sequencer balance.
-    fn concurrency_execute_fee_transfer<S: StateReader>(
-        state: &mut TransactionalState<'_, S>,
+    fn concurrency_execute_fee_transfer<U: UpdatableState>(
+        state: &mut TransactionalState<'_, U>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
@@ -382,7 +382,7 @@ impl AccountTransaction {
         let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
         let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
             .expect("Cannot get sequencer balance high key.");
-        let mut transfer_state = CachedState::create_transactional(state);
+        let mut transfer_state = CachedState::<U>::create_transactional(state);
 
         // Set the initial sequencer balance to avoid tarnishing the read-set of the transaction.
         let cache = transfer_state.cache.get_mut();
@@ -414,9 +414,9 @@ impl AccountTransaction {
         }
     }
 
-    fn run_non_revertible<S: StateReader>(
+    fn run_non_revertible<U: UpdatableState>(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         tx_context: Arc<TransactionContext>,
         remaining_gas: &mut u64,
         validate: bool,
@@ -477,9 +477,9 @@ impl AccountTransaction {
         }
     }
 
-    fn run_revertible<S: StateReader>(
+    fn run_revertible<U: UpdatableState>(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         tx_context: Arc<TransactionContext>,
         remaining_gas: &mut u64,
         validate: bool,
@@ -511,7 +511,7 @@ impl AccountTransaction {
         // Create copies of state and resources for the execution.
         // Both will be rolled back if the execution is reverted or committed upon success.
         let mut execution_resources = resources.clone();
-        let mut execution_state = CachedState::create_transactional(state);
+        let mut execution_state = CachedState::<U>::create_transactional(state);
 
         let execution_result = self.run_execute(
             &mut execution_state,
@@ -618,9 +618,9 @@ impl AccountTransaction {
     }
 
     /// Runs validation and execution.
-    fn run_or_revert<S: StateReader>(
+    fn run_or_revert<U: UpdatableState>(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         remaining_gas: &mut u64,
         tx_context: Arc<TransactionContext>,
         validate: bool,
@@ -634,10 +634,10 @@ impl AccountTransaction {
     }
 }
 
-impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
+impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
     fn execute_raw(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,

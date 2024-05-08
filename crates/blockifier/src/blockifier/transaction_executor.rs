@@ -73,7 +73,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &Transaction,
         charge_fee: bool,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
-        let mut transactional_state = CachedState::create_transactional(&mut self.state);
+        let mut transactional_state = CachedState::<S>::create_transactional(&mut self.state);
         let validate = true;
 
         let tx_execution_result =

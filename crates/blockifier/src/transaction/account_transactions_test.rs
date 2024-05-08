@@ -30,6 +30,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
+use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
@@ -1088,7 +1089,7 @@ fn test_count_actual_storage_changes(
     // Run transactions; using transactional state to count only storage changes of the current
     // transaction.
     // First transaction: storage cell value changes from 0 to 1.
-    let mut state = CachedState::create_transactional(&mut state);
+    let mut state = CachedState::<DictStateReader>::create_transactional(&mut state);
     let invoke_args = invoke_tx_args! {
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
@@ -1137,7 +1138,7 @@ fn test_count_actual_storage_changes(
     assert_eq!(state_changes_count_1, expected_state_changes_count_1);
 
     // Second transaction: storage cell starts and ends with value 1.
-    let mut state = CachedState::create_transactional(&mut state);
+    let mut state = CachedState::<DictStateReader>::create_transactional(&mut state);
     let account_tx = account_invoke_tx(InvokeTxArgs {
         nonce: nonce_manager.next(account_address),
         ..invoke_args.clone()
@@ -1173,7 +1174,7 @@ fn test_count_actual_storage_changes(
     assert_eq!(state_changes_count_2, expected_state_changes_count_2);
 
     // Transfer transaction: transfer 1 ETH to recepient.
-    let mut state = CachedState::create_transactional(&mut state);
+    let mut state = CachedState::<DictStateReader>::create_transactional(&mut state);
     let account_tx = account_invoke_tx(InvokeTxArgs {
         nonce: nonce_manager.next(account_address),
         calldata: transfer_calldata,
@@ -1251,7 +1252,7 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low).unwrap();
     // Case 1: The transaction did not read form/ write to the sequenser balance before executing
     // fee transfer.
-    let mut transactional_state = CachedState::create_transactional(state);
+    let mut transactional_state = CachedState::<DictStateReader>::create_transactional(state);
     account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
     let transactional_cache = transactional_state.cache.borrow();
     for storage in [
@@ -1268,7 +1269,7 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
 
     // Set the sequencer balance to a constant value to check that the read set did not changed.
     fund_account(chain_info, sequencer_address, STORAGE_READ_LOW, &mut state.state);
-    let mut transactional_state = CachedState::create_transactional(state);
+    let mut transactional_state = CachedState::<DictStateReader>::create_transactional(state);
 
     // Set the sequencer balance write set to a constant value.
     // Note that it is enough to set the storage_write as execute_raw will update the
