@@ -18,7 +18,7 @@ use crate::concurrency::versioned_state::{
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
-use crate::state::state_api::{State, StateReader};
+use crate::state::state_api::{State, StateReader, UpdatableState};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
@@ -42,7 +42,8 @@ pub fn safe_versioned_state(
     safe_versioned_state_for_testing(init_state)
 }
 
-// TODO(OriF 15/5/24): Use `create_transactional` instead of `CachedState::from(..)` when fits.
+// TODO(OriF 15/5/24): Use `TransactionalState::create_transactional` instead of
+// `CachedState::from(..)` when fits.
 #[test]
 fn test_versioned_state_proxy() {
     // Test data
@@ -322,6 +323,7 @@ fn test_apply_writes(
     safe_versioned_state.pin_version(0).apply_writes(
         &transactional_states[0].cache.borrow().writes,
         &transactional_states[0].class_hash_to_class.borrow().clone(),
+        &HashMap::default(),
     );
     assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
     assert!(
@@ -350,6 +352,7 @@ fn test_apply_writes_reexecute_scenario(
     safe_versioned_state.pin_version(0).apply_writes(
         &transactional_states[0].cache.borrow().writes,
         &transactional_states[0].class_hash_to_class.borrow().clone(),
+        &HashMap::default(),
     );
     // Although transaction 0 wrote to the shared state, version 1 needs to be re-executed to see
     // the new value (its read value has already been cached).
@@ -386,9 +389,11 @@ fn test_delete_writes(
         tx_state
             .set_contract_class(feature_contract.get_class_hash(), feature_contract.get_class())
             .unwrap();
-        tx_state
-            .state
-            .apply_writes(&tx_state.cache.borrow().writes, &tx_state.class_hash_to_class.borrow());
+        tx_state.state.apply_writes(
+            &tx_state.cache.borrow().writes,
+            &tx_state.class_hash_to_class.borrow(),
+            &HashMap::default(),
+        );
     }
 
     transactional_states[tx_index_to_delete_writes].state.delete_writes(
@@ -444,9 +449,13 @@ fn test_delete_writes_completeness(
         HashMap::from([(feature_contract.get_class_hash(), feature_contract.get_class())]);
 
     let tx_index = 0;
-    let versioned_state_proxy = safe_versioned_state.pin_version(tx_index);
+    let mut versioned_state_proxy = safe_versioned_state.pin_version(tx_index);
 
-    versioned_state_proxy.apply_writes(&state_maps_writes, &class_hash_to_class_writes);
+    versioned_state_proxy.apply_writes(
+        &state_maps_writes,
+        &class_hash_to_class_writes,
+        &HashMap::default(),
+    );
     assert_eq!(
         safe_versioned_state.0.lock().unwrap().get_writes_of_index(tx_index),
         state_maps_writes
