@@ -11,7 +11,7 @@ use crate::bouncer::{Bouncer, BouncerConfig, BouncerWeights};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
-use crate::state::cached_state::{CachedState, CommitmentStateDiff};
+use crate::state::cached_state::{CachedState, CommitmentStateDiff, TransactionalState};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::transaction::account_transaction::AccountTransaction;
@@ -73,7 +73,7 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &Transaction,
         charge_fee: bool,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
-        let mut transactional_state = CachedState::create_transactional(&mut self.state);
+        let mut transactional_state = TransactionalState::create_transactional(&mut self.state);
         let validate = true;
 
         let tx_execution_result =

@@ -38,7 +38,7 @@ use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     estimate_minimal_gas_vector, get_da_gas_cost, get_onchain_data_segment_length,
 };
-use crate::state::cached_state::{CachedState, StateChangesCount};
+use crate::state::cached_state::{CachedState, StateChangesCount, TransactionalState};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
@@ -981,7 +981,7 @@ fn test_invalid_nonce(
         calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
         max_fee: Fee(MAX_FEE)
     };
-    let mut transactional_state = CachedState::create_transactional(state);
+    let mut transactional_state = TransactionalState::create_transactional(state);
 
     // Strict, negative flow: account nonce = 0, incoming tx nonce = 1.
     let invalid_nonce = nonce!(1_u8);
