@@ -1,3 +1,8 @@
+use rstest::fixture;
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::hash::StarkHash;
+use starknet_api::{class_hash, contract_address, patricia_key};
+
 use crate::concurrency::versioned_state_proxy::{ThreadSafeVersionedState, VersionedState};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -6,6 +11,26 @@ use crate::state::state_api::StateReader;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::transactions::ExecutableTransaction;
+
+// Public Consts.
+
+// Fixtures.
+
+const TEST_CONTRACT_ADDRESS: &str = "0x18031991";
+
+#[fixture]
+pub fn contract_address() -> ContractAddress {
+    contract_address!(TEST_CONTRACT_ADDRESS)
+}
+
+const TEST_CLASS_HASH: u8 = 27_u8;
+
+#[fixture]
+pub fn class_hash() -> ClassHash {
+    class_hash!(TEST_CLASS_HASH)
+}
+
+// Macros.
 
 #[macro_export]
 macro_rules! default_scheduler {
