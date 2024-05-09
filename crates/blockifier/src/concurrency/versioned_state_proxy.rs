@@ -139,6 +139,19 @@ impl<S: StateReader> VersionedState<S> {
             self.compiled_contract_classes.write(tx_index, key, value.clone());
         }
     }
+
+    fn delete_writes(
+        &mut self,
+        tx_index: TxIndex,
+        writes: &StateMaps,
+        class_hash_to_class: &ContractClassMapping,
+    ) {
+        self.storage.delete_writes(writes.storage.keys(), tx_index);
+        self.nonces.delete_writes(writes.nonces.keys(), tx_index);
+        self.class_hashes.delete_writes(writes.class_hashes.keys(), tx_index);
+        self.compiled_class_hashes.delete_writes(writes.compiled_class_hashes.keys(), tx_index);
+        self.compiled_contract_classes.delete_writes(class_hash_to_class.keys(), tx_index);
+    }
 }
 
 pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
@@ -176,6 +189,15 @@ impl<S: StateReader> VersionedStateProxy<S> {
 
     pub fn apply_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
         self.state().apply_writes(self.tx_index, writes, class_hash_to_class)
+    }
+
+    pub fn delete_writes(
+        &self,
+        tx_index: TxIndex,
+        writes: &StateMaps,
+        class_hash_to_class: &ContractClassMapping,
+    ) {
+        self.state().delete_writes(tx_index, writes, class_hash_to_class);
     }
 }
 

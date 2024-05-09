@@ -1,3 +1,4 @@
+use std::collections::hash_map::Keys;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -12,6 +13,7 @@ pub mod test;
 /// It is versioned in the sense that it holds a state of write operations done on it by
 /// different versions of executions.
 /// This allows maintaining the cells with the correct values in the context of each execution.
+#[derive(Debug)]
 pub struct VersionedStorage<K, V>
 where
     K: Clone + Copy + Eq + Hash + Debug,
@@ -48,6 +50,18 @@ where
     pub fn write(&mut self, tx_index: TxIndex, key: K, value: V) {
         let cell = self.writes.entry(key).or_default();
         cell.insert(tx_index, value);
+    }
+
+    pub fn delete_writes(&mut self, keys: Keys<'_, K, V>, tx_index: TxIndex) {
+        for key in keys {
+            self.writes
+                .get_mut(key)
+                .expect(
+                    "A 'delete_write' call must be preceded by a 'write' call with the \
+                     corresponding key",
+                )
+                .remove(&tx_index);
+        }
     }
 
     /// This method inserts the provided key-value pair into the cached initial values map.
