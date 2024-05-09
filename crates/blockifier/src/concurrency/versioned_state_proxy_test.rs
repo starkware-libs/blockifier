@@ -9,7 +9,7 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionV
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
-use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::test_utils::{contract_address, safe_versioned_state_for_testing};
 use crate::concurrency::versioned_state_proxy::{
     ThreadSafeVersionedState, VersionedState, VersionedStateProxy,
 };
@@ -27,13 +27,7 @@ use crate::transaction::test_utils::l1_resource_bounds;
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::{compiled_class_hash, deploy_account_tx_args, nonce, storage_key};
 
-const TEST_CONTRACT_ADDRESS: &str = "0x1";
 const TEST_CLASS_HASH: u8 = 27_u8;
-
-#[fixture]
-pub fn contract_address() -> ContractAddress {
-    contract_address!(TEST_CONTRACT_ADDRESS)
-}
 
 #[fixture]
 pub fn class_hash() -> ClassHash {
@@ -370,4 +364,10 @@ fn test_apply_writes_reexecute_scenario(
     transactional_states[1] = CachedState::from(safe_versioned_state.pin_version(1));
     // The class hash should be updated.
     assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
+}
+
+#[rstest]
+fn test_delete_writes() {
+    // TODO(barak, 01/07/2024): Complete the test.
+    assert_eq!(0, 0)
 }
