@@ -1,7 +1,14 @@
+use std::collections::{BTreeMap, HashMap};
+
 use pretty_assertions::assert_eq;
+use rstest::rstest;
+use starknet_api::core::ContractAddress;
 
+use crate::concurrency::test_utils::contract_address;
 use crate::concurrency::versioned_storage::VersionedStorage;
+use crate::nonce;
 
+// TODO(barak, 01/07/2024): Split into test_read() and test_write().
 #[test]
 fn test_versioned_storage() {
     let mut storage = VersionedStorage::default();
@@ -36,4 +43,20 @@ fn test_versioned_storage() {
 
     // Test the write.
     assert_eq!(storage.read(50, 100).unwrap(), 194);
+}
+
+#[rstest]
+fn test_delete_writes(contract_address: ContractAddress) {
+    // TODO(barak, 01/07/2025): Create a macro versioned_storage!.
+    let mut storage = VersionedStorage {
+        cached_initial_values: HashMap::default(),
+        writes: HashMap::from([(
+            contract_address,
+            BTreeMap::from([(1, nonce!(18_u8)), (2, nonce!(19_u8))]),
+        )]),
+    };
+    storage.delete_write(contract_address, 1);
+    let contract_address_writes = storage.writes.get(&contract_address).unwrap();
+    assert!(!contract_address_writes.contains_key(&1));
+    assert!(contract_address_writes.contains_key(&2));
 }

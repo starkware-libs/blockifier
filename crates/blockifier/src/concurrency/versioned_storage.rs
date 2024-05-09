@@ -50,6 +50,16 @@ where
         cell.insert(tx_index, value);
     }
 
+    pub fn delete_write(&mut self, key: K, tx_index: TxIndex) {
+        self.writes
+            .get_mut(&key)
+            .expect(
+                "A 'delete_write' call must be preceded by a 'write' call with the corresponding \
+                 key",
+            )
+            .remove(&tx_index);
+    }
+
     /// This method inserts the provided key-value pair into the cached initial values map.
     /// It is typically used when reading a value that is not found in the versioned storage. In
     /// such a scenario, the value is retrieved from the initial storage and written to the
