@@ -9,12 +9,15 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionV
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
-use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::test_utils::{
+    class_hash, contract_address, safe_versioned_state_for_testing,
+};
 use crate::concurrency::versioned_state::{
     ThreadSafeVersionedState, VersionedState, VersionedStateProxy,
 };
+use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
-use crate::state::cached_state::{CachedState, StateMaps};
+use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
 use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
@@ -26,19 +29,6 @@ use crate::transaction::objects::{FeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::l1_resource_bounds;
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::{compiled_class_hash, deploy_account_tx_args, nonce, storage_key};
-
-const TEST_CONTRACT_ADDRESS: &str = "0x1";
-const TEST_CLASS_HASH: u8 = 27_u8;
-
-#[fixture]
-pub fn contract_address() -> ContractAddress {
-    contract_address!(TEST_CONTRACT_ADDRESS)
-}
-
-#[fixture]
-pub fn class_hash() -> ClassHash {
-    class_hash!(TEST_CLASS_HASH)
-}
 
 #[fixture]
 pub fn safe_versioned_state(
@@ -370,4 +360,119 @@ fn test_apply_writes_reexecute_scenario(
     transactional_states[1] = CachedState::from(safe_versioned_state.pin_version(1));
     // The class hash should be updated.
     assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
+}
+
+#[rstest]
+fn test_delete_writes(
+    #[values(0, 1, 2)] tx_index_to_delete_writes: TxIndex,
+    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+) {
+    let num_of_txs = 3;
+    let mut transactional_states: Vec<CachedState<VersionedStateProxy<DictStateReader>>> =
+        (0..num_of_txs).map(|i| CachedState::from(safe_versioned_state.pin_version(i))).collect();
+    // Setting 2 instances of the contract to ensure `delete_writes` removes information from
+    // multiple keys. Class hash values are not checked in this test.
+    let contract_addresses = [
+        (contract_address!("0x100"), class_hash!(20_u8)),
+        (contract_address!("0x200"), class_hash!(21_u8)),
+    ];
+    let feature_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    for tx_state in transactional_states.iter_mut() {
+        // Modify the `cache` member of the CachedState.
+        for (contract_address, class_hash) in contract_addresses.iter() {
+            tx_state.set_class_hash_at(*contract_address, *class_hash).unwrap();
+        }
+        // Modify the `class_hash_to_class` member of the CachedState.
+        tx_state
+            .set_contract_class(feature_contract.get_class_hash(), feature_contract.get_class())
+            .unwrap();
+        tx_state
+            .state
+            .apply_writes(&tx_state.cache.borrow().writes, &tx_state.class_hash_to_class.borrow());
+    }
+
+    transactional_states[tx_index_to_delete_writes].state.delete_writes(
+        &transactional_states[tx_index_to_delete_writes].cache.borrow().writes,
+        &transactional_states[tx_index_to_delete_writes].class_hash_to_class.borrow(),
+    );
+
+    for tx_index in 0..num_of_txs {
+        let should_be_empty = tx_index == tx_index_to_delete_writes;
+        assert_eq!(
+            safe_versioned_state
+                .0
+                .lock()
+                .unwrap()
+                .get_writes_of_index(tx_index)
+                .class_hashes
+                .is_empty(),
+            should_be_empty
+        );
+
+        assert_eq!(
+            safe_versioned_state
+                .0
+                .lock()
+                .unwrap()
+                .compiled_contract_classes
+                .get_writes_of_index(tx_index)
+                .is_empty(),
+            should_be_empty
+        );
+    }
+}
+
+#[rstest]
+fn test_delete_writes_completeness(
+    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+) {
+    let state_maps_writes = StateMaps {
+        nonces: HashMap::from([(contract_address!("0x1"), nonce!("0x1"))]),
+        class_hashes: HashMap::from([(contract_address!("0x1"), class_hash!("0x1"))]),
+        storage: HashMap::from([(
+            (contract_address!("0x1"), storage_key!("0x1")),
+            stark_felt!("0x1"),
+        )]),
+        compiled_class_hashes: HashMap::from([(class_hash!("0x1"), compiled_class_hash!("0x1"))]),
+        // TODO (OriF, 01/07/2024): Uncomment the following line and remove the line below it once
+        // `declared_contracts` mapping logic in StateMaps is complete.
+        // declared_contracts: HashMap::from([(class_hash!("0x1"), true)]),
+        declared_contracts: HashMap::default(),
+    };
+    let feature_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let class_hash_to_class_writes =
+        HashMap::from([(feature_contract.get_class_hash(), feature_contract.get_class())]);
+
+    let tx_index = 0;
+    let versioned_state_proxy = safe_versioned_state.pin_version(tx_index);
+
+    versioned_state_proxy.apply_writes(&state_maps_writes, &class_hash_to_class_writes);
+    assert_eq!(
+        safe_versioned_state.0.lock().unwrap().get_writes_of_index(tx_index),
+        state_maps_writes
+    );
+    assert_eq!(
+        safe_versioned_state
+            .0
+            .lock()
+            .unwrap()
+            .compiled_contract_classes
+            .get_writes_of_index(tx_index),
+        class_hash_to_class_writes
+    );
+
+    versioned_state_proxy.delete_writes(&state_maps_writes, &class_hash_to_class_writes);
+    assert_eq!(
+        safe_versioned_state.0.lock().unwrap().get_writes_of_index(tx_index),
+        StateMaps::default()
+    );
+    assert_eq!(
+        safe_versioned_state
+            .0
+            .lock()
+            .unwrap()
+            .compiled_contract_classes
+            .get_writes_of_index(tx_index),
+        ContractClassMapping::default()
+    );
 }
