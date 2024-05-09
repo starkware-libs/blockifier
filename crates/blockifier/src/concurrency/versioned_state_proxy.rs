@@ -21,6 +21,7 @@ const READ_ERR: &str = "Error: read value missing in the versioned storage";
 /// Represents a versioned state used as shared state between a chunk of workers.
 /// This state facilitates concurrent operations.
 /// Reader functionality is injected through initial state.
+#[derive(Debug)]
 pub struct VersionedState<S: StateReader> {
     initial_state: S,
     storage: VersionedStorage<(ContractAddress, StorageKey), StarkFelt>,
@@ -42,12 +43,25 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    fn get_writes(&mut self, from_index: TxIndex) -> StateMaps {
+    fn get_last_writes_up_to_index(&mut self, tx_index: TxIndex) -> StateMaps {
         StateMaps {
-            storage: self.storage.get_writes_from_index(from_index),
-            nonces: self.nonces.get_writes_from_index(from_index),
-            class_hashes: self.class_hashes.get_writes_from_index(from_index),
-            compiled_class_hashes: self.compiled_class_hashes.get_writes_from_index(from_index),
+            storage: self.storage.get_writes_up_to_index(tx_index),
+            nonces: self.nonces.get_writes_up_to_index(tx_index),
+            class_hashes: self.class_hashes.get_writes_up_to_index(tx_index),
+            compiled_class_hashes: self.compiled_class_hashes.get_writes_up_to_index(tx_index),
+            // TODO(OriF, 01/07/2024): Update declared_contracts initial value.
+            declared_contracts: HashMap::new(),
+        }
+    }
+
+    #[cfg(any(feature = "testing", test))]
+    pub fn get_writes_of_index(&self, tx_index: TxIndex) -> StateMaps {
+        StateMaps {
+            storage: self.storage.get_writes_of_index(tx_index),
+            nonces: self.nonces.get_writes_of_index(tx_index),
+            class_hashes: self.class_hashes.get_writes_of_index(tx_index),
+            compiled_class_hashes: self.compiled_class_hashes.get_writes_of_index(tx_index),
+            // TODO(OriF, 01/07/2024): Update declared_contracts initial value.
             declared_contracts: HashMap::new(),
         }
     }
@@ -56,11 +70,11 @@ impl<S: StateReader> VersionedState<S> {
     where
         T: StateReader,
     {
-        let writes = self.get_writes(from_index);
+        let writes = self.get_last_writes_up_to_index(from_index);
         parent_state.update_cache(writes);
 
         parent_state.update_contract_class_cache(
-            self.compiled_contract_classes.get_writes_from_index(from_index),
+            self.compiled_contract_classes.get_writes_up_to_index(from_index),
         );
     }
 
@@ -139,6 +153,29 @@ impl<S: StateReader> VersionedState<S> {
             self.compiled_contract_classes.write(tx_index, key, value.clone());
         }
     }
+
+    fn delete_writes(
+        &mut self,
+        tx_index: TxIndex,
+        writes: &StateMaps,
+        class_hash_to_class: &ContractClassMapping,
+    ) {
+        for &key in writes.storage.keys() {
+            self.storage.delete_write(key, tx_index);
+        }
+        for &key in writes.nonces.keys() {
+            self.nonces.delete_write(key, tx_index);
+        }
+        for &key in writes.class_hashes.keys() {
+            self.class_hashes.delete_write(key, tx_index);
+        }
+        for &key in writes.compiled_class_hashes.keys() {
+            self.compiled_class_hashes.delete_write(key, tx_index);
+        }
+        for &key in class_hash_to_class.keys() {
+            self.compiled_contract_classes.delete_write(key, tx_index);
+        }
+    }
 }
 
 pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
@@ -176,6 +213,10 @@ impl<S: StateReader> VersionedStateProxy<S> {
 
     pub fn apply_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
         self.state().apply_writes(self.tx_index, writes, class_hash_to_class)
+    }
+
+    pub fn delete_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
+        self.state().delete_writes(self.tx_index, writes, class_hash_to_class);
     }
 }
 
