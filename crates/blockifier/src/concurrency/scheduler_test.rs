@@ -119,6 +119,39 @@ fn test_next_task(
 }
 
 #[rstest]
+#[case::happy_flow(0, TransactionStatus::Executed)]
+#[case::last_transaction_to_commit(DEFAULT_CHUNK_SIZE - 1, TransactionStatus::Executed)]
+#[case::wrong_status_ready(0, TransactionStatus::ReadyToExecute)]
+#[case::wrong_status_executing(0, TransactionStatus::Executing)]
+#[case::wrong_status_aborting(0, TransactionStatus::Aborting)]
+#[case::wrong_status_committed(0, TransactionStatus::Committed)]
+fn test_try_commit(
+    #[case] commit_index: TxIndex,
+    #[case] commit_index_tx_status: TransactionStatus,
+) {
+    let scheduler = default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, commit_index: commit_index);
+    scheduler.set_tx_status(commit_index, commit_index_tx_status);
+    assert!(scheduler.try_commit_lock());
+    // Lock is already acquired.
+    assert!(!scheduler.try_commit_lock());
+    assert_eq!(scheduler.commit_lock.load(Ordering::Acquire), true);
+    scheduler.try_commit();
+    if commit_index_tx_status == TransactionStatus::Executed {
+        assert_eq!(*scheduler.lock_tx_status(commit_index), TransactionStatus::Committed);
+        assert_eq!(*scheduler.commit_index.lock().unwrap(), commit_index + 1);
+        assert_eq!(
+            scheduler.done_marker.load(Ordering::Acquire),
+            commit_index + 1 == DEFAULT_CHUNK_SIZE
+        );
+    } else {
+        assert_eq!(*scheduler.lock_tx_status(commit_index), commit_index_tx_status);
+        assert_eq!(*scheduler.commit_index.lock().unwrap(), commit_index);
+    }
+    scheduler.unlock_commit_lock();
+    assert_eq!(scheduler.commit_lock.load(Ordering::Acquire), false);
+}
+
+#[rstest]
 #[case::happy_flow(TransactionStatus::Executing)]
 #[should_panic(expected = "Only executing transactions can gain status executed. Transaction 0 \
                            is not executing. Transaction status: ReadyToExecute.")]
@@ -129,6 +162,9 @@ fn test_next_task(
 #[should_panic(expected = "Only executing transactions can gain status executed. Transaction 0 \
                            is not executing. Transaction status: Aborting.")]
 #[case::wrong_status_aborting(TransactionStatus::Aborting)]
+#[should_panic(expected = "Only executing transactions can gain status executed. Transaction 0 \
+                           is not executing. Transaction status: Committed.")]
+#[case::wrong_status_committed(TransactionStatus::Committed)]
 fn test_set_executed_status(#[case] tx_status: TransactionStatus) {
     let tx_index = 0;
     let scheduler = Scheduler::new(DEFAULT_CHUNK_SIZE);
@@ -166,6 +202,9 @@ fn test_finish_execution(#[case] tx_index: TxIndex, #[case] validation_index: Tx
 #[should_panic(expected = "Only aborting transactions can be re-executed. Transaction 0 is not \
                            aborting. Transaction status: Executing.")]
 #[case::wrong_status_executing(TransactionStatus::Executing)]
+#[should_panic(expected = "Only aborting transactions can be re-executed. Transaction 0 is not \
+                           aborting. Transaction status: Committed.")]
+#[case::wrong_status_committed(TransactionStatus::Committed)]
 fn test_set_ready_status(#[case] tx_status: TransactionStatus) {
     let tx_index = 0;
     let scheduler = Scheduler::new(DEFAULT_CHUNK_SIZE);
@@ -180,6 +219,7 @@ fn test_set_ready_status(#[case] tx_status: TransactionStatus) {
 #[case::wrong_status_ready(TransactionStatus::ReadyToExecute)]
 #[case::wrong_status_executing(TransactionStatus::Executing)]
 #[case::wrong_status_aborted(TransactionStatus::Aborting)]
+#[case::wrong_status_committed(TransactionStatus::Committed)]
 fn test_try_validation_abort(#[case] tx_status: TransactionStatus) {
     let tx_index = 0;
     let scheduler = Scheduler::new(DEFAULT_CHUNK_SIZE);
@@ -254,6 +294,7 @@ fn test_decrease_validation_index(
 #[case::executing(0, TransactionStatus::Executing, false)]
 #[case::executed(0, TransactionStatus::Executed, false)]
 #[case::aborting(0, TransactionStatus::Aborting, false)]
+#[case::committed(0, TransactionStatus::Committed, false)]
 #[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, TransactionStatus::ReadyToExecute, false)]
 fn test_try_incarnate(
     #[case] tx_index: TxIndex,
@@ -279,6 +320,7 @@ fn test_try_incarnate(
 #[case::executing(1, TransactionStatus::Executing, None)]
 #[case::executed(1, TransactionStatus::Executed, Some(1))]
 #[case::aborting(1, TransactionStatus::Aborting, None)]
+#[case::committed(1, TransactionStatus::Committed, None)]
 #[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, TransactionStatus::ReadyToExecute, None)]
 fn test_next_version_to_validate(
     #[case] validation_index: TxIndex,
@@ -301,6 +343,7 @@ fn test_next_version_to_validate(
 #[case::executing(1, TransactionStatus::Executing, None)]
 #[case::executed(1, TransactionStatus::Executed, None)]
 #[case::aborting(1, TransactionStatus::Aborting, None)]
+#[case::committed(1, TransactionStatus::Committed, None)]
 #[case::index_out_of_bounds(DEFAULT_CHUNK_SIZE, TransactionStatus::ReadyToExecute, None)]
 fn test_next_version_to_execute(
     #[case] execution_index: TxIndex,
