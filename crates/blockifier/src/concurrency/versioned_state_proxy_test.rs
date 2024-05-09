@@ -9,10 +9,13 @@ use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionV
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
-use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::test_utils::{
+    class_hash, contract_address, safe_versioned_state_for_testing,
+};
 use crate::concurrency::versioned_state_proxy::{
     ThreadSafeVersionedState, VersionedState, VersionedStateProxy,
 };
+use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::state::cached_state::{CachedState, StateMaps};
 use crate::state::state_api::{State, StateReader};
@@ -26,19 +29,6 @@ use crate::transaction::objects::{FeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::l1_resource_bounds;
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::{compiled_class_hash, deploy_account_tx_args, nonce, storage_key};
-
-const TEST_CONTRACT_ADDRESS: &str = "0x1";
-const TEST_CLASS_HASH: u8 = 27_u8;
-
-#[fixture]
-pub fn contract_address() -> ContractAddress {
-    contract_address!(TEST_CONTRACT_ADDRESS)
-}
-
-#[fixture]
-pub fn class_hash() -> ClassHash {
-    class_hash!(TEST_CLASS_HASH)
-}
 
 #[fixture]
 pub fn safe_versioned_state(
@@ -370,4 +360,46 @@ fn test_apply_writes_reexecute_scenario(
     transactional_states[1] = CachedState::from(safe_versioned_state.pin_version(1));
     // The class hash should be updated.
     assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
+}
+
+#[rstest]
+fn test_delete_writes(
+    #[values(0, 1, 2)] tx_index_to_delete_writes: TxIndex,
+    class_hash: ClassHash,
+    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+) {
+    let num_of_txs = 3;
+    let mut transactional_states: Vec<CachedState<VersionedStateProxy<DictStateReader>>> =
+        (0..num_of_txs).map(|i| CachedState::from(safe_versioned_state.pin_version(i))).collect();
+    let contract_addresses = [contract_address!("0x100"), contract_address!("0x200")];
+    let contract_class = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
+    for tx in transactional_states.iter_mut().take(num_of_txs) {
+        for contract_address in contract_addresses.iter() {
+            // Class hash values are not checked in this test.
+            tx.set_class_hash_at(*contract_address, class_hash).unwrap();
+            tx.set_contract_class(class_hash, contract_class.clone()).unwrap();
+        }
+        tx.state.apply_writes(&tx.cache.borrow().writes, &tx.class_hash_to_class.borrow().clone());
+    }
+
+    transactional_states[tx_index_to_delete_writes].state.delete_writes(
+        &transactional_states[tx_index_to_delete_writes].cache.borrow().writes,
+        &transactional_states[tx_index_to_delete_writes].class_hash_to_class.borrow().clone(),
+    );
+
+    for tx_index in 0..num_of_txs {
+        let should_be_empty = tx_index == tx_index_to_delete_writes;
+        assert_eq!(
+            safe_versioned_state
+                .0
+                .lock()
+                .unwrap()
+                .get_writes_of_index(tx_index)
+                .class_hashes
+                .is_empty(),
+            should_be_empty
+        );
+        // TODO(OriF, 01/07/2025): Test compiled_contract_classes once deploy account preceding
+        // declare flow is solved.
+    }
 }
