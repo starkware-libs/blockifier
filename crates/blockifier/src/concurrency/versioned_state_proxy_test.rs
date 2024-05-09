@@ -371,3 +371,9 @@ fn test_apply_writes_reexecute_scenario(
     // The class hash should be updated.
     assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
 }
+
+#[rstest]
+fn test_delete_writes() {
+    // TODO(barak, 01/07/2024): Complete the test.
+    assert_eq!(0, 0)
+}

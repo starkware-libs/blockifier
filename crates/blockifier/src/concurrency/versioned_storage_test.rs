@@ -1,7 +1,16 @@
+use std::collections::HashMap;
+
 use pretty_assertions::assert_eq;
+use rstest::rstest;
+use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::hash::StarkHash;
+use starknet_api::{class_hash, contract_address, patricia_key};
 
+// use crate::concurrency::test_utils::contract_address;
 use crate::concurrency::versioned_storage::VersionedStorage;
+use crate::concurrency::TxIndex;
 
+// TODO(barak, 01/07/2024): Split into test_read() and test_write().
 #[test]
 fn test_versioned_storage() {
     let mut storage = VersionedStorage::default();
@@ -36,4 +45,38 @@ fn test_versioned_storage() {
 
     // Test the write.
     assert_eq!(storage.read(50, 100).unwrap(), 194);
+}
+
+#[rstest]
+fn test_delete_writes(#[values(0, 1, 2)] tx_index_to_delete_writes: TxIndex) {
+    // TODO(barak, 01/07/2025): Create a macro versioned_storage!.
+    let mut class_hashes_versioned_storage = VersionedStorage::default();
+    let contract_addresses = [contract_address!("0x100"), contract_address!("0x200")];
+    let mut write_sets = vec![];
+    for tx_index in 0..3 {
+        let mut write_set: HashMap<&ContractAddress, ClassHash> = HashMap::default();
+        for (i, contract_address) in contract_addresses.iter().enumerate() {
+            let value = class_hash!(format!("0x{}", i).as_str());
+            class_hashes_versioned_storage.write(tx_index, contract_address, value);
+            write_set.insert(contract_address, value);
+        }
+        write_sets.push(write_set);
+    }
+
+    class_hashes_versioned_storage
+        .delete_writes(write_sets[tx_index_to_delete_writes].keys(), tx_index_to_delete_writes);
+
+    for tx_index in 0..3 {
+        let should_contain_tx_index_writes = tx_index != tx_index_to_delete_writes;
+        for contract_address in contract_addresses {
+            assert_eq!(
+                class_hashes_versioned_storage
+                    .writes
+                    .get(&contract_address)
+                    .unwrap()
+                    .contains_key(&tx_index),
+                should_contain_tx_index_writes
+            )
+        }
+    }
 }
