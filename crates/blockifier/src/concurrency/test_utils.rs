@@ -1,3 +1,8 @@
+use rstest::fixture;
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::hash::StarkHash;
+use starknet_api::{contract_address, patricia_key};
+
 use crate::concurrency::versioned_state_proxy::{ThreadSafeVersionedState, VersionedState};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
@@ -6,6 +11,16 @@ use crate::state::state_api::StateReader;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::transactions::ExecutableTransaction;
+// Fixtures.
+
+const TEST_CONTRACT_ADDRESS: &str = "0x1";
+
+#[fixture]
+pub fn contract_address() -> ContractAddress {
+    contract_address!(TEST_CONTRACT_ADDRESS)
+}
+
+// Macros.
 
 #[macro_export]
 macro_rules! default_scheduler {
@@ -35,12 +50,16 @@ macro_rules! default_scheduler {
     };
 }
 
+// Concurrency constructors.
+
 // TODO(meshi, 01/06/2024): Consider making this a macro.
 pub fn safe_versioned_state_for_testing(
     block_state: DictStateReader,
 ) -> ThreadSafeVersionedState<DictStateReader> {
     ThreadSafeVersionedState::new(VersionedState::new(block_state))
 }
+
+// Utils.
 
 // Note: this function does not mutate the state.
 pub fn create_fee_transfer_call_info<S: StateReader>(
