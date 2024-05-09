@@ -147,17 +147,13 @@ impl Scheduler {
         self.decrease_validation_index(tx_index + 1);
     }
 
-    // TODO(Avi, 15/05/2024): Remove dead_code attribute after using the commit lock.
-    #[allow(dead_code)]
-    fn try_commit_lock(&self) -> bool {
+    pub fn try_commit_lock(&self) -> bool {
         self.commit_lock
             .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
     }
 
-    // TODO(Avi, 15/05/2024): Remove dead_code attribute after using the commit lock.
-    #[allow(dead_code)]
-    fn unlock_commit_lock(&self) {
+    pub fn unlock_commit_lock(&self) {
         self.commit_lock.store(false, Ordering::Release);
     }
 
