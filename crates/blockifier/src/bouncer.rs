@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use starknet_api::core::ClassHash;
 
 use crate::blockifier::transaction_executor::{
@@ -61,6 +61,7 @@ impl BouncerConfig {
     derive_more::Sub,
     Deserialize,
     PartialEq,
+    Serialize,
 )]
 /// Represents the execution resources counted throughout block creation.
 pub struct BouncerWeights {
@@ -108,6 +109,7 @@ impl BouncerWeights {
     derive_more::Sub,
     Deserialize,
     PartialEq,
+    Serialize,
 )]
 pub struct BuiltinCount {
     pub bitwise: usize,

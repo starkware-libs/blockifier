@@ -275,21 +275,30 @@ impl PyBlockExecutor {
         })
     }
 
-    /// Returns the state diff and a list of contract class hash with the corresponding list of
-    /// visited segment values.
-    pub fn finalize(&mut self) -> NativeBlockifierResult<(PyStateDiff, PyVisitedSegmentsMapping)> {
+    /// Returns the state diff, a list of contract class hash with the corresponding list of
+    /// visited segment values and the block weights.
+    pub fn finalize(
+        &mut self,
+    ) -> NativeBlockifierResult<(PyStateDiff, PyVisitedSegmentsMapping, Py<PyBytes>)> {
         log::debug!("Finalizing execution...");
-        let (commitment_state_diff, visited_pcs) = self.tx_executor().finalize()?;
+        let (commitment_state_diff, visited_pcs, block_weights) = self.tx_executor().finalize()?;
         let visited_pcs = visited_pcs
             .into_iter()
             .map(|(class_hash, class_visited_pcs_vec)| {
                 (PyFelt::from(class_hash), class_visited_pcs_vec)
             })
             .collect();
-        let finalized_state = (PyStateDiff::from(commitment_state_diff), visited_pcs);
+        let py_state_diff = PyStateDiff::from(commitment_state_diff);
+        let raw_block_weights = Python::with_gil(|py| {
+            PyBytes::new(
+                py,
+                &serde_json::to_vec(&block_weights).expect("Failed serializing bouncer weights."),
+            )
+            .into()
+        });
         log::debug!("Finalized execution.");
 
-        Ok(finalized_state)
+        Ok((py_state_diff, visited_pcs, raw_block_weights))
     }
 
     // Storage Alignment API.
