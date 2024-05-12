@@ -280,7 +280,7 @@ fn test_validate_read_set(
     let transactional_state = CachedState::from(safe_versioned_state.pin_version(1));
 
     // Validating tx index 0 always succeeds.
-    assert!(safe_versioned_state.pin_version(0).validate_read_set(&StateMaps::default()));
+    assert!(safe_versioned_state.pin_version(0).validate_reads(&StateMaps::default()));
 
     assert!(transactional_state.cache.borrow().initial_reads.storage.is_empty());
     transactional_state.get_storage_at(contract_address, storage_key).unwrap();
@@ -304,7 +304,7 @@ fn test_validate_read_set(
     assert!(
         safe_versioned_state
             .pin_version(1)
-            .validate_read_set(&transactional_state.cache.borrow().initial_reads)
+            .validate_reads(&transactional_state.cache.borrow().initial_reads)
     );
 }
 
