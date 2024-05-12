@@ -6,7 +6,6 @@ use pretty_assertions::assert_eq;
 use regex::Regex;
 use rstest::rstest;
 use starknet_api::core::{EntryPointSelector, PatriciaKey};
-use starknet_api::deprecated_contract_class::{EntryPointOffset, EntryPointType};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Calldata, TransactionVersion};
 use starknet_api::{calldata, stark_felt};
@@ -14,7 +13,6 @@ use starknet_api::{calldata, stark_felt};
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::context::{BlockContext, ChainInfo};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
-use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::contracts::FeatureContract;
@@ -562,37 +560,6 @@ fn test_cairo1_entry_point_segment_arena() {
     );
 }
 
-/// Fetch PC locations from the compiled contract to compute the expected PC locations in the
-/// traceback. Computation is not robust, but as long as the cairo function itself is not edited,
-/// this computation should be stable.
-fn get_entry_point_offset(
-    contract_class: &ContractClass,
-    entry_point_selector: EntryPointSelector,
-) -> EntryPointOffset {
-    match contract_class {
-        ContractClass::V0(class) => {
-            class
-                .entry_points_by_type
-                .get(&EntryPointType::External)
-                .unwrap()
-                .iter()
-                .find(|ep| ep.selector == entry_point_selector)
-                .unwrap()
-                .offset
-        }
-        ContractClass::V1(class) => {
-            class
-                .entry_points_by_type
-                .get(&EntryPointType::External)
-                .unwrap()
-                .iter()
-                .find(|ep| ep.selector == entry_point_selector)
-                .unwrap()
-                .offset
-        }
-    }
-}
-
 #[rstest]
 fn test_stack_trace(
     block_context: BlockContext,
@@ -638,16 +605,12 @@ fn test_stack_trace(
     // Fetch PC locations from the compiled contract to compute the expected PC locations in the
     // traceback. Computation is not robust, but as long as the cairo function itself is not edited,
     // this computation should be stable.
-    let account_contract_class = account.get_class();
-    let account_entry_point_offset = get_entry_point_offset(
-        &account_contract_class,
-        selector_from_name(EXECUTE_ENTRY_POINT_NAME),
-    );
+    let account_entry_point_offset =
+        account.get_entry_point_offset(selector_from_name(EXECUTE_ENTRY_POINT_NAME));
     let execute_selector_felt = selector_from_name(EXECUTE_ENTRY_POINT_NAME).0;
-    let contract_class = test_contract.get_class();
     let external_entry_point_selector_felt = selector_from_name(call_contract_function_name).0;
     let entry_point_offset =
-        get_entry_point_offset(&contract_class, selector_from_name(call_contract_function_name));
+        test_contract.get_entry_point_offset(selector_from_name(call_contract_function_name));
     // Relative offsets of the test_call_contract entry point and the inner call.
     let call_location = entry_point_offset.0 + 14;
     let entry_point_location = entry_point_offset.0 - 3;
@@ -757,12 +720,9 @@ fn test_trace_callchain_ends_with_regular_call(
     )
     .unwrap_err();
 
-    let account_entry_point_offset = get_entry_point_offset(
-        &account_contract.get_class(),
-        selector_from_name(EXECUTE_ENTRY_POINT_NAME),
-    );
-    let entry_point_offset =
-        get_entry_point_offset(&test_contract.get_class(), invoke_call_chain_selector);
+    let account_entry_point_offset =
+        account_contract.get_entry_point_offset(selector_from_name(EXECUTE_ENTRY_POINT_NAME));
+    let entry_point_offset = test_contract.get_entry_point_offset(invoke_call_chain_selector);
     let execute_selector_felt = selector_from_name(EXECUTE_ENTRY_POINT_NAME).0;
 
     let expected_trace = match cairo_version {
@@ -896,12 +856,9 @@ fn test_trace_call_chain_with_syscalls(
     )
     .unwrap_err();
 
-    let account_entry_point_offset = get_entry_point_offset(
-        &account_contract.get_class(),
-        selector_from_name(EXECUTE_ENTRY_POINT_NAME),
-    );
-    let entry_point_offset =
-        get_entry_point_offset(&test_contract.get_class(), invoke_call_chain_selector);
+    let account_entry_point_offset =
+        account_contract.get_entry_point_offset(selector_from_name(EXECUTE_ENTRY_POINT_NAME));
+    let entry_point_offset = test_contract.get_entry_point_offset(invoke_call_chain_selector);
     let execute_selector_felt = selector_from_name(EXECUTE_ENTRY_POINT_NAME).0;
 
     let last_call_preamble = if call_type == 0 {
