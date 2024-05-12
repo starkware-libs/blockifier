@@ -102,7 +102,7 @@ pub enum EntryPointExecutionError {
 #[derive(Debug, Error)]
 pub enum ConstructorEntryPointExecutionError {
     #[error(
-        "Error in the contract class {class_hash:?} constructor (selector: \
+        "Error in the contract class {class_hash} constructor (selector: \
          {constructor_selector:?}, address: {contract_address:?}): {error}"
     )]
     ExecutionError {
@@ -175,20 +175,26 @@ pub fn gen_transaction_execution_error_trace(error: &TransactionExecutionError) 
             class_hash,
             storage_address,
             selector,
-        }
-        | TransactionExecutionError::ContractConstructorExecutionFailed(
+        } => gen_error_trace_from_entry_point_error(
+            error,
+            storage_address,
+            class_hash,
+            Some(selector),
+            false,
+        ),
+        TransactionExecutionError::ContractConstructorExecutionFailed(
             ConstructorEntryPointExecutionError::ExecutionError {
                 error,
                 class_hash,
                 contract_address: storage_address,
-                // TODO(Dori, 5/5/2024): Also handle the no-selector case.
-                constructor_selector: Some(selector),
+                constructor_selector,
             },
         ) => gen_error_trace_from_entry_point_error(
             error,
             storage_address,
             class_hash,
-            Some(selector),
+            constructor_selector.as_ref(),
+            true,
         ),
         _ => {
             vec![error.to_string()]
@@ -204,16 +210,22 @@ fn gen_error_trace_from_entry_point_error(
     storage_address: &ContractAddress,
     class_hash: &ClassHash,
     entry_point_selector: Option<&EntryPointSelector>,
+    is_ctor: bool,
 ) -> ErrorStack {
     let mut error_stack: ErrorStack = ErrorStack::new();
     let depth = 0;
-    error_stack.push(frame_preamble(
-        depth,
-        "Error in the called contract",
-        storage_address,
-        class_hash,
-        entry_point_selector,
-    ));
+    let preamble = if is_ctor {
+        ctor_preamble(depth, storage_address, class_hash, entry_point_selector)
+    } else {
+        frame_preamble(
+            depth,
+            "Error in the called contract",
+            storage_address,
+            class_hash,
+            entry_point_selector,
+        )
+    };
+    error_stack.push(preamble);
     extract_entry_point_execution_error_into_stack_trace(&mut error_stack, depth + 1, error);
     error_stack
 }
@@ -306,6 +318,21 @@ fn frame_preamble(
     )
 }
 
+fn ctor_preamble(
+    depth: usize,
+    storage_address: &ContractAddress,
+    class_hash: &ClassHash,
+    selector: Option<&EntryPointSelector>,
+) -> String {
+    frame_preamble(
+        depth,
+        "Error in the contract class constructor",
+        storage_address,
+        class_hash,
+        selector,
+    )
+}
+
 fn call_contract_preamble(
     depth: usize,
     storage_address: &ContractAddress,
@@ -354,6 +381,26 @@ fn extract_syscall_execution_error_into_stack_trace(
             error_stack.push(library_call_preamble(depth, storage_address, class_hash, selector));
             extract_syscall_execution_error_into_stack_trace(error_stack, depth + 1, error);
         }
+        SyscallExecutionError::ConstructorEntryPointExecutionError(
+            ConstructorEntryPointExecutionError::ExecutionError {
+                error: entry_point_error,
+                class_hash,
+                contract_address,
+                constructor_selector,
+            },
+        ) => {
+            error_stack.push(ctor_preamble(
+                depth,
+                contract_address,
+                class_hash,
+                constructor_selector.as_ref(),
+            ));
+            extract_entry_point_execution_error_into_stack_trace(
+                error_stack,
+                depth,
+                entry_point_error,
+            )
+        }
         SyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
             extract_entry_point_execution_error_into_stack_trace(
                 error_stack,
@@ -397,6 +444,26 @@ fn extract_deprecated_syscall_execution_error_into_stack_trace(
                 error_stack,
                 depth + 1,
                 error,
+            )
+        }
+        DeprecatedSyscallExecutionError::ConstructorEntryPointExecutionError(
+            ConstructorEntryPointExecutionError::ExecutionError {
+                error: entry_point_error,
+                class_hash,
+                contract_address,
+                constructor_selector,
+            },
+        ) => {
+            error_stack.push(ctor_preamble(
+                depth,
+                contract_address,
+                class_hash,
+                constructor_selector.as_ref(),
+            ));
+            extract_entry_point_execution_error_into_stack_trace(
+                error_stack,
+                depth,
+                entry_point_error,
             )
         }
         DeprecatedSyscallExecutionError::EntryPointExecutionError(entry_point_error) => {
