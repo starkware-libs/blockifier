@@ -422,6 +422,7 @@ dependencies = [
  "num-rational 0.4.1",
  "num-traits 0.2.17",
  "once_cell",
+ "papyrus_config 0.3.0",
  "phf",
  "pretty_assertions",
  "rand 0.8.5",
@@ -2398,6 +2399,21 @@ dependencies = [
 
 [[package]]
 name = "papyrus_config"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56f71a47a327032490c0da1066d984cc67833669cf9a80fabb012bb2d491a761"
+dependencies = [
+ "clap 4.4.13",
+ "itertools 0.10.5",
+ "serde",
+ "serde_json",
+ "strum_macros 0.25.3",
+ "thiserror",
+ "validator",
+]
+
+[[package]]
+name = "papyrus_config"
 version = "0.4.0-dev.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20c0679905ebf1579de3a0153f278027b5f6ca8429a4b13b522ce133cae1bb55"
@@ -2442,7 +2458,7 @@ dependencies = [
  "num-bigint 0.4.4",
  "page_size",
  "papyrus_common",
- "papyrus_config",
+ "papyrus_config 0.4.0-dev.1",
  "papyrus_proc_macros",
  "parity-scale-codec",
  "primitive-types",
