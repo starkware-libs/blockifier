@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 
 use papyrus_config::dumping::{append_sub_config_name, ser_param, SerializeConfig};
 use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use starknet_api::core::{ChainId, ContractAddress};
+use validator::Validate;
 
 use crate::blockifier::block::BlockInfo;
 use crate::transaction::objects::{
@@ -78,7 +79,7 @@ impl BlockContext {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Validate)]
 pub struct ChainInfo {
     pub chain_id: ChainId,
     pub fee_token_addresses: FeeTokenAddresses,
@@ -116,7 +117,7 @@ impl SerializeConfig for ChainInfo {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, Validate)]
 pub struct FeeTokenAddresses {
     pub strk_fee_token_address: ContractAddress,
     pub eth_fee_token_address: ContractAddress,

@@ -1,0 +1,12 @@
+{
+  "eth_fee_token_address": {
+    "description": "Address of the ETH fee token.",
+    "privacy": "Public",
+    "value": "0x1001"
+  },
+  "strk_fee_token_address": {
+    "description": "Address of the STRK fee token.",
+    "privacy": "Public",
+    "value": "0x1002"
+  }
+}
