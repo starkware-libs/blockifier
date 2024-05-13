@@ -1,3 +1,4 @@
+use serde::Serialize;
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::blockifier::block::BlockInfo;
@@ -73,7 +74,7 @@ impl BlockContext {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ChainInfo {
     pub chain_id: ChainId,
     pub fee_token_addresses: FeeTokenAddresses,
@@ -97,7 +98,7 @@ impl Default for ChainInfo {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct FeeTokenAddresses {
     pub strk_fee_token_address: ContractAddress,
     pub eth_fee_token_address: ContractAddress,
