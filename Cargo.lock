@@ -410,6 +410,7 @@ dependencies = [
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
  "cairo-vm",
+ "clap 4.4.13",
  "criterion",
  "derive_more",
  "glob",
@@ -437,6 +438,7 @@ dependencies = [
  "strum_macros 0.24.3",
  "test-case",
  "thiserror",
+ "validator",
 ]
 
 [[package]]
