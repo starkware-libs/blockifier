@@ -7,6 +7,8 @@ use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::transactions::ExecutableTransaction;
 
+pub const DEFAULT_CHUNK_SIZE: usize = 100;
+
 #[macro_export]
 macro_rules! default_scheduler {
     ($chunk_size:ident : $chunk:expr , $($field:ident $(: $value:expr)?),+ $(,)?) => {

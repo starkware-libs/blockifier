@@ -42,7 +42,7 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    pub fn get_writes(&mut self, from_index: TxIndex) -> StateMaps {
+    fn get_writes(&mut self, from_index: TxIndex) -> StateMaps {
         StateMaps {
             storage: self.storage.get_writes_from_index(from_index),
             nonces: self.nonces.get_writes_from_index(from_index),
