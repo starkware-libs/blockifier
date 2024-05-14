@@ -441,6 +441,7 @@ pub struct GasCosts {
     pub secp256r1_new_gas_cost: u64,
     pub keccak_gas_cost: u64,
     pub keccak_round_cost_gas_cost: u64,
+    pub sha256_process_block_gas_cost: u64,
 }
 
 // Below, serde first deserializes the json into a regular IndexMap wrapped by the newtype
