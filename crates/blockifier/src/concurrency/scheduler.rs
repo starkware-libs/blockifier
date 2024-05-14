@@ -207,12 +207,17 @@ impl Scheduler {
         None
     }
 
-    #[cfg(test)]
-    fn set_tx_status(&self, tx_index: TxIndex, status: TransactionStatus) {
+    #[cfg(any(feature = "testing", test))]
+    pub fn set_tx_status(&self, tx_index: TxIndex, status: TransactionStatus) {
         if tx_index < self.chunk_size {
             let mut tx_status = self.lock_tx_status(tx_index);
             *tx_status = status;
         }
+    }
+
+    #[cfg(any(feature = "testing", test))]
+    pub fn get_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {
+        self.lock_tx_status(tx_index)
     }
 }
 
@@ -225,7 +230,7 @@ pub enum Task {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum TransactionStatus {
+pub enum TransactionStatus {
     ReadyToExecute,
     Executing,
     Executed,
