@@ -137,6 +137,11 @@
             "syscall_base_gas_cost": 1
         },
         "keccak_round_cost_gas_cost": 180000,
+        "sha256_process_block_gas_cost": {
+            "step_gas_cost": 0,
+            "range_check_gas_cost": 0,
+            "syscall_base_gas_cost": 0
+        },
         "error_block_number_out_of_range": "Block number out of range",
         "error_out_of_gas": "Out of gas",
         "error_invalid_input_len": "Invalid input length",
@@ -238,6 +243,11 @@
                 },
                 "n_memory_holes": 0,
                 "n_steps": 381
+            },
+            "Sha256ProcessBlock": {
+                "builtin_instance_counter": {},
+                "n_memory_holes": 0,
+                "n_steps": 0
             },
             "LibraryCall": {
                 "builtin_instance_counter": {
