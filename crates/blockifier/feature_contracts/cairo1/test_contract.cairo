@@ -1,6 +1,7 @@
 #[starknet::contract]
 mod TestContract {
     use box::BoxTrait;
+    use core::sha256::{compute_sha256_u32_array, sha256_state_handle_init, SHA256_INITIAL_STATE};
     use dict::Felt252DictTrait;
     use ec::EcPointTrait;
     use starknet::ClassHash;
@@ -218,6 +219,16 @@ mod TestContract {
                 *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
             ),
         }
+    }
+
+    #[external(v0)]
+    fn test_sha256(ref self: ContractState) {
+        let mut input: Array::<u32> = Default::default();
+        input.append('aaaa');
+
+        // Test the sha256 syscall computation of the string 'aaaa'.
+        let [res, _, _, _, _, _, _, _,] = compute_sha256_u32_array(input, 0, 0);
+        assert(res == 0x61be55a8, 'Wrong hash value');
     }
 
     #[external(v0)]
