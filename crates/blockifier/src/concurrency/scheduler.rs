@@ -11,19 +11,19 @@ pub mod test;
 
 #[derive(Debug, Default)]
 pub struct Scheduler {
-    execution_index: AtomicUsize,
-    validation_index: AtomicUsize,
+    pub(crate) execution_index: AtomicUsize,
+    pub(crate) validation_index: AtomicUsize,
     /// Read twice upon checking the chunk completion. Used to detect if validation or execution
     /// index decreased from their observed values after ensuring that the number of active tasks
     /// is zero.
-    decrease_counter: AtomicUsize,
-    n_active_tasks: AtomicUsize,
-    chunk_size: usize,
+    pub(crate) decrease_counter: AtomicUsize,
+    pub(crate) n_active_tasks: AtomicUsize,
+    pub(crate) chunk_size: usize,
     // TODO(Avi, 15/05/2024): Consider using RwLock instead of Mutex.
-    tx_statuses: Box<[Mutex<TransactionStatus>]>,
+    pub(crate) tx_statuses: Box<[Mutex<TransactionStatus>]>,
     /// Updated by the `check_done` procedure, providing a cheap way for all threads to exit their
     /// main loops.
-    done_marker: AtomicBool,
+    pub(crate) done_marker: AtomicBool,
 }
 
 impl Scheduler {
@@ -207,8 +207,8 @@ impl Scheduler {
         None
     }
 
-    #[cfg(test)]
-    fn set_tx_status(&self, tx_index: TxIndex, status: TransactionStatus) {
+    #[cfg(any(feature = "testing", test))]
+    pub fn set_tx_status(&self, tx_index: TxIndex, status: TransactionStatus) {
         if tx_index < self.chunk_size {
             let mut tx_status = self.lock_tx_status(tx_index);
             *tx_status = status;
@@ -225,7 +225,7 @@ pub enum Task {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum TransactionStatus {
+pub enum TransactionStatus {
     ReadyToExecute,
     Executing,
     Executed,

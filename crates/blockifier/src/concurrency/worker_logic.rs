@@ -23,14 +23,26 @@ pub struct ExecutionTaskOutput {
     pub result: TransactionExecutionResult<TransactionExecutionInfo>,
 }
 
-pub struct WorkerExecutor<S: StateReader> {
+pub struct WorkerExecutor<'a, S: StateReader> {
     pub scheduler: Scheduler,
     pub state: ThreadSafeVersionedState<S>,
-    pub chunk: Box<[Transaction]>,
+    pub chunk: &'a [Transaction],
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
 }
-impl<S: StateReader> WorkerExecutor<S> {
+impl<'a, S: StateReader> WorkerExecutor<'a, S> {
+    pub fn new(
+        scheduler: Scheduler,
+        state: ThreadSafeVersionedState<S>,
+        chunk: &'a [Transaction],
+        block_context: BlockContext,
+    ) -> Self {
+        let execution_outputs =
+            std::iter::repeat_with(|| Mutex::new(None)).take(scheduler.chunk_size).collect();
+
+        WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context }
+    }
+
     pub fn run(&self) {
         let mut task = Task::NoTask;
         loop {
