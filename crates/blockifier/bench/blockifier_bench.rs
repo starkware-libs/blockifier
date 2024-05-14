@@ -87,7 +87,7 @@ fn execute_chunk_of_transfers(
     let results = executor.execute_txs(&chunk, CHARGE_FEE);
     assert_eq!(results.len(), CHUNK_SIZE);
     for result in results {
-        assert!(result.is_ok_and(|execution_info| execution_info.revert_error.is_none()));
+        assert!(!result.unwrap().is_reverted());
     }
     // TODO(Avi, 01/06/2024): Run the same transactions concurrently on a new state and compare the
     // state diffs.

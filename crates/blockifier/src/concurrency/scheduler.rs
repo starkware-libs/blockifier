@@ -41,6 +41,10 @@ impl Scheduler {
         }
     }
 
+    pub fn chunk_size(&self) -> usize {
+        self.chunk_size
+    }
+
     /// Returns the done marker.
     fn done(&self) -> bool {
         self.done_marker.load(Ordering::Acquire)
@@ -207,8 +211,8 @@ impl Scheduler {
         None
     }
 
-    #[cfg(test)]
-    fn set_tx_status(&self, tx_index: TxIndex, status: TransactionStatus) {
+    #[cfg(any(feature = "testing", test))]
+    pub fn set_tx_status(&self, tx_index: TxIndex, status: TransactionStatus) {
         if tx_index < self.chunk_size {
             let mut tx_status = self.lock_tx_status(tx_index);
             *tx_status = status;
@@ -225,7 +229,7 @@ pub enum Task {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum TransactionStatus {
+pub enum TransactionStatus {
     ReadyToExecute,
     Executing,
     Executed,
