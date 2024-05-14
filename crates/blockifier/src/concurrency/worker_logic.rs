@@ -25,35 +25,9 @@ use crate::transaction::transactions::ExecutableTransaction;
 
 const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
 
-fn add_fee_to_sequencer_balance(
-    fee_token_address: ContractAddress,
-    tx_versioned_state: &VersionedStateProxy<impl StateReader>,
-    actual_fee: Fee,
-    block_context: &BlockContext,
-    sequencer_balance_value_low: StarkFelt,
-    sequencer_balance_value_high: StarkFelt,
-) {
-    let (sequencer_balance_key_low, sequencer_balance_key_high) =
-        get_sequencer_balance_keys(block_context);
-    let felt_fee = &Felt252::from(actual_fee.0);
-    let new_value_low = stark_felt_to_felt(sequencer_balance_value_low) + felt_fee;
-    let overflow =
-        stark_felt_to_felt(sequencer_balance_value_low) > Felt252::max_value() - felt_fee;
-    let new_value_high = if overflow {
-        stark_felt_to_felt(sequencer_balance_value_high) + Felt252::from(1_u8)
-    } else {
-        stark_felt_to_felt(sequencer_balance_value_high)
-    };
-
-    let writes = StateMaps {
-        storage: HashMap::from([
-            ((fee_token_address, sequencer_balance_key_low), felt_to_stark_felt(&new_value_low)),
-            ((fee_token_address, sequencer_balance_key_high), felt_to_stark_felt(&new_value_high)),
-        ]),
-        ..StateMaps::default()
-    };
-    tx_versioned_state.apply_writes(&writes, &ContractClassMapping::default());
-}
+#[cfg(test)]
+#[path = "worker_logic_test.rs"]
+pub mod test;
 
 #[derive(Debug)]
 pub struct ExecutionTaskOutput {
@@ -63,15 +37,26 @@ pub struct ExecutionTaskOutput {
     pub result: TransactionExecutionResult<TransactionExecutionInfo>,
 }
 
-pub struct WorkerExecutor<S: StateReader> {
+pub struct WorkerExecutor<'a, S: StateReader> {
     pub scheduler: Scheduler,
     pub state: ThreadSafeVersionedState<S>,
-    pub chunk: Box<[Transaction]>,
+    pub chunk: &'a [Transaction],
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
 }
+impl<'a, S: StateReader> WorkerExecutor<'a, S> {
+    pub fn new(
+        state: ThreadSafeVersionedState<S>,
+        chunk: &'a [Transaction],
+        block_context: BlockContext,
+    ) -> Self {
+        let scheduler = Scheduler::new(chunk.len());
+        let execution_outputs =
+            std::iter::repeat_with(|| Mutex::new(None)).take(chunk.len()).collect();
 
-impl<S: StateReader> WorkerExecutor<S> {
+        WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context }
+    }
+
     pub fn run(&self) {
         let mut task = Task::NoTask;
         loop {
@@ -206,4 +191,34 @@ impl<S: StateReader> WorkerExecutor<S> {
 
         Ok(true)
     }
+}
+
+fn add_fee_to_sequencer_balance(
+    fee_token_address: ContractAddress,
+    tx_versioned_state: &VersionedStateProxy<impl StateReader>,
+    actual_fee: Fee,
+    block_context: &BlockContext,
+    sequencer_balance_value_low: StarkFelt,
+    sequencer_balance_value_high: StarkFelt,
+) {
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(block_context);
+    let felt_fee = &Felt252::from(actual_fee.0);
+    let new_value_low = stark_felt_to_felt(sequencer_balance_value_low) + felt_fee;
+    let overflow =
+        stark_felt_to_felt(sequencer_balance_value_low) > Felt252::max_value() - felt_fee;
+    let new_value_high = if overflow {
+        stark_felt_to_felt(sequencer_balance_value_high) + Felt252::from(1_u8)
+    } else {
+        stark_felt_to_felt(sequencer_balance_value_high)
+    };
+
+    let writes = StateMaps {
+        storage: HashMap::from([
+            ((fee_token_address, sequencer_balance_key_low), felt_to_stark_felt(&new_value_low)),
+            ((fee_token_address, sequencer_balance_key_high), felt_to_stark_felt(&new_value_high)),
+        ]),
+        ..StateMaps::default()
+    };
+    tx_versioned_state.apply_writes(&writes, &ContractClassMapping::default());
 }
