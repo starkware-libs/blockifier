@@ -10,6 +10,10 @@ use super::syscalls::hint_processor::SyscallExecutionError;
 use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::transaction::errors::TransactionExecutionError;
 
+#[cfg(test)]
+#[path = "stack_trace_test.rs"]
+pub mod test;
+
 pub const TRACE_LENGTH_CAP: usize = 15000;
 pub const TRACE_EXTRA_CHARS_SLACK: usize = 100;
 
