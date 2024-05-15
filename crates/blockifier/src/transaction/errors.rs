@@ -59,12 +59,15 @@ pub enum TransactionExecutionError {
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
     #[error(
         "Contract constructor execution has failed:\n{}",
-        gen_transaction_execution_error_trace(self)
+        String::from(gen_transaction_execution_error_trace(self))
     )]
     ContractConstructorExecutionFailed(#[from] ConstructorEntryPointExecutionError),
     #[error("Class with hash {class_hash:?} is already declared.")]
     DeclareTransactionError { class_hash: ClassHash },
-    #[error("Transaction execution has failed:\n{}", gen_transaction_execution_error_trace(self))]
+    #[error(
+        "Transaction execution has failed:\n{}",
+        String::from(gen_transaction_execution_error_trace(self))
+    )]
     ExecutionError {
         error: EntryPointExecutionError,
         class_hash: ClassHash,
@@ -92,7 +95,10 @@ pub enum TransactionExecutionError {
     TryFromIntError(#[from] std::num::TryFromIntError),
     #[error("Transaction size exceeds the maximum block capacity.")]
     TransactionTooLarge,
-    #[error("Transaction validation has failed:\n{}", gen_transaction_execution_error_trace(self))]
+    #[error(
+        "Transaction validation has failed:\n{}",
+        String::from(gen_transaction_execution_error_trace(self))
+    )]
     ValidateTransactionError {
         error: EntryPointExecutionError,
         class_hash: ClassHash,
