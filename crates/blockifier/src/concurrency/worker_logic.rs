@@ -2,18 +2,54 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::Mutex;
 
-use starknet_api::core::ClassHash;
+use cairo_felt::Felt252;
+use num_traits::Bounded;
+use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::hash::StarkFelt;
+use starknet_api::state::StorageKey;
+use starknet_api::transaction::Fee;
 
+use super::versioned_state_proxy::VersionedStateProxy;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
-use crate::state::cached_state::{CachedState, StateMaps};
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
 use crate::state::state_api::StateReader;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
+
+fn _add_fee_to_sequencer_balance(
+    fee_token_address: ContractAddress,
+    tx_versioned_state: &VersionedStateProxy<impl StateReader>,
+    actual_fee: &Fee,
+    sequencer_balance_key_high: StorageKey,
+    sequencer_balance_key_low: StorageKey,
+    sequencer_balance_value_high: StarkFelt,
+    sequencer_balance_value_low: StarkFelt,
+) {
+    let felt_fee = Felt252::from(actual_fee.0);
+    let new_value_low = stark_felt_to_felt(sequencer_balance_value_low) + felt_fee.clone();
+    let overflow =
+        stark_felt_to_felt(sequencer_balance_value_low) > Felt252::max_value() - felt_fee;
+    let new_value_high = if overflow {
+        stark_felt_to_felt(sequencer_balance_value_high) + Felt252::from(1_u8)
+    } else {
+        stark_felt_to_felt(sequencer_balance_value_high)
+    };
+
+    let writes = StateMaps {
+        storage: HashMap::from([
+            ((fee_token_address, sequencer_balance_key_low), felt_to_stark_felt(&new_value_low)),
+            ((fee_token_address, sequencer_balance_key_high), felt_to_stark_felt(&new_value_high)),
+        ]),
+        ..StateMaps::default()
+    };
+    tx_versioned_state.apply_writes(&writes, &ContractClassMapping::default());
+}
 
 #[derive(Debug)]
 pub struct ExecutionTaskOutput {
