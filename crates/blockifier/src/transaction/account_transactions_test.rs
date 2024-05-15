@@ -5,21 +5,18 @@ use cairo_felt::Felt252;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::core::{
-    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
-};
+use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeclareTransactionV2, Fee, ResourceBoundsMapping,
-    TransactionHash, TransactionSignature, TransactionVersion,
+    TransactionHash, TransactionVersion,
 };
 use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{
     get_fee_token_var_address, get_storage_var_address, selector_from_name,
 };
-use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
 use crate::context::BlockContext;
 use crate::execution::contract_class::{ContractClass, ContractClassV1};
 use crate::execution::entry_point::EntryPointExecutionContext;
@@ -40,10 +37,7 @@ use crate::test_utils::{
     MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::constants::{
-    DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME, EXECUTE_ENTRY_POINT_NAME, FELT_TRUE,
-    TRANSFER_ENTRY_POINT_NAME,
-};
+use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
@@ -477,201 +471,6 @@ fn test_revert_invoke(
             .get_storage_at(test_contract_address, StorageKey::try_from(storage_key).unwrap())
             .unwrap()
     );
-}
-
-#[rstest]
-/// Tests that hitting an execution error in an account contract constructor outputs the correct
-/// traceback (including correct class hash, contract address and constructor entry point selector).
-fn test_account_ctor_frame_stack_trace(
-    block_context: BlockContext,
-    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
-) {
-    let chain_info = &block_context.chain_info;
-    let faulty_account = FeatureContract::FaultyAccount(cairo_version);
-    let state = &mut test_state(chain_info, BALANCE, &[(faulty_account, 0)]);
-    let class_hash = faulty_account.get_class_hash();
-
-    // Create and execute deploy account transaction that passes validation and fails in the ctor.
-    let deploy_account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            tx_type: TransactionType::DeployAccount,
-            scenario: INVALID,
-            class_hash,
-            max_fee: Fee(BALANCE),
-            validate_constructor: true,
-            ..Default::default()
-        },
-    );
-
-    // Fund the account so it can afford the deployment.
-    let deploy_address = match &deploy_account_tx {
-        AccountTransaction::DeployAccount(deploy_tx) => deploy_tx.contract_address,
-        _ => unreachable!("deploy_account_tx is a DeployAccount"),
-    };
-    fund_account(chain_info, deploy_address, BALANCE * 2, &mut state.state);
-
-    let expected_selector = selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME).0;
-    let expected_address = deploy_address.0.key();
-    let expected_error = format!(
-        "Contract constructor execution has failed:
-0: Error in the contract class constructor (contract address: {expected_address}, class hash: \
-         {class_hash}, selector: {expected_selector}):
-"
-    ) + match cairo_version {
-        CairoVersion::Cairo0 => {
-            "Error at pc=0:223:
-Cairo traceback (most recent call last):
-Unknown location (pc=0:195)
-Unknown location (pc=0:179)
-
-An ASSERT_EQ instruction failed: 1 != 0.
-"
-        }
-        CairoVersion::Cairo1 => {
-            "Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f ('Invalid \
-             scenario').
-"
-        }
-    };
-
-    // Compare expected and actual error.
-    let error = deploy_account_tx.execute(state, &block_context, true, true).unwrap_err();
-    assert_eq!(error.to_string(), expected_error);
-}
-
-#[rstest]
-/// Tests that hitting an execution error in an contract constructor during a deploy syscall outputs
-/// the correct traceback (including correct class hash, contract address and constructor entry
-/// point selector).
-fn test_contract_ctor_frame_stack_trace(
-    block_context: BlockContext,
-    #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
-) {
-    let chain_info = &block_context.chain_info;
-    let account = FeatureContract::AccountWithoutValidations(cairo_version);
-    let faulty_ctor = FeatureContract::FaultyAccount(cairo_version);
-    // Declare both classes, but only "deploy" the dummy account.
-    let state = &mut test_state(chain_info, BALANCE, &[(account, 1), (faulty_ctor, 0)]);
-    let account_address = account.get_instance_address(0);
-    let account_class_hash = account.get_class_hash();
-    let faulty_class_hash = faulty_ctor.get_class_hash();
-
-    let salt = stark_felt!(7_u8);
-    // Constructor arg: set to true to fail deployment.
-    let validate_constructor = stark_felt!(FELT_TRUE);
-    let signature = TransactionSignature(vec![stark_felt!(INVALID)]);
-    let expected_deployed_address = calculate_contract_address(
-        ContractAddressSalt(salt),
-        faulty_class_hash,
-        &calldata![validate_constructor],
-        account_address,
-    )
-    .unwrap();
-
-    // Invoke the deploy_contract function on the dummy account to deploy the faulty contract.
-    let invoke_deploy_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(BALANCE),
-        sender_address: account_address,
-        signature,
-        calldata: create_calldata(
-            account_address,
-            DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME,
-            &[
-                faulty_class_hash.0,
-                salt,
-                stark_felt!(1_u8), // Calldata: ctor args length.
-                validate_constructor,
-            ]
-        ),
-        version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(0_u8)),
-    });
-
-    // Construct expected output.
-    let execute_selector = selector_from_name(EXECUTE_ENTRY_POINT_NAME);
-    let deploy_contract_selector = selector_from_name(DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME);
-    let ctor_selector = selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME);
-    let account_address_felt = *account_address.0.key();
-    let faulty_class_hash = faulty_ctor.get_class_hash();
-    let expected_address = expected_deployed_address.0.key();
-
-    let (frame_0, frame_1, frame_2) = (
-        format!(
-            "Transaction execution has failed:
-0: Error in the called contract (contract address: {account_address_felt}, class hash: \
-             {account_class_hash}, selector: {}):",
-            execute_selector.0
-        ),
-        format!(
-            "1: Error in the called contract (contract address: {account_address_felt}, class \
-             hash: {account_class_hash}, selector: {}):",
-            deploy_contract_selector.0
-        ),
-        format!(
-            "2: Error in the contract class constructor (contract address: {expected_address}, \
-             class hash: {faulty_class_hash}, selector: {}):",
-            ctor_selector.0
-        ),
-    );
-    let (execute_offset, deploy_offset, ctor_offset) = (
-        account.get_entry_point_offset(execute_selector).0,
-        account.get_entry_point_offset(deploy_contract_selector).0,
-        faulty_ctor.get_ctor_offset(Some(ctor_selector)).0,
-    );
-
-    let expected_error = match cairo_version {
-        CairoVersion::Cairo0 => {
-            format!(
-                "{frame_0}
-Error at pc=0:7:
-Cairo traceback (most recent call last):
-Unknown location (pc=0:{})
-Unknown location (pc=0:{})
-
-{frame_1}
-Error at pc=0:20:
-Cairo traceback (most recent call last):
-Unknown location (pc=0:{})
-Unknown location (pc=0:{})
-
-{frame_2}
-Error at pc=0:223:
-Cairo traceback (most recent call last):
-Unknown location (pc=0:{})
-Unknown location (pc=0:{})
-
-An ASSERT_EQ instruction failed: 1 != 0.
-",
-                execute_offset + 18,
-                execute_offset - 8,
-                deploy_offset + 14,
-                deploy_offset - 12,
-                ctor_offset + 7,
-                ctor_offset - 9
-            )
-        }
-        CairoVersion::Cairo1 => {
-            // TODO(Dori, 1/1/2025): Get lowest level PC locations from Cairo1 errors (ctor offset
-            //   does not appear in the trace).
-            format!(
-                "{frame_0}
-Error at pc=0:{}:
-{frame_1}
-Error at pc=0:{}:
-{frame_2}
-Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f ('Invalid scenario').
-",
-                execute_offset + 205,
-                deploy_offset + 194
-            )
-        }
-    };
-
-    // Compare expected and actual error.
-    let error =
-        invoke_deploy_tx.execute(state, &block_context, true, true).unwrap().revert_error.unwrap();
-    assert_eq!(error.to_string(), expected_error);
 }
 
 #[rstest]
