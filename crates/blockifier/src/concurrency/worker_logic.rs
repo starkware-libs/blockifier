@@ -22,6 +22,10 @@ use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecution
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
 
+#[cfg(test)]
+#[path = "worker_logic_test.rs"]
+pub mod test;
+
 fn _add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
     tx_versioned_state: &VersionedStateProxy<impl StateReader>,
