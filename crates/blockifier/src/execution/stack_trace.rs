@@ -1,7 +1,6 @@
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::errors::vm_exception::VmException;
 use itertools::Itertools;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 
@@ -60,8 +59,26 @@ impl From<&EntryPointErrorFrame> for String {
     }
 }
 
+pub struct VmExceptionFrame {
+    pc: usize,
+    traceback: Option<String>,
+}
+
+impl From<&VmExceptionFrame> for String {
+    fn from(value: &VmExceptionFrame) -> Self {
+        let vm_exception_preamble = format!("Error at pc=0:{}:", value.pc);
+        let vm_exception_traceback = if let Some(traceback) = &value.traceback {
+            format!("\n{}", traceback)
+        } else {
+            "".to_string()
+        };
+        format!("{vm_exception_preamble}{vm_exception_traceback}")
+    }
+}
+
 pub enum Frame {
     EntryPoint(EntryPointErrorFrame),
+    Vm(VmExceptionFrame),
     StringFrame(String),
 }
 
@@ -69,6 +86,7 @@ impl From<&Frame> for String {
     fn from(value: &Frame) -> Self {
         match value {
             Frame::EntryPoint(entry_point_frame) => entry_point_frame.into(),
+            Frame::Vm(vm_exception_frame) => vm_exception_frame.into(),
             Frame::StringFrame(error) => error.clone(),
         }
     }
@@ -77,6 +95,12 @@ impl From<&Frame> for String {
 impl From<EntryPointErrorFrame> for Frame {
     fn from(value: EntryPointErrorFrame) -> Self {
         Frame::EntryPoint(value)
+    }
+}
+
+impl From<VmExceptionFrame> for Frame {
+    fn from(value: VmExceptionFrame) -> Self {
+        Frame::Vm(value)
     }
 }
 
@@ -187,23 +211,14 @@ fn extract_cairo_run_error_into_stack_trace(
     error: &CairoRunError,
 ) {
     if let CairoRunError::VmException(vm_exception) = error {
-        return extract_vm_exception_into_stack_trace(error_stack, depth, vm_exception);
+        error_stack.push(
+            VmExceptionFrame { pc: vm_exception.pc, traceback: vm_exception.traceback.clone() }
+                .into(),
+        );
+        extract_virtual_machine_error_into_stack_trace(error_stack, depth, &vm_exception.inner_exc);
+    } else {
+        error_stack.push(error.to_string().into());
     }
-    error_stack.push(error.to_string().into());
-}
-
-fn extract_vm_exception_into_stack_trace(
-    error_stack: &mut ErrorStack,
-    depth: usize,
-    vm_exception: &VmException,
-) {
-    let vm_exception_preamble = format!("Error at pc=0:{}:", vm_exception.pc);
-    error_stack.push(vm_exception_preamble.into());
-
-    if let Some(traceback) = &vm_exception.traceback {
-        error_stack.push(traceback.to_string().into());
-    }
-    extract_virtual_machine_error_into_stack_trace(error_stack, depth, &vm_exception.inner_exc)
 }
 
 fn extract_virtual_machine_error_into_stack_trace(
