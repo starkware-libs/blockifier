@@ -23,11 +23,11 @@ use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecution
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
 
-const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
-
 #[cfg(test)]
 #[path = "worker_logic_test.rs"]
 pub mod test;
+
+const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
 
 #[derive(Debug)]
 pub struct ExecutionTaskOutput {
@@ -190,37 +190,40 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 
         let tx_context = Arc::new(self.block_context.to_tx_context(tx));
         // Fix the sequencer balance.
-        // There is no need to fix the balance when the sequencer transfers fee to itself, since we
-        // use the sequential fee transfer in this case.
         if let Ok(tx_info) = result_tx_info.as_mut() {
             // TODO(Meshi, 01/06/2024): check if this is also needed in the bouncer.
             if tx_context.tx_info.sender_address()
-                != self.block_context.block_info.sequencer_address
+                == self.block_context.block_info.sequencer_address
             {
-                // Update the sequencer balance in the storage.
-                let mut next_tx_versioned_state = self.state.pin_version(tx_index + 1);
-                let (sequencer_balance_value_low, sequencer_balance_value_high) =
-                    next_tx_versioned_state.get_fee_token_balance(
-                        tx_context.block_context.block_info.sequencer_address,
-                        tx_context.fee_token_address(),
-                    )?;
-                if let Some(fee_transfer_call_info) = tx_info.fee_transfer_call_info.as_mut() {
-                    // Fix the transfer call info.
-                    fill_sequencer_balance_reads(
-                        fee_transfer_call_info,
-                        sequencer_balance_value_low,
-                        sequencer_balance_value_high,
-                    );
-                }
-                add_fee_to_sequencer_balance(
+                // When the sequencer is the sender, we use the sequential fee transfer.
+                // Meaning we don't remove the sequencer balance from the read and writes sets,
+                // so we have nothing to fix.
+                return Ok(true);
+            }
+
+            // Update the sequencer balance in the storage.
+            let mut next_tx_versioned_state = self.state.pin_version(tx_index + 1);
+            let (sequencer_balance_value_low, sequencer_balance_value_high) =
+                next_tx_versioned_state.get_fee_token_balance(
+                    tx_context.block_context.block_info.sequencer_address,
                     tx_context.fee_token_address(),
-                    &mut tx_versioned_state,
-                    tx_info.actual_fee,
-                    &self.block_context,
+                )?;
+            if let Some(fee_transfer_call_info) = tx_info.fee_transfer_call_info.as_mut() {
+                // Fix the transfer call info.
+                fill_sequencer_balance_reads(
+                    fee_transfer_call_info,
                     sequencer_balance_value_low,
                     sequencer_balance_value_high,
                 );
             }
+            add_fee_to_sequencer_balance(
+                tx_context.fee_token_address(),
+                &mut tx_versioned_state,
+                tx_info.actual_fee,
+                &self.block_context,
+                sequencer_balance_value_low,
+                sequencer_balance_value_high,
+            );
         }
 
         Ok(true)
