@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use num_bigint::BigUint;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::Fee;
@@ -10,7 +11,10 @@ use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
 use crate::context::BlockContext;
+use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::StateMaps;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
@@ -18,6 +22,7 @@ use crate::test_utils::initial_test_state::test_state_reader;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, TEST_ERC20_CONTRACT_ADDRESS,
 };
+use crate::transaction::objects::FeeType;
 use crate::transaction::test_utils::account_invoke_tx;
 use crate::transaction::transaction_execution::Transaction;
 use crate::{invoke_tx_args, nonce, storage_key};
@@ -294,4 +299,63 @@ fn test_worker_validate() {
 
     let next_task2 = worker_executor.validate(tx_index);
     assert_eq!(next_task2, Task::NoTask);
+}
+use cairo_felt::Felt252;
+use rstest::rstest;
+
+#[rstest]
+#[case::no_overflow(Fee(50_u128), stark_felt!(100_u128), StarkFelt::ZERO)]
+#[case::overflow(Fee(150_u128), stark_felt!(u128::max_value()), stark_felt!(5_u128))]
+#[case::overflow_edge_case(Fee(500_u128), stark_felt!(u128::max_value()), stark_felt!(u128::max_value()-1))]
+pub fn test_add_fee_to_sequencer_balance(
+    #[case] actual_fee: Fee,
+    #[case] sequencer_balance_low: StarkFelt,
+    #[case] sequencer_balance_high: StarkFelt,
+) {
+    let tx_index = 0;
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::Empty(CairoVersion::Cairo1);
+    let safe_versioned_state = safe_versioned_state_for_testing(test_state_reader(
+        &block_context.chain_info,
+        0,
+        &[(account, 1)],
+    ));
+    let mut tx_versioned_state = safe_versioned_state.pin_version(tx_index);
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(&block_context);
+
+    let fee_token_address = block_context.chain_info.fee_token_address(&FeeType::Strk);
+
+    add_fee_to_sequencer_balance(
+        fee_token_address,
+        &mut tx_versioned_state,
+        actual_fee,
+        &block_context,
+        sequencer_balance_low,
+        sequencer_balance_high,
+    );
+    let next_tx_versioned_state = safe_versioned_state.pin_version(tx_index + 1);
+
+    let new_sequencer_balance_value_low = next_tx_versioned_state
+        .get_storage_at(fee_token_address, sequencer_balance_key_low)
+        .unwrap();
+    let new_sequencer_balance_value_high = next_tx_versioned_state
+        .get_storage_at(fee_token_address, sequencer_balance_key_high)
+        .unwrap();
+    let expected_balance =
+        (stark_felt_to_felt(sequencer_balance_low) + Felt252::from(actual_fee.0)).to_biguint();
+
+    let mask_128_bit = (BigUint::from(1_u8) << 128) - 1_u8;
+    let expected_sequencer_balance_value_low = Felt252::from(&expected_balance & mask_128_bit);
+    let expected_sequencer_balance_value_high =
+        stark_felt_to_felt(sequencer_balance_high) + Felt252::from(&expected_balance >> 128);
+
+    assert_eq!(
+        new_sequencer_balance_value_low,
+        felt_to_stark_felt(&expected_sequencer_balance_value_low)
+    );
+    assert_eq!(
+        new_sequencer_balance_value_high,
+        felt_to_stark_felt(&expected_sequencer_balance_value_high)
+    );
 }
