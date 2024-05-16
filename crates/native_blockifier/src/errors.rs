@@ -52,8 +52,7 @@ macro_rules! native_blockifier_errors {
                         // Constructs with the tuple `(error_code, error_message)`.
                         (
                             String::from("native_blockifier.") + stringify!($py_error_name),
-                            // TODO(Yoni, 14/5/2024): remove the `?` to get a prettier message.
-                            format!("{:?}", error),
+                            format!("{}", error),
                         )
                     )),*
                 }
