@@ -23,6 +23,10 @@ use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecution
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
 
+#[cfg(test)]
+#[path = "worker_logic_test.rs"]
+pub mod test;
+
 const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
 
 fn add_fee_to_sequencer_balance(
