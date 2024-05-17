@@ -32,7 +32,7 @@ use crate::transaction::transaction_utils::update_remaining_gas;
 use crate::versioned_constants::{EventLimits, VersionedConstants};
 
 pub mod hint_processor;
-mod secp;
+pub mod secp;
 
 #[cfg(test)]
 pub mod syscall_tests;
@@ -524,7 +524,7 @@ pub fn replace_class(
         ContractClass::V0(_) => {
             Err(SyscallExecutionError::ForbiddenClassReplacement { class_hash })
         }
-        ContractClass::V1(_) => {
+        ContractClass::V1(_) | ContractClass::V1Sierra(_) => {
             syscall_handler
                 .state
                 .set_class_hash_at(syscall_handler.storage_address(), class_hash)?;

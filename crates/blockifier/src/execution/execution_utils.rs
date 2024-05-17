@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 
 use cairo_felt::Felt252;
 use cairo_lang_runner::casm_run::format_next_item;
@@ -19,8 +20,9 @@ use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
 
+use super::contract_class::ContractClassV1;
 use super::entry_point::ConstructorEntryPointExecutionResult;
-use super::errors::ConstructorEntryPointExecutionError;
+use super::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{
@@ -28,6 +30,7 @@ use crate::execution::entry_point::{
     EntryPointExecutionContext, EntryPointExecutionResult,
 };
 use crate::execution::errors::PostExecutionError;
+use crate::execution::native::entry_point_execution as native_entry_point_execution;
 use crate::execution::{deprecated_entry_point_execution, entry_point_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
@@ -73,6 +76,38 @@ pub fn execute_entry_point_call(
             resources,
             context,
         ),
+        ContractClass::V1Sierra(contract_class) => {
+            let fallback = env::var("FALLBACK_ENABLED").unwrap_or(String::from("0")) == "1";
+            match native_entry_point_execution::execute_entry_point_call(
+                call.clone(),
+                contract_class.clone(),
+                state,
+                resources,
+                context,
+            ) {
+                Ok(res) => Ok(res),
+                Err(EntryPointExecutionError::NativeUnexpectedError { .. }) if fallback => {
+                    // Fallback to VM execution in case of an Error
+                    let casm_contract_class =
+                        contract_class.to_casm_contract_class().map_err(|e| {
+                            EntryPointExecutionError::FailedToConvertSierraToCasm(e.to_string())
+                        })?;
+                    let contract_class_v1: ContractClassV1 =
+                        casm_contract_class.try_into().unwrap();
+                    entry_point_execution::execute_entry_point_call(
+                        call,
+                        contract_class_v1,
+                        state,
+                        resources,
+                        context,
+                    )
+                    .map_err(|e| {
+                        EntryPointExecutionError::NativeFallbackError { info: Box::new(e) }
+                    })
+                }
+                Err(e) => Err(e),
+            }
+        }
     }
 }
 

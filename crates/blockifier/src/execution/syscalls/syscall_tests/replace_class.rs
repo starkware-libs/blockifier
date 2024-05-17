@@ -7,11 +7,13 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::CallExecution;
 use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{trivial_external_entry_point_new, CairoVersion, BALANCE};
 
+#[test_case(FeatureContract::SierraTestContract; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
 fn undeclared_class_hash(test_contract: FeatureContract) {
     let mut state = test_state(&ChainInfo::create_for_testing(), BALANCE, &[(test_contract, 1)]);
@@ -25,6 +27,7 @@ fn undeclared_class_hash(test_contract: FeatureContract) {
     assert!(error.contains("is not declared"));
 }
 
+#[test_case(FeatureContract::SierraTestContract; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
 fn cairo0_class_hash(test_contract: FeatureContract) {
     let empty_contract_cairo0 = FeatureContract::Empty(CairoVersion::Cairo0);
@@ -46,7 +49,8 @@ fn cairo0_class_hash(test_contract: FeatureContract) {
     assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
 }
 
-#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 9750; "VM")]
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")] // pass
+#[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 9750; "VM")] // pass
 fn positive_flow(test_contract: FeatureContract, gas_consumed: u64) {
     let empty_contract = FeatureContract::Empty(CairoVersion::Cairo1);
     let empty_contract_cairo0 = FeatureContract::Empty(CairoVersion::Cairo0);

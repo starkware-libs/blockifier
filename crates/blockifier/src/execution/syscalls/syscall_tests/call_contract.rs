@@ -3,16 +3,35 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use test_case::test_case;
 
-use super::REQUIRED_GAS_CALL_CONTRACT_TEST;
+use super::{assert_consistent_contract_version, REQUIRED_GAS_CALL_CONTRACT_TEST};
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::retdata;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{create_calldata, trivial_external_entry_point_new, CairoVersion, BALANCE};
 
+#[test_case(
+    FeatureContract::SierraTestContract,
+    FeatureContract::SierraTestContract,
+    NATIVE_GAS_PLACEHOLDER;
+    "Call Contract between two contracts using Native"
+)]
+#[test_case(
+    FeatureContract::SierraTestContract,
+    FeatureContract::TestContract(CairoVersion::Cairo1),
+    NATIVE_GAS_PLACEHOLDER;
+    "Call Contract with caller using Native and callee using VM"
+)]
+#[test_case(
+    FeatureContract::TestContract(CairoVersion::Cairo1),
+    FeatureContract::SierraTestContract,
+    78530 + NATIVE_GAS_PLACEHOLDER;
+    "Call Contract with caller using VM and callee using Native")
+]
 #[test_case(
     FeatureContract::TestContract(CairoVersion::Cairo1),
     FeatureContract::TestContract(CairoVersion::Cairo1),
@@ -26,6 +45,9 @@ fn test_call_contract(
 ) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(outer_contract, 1), (inner_contract, 1)]);
+
+    assert_consistent_contract_version(outer_contract, &state);
+    assert_consistent_contract_version(inner_contract, &state);
 
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let calldata = create_calldata(
@@ -50,4 +72,8 @@ fn test_call_contract(
             ..CallExecution::default()
         }
     );
+
+    // ensure that the fallback system didn't replace the contract
+    assert_consistent_contract_version(outer_contract, &state);
+    assert_consistent_contract_version(inner_contract, &state);
 }

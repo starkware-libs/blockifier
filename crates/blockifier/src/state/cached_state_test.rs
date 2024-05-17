@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use assert_matches::assert_matches;
 use indexmap::indexmap;
 use pretty_assertions::assert_eq;

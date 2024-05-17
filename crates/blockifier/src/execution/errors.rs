@@ -1,3 +1,4 @@
+use cairo_native::error::Error as NativeRunnerError;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
@@ -83,10 +84,21 @@ pub enum EntryPointExecutionError {
     CairoRunError(#[from] CairoRunError),
     #[error("Execution failed. Failure reason: {}.", format_panic_data(.error_data))]
     ExecutionFailed { error_data: Vec<StarkFelt> },
+    #[error("Failed to convert Sierra to Casm: {0}")]
+    FailedToConvertSierraToCasm(String),
     #[error("Internal error: {0}")]
     InternalError(String),
     #[error("Invalid input: {input_descriptor}; {info}")]
     InvalidExecutionInput { input_descriptor: String, info: String },
+    #[error("Native execution error: {info}")]
+    NativeExecutionError { info: String },
+    #[error("Native Fallback Error: {info}")]
+    NativeFallbackError { info: Box<EntryPointExecutionError> },
+    #[error("Native unexpected error: {source}")]
+    NativeUnexpectedError {
+        #[source]
+        source: NativeRunnerError,
+    },
     #[error(transparent)]
     PostExecutionError(#[from] PostExecutionError),
     #[error(transparent)]
@@ -391,5 +403,32 @@ fn extract_entry_point_execution_error_into_stack_trace(
             extract_cairo_run_error_into_stack_trace(error_stack, depth, cairo_run_error)
         }
         _ => error_stack.push(format!("{}\n", entry_point_error)),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use cairo_lang_utils::byte_array::BYTE_ARRAY_MAGIC;
+    use starknet_api::hash::StarkFelt;
+
+    use crate::execution::errors::EntryPointExecutionError;
+
+    #[test]
+    fn test_syscall_failure_format() {
+        let error_data = vec![
+            // Magic to indicate that this is a byte array.
+            BYTE_ARRAY_MAGIC,
+            // the number of full words in the byte array.
+            "0x00",
+            // The pending word of the byte array: "Execution failure"
+            "0x457865637574696f6e206661696c757265",
+            // The length of the pending word.
+            "0x11",
+        ]
+        .into_iter()
+        .map(|x| StarkFelt::try_from(x).unwrap())
+        .collect();
+        let error = EntryPointExecutionError::ExecutionFailed { error_data };
+        assert_eq!(error.to_string(), "Execution failed. Failure reason: \"Execution failure\".");
     }
 }

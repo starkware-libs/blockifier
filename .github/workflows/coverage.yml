@@ -11,15 +11,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Set up Native Dependencies
+        uses: ./.github/actions/setup-native-dep
+        id: native-deps
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
         run: cargo llvm-cov --codecov --output-path codecov.json
         env:
           SEED: 0
+          CAIRO_NATIVE_RUNTIME_LIBRARY: ${{ steps.native-deps.outputs.cairo-native-runtime-library }}
+          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17/
+          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
+          TABLEGEN_170_PREFIX: /usr/lib/llvm-17/
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           fail_ci_if_error: true
+      

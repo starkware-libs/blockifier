@@ -5,11 +5,13 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::{Calldata, EventContent, EventData, EventKey};
 use test_case::test_case;
 
+use super::assert_consistent_contract_version;
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::EntryPointExecutionError;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
@@ -21,6 +23,7 @@ const DATA: [StarkFelt; 3] =
     [StarkFelt::from_u128(2021), StarkFelt::from_u128(2022), StarkFelt::from_u128(2023)];
 const N_EMITTED_EVENTS: [StarkFelt; 1] = [StarkFelt::from_u128(1)];
 
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 49860; "VM")]
 fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
@@ -41,6 +44,7 @@ fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
     );
 }
 
+#[test_case(FeatureContract::SierraTestContract; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
 fn data_length_exceeds_limit(test_contract: FeatureContract) {
     let versioned_constants = VersionedConstants::create_for_testing();
@@ -55,6 +59,7 @@ fn data_length_exceeds_limit(test_contract: FeatureContract) {
     assert!(error.to_string().contains(&expected_error.to_string()));
 }
 
+#[test_case(FeatureContract::SierraTestContract; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
 fn keys_length_exceeds_limit(test_contract: FeatureContract) {
     let versioned_constants = VersionedConstants::create_for_testing();
@@ -70,6 +75,7 @@ fn keys_length_exceeds_limit(test_contract: FeatureContract) {
     assert!(error.to_string().contains(&expected_error.to_string()));
 }
 
+#[test_case(FeatureContract::SierraTestContract; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
 fn event_number_exceeds_limit(test_contract: FeatureContract) {
     let versioned_constants = VersionedConstants::create_for_testing();
@@ -94,6 +100,7 @@ fn emit_events(
 ) -> Result<CallInfo, EntryPointExecutionError> {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
+    assert_consistent_contract_version(test_contract, &state);
     let calldata = Calldata(
         concat(vec![
             n_emitted_events.to_owned(),
@@ -110,5 +117,8 @@ fn emit_events(
         calldata,
         ..trivial_external_entry_point_new(test_contract)
     };
-    entry_point_call.execute_directly(&mut state)
+
+    let result = entry_point_call.execute_directly(&mut state);
+    assert_consistent_contract_version(test_contract, &state);
+    result
 }

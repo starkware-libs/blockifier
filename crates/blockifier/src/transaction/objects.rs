@@ -98,6 +98,16 @@ impl TransactionInfo {
             TransactionInfo::Deprecated(context) => Ok(context.max_fee != Fee(0)),
         }
     }
+
+    pub fn max_fee(&self) -> TransactionFeeResult<Fee> {
+        match self {
+            Self::Current(context) => {
+                let l1_bounds = context.l1_resource_bounds()?;
+                Ok(Fee(u128::from(l1_bounds.max_amount) * l1_bounds.max_price_per_unit))
+            }
+            Self::Deprecated(context) => Ok(context.max_fee),
+        }
+    }
 }
 
 impl HasRelatedFeeType for TransactionInfo {
@@ -119,6 +129,20 @@ pub struct CurrentTransactionInfo {
     pub fee_data_availability_mode: DataAvailabilityMode,
     pub paymaster_data: PaymasterData,
     pub account_deployment_data: AccountDeploymentData,
+}
+
+impl Default for CurrentTransactionInfo {
+    fn default() -> Self {
+        Self {
+            common_fields: Default::default(),
+            resource_bounds: Default::default(),
+            tip: Default::default(),
+            nonce_data_availability_mode: DataAvailabilityMode::L1,
+            fee_data_availability_mode: DataAvailabilityMode::L1,
+            paymaster_data: Default::default(),
+            account_deployment_data: Default::default(),
+        }
+    }
 }
 
 impl CurrentTransactionInfo {

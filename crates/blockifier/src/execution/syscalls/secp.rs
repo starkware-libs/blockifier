@@ -79,6 +79,23 @@ where
     }
 
     pub fn secp_new(&mut self, request: SecpNewRequest) -> SyscallResult<SecpNewResponse> {
+        let ec_point = self.secp_new_unchecked(request)?;
+        let ec_point_id = ec_point.optional_ec_point_id.unwrap();
+        let ec_point = self.get_point_by_id(Felt252::from(ec_point_id))?;
+
+        let optional_ec_point_id =
+            if ec_point.is_on_curve() && ec_point.is_in_correct_subgroup_assuming_on_curve() {
+                Some(ec_point_id)
+            } else {
+                None
+            };
+        Ok(SecpNewResponse { optional_ec_point_id })
+    }
+
+    pub fn secp_new_unchecked(
+        &mut self,
+        request: SecpNewRequest,
+    ) -> SyscallResult<SecpNewResponse> {
         let modulos = Curve::BaseField::MODULUS.into();
         let (x, y) = (request.x, request.y);
         if x >= modulos || y >= modulos {
@@ -93,13 +110,7 @@ where
         } else {
             short_weierstrass::Affine::<Curve>::new_unchecked(x.into(), y.into())
         };
-        let optional_ec_point_id =
-            if ec_point.is_on_curve() && ec_point.is_in_correct_subgroup_assuming_on_curve() {
-                Some(self.allocate_point(ec_point))
-            } else {
-                None
-            };
-        Ok(SecpNewResponse { optional_ec_point_id })
+        Ok(SecpNewResponse { optional_ec_point_id: Some(self.allocate_point(ec_point)) })
     }
 
     fn allocate_point(&mut self, ec_point: short_weierstrass::Affine<Curve>) -> usize {
@@ -109,7 +120,7 @@ where
         id
     }
 
-    fn get_point_by_id(
+    pub fn get_point_by_id(
         &self,
         ec_point_id: Felt252,
     ) -> SyscallResult<&short_weierstrass::Affine<Curve>> {
@@ -182,7 +193,7 @@ impl SyscallRequest for SecpAddRequest {
     }
 }
 
-type SecpAddResponse = SecpOpRespone;
+pub type SecpAddResponse = SecpOpRespone;
 
 pub fn secp256k1_add(
     request: SecpAddRequest,
@@ -206,10 +217,10 @@ pub fn secp256r1_add(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct SecpGetPointFromXRequest {
-    x: BigUint,
+    pub x: BigUint,
     // The parity of the y coordinate, assuming a point with the given x coordinate exists.
     // True means the y coordinate is odd.
-    y_parity: bool,
+    pub y_parity: bool,
 }
 
 impl SyscallRequest for SecpGetPointFromXRequest {
@@ -221,7 +232,7 @@ impl SyscallRequest for SecpGetPointFromXRequest {
     }
 }
 
-type SecpGetPointFromXResponse = SecpOptionalEcPointResponse;
+pub type SecpGetPointFromXResponse = SecpOptionalEcPointResponse;
 
 pub fn secp256k1_get_point_from_x(
     request: SecpGetPointFromXRequest,
@@ -254,7 +265,7 @@ impl SyscallRequest for SecpGetXyRequest {
     }
 }
 
-type SecpGetXyResponse = EcPointCoordinates;
+pub type SecpGetXyResponse = EcPointCoordinates;
 
 impl SyscallResponse for SecpGetXyResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
@@ -298,7 +309,7 @@ impl SyscallRequest for SecpMulRequest {
     }
 }
 
-type SecpMulResponse = SecpOpRespone;
+pub type SecpMulResponse = SecpOpRespone;
 
 pub fn secp256k1_mul(
     request: SecpMulRequest,
@@ -320,7 +331,7 @@ pub fn secp256r1_mul(
 
 // SecpNew syscall.
 
-type SecpNewRequest = EcPointCoordinates;
+pub type SecpNewRequest = EcPointCoordinates;
 
 impl SyscallRequest for SecpNewRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SecpNewRequest> {
@@ -330,7 +341,7 @@ impl SyscallRequest for SecpNewRequest {
     }
 }
 
-type SecpNewResponse = SecpOptionalEcPointResponse;
+pub type SecpNewResponse = SecpOptionalEcPointResponse;
 
 pub fn secp256k1_new(
     request: SecpNewRequest,
@@ -341,8 +352,8 @@ pub fn secp256k1_new(
     syscall_handler.secp256k1_hint_processor.secp_new(request)
 }
 
-type Secp256r1NewRequest = EcPointCoordinates;
-type Secp256r1NewResponse = SecpOptionalEcPointResponse;
+pub type Secp256r1NewRequest = EcPointCoordinates;
+pub type Secp256r1NewResponse = SecpOptionalEcPointResponse;
 
 pub fn secp256r1_new(
     request: Secp256r1NewRequest,

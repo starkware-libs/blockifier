@@ -18,7 +18,9 @@ use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{L1_GAS, L2_GAS};
-use crate::execution::syscalls::syscall_tests::verify_compiler_version;
+use crate::execution::syscalls::syscall_tests::{
+    assert_consistent_contract_version, verify_compiler_version,
+};
 use crate::nonce;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
@@ -88,6 +90,8 @@ fn test_get_execution_info(
         BALANCE,
         &[(legacy_contract, 1), (test_contract, 1)],
     );
+    assert_consistent_contract_version(legacy_contract, state);
+    assert_consistent_contract_version(test_contract, state);
     let expected_block_info = match execution_mode {
         ExecutionMode::Validate => [
             // Rounded block number.
@@ -247,4 +251,6 @@ fn test_get_execution_info(
     };
 
     assert!(!result.unwrap().execution.failed);
+    assert_consistent_contract_version(legacy_contract, state);
+    assert_consistent_contract_version(test_contract, state);
 }

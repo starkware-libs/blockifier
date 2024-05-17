@@ -1,5 +1,4 @@
 use itertools::concat;
-use pretty_assertions::assert_eq;
 use starknet_api::core::EthAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
@@ -10,10 +9,12 @@ use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, MessageToL1, OrderedL2ToL1Message};
 use crate::execution::entry_point::CallEntryPoint;
+use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{trivial_external_entry_point_new, CairoVersion, BALANCE};
 
+#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 22990; "VM")]
 fn test_send_message_to_l1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
@@ -42,7 +43,7 @@ fn test_send_message_to_l1(test_contract: FeatureContract, expected_gas: u64) {
     let to_address = EthAddress::try_from(to_address).unwrap();
     let message = MessageToL1 { to_address, payload: L2ToL1Payload(payload) };
 
-    assert_eq!(
+    pretty_assertions::assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             l2_to_l1_messages: vec![OrderedL2ToL1Message { order: 0, message }],

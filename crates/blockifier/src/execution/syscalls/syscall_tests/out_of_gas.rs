@@ -12,6 +12,7 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{trivial_external_entry_point_new, CairoVersion, BALANCE};
 
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1); "VM")]
+#[test_case(FeatureContract::SierraTestContract; "Native")]
 fn test_out_of_gas(test_contract: FeatureContract) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);

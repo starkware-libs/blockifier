@@ -1,0 +1,1 @@
+{"version":1,"contracts":[{"id":"lpqcm6oplh66c","package_name":"oz_erc20","contract_name":"Native","module_path":"oz_erc20::Native","artifacts":{"sierra":"oz_erc20_Native.contract_class.json","casm":null}}]}

@@ -166,6 +166,8 @@ pub const OUT_OF_GAS_ERROR: &str =
 // "Block number out of range";
 pub const BLOCK_NUMBER_OUT_OF_RANGE_ERROR: &str =
     "0x00000000000000426c6f636b206e756d626572206f7574206f662072616e6765";
+// "Invalid execution mode";
+pub const INVALID_EXECUTION_MODE_ERROR: &str = "0x00496e76616c696420657865637574696f6e206d6f6465";
 // "Invalid input length";
 pub const INVALID_INPUT_LENGTH_ERROR: &str =
     "0x000000000000000000000000496e76616c696420696e707574206c656e677468";
@@ -176,6 +178,11 @@ pub const INVALID_ARGUMENT: &str =
 pub const L1_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c315f474153";
 // "L2_GAS";
 pub const L2_GAS: &str = "0x00000000000000000000000000000000000000000000000000004c325f474153";
+// Failed to execute call
+pub const FAILED_TO_EXECUTE_CALL: &str = "0x004661696c656420746f20657865637574652063616c6c";
+// Failed to calculate address
+pub const FAILED_TO_CALCULATE_CONTRACT_ADDRESS: &str =
+    "0x004661696c656420746f2063616c63756c6174652061646472657373";
 
 /// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
@@ -848,4 +855,24 @@ pub fn write_segment(
     write_maybe_relocatable(vm, ptr, segment_end_ptr)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use starknet_types_core::felt::Felt;
+
+    use super::*;
+
+    #[test]
+    fn test_felt_from_hex() {
+        assert!(Felt::from_hex(OUT_OF_GAS_ERROR).is_ok());
+        assert!(Felt::from_hex(BLOCK_NUMBER_OUT_OF_RANGE_ERROR).is_ok());
+        assert!(Felt::from_hex(INVALID_EXECUTION_MODE_ERROR).is_ok());
+        assert!(Felt::from_hex(INVALID_INPUT_LENGTH_ERROR).is_ok());
+        assert!(Felt::from_hex(INVALID_ARGUMENT).is_ok());
+        assert!(Felt::from_hex(L1_GAS).is_ok());
+        assert!(Felt::from_hex(L2_GAS).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_EXECUTE_CALL).is_ok());
+        assert!(Felt::from_hex(FAILED_TO_CALCULATE_CONTRACT_ADDRESS).is_ok());
+    }
 }
