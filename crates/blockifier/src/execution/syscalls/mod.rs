@@ -35,8 +35,7 @@ pub mod hint_processor;
 mod secp;
 
 #[cfg(test)]
-#[path = "syscalls_test.rs"]
-pub mod syscalls_test;
+pub mod syscall_tests;
 
 pub type SyscallResult<T> = Result<T, SyscallExecutionError>;
 pub type WriteResponseResult = SyscallResult<()>;
