@@ -8,7 +8,7 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
-use crate::concurrency::scheduler::TransactionStatus;
+use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
 use crate::context::BlockContext;
 use crate::state::cached_state::StateMaps;
@@ -119,7 +119,7 @@ fn test_worker_execute() {
     // Both in write and read sets, only the account balance appear, and not the sequencer balance.
     // This is because when executing transaction in concurrency mode on, we manually remove the
     // writes and reads to and from the sequencer balance (to avoid the inevitable dependency
-    // between all the transactions)
+    // between all the transactions).
     let writes = StateMaps {
         nonces: HashMap::from([(account_address, nonce!(1_u8))]),
         storage: HashMap::from([
@@ -192,4 +192,104 @@ fn test_worker_execute() {
     for tx_index in 0..3 {
         assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executed);
     }
+}
+
+#[test]
+fn test_worker_validate() {
+    // Settings.
+    let concurrency_mode = true;
+    let block_context =
+        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let chain_info = &block_context.chain_info;
+
+    // Create the state.
+    let state_reader =
+        test_state_reader(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+
+    // Create transactions.
+    let test_contract_address = test_contract.get_instance_address(0);
+    let account_address = account_contract.get_instance_address(0);
+    let nonce_manager = &mut NonceManager::default();
+    let storage_value0 = stark_felt!(93_u8);
+    let storage_value1 = stark_felt!(39_u8);
+    let storage_key = storage_key!(1993_u16);
+
+    let account_tx0 = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: create_calldata(
+            test_contract_address,
+            "test_storage_read_write",
+            &[*storage_key.0.key(),storage_value0 ], // Calldata:  address, value.
+        ),
+        max_fee: Fee(MAX_FEE),
+        nonce: nonce_manager.next(account_address)
+    });
+
+    let account_tx1 = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: create_calldata(
+            test_contract_address,
+            "test_storage_read_write",
+            &[*storage_key.0.key(),storage_value1 ], // Calldata:  address, value.
+        ),
+        max_fee: Fee(MAX_FEE),
+        nonce: nonce_manager.next(account_address)
+
+    });
+
+    // Concurrency settings.
+    let txs = [account_tx0, account_tx1]
+        .into_iter()
+        .map(Transaction::AccountTransaction)
+        .collect::<Vec<Transaction>>();
+
+    let worker_executor = WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context);
+
+    // Creates 2 active tasks.
+    worker_executor.scheduler.next_task();
+    worker_executor.scheduler.next_task();
+
+    worker_executor.execute(1);
+    worker_executor.execute(0);
+
+    // Creates 2 active tasks.
+    worker_executor.scheduler.next_task();
+    worker_executor.scheduler.next_task();
+
+    // Validate succeeds.
+    let tx_index = 0;
+    let next_task = worker_executor.validate(tx_index);
+    assert_eq!(next_task, Task::NoTask);
+    // Verify writes exist in state.
+    assert_eq!(
+        safe_versioned_state
+            .pin_version(tx_index + 1)
+            .get_storage_at(test_contract_address, storage_key)
+            .unwrap(),
+        storage_value0
+    );
+    // No status change.
+    assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executed);
+
+    // Validate failed. Invoke 2 failed validation, only the first lead to a re-execution.
+    let tx_index = 1;
+    let next_task1 = worker_executor.validate(tx_index);
+    assert_eq!(next_task1, Task::ExecutionTask(tx_index));
+    // Verify writes were removed.
+    assert_eq!(
+        safe_versioned_state
+            .pin_version(tx_index + 1)
+            .get_storage_at(test_contract_address, storage_key)
+            .unwrap(),
+        storage_value0
+    );
+    // Verify status change.
+    assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executing);
+
+    let next_task2 = worker_executor.validate(tx_index);
+    assert_eq!(next_task2, Task::NoTask);
 }
