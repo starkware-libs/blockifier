@@ -115,7 +115,17 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     }
 
     fn validate(&self, _tx_index: TxIndex) -> Task {
-        todo!();
+        let tx_versioned_state = self.state.pin_version(tx_index);
+        let read_set = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+        let read_set_valid = tx_versioned_state.validate_reads(read_set);
+
+        let aborted = !read_set_valid && self.scheduler.try_validation_abort(tx_index);
+        if aborted {
+            //
+            todo!()
+        }
+
+        self.scheduler.finish_validation(tx_index, aborted)
     }
 
     /// Try to commit a transaction.
@@ -127,19 +137,18 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     /// for the transaction in the block.
     /// If there is room: we fix the call info, update the sequencer balance and
     /// commit the transaction. Otherwise (execution failed, no room), we don't commit.
-
-    pub fn try_commit_transaction(&self, tx_index: TxIndex) -> StateResult<bool> {
+    fn try_commit_transaction(&self, tx_index: TxIndex) -> StateResult<bool> {
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
 
         let tx = &self.chunk[tx_index];
         let tx_versioned_state = self.state.pin_version(tx_index);
 
         let read_set = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
-        let validate_reads = tx_versioned_state.validate_reads(read_set);
+        let read_set_valid = tx_versioned_state.validate_reads(read_set);
         drop(execution_output);
 
         // First, re-validate the transaction.
-        if !validate_reads {
+        if !read_set_valid {
             // Revalidate failed: re-execute the transaction, and commit.
             // TODO(Meshi, 01/06/2024): Delete the transaction writes.
             self.execute_tx(tx_index);
@@ -192,6 +201,8 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         Ok(true)
     }
 }
+
+// Utils
 
 fn add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
