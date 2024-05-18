@@ -468,9 +468,9 @@ impl TransactionResources {
                     .expect("This conversion should not fail as the value is a converted usize."),
             ),
         ]));
-        let revrted_steps_to_add = if with_reverted_steps { self.n_reverted_steps } else { 0 };
+        let reverted_steps_to_add = if with_reverted_steps { self.n_reverted_steps } else { 0 };
         *resources.0.get_mut(abi_constants::N_STEPS_RESOURCE).unwrap_or(&mut 0) +=
-            revrted_steps_to_add;
+            reverted_steps_to_add;
         resources
     }
 
