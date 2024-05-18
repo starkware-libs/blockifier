@@ -33,6 +33,7 @@ pub mod test;
 pub struct ExecutionTaskOutput {
     pub reads: StateMaps,
     pub writes: StateMaps,
+    pub contract_classes: ContractClassMapping,
     pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
     pub result: TransactionExecutionResult<TransactionExecutionInfo>,
 }
@@ -90,32 +91,46 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
 
         if execution_result.is_ok() {
-            let class_hash_to_class = transactional_state.class_hash_to_class.borrow();
             // TODO(Noa, 15/05/2024): use `tx_versioned_state` when we add support to transactional
             // versioned state.
-            self.state
-                .pin_version(tx_index)
-                .apply_writes(&transactional_state.cache.borrow().writes, &class_hash_to_class);
+            self.state.pin_version(tx_index).apply_writes(
+                &transactional_state.cache.borrow().writes,
+                &transactional_state.class_hash_to_class.borrow(),
+            );
         }
 
         // Write the transaction execution outputs.
         let tx_reads_writes = transactional_state.cache.take();
+        let class_hash_to_class = transactional_state.class_hash_to_class.take();
         // In case of a failed transaction, we don't record its writes and visited pcs.
-        let (writes, visited_pcs) = match execution_result {
-            Ok(_) => (tx_reads_writes.writes, transactional_state.visited_pcs),
-            Err(_) => (StateMaps::default(), HashMap::default()),
+        let (writes, contract_classes, visited_pcs) = match execution_result {
+            Ok(_) => (tx_reads_writes.writes, class_hash_to_class, transactional_state.visited_pcs),
+            Err(_) => (StateMaps::default(), HashMap::default(), HashMap::default()),
         };
         let mut execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
         *execution_output = Some(ExecutionTaskOutput {
             reads: tx_reads_writes.initial_reads,
             writes,
+            contract_classes,
             visited_pcs,
             result: execution_result,
         });
     }
 
-    fn validate(&self, _tx_index: TxIndex) -> Task {
-        todo!();
+    fn validate(&self, tx_index: TxIndex) -> Task {
+        let tx_versioned_state = self.state.pin_version(tx_index);
+        let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
+        let execution_output = execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR);
+        let reads = &execution_output.reads;
+        let reads_valid = tx_versioned_state.validate_reads(reads);
+
+        let aborted = !reads_valid && self.scheduler.try_validation_abort(tx_index);
+        if aborted {
+            tx_versioned_state
+                .delete_writes(&execution_output.writes, &execution_output.contract_classes)
+        }
+
+        self.scheduler.finish_validation(tx_index, aborted)
     }
 
     /// Commits a transaction.
@@ -127,18 +142,20 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     /// for the transaction in the block.
     /// If there is room: we fix the call info, update the sequencer balance and
     /// commit the transaction. Otherwise (execution failed, no room), we don't commit.
-    pub fn commit_tx(&self, tx_index: TxIndex) -> StateResult<bool> {
+    // TODO(Meshi, 01/06/2024): Remove dead code.
+    #[allow(dead_code)]
+    fn commit_tx(&self, tx_index: TxIndex) -> StateResult<bool> {
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
 
         let tx = &self.chunk[tx_index];
         let tx_versioned_state = self.state.pin_version(tx_index);
 
-        let read_set = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
-        let validate_reads = tx_versioned_state.validate_reads(read_set);
+        let reads = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+        let reads_valid = tx_versioned_state.validate_reads(reads);
         drop(execution_output);
 
         // First, re-validate the transaction.
-        if !validate_reads {
+        if !reads_valid {
             // Revalidate failed: re-execute the transaction, and commit.
             // TODO(Meshi, 01/06/2024): Delete the transaction writes.
             self.execute_tx(tx_index);
@@ -192,6 +209,10 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     }
 }
 
+// Utilities.
+
+// TODO(Meshi, 01/06/2024): Remove dead code.
+#[allow(dead_code)]
 fn add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
     tx_versioned_state: &VersionedStateProxy<impl StateReader>,
