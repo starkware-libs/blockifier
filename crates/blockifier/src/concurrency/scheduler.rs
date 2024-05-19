@@ -147,13 +147,13 @@ impl Scheduler {
         self.decrease_validation_index(tx_index + 1);
     }
 
-    pub fn try_commit_lock(&self) -> bool {
+    pub fn should_commit_transactions(&self) -> bool {
         self.commit_lock
             .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
     }
 
-    pub fn unlock_commit_lock(&self) {
+    pub fn done_committing_transactions(&self) {
         self.commit_lock.store(false, Ordering::Release);
     }
 
