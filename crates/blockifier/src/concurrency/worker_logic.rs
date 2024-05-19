@@ -18,6 +18,7 @@ use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
@@ -57,9 +58,11 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context }
     }
 
-    pub fn run(&self) {
+impl<S: StateReader> WorkerExecutor<S> {
+    pub fn run(&self) -> Result<(), StateError> {
         let mut task = Task::NoTask;
         loop {
+            self.commit_transactions_while_possible()?;
             task = match task {
                 Task::ExecutionTask(tx_index) => {
                     self.execute(tx_index);
@@ -70,7 +73,20 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 Task::Done => break,
             };
         }
+        Ok(())
     }
+
+    fn commit_transactions_while_possible(&self) -> Result<(), StateError> {
+        if self.scheduler.should_commit_transactions() {
+            while let Some(tx_index) = self.scheduler.try_commit() {
+                if !self.try_commit_transaction(tx_index)? {
+                    self.scheduler.halt()
+                }
+            }
+            self.scheduler.done_committing_transactions()
+        }
+    }
+
 
     fn execute(&self, tx_index: TxIndex) {
         self.execute_tx(tx_index);
