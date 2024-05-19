@@ -58,9 +58,10 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context }
     }
 
-    pub fn run(&self) {
+    pub fn run(&self) -> StateResult<()> {
         let mut task = Task::NoTask;
         loop {
+            self.commit_while_possible()?;
             task = match task {
                 Task::ExecutionTask(tx_index) => {
                     self.execute(tx_index);
@@ -71,6 +72,20 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 Task::Done => break,
             };
         }
+        Ok(())
+    }
+
+    fn commit_while_possible(&self) -> StateResult<()> {
+        if let Some(mut transaction_committer) = self.scheduler.try_enter_commit_phase() {
+            while let Some(tx_index) = transaction_committer.try_commit() {
+                let commit_succeeded = self.commit_tx(tx_index)?;
+                if !commit_succeeded {
+                    // Avi(01/06/2024): Halt the scheduler once implementation is ready.
+                    todo!();
+                }
+            }
+        }
+        Ok(())
     }
 
     fn execute(&self, tx_index: TxIndex) {
@@ -133,15 +148,18 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         self.scheduler.finish_validation(tx_index, aborted)
     }
 
-    /// Commits a transaction.
-    /// First we validate the read set:
-    /// If the validation failed, we delete the transaction writes and (re-)execute it.
-    /// Else (validation succeeded) no need to re-execute.
-    /// Now that the transaction execution is final:
-    /// If execution succeeded, we ask the bouncer if there is room
-    /// for the transaction in the block.
-    /// If there is room: we fix the call info, update the sequencer balance and
-    /// commit the transaction. Otherwise (execution failed, no room), we don't commit.
+    /// Commits a transaction. The commit process is as follows:
+    /// 1) Validate the read set.
+    ///     * If validation failed, delete the transaction writes and (re-)execute it.
+    ///     * Else (validation succeeded), no need to re-execute.
+    /// 2) Execution is final.
+    ///     * If execution succeeded, ask the bouncer if there is room for the transaction in the
+    ///       block.
+    ///         - If there is room, fix the call info, update the sequencer balance and commit the
+    ///           transaction.
+    ///         - Else (no room), do not commit. The block should be closed without the transaction.
+    ///     * Else (execution failed), commit the transaction without fixing the call info or
+    ///       updating the sequencer balance.
     // TODO(Meshi, 01/06/2024): Remove dead code.
     #[allow(dead_code)]
     fn commit_tx(&self, tx_index: TxIndex) -> StateResult<bool> {

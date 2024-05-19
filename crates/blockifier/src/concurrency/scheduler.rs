@@ -1,6 +1,6 @@
 use std::cmp::min;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, TryLockError};
 
 use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::TxIndex;
@@ -9,18 +9,42 @@ use crate::concurrency::TxIndex;
 #[path = "scheduler_test.rs"]
 pub mod test;
 
+pub struct TransactionCommitter<'a> {
+    scheduler: &'a Scheduler,
+    commit_index_guard: MutexGuard<'a, usize>,
+}
+
+impl<'a> TransactionCommitter<'a> {
+    pub fn new(scheduler: &'a Scheduler, commit_index_guard: MutexGuard<'a, usize>) -> Self {
+        Self { scheduler, commit_index_guard }
+    }
+
+    /// Tries to commit the next uncommitted transaction in the chunk. Returns the index of the
+    /// transaction to commit if successful, or None if the transaction is not yet executed.
+    pub fn try_commit(&mut self) -> Option<usize> {
+        if *self.commit_index_guard >= self.scheduler.chunk_size {
+            return None;
+        };
+
+        let mut status = self.scheduler.lock_tx_status(*self.commit_index_guard);
+        if *status != TransactionStatus::Executed {
+            return None;
+        }
+        *status = TransactionStatus::Committed;
+        *self.commit_index_guard += 1;
+        if *self.commit_index_guard == self.scheduler.chunk_size {
+            self.scheduler.done_marker.store(true, Ordering::Release);
+        }
+        Some(*self.commit_index_guard - 1)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Scheduler {
     execution_index: AtomicUsize,
     validation_index: AtomicUsize,
-    // The index of the next transaction to commit. `commit_index` is protected by `commit_lock`.
-    // There will be no concurrent access to `commit_index`, but the rust compiler cannot infer
-    // that this is the case, so we use a Mutex to allow mutable and concurrent access.
-    // TODO(Avi, 15/05/2024): Consider defining an ExplicitSyncWrapper for this.
+    // The index of the next transaction to commit.
     commit_index: Mutex<usize>,
-    // Used to lock the commit index when committing transactions. This is necessary to make sure
-    // the process of committing transactions is sequential.
-    commit_lock: AtomicBool,
     // Read twice upon checking the chunk completion. Used to detect if validation or execution
     // index decreased from their observed values after ensuring that the number of active tasks
     // is zero.
@@ -40,7 +64,6 @@ impl Scheduler {
             execution_index: AtomicUsize::new(0),
             validation_index: AtomicUsize::new(chunk_size),
             commit_index: Mutex::new(0),
-            commit_lock: AtomicBool::new(false),
             decrease_counter: AtomicUsize::new(0),
             n_active_tasks: AtomicUsize::new(0),
             chunk_size,
@@ -118,26 +141,6 @@ impl Scheduler {
         Task::NoTask
     }
 
-    /// Tries to commit the next transaction in the chunk. Returns the index of the transaction to
-    /// commit if successful, or None if the transaction is not yet executed.
-    /// Assumes that the caller has already acquired the commit lock.
-    pub fn try_commit(&self) -> Option<usize> {
-        let mut commit_index = self.commit_index.lock().expect(
-            "This lock should always succeed, since commit_lock must be successfully acquired \
-             before calling this method",
-        );
-        let mut status = self.lock_tx_status(*commit_index);
-        if *status == TransactionStatus::Executed {
-            *status = TransactionStatus::Committed;
-            *commit_index += 1;
-            if *commit_index == self.chunk_size {
-                self.done_marker.store(true, Ordering::Release);
-            }
-            return Some(*commit_index - 1);
-        }
-        None
-    }
-
     /// This method is called after a transaction gets re-executed during a commit. It decreases the
     /// validation index to ensure that higher transactions are validated. There is no need to set
     /// the transaction status to Executed, as it is already set to Committed.
@@ -147,14 +150,16 @@ impl Scheduler {
         self.decrease_validation_index(tx_index + 1);
     }
 
-    pub fn try_commit_lock(&self) -> bool {
-        self.commit_lock
-            .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
-    }
-
-    pub fn unlock_commit_lock(&self) {
-        self.commit_lock.store(false, Ordering::Release);
+    /// Tries to takes the lock on the commit index. Returns a `TransactionCommitter` if successful,
+    /// or None if the lock is already taken.
+    pub fn try_enter_commit_phase(&self) -> Option<TransactionCommitter<'_>> {
+        match self.commit_index.try_lock() {
+            Ok(guard) => Some(TransactionCommitter::new(self, guard)),
+            Err(TryLockError::WouldBlock) => None,
+            Err(TryLockError::Poisoned(error)) => {
+                panic!("Commit index is poisoned. Data: {:?}.", *error.get_ref())
+            }
+        }
     }
 
     /// Checks if all transactions have been executed and validated.
