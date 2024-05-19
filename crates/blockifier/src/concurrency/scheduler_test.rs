@@ -123,6 +123,21 @@ fn test_commit_flow(
 }
 
 #[rstest]
+#[case::reduces_validation_index(0, 3)]
+#[case::does_not_reduce_validation_index(1, 0)]
+fn test_finish_execution_during_commit(
+    #[case] tx_index: TxIndex,
+    #[case] validation_index: TxIndex,
+) {
+    let target_index = tx_index + 1;
+    let scheduler =
+        default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, validation_index: validation_index);
+    scheduler.finish_execution_during_commit(tx_index);
+    let expected_validation_index = min(target_index, validation_index);
+    assert_eq!(scheduler.validation_index.load(Ordering::Acquire), expected_validation_index);
+}
+
+#[rstest]
 #[case::happy_flow(TransactionStatus::Executing)]
 #[should_panic(expected = "Only executing transactions can gain status executed. Transaction 0 \
                            is not executing. Transaction status: ReadyToExecute.")]
