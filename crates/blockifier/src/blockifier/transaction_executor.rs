@@ -7,7 +7,7 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
-use crate::bouncer::{Bouncer, BouncerConfig};
+use crate::bouncer::{Bouncer, BouncerConfig, BouncerWeights};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -183,11 +183,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         Ok((validate_call_info, tx_receipt))
     }
 
-    /// Returns the state diff and a list of contract class hash with the corresponding list of
-    /// visited segment values.
+    /// Returns the state diff, a list of contract class hash with the corresponding list of
+    /// visited segment values and the block weights.
     pub fn finalize(
         &mut self,
-    ) -> TransactionExecutorResult<(CommitmentStateDiff, VisitedSegmentsMapping)> {
+    ) -> TransactionExecutorResult<(CommitmentStateDiff, VisitedSegmentsMapping, BouncerWeights)>
+    {
         // Get the visited segments of each contract class.
         // This is done by taking all the visited PCs of each contract, and compress them to one
         // representative for each visited segment.
@@ -202,6 +203,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             .collect::<TransactionExecutorResult<_>>()?;
 
         log::debug!("Final block weights: {:?}.", self.bouncer.get_accumulated_weights());
-        Ok((self.state.to_state_diff(), visited_segments))
+        Ok((self.state.to_state_diff(), visited_segments, *self.bouncer.get_accumulated_weights()))
     }
 }
