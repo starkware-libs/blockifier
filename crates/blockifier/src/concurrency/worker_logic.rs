@@ -8,11 +8,11 @@ use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
-use super::versioned_state_proxy::VersionedStateProxy;
+use super::versioned_state::VersionedStateProxy;
 use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
-use crate::concurrency::versioned_state_proxy::ThreadSafeVersionedState;
+use crate::concurrency::versioned_state::ThreadSafeVersionedState;
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -118,7 +118,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         todo!();
     }
 
-    /// Try to commit a transaction.
+    /// Tries to commit a transaction.
     /// First we validate the read set:
     /// If the validation failed, we delete the transaction writes and (re-)execute it.
     /// Else (validation succeeded) no need to re-execute.
@@ -127,8 +127,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     /// for the transaction in the block.
     /// If there is room: we fix the call info, update the sequencer balance and
     /// commit the transaction. Otherwise (execution failed, no room), we don't commit.
-
-    pub fn try_commit_transaction(&self, tx_index: TxIndex) -> StateResult<bool> {
+    pub fn try_commit_tx(&self, tx_index: TxIndex) -> StateResult<bool> {
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
 
         let tx = &self.chunk[tx_index];

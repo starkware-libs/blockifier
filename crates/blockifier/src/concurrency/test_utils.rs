@@ -1,4 +1,4 @@
-use crate::concurrency::versioned_state_proxy::{ThreadSafeVersionedState, VersionedState};
+use crate::concurrency::versioned_state::{ThreadSafeVersionedState, VersionedState};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::state::cached_state::CachedState;

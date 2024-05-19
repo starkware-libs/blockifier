@@ -12,8 +12,8 @@ use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
 use crate::state::state_api::{StateReader, StateResult};
 
 #[cfg(test)]
-#[path = "versioned_state_proxy_test.rs"]
-pub mod test;
+#[path = "versioned_state_test.rs"]
+pub mod versioned_state_test;
 
 const READ_ERR: &str = "Error: read value missing in the versioned storage";
 

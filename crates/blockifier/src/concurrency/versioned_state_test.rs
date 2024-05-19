@@ -10,7 +10,7 @@ use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_f
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
-use crate::concurrency::versioned_state_proxy::{
+use crate::concurrency::versioned_state::{
     ThreadSafeVersionedState, VersionedState, VersionedStateProxy,
 };
 use crate::context::BlockContext;
