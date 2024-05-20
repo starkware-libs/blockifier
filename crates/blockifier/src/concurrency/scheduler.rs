@@ -9,6 +9,36 @@ use crate::concurrency::TxIndex;
 #[path = "scheduler_test.rs"]
 pub mod test;
 
+pub struct TransactionCommitter<'a> {
+    scheduler: &'a Scheduler,
+    commit_index_guard: MutexGuard<'a, usize>,
+}
+
+impl<'a> TransactionCommitter<'a> {
+    pub fn new(scheduler: &'a Scheduler, commit_index_guard: MutexGuard<'a, usize>) -> Self {
+        Self { scheduler, commit_index_guard }
+    }
+
+    /// Tries to commit the next uncommitted transaction in the chunk. Returns the index of the
+    /// transaction to commit if successful, or None if the transaction is not yet executed.
+    pub fn try_commit(&mut self) -> Option<usize> {
+        if *self.commit_index_guard >= self.scheduler.chunk_size {
+            return None;
+        };
+
+        let mut status = self.scheduler.lock_tx_status(*self.commit_index_guard);
+        if *status != TransactionStatus::Executed {
+            return None;
+        }
+        *status = TransactionStatus::Committed;
+        *self.commit_index_guard += 1;
+        if *self.commit_index_guard == self.scheduler.chunk_size {
+            self.scheduler.done_marker.store(true, Ordering::Release);
+        }
+        Some(*self.commit_index_guard - 1)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Scheduler {
     execution_index: AtomicUsize,
@@ -111,27 +141,6 @@ impl Scheduler {
         Task::NoTask
     }
 
-    /// Tries to commit the next transaction in the chunk. Returns the index of the transaction to
-    /// commit if successful, or None if the transaction is not yet executed.
-    /// Assumes that the caller has already acquired a guard for the commit index, and accepts it
-    /// as an argument.
-    pub fn try_commit(&self, commit_index_guard: &mut MutexGuard<'_, usize>) -> Option<usize> {
-        if **commit_index_guard >= self.chunk_size {
-            return None;
-        };
-
-        let mut status = self.lock_tx_status(**commit_index_guard);
-        if *status == TransactionStatus::Executed {
-            *status = TransactionStatus::Committed;
-            **commit_index_guard += 1;
-            if **commit_index_guard == self.chunk_size {
-                self.done_marker.store(true, Ordering::Release);
-            }
-            return Some(**commit_index_guard - 1);
-        }
-        None
-    }
-
     /// This method is called after a transaction gets re-executed during a commit. It decreases the
     /// validation index to ensure that higher transactions are validated. There is no need to set
     /// the transaction status to Executed, as it is already set to Committed.
@@ -141,9 +150,11 @@ impl Scheduler {
         self.decrease_validation_index(tx_index + 1);
     }
 
-    pub fn try_lock_commit_index(&self) -> Option<MutexGuard<'_, usize>> {
+    /// Tries to takes the lock on the commit index. Returns a `TransactionCommitter` if successful,
+    /// or None if the lock is already taken.
+    pub fn try_enter_commit_phase(&self) -> Option<TransactionCommitter<'_>> {
         match self.commit_index.try_lock() {
-            Ok(guard) => Some(guard),
+            Ok(guard) => Some(TransactionCommitter::new(self, guard)),
             Err(TryLockError::WouldBlock) => None,
             Err(TryLockError::Poisoned(error)) => {
                 panic!("Commit index is poisoned. Data: {:?}.", *error.get_ref())
