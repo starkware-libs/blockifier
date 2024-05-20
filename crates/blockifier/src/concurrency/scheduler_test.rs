@@ -131,11 +131,10 @@ fn test_commit_flow(
 ) {
     let scheduler = default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, commit_index: commit_index);
     scheduler.set_tx_status(commit_index, commit_index_tx_status);
-    assert!(scheduler.should_commit_transactions());
+    let mut guard = scheduler.try_lock_commit_index().unwrap();
     // Lock is already acquired.
-    assert!(!scheduler.should_commit_transactions());
-    assert_eq!(scheduler.commit_lock.load(Ordering::Acquire), true);
-    scheduler.try_commit();
+    assert!(scheduler.try_lock_commit_index().is_none());
+    let commit_index = scheduler.try_commit(&mut guard).unwrap();
     if commit_index_tx_status == TransactionStatus::Executed {
         assert_eq!(*scheduler.lock_tx_status(commit_index), TransactionStatus::Committed);
         assert_eq!(*scheduler.commit_index.lock().unwrap(), commit_index + 1);
@@ -147,9 +146,6 @@ fn test_commit_flow(
         assert_eq!(*scheduler.lock_tx_status(commit_index), commit_index_tx_status);
         assert_eq!(*scheduler.commit_index.lock().unwrap(), commit_index);
     }
-    scheduler.done_committing_transactions();
-    // Make sure the lock can now be acquired again.
-    assert!(scheduler.should_commit_transactions());
 }
 
 #[rstest]
