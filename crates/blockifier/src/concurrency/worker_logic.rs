@@ -142,10 +142,11 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let aborted = !reads_valid && self.scheduler.try_validation_abort(tx_index);
         if aborted {
             tx_versioned_state
-                .delete_writes(&execution_output.writes, &execution_output.contract_classes)
+                .delete_writes(&execution_output.writes, &execution_output.contract_classes);
+            self.scheduler.finish_abort(tx_index)
+        } else {
+            Task::NoTask
         }
-
-        self.scheduler.finish_validation(tx_index, aborted)
     }
 
     /// Commits a transaction. The commit process is as follows:
