@@ -16,46 +16,13 @@ fn test_new(#[values(0, 1, 32)] chunk_size: usize) {
     let scheduler = Scheduler::new(chunk_size);
     assert_eq!(scheduler.execution_index.into_inner(), 0);
     assert_eq!(scheduler.validation_index.into_inner(), chunk_size);
-    assert_eq!(scheduler.decrease_counter.into_inner(), 0);
-    assert_eq!(scheduler.n_active_tasks.into_inner(), 0);
+    assert_eq!(*scheduler.commit_index.lock().unwrap(), 0);
     assert_eq!(scheduler.chunk_size, chunk_size);
     assert_eq!(scheduler.tx_statuses.len(), chunk_size);
     for i in 0..chunk_size {
         assert_eq!(*scheduler.tx_statuses[i].lock().unwrap(), TransactionStatus::ReadyToExecute);
     }
     assert_eq!(scheduler.done_marker.into_inner(), false);
-}
-
-#[rstest]
-#[case::done(DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_SIZE, 0, true)]
-#[case::active_tasks(DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_SIZE, 1, false)]
-#[case::execution_incomplete(DEFAULT_CHUNK_SIZE-1, DEFAULT_CHUNK_SIZE+1, 0, false)]
-#[case::validation_incomplete(DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_SIZE-1, 0, false)]
-fn test_check_done(
-    #[case] execution_index: TxIndex,
-    #[case] validation_index: TxIndex,
-    #[case] n_active_tasks: usize,
-    #[case] expected: bool,
-) {
-    let scheduler = default_scheduler!(
-        chunk_size: DEFAULT_CHUNK_SIZE,
-        execution_index: execution_index,
-        validation_index: validation_index,
-        n_active_tasks: n_active_tasks
-    );
-    scheduler.check_done();
-    assert_eq!(scheduler.done_marker.load(Ordering::Acquire), expected);
-}
-
-#[rstest]
-#[case::no_panic(1)]
-#[should_panic(expected = "n_active_tasks underflow")]
-#[case::underflow_panic(0)]
-fn test_safe_decrement_n_active_tasks(#[case] n_active_tasks: usize) {
-    let scheduler =
-        default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, n_active_tasks: n_active_tasks);
-    scheduler.safe_decrement_n_active_tasks();
-    assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), n_active_tasks - 1);
 }
 
 #[rstest]
@@ -111,11 +78,6 @@ fn test_next_task(
     scheduler.set_tx_status(validation_index, validation_index_status);
     let next_task = scheduler.next_task();
     assert_eq!(next_task, expected_next_task);
-    let expected_n_active_tasks = match expected_next_task {
-        Task::Done | Task::NoTask => 0,
-        _ => 1,
-    };
-    assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), expected_n_active_tasks);
 }
 
 #[rstest]
@@ -179,17 +141,14 @@ fn test_set_executed_status(#[case] tx_status: TransactionStatus) {
 #[case::reduces_validation_index(0, 10)]
 #[case::does_not_reduce_validation_index(10, 0)]
 fn test_finish_execution(#[case] tx_index: TxIndex, #[case] validation_index: TxIndex) {
-    let n_active_tasks = 1;
     let scheduler = default_scheduler!(
         chunk_size: DEFAULT_CHUNK_SIZE,
         validation_index: validation_index,
-        n_active_tasks: n_active_tasks,
     );
     scheduler.set_tx_status(tx_index, TransactionStatus::Executing);
     scheduler.finish_execution(tx_index);
     assert_eq!(*scheduler.lock_tx_status(tx_index), TransactionStatus::Executed);
     assert_eq!(scheduler.validation_index.load(Ordering::Acquire), min(tx_index, validation_index));
-    assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), n_active_tasks - 1);
 }
 
 #[rstest]
@@ -241,33 +200,30 @@ fn test_finish_validation(
     #[case] execution_index: TxIndex,
     #[case] aborted: bool,
 ) {
-    let n_active_tasks = 1;
     let scheduler = default_scheduler!(
         chunk_size: DEFAULT_CHUNK_SIZE,
         execution_index: execution_index,
-        n_active_tasks: n_active_tasks,
     );
     let tx_status = if aborted { TransactionStatus::Aborting } else { TransactionStatus::Executed };
     scheduler.set_tx_status(tx_index, tx_status);
-    let result = scheduler.finish_validation(tx_index, aborted);
+    let mut result = Task::NoTask;
+    if aborted {
+        result = scheduler.finish_abort(tx_index);
+    }
     let new_status = scheduler.lock_tx_status(tx_index);
-    let new_n_active_tasks = scheduler.n_active_tasks.load(Ordering::Acquire);
     match aborted {
         true => {
             if execution_index > tx_index {
                 assert_eq!(result, Task::ExecutionTask(tx_index));
                 assert_eq!(*new_status, TransactionStatus::Executing);
-                assert_eq!(new_n_active_tasks, n_active_tasks);
             } else {
                 assert_eq!(result, Task::NoTask);
                 assert_eq!(*new_status, TransactionStatus::ReadyToExecute);
-                assert_eq!(new_n_active_tasks, n_active_tasks - 1);
             }
         }
         false => {
             assert_eq!(result, Task::NoTask);
             assert_eq!(*new_status, TransactionStatus::Executed);
-            assert_eq!(new_n_active_tasks, n_active_tasks - 1);
         }
     }
 }
@@ -286,8 +242,6 @@ fn test_decrease_validation_index(
     scheduler.decrease_validation_index(target_index);
     let expected_validation_index = min(target_index, validation_index);
     assert_eq!(scheduler.validation_index.load(Ordering::Acquire), expected_validation_index);
-    let expected_decrease_counter = if target_index < validation_index { 1 } else { 0 };
-    assert_eq!(scheduler.decrease_counter.load(Ordering::Acquire), expected_decrease_counter);
 }
 
 #[rstest]
@@ -302,17 +256,13 @@ fn test_try_incarnate(
     #[case] tx_status: TransactionStatus,
     #[case] expected_output: bool,
 ) {
-    let scheduler = default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, n_active_tasks: 1);
+    let scheduler = Scheduler::new(DEFAULT_CHUNK_SIZE);
     scheduler.set_tx_status(tx_index, tx_status);
     assert_eq!(scheduler.try_incarnate(tx_index), expected_output);
     if expected_output {
         assert_eq!(*scheduler.lock_tx_status(tx_index), TransactionStatus::Executing);
-        assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), 1);
-    } else {
-        assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), 0);
-        if tx_index < DEFAULT_CHUNK_SIZE {
-            assert_eq!(*scheduler.lock_tx_status(tx_index), tx_status);
-        }
+    } else if tx_index < DEFAULT_CHUNK_SIZE {
+        assert_eq!(*scheduler.lock_tx_status(tx_index), tx_status);
     }
 }
 
@@ -335,8 +285,6 @@ fn test_next_version_to_validate(
     let expected_validation_index =
         if validation_index < DEFAULT_CHUNK_SIZE { validation_index + 1 } else { validation_index };
     assert_eq!(scheduler.validation_index.load(Ordering::Acquire), expected_validation_index);
-    let expected_n_active_tasks = if expected_output.is_some() { 1 } else { 0 };
-    assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), expected_n_active_tasks);
 }
 
 #[rstest]
@@ -358,6 +306,4 @@ fn test_next_version_to_execute(
     let expected_execution_index =
         if execution_index < DEFAULT_CHUNK_SIZE { execution_index + 1 } else { execution_index };
     assert_eq!(scheduler.execution_index.load(Ordering::Acquire), expected_execution_index);
-    let expected_n_active_tasks = if expected_output.is_some() { 1 } else { 0 };
-    assert_eq!(scheduler.n_active_tasks.load(Ordering::Acquire), expected_n_active_tasks);
 }
