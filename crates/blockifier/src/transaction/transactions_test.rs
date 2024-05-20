@@ -1649,7 +1649,7 @@ fn test_only_query_flag(block_context: BlockContext, #[values(true, false)] only
         stark_felt!(max_fee.0),       // Max fee.
         StarkFelt::ZERO,              // Signature.
         StarkFelt::ZERO,              // Transaction hash.
-        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+        stark_felt!(&*ChainId::Other(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
         StarkFelt::ZERO,              // Nonce.
         StarkFelt::ZERO,              // Length of resource bounds array.
         StarkFelt::ZERO,              // Tip.

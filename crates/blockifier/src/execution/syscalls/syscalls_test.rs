@@ -381,13 +381,14 @@ fn test_get_execution_info(
     let tx_info: TransactionInfo;
     if version == TransactionVersion::ONE {
         expected_tx_info = vec![
-            version.0,                                                  // Transaction version.
-            *sender_address.0.key(),                                    // Account address.
-            stark_felt!(max_fee.0),                                     // Max fee.
-            StarkFelt::ZERO,                                            // Signature.
-            tx_hash.0,                                                  // Transaction hash.
-            stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-            nonce.0,                                                    // Nonce.
+            version.0,                                                         /* Transaction
+                                                                                * version. */
+            *sender_address.0.key(), // Account address.
+            stark_felt!(max_fee.0),  // Max fee.
+            StarkFelt::ZERO,         // Signature.
+            tx_hash.0,               // Transaction hash.
+            stark_felt!(&*ChainId::Other(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+            nonce.0,                 // Nonce.
         ];
         if !is_legacy {
             expected_resource_bounds = vec![
@@ -409,13 +410,14 @@ fn test_get_execution_info(
         let max_amount = Fee(13);
         let max_price_per_unit = Fee(61);
         expected_tx_info = vec![
-            version.0,                                                  // Transaction version.
-            *sender_address.0.key(),                                    // Account address.
-            StarkFelt::ZERO,                                            // Max fee.
-            StarkFelt::ZERO,                                            // Signature.
-            tx_hash.0,                                                  // Transaction hash.
-            stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-            nonce.0,                                                    // Nonce.
+            version.0,                                                         /* Transaction
+                                                                                * version. */
+            *sender_address.0.key(), // Account address.
+            StarkFelt::ZERO,         // Max fee.
+            StarkFelt::ZERO,         // Signature.
+            tx_hash.0,               // Transaction hash.
+            stark_felt!(&*ChainId::Other(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+            nonce.0,                 // Nonce.
         ];
         if !is_legacy {
             expected_resource_bounds = vec![

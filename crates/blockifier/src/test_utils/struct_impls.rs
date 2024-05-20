@@ -106,7 +106,7 @@ impl GasCosts {
 impl ChainInfo {
     pub fn create_for_testing() -> Self {
         Self {
-            chain_id: ChainId(CHAIN_ID_NAME.to_string()),
+            chain_id: ChainId::Other(CHAIN_ID_NAME.to_string()),
             fee_token_addresses: FeeTokenAddresses {
                 eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
                 strk_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),

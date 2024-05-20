@@ -594,7 +594,7 @@ impl<'a> SyscallHintProcessor<'a> {
             tx_signature_end_ptr.into(),
             stark_felt_to_felt((tx_info).transaction_hash().0).into(),
             Felt252::from_bytes_be(
-                self.context.tx_context.block_context.chain_info.chain_id.0.as_bytes(),
+                self.context.tx_context.block_context.chain_info.chain_id.to_string().as_bytes(),
             )
             .into(),
             stark_felt_to_felt((tx_info).nonce().0).into(),

@@ -458,7 +458,7 @@ fn test_tx_info(#[values(false, true)] only_query: bool) {
         *sender_address.0.key(),      // Account address.
         stark_felt!(max_fee.0),       // Max fee.
         tx_hash.0,                    // Transaction hash.
-        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+        stark_felt!(&*ChainId::Other(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
         nonce.0                       // Nonce.
     ];
     let entry_point_selector = selector_from_name("test_get_tx_info");
