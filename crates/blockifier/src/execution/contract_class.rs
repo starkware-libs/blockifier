@@ -516,7 +516,7 @@ impl ClassInfo {
         let (contract_class_version, condition) = match contract_class {
             ContractClass::V0(_) => (0, sierra_program_length == 0),
             ContractClass::V1(_) => (1, sierra_program_length > 0),
-            ContractClass::V1Sierra(_) => todo!("Sierra contract class version and condition"),
+            ContractClass::V1Sierra(_) => (1, sierra_program_length > 0),
         };
 
         if condition {
