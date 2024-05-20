@@ -15,9 +15,9 @@ pub struct Scheduler {
     validation_index: AtomicUsize,
     // The index of the next transaction to commit. `commit_index` is protected by `commit_lock`.
     // There will be no concurrent access to `commit_index`, but the rust compiler cannot infer
-    // that this is the case, so we use a Mutex to allow mutable and concurrent access.
+    // that this is the case, so we use AtomicUsize to allow mutable and concurrent access.
     // TODO(Avi, 15/05/2024): Consider defining an ExplicitSyncWrapper for this.
-    commit_index: Mutex<usize>,
+    commit_index: AtomicUsize,
     // Used to lock the commit index when committing transactions. This is necessary to make sure
     // the process of committing transactions is sequential.
     commit_lock: AtomicBool,
@@ -29,8 +29,8 @@ pub struct Scheduler {
     chunk_size: usize,
     // TODO(Avi, 15/05/2024): Consider using RwLock instead of Mutex.
     tx_statuses: Box<[Mutex<TransactionStatus>]>,
-    // Updated by the `check_done` procedure, providing a cheap way for all threads to exit their
-    // main loops.
+    // Set to true when all transactions have been committed, or when calling the halt procedure,
+    // providing a cheap way for all threads to exit their main loops.
     done_marker: AtomicBool,
 }
 
@@ -39,7 +39,7 @@ impl Scheduler {
         Scheduler {
             execution_index: AtomicUsize::new(0),
             validation_index: AtomicUsize::new(chunk_size),
-            commit_index: Mutex::new(0),
+            commit_index: AtomicUsize::new(0),
             commit_lock: AtomicBool::new(false),
             decrease_counter: AtomicUsize::new(0),
             n_active_tasks: AtomicUsize::new(0),
@@ -122,18 +122,15 @@ impl Scheduler {
     /// commit if successful, or None if the transaction is not yet executed.
     /// Assumes that the caller has already acquired the commit lock.
     pub fn try_commit(&self) -> Option<usize> {
-        let mut commit_index = self.commit_index.lock().expect(
-            "This lock should always succeed, since commit_lock must be successfully acquired \
-             before calling this method",
-        );
-        let mut status = self.lock_tx_status(*commit_index);
+        let commit_index = self.commit_index.load(Ordering::Acquire);
+        let mut status = self.lock_tx_status(commit_index);
         if *status == TransactionStatus::Executed {
             *status = TransactionStatus::Committed;
-            *commit_index += 1;
-            if *commit_index == self.chunk_size {
+            let commit_index = self.commit_index.fetch_add(1, Ordering::SeqCst);
+            if commit_index + 1 == self.chunk_size {
                 self.done_marker.store(true, Ordering::Release);
             }
-            return Some(*commit_index - 1);
+            return Some(commit_index);
         }
         None
     }
@@ -155,6 +152,18 @@ impl Scheduler {
 
     pub fn unlock_commit_lock(&self) {
         self.commit_lock.store(false, Ordering::Release);
+    }
+
+    /// Halts the scheduler. Decrements the commit index to indicate that the final transaction to
+    /// was excluded from the block.
+    pub fn halt(&self) {
+        self.done_marker.store(true, Ordering::Release);
+        let previous_commit_index = self.commit_index.fetch_sub(1, Ordering::SeqCst);
+        assert!(previous_commit_index > 0, "commit_index underflow.");
+    }
+
+    pub fn get_n_committed_txs(&self) -> usize {
+        self.commit_index.load(Ordering::Acquire)
     }
 
     /// Checks if all transactions have been executed and validated.

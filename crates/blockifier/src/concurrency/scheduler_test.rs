@@ -138,14 +138,14 @@ fn test_commit_flow(
     scheduler.try_commit();
     if commit_index_tx_status == TransactionStatus::Executed {
         assert_eq!(*scheduler.lock_tx_status(commit_index), TransactionStatus::Committed);
-        assert_eq!(*scheduler.commit_index.lock().unwrap(), commit_index + 1);
+        assert_eq!(scheduler.commit_index.load(Ordering::Acquire), commit_index + 1);
         assert_eq!(
             scheduler.done_marker.load(Ordering::Acquire),
             commit_index + 1 == DEFAULT_CHUNK_SIZE
         );
     } else {
         assert_eq!(*scheduler.lock_tx_status(commit_index), commit_index_tx_status);
-        assert_eq!(*scheduler.commit_index.lock().unwrap(), commit_index);
+        assert_eq!(scheduler.commit_index.load(Ordering::Acquire), commit_index);
     }
     scheduler.unlock_commit_lock();
     // Make sure the lock can now be acquired again.
