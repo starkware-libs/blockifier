@@ -21,11 +21,6 @@ pub struct Scheduler {
     // Used to lock the commit index when committing transactions. This is necessary to make sure
     // the process of committing transactions is sequential.
     commit_lock: AtomicBool,
-    // Read twice upon checking the chunk completion. Used to detect if validation or execution
-    // index decreased from their observed values after ensuring that the number of active tasks
-    // is zero.
-    decrease_counter: AtomicUsize,
-    n_active_tasks: AtomicUsize,
     chunk_size: usize,
     // TODO(Avi, 15/05/2024): Consider using RwLock instead of Mutex.
     tx_statuses: Box<[Mutex<TransactionStatus>]>,
@@ -41,19 +36,12 @@ impl Scheduler {
             validation_index: AtomicUsize::new(chunk_size),
             commit_index: Mutex::new(0),
             commit_lock: AtomicBool::new(false),
-            decrease_counter: AtomicUsize::new(0),
-            n_active_tasks: AtomicUsize::new(0),
             chunk_size,
             tx_statuses: std::iter::repeat_with(|| Mutex::new(TransactionStatus::ReadyToExecute))
                 .take(chunk_size)
                 .collect(),
             done_marker: AtomicBool::new(false),
         }
-    }
-
-    /// Returns the done marker.
-    fn done(&self) -> bool {
-        self.done_marker.load(Ordering::Acquire)
     }
 
     pub fn next_task(&self) -> Task {
@@ -89,7 +77,6 @@ impl Scheduler {
         if self.validation_index.load(Ordering::Acquire) > tx_index {
             self.decrease_validation_index(tx_index);
         }
-        self.safe_decrement_n_active_tasks();
     }
 
     pub fn try_validation_abort(&self, tx_index: TxIndex) -> bool {
@@ -104,18 +91,13 @@ impl Scheduler {
     /// Updates the Scheduler that a validation task has been finished and triggers the creation of
     /// new tasks in case of failure: schedules validation for higher transactions + re-executes the
     /// current transaction (if ready).
-    pub fn finish_validation(&self, tx_index: TxIndex, aborted: bool) -> Task {
-        if aborted {
-            self.set_ready_status(tx_index);
-            if self.execution_index.load(Ordering::Acquire) > tx_index
-                && self.try_incarnate(tx_index)
-            {
-                return Task::ExecutionTask(tx_index);
-            }
+    pub fn finish_abort(&self, tx_index: TxIndex) -> Task {
+        self.set_ready_status(tx_index);
+        if self.execution_index.load(Ordering::Acquire) > tx_index && self.try_incarnate(tx_index) {
+            Task::ExecutionTask(tx_index)
+        } else {
+            Task::NoTask
         }
-        self.safe_decrement_n_active_tasks();
-
-        Task::NoTask
     }
 
     /// Tries to commit the next transaction in the chunk. Returns the index of the transaction to
@@ -157,26 +139,6 @@ impl Scheduler {
         self.commit_lock.store(false, Ordering::Release);
     }
 
-    /// Checks if all transactions have been executed and validated.
-    fn check_done(&self) {
-        let observed_decrease_counter = self.decrease_counter.load(Ordering::Acquire);
-
-        if min(
-            self.validation_index.load(Ordering::Acquire),
-            self.execution_index.load(Ordering::Acquire),
-        ) >= self.chunk_size
-            && self.n_active_tasks.load(Ordering::Acquire) == 0
-            && observed_decrease_counter == self.decrease_counter.load(Ordering::Acquire)
-        {
-            self.done_marker.store(true, Ordering::Release);
-        }
-    }
-
-    fn safe_decrement_n_active_tasks(&self) {
-        let previous_n_active_tasks = self.n_active_tasks.fetch_sub(1, Ordering::SeqCst);
-        assert!(previous_n_active_tasks > 0, "n_active_tasks underflow");
-    }
-
     fn lock_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {
         lock_mutex_in_array(&self.tx_statuses, tx_index)
     }
@@ -204,11 +166,7 @@ impl Scheduler {
     }
 
     fn decrease_validation_index(&self, target_index: TxIndex) {
-        let previous_validation_index =
-            self.validation_index.fetch_min(target_index, Ordering::SeqCst);
-        if target_index < previous_validation_index {
-            self.decrease_counter.fetch_add(1, Ordering::SeqCst);
-        }
+        self.validation_index.fetch_min(target_index, Ordering::SeqCst);
     }
 
     /// Updates a transaction's status to `Executing` if it is ready to execute.
@@ -220,17 +178,14 @@ impl Scheduler {
                 return true;
             }
         }
-        self.safe_decrement_n_active_tasks();
         false
     }
 
     fn next_version_to_validate(&self) -> Option<TxIndex> {
         let index_to_validate = self.validation_index.load(Ordering::Acquire);
         if index_to_validate >= self.chunk_size {
-            self.check_done();
             return None;
         }
-        self.n_active_tasks.fetch_add(1, Ordering::SeqCst);
         let index_to_validate = self.validation_index.fetch_add(1, Ordering::SeqCst);
         if index_to_validate < self.chunk_size {
             let status = self.lock_tx_status(index_to_validate);
@@ -238,22 +193,24 @@ impl Scheduler {
                 return Some(index_to_validate);
             }
         }
-        self.safe_decrement_n_active_tasks();
         None
     }
 
     fn next_version_to_execute(&self) -> Option<TxIndex> {
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
         if index_to_execute >= self.chunk_size {
-            self.check_done();
             return None;
         }
-        self.n_active_tasks.fetch_add(1, Ordering::SeqCst);
         let index_to_execute = self.execution_index.fetch_add(1, Ordering::SeqCst);
         if self.try_incarnate(index_to_execute) {
             return Some(index_to_execute);
         }
         None
+    }
+
+    /// Returns the done marker.
+    fn done(&self) -> bool {
+        self.done_marker.load(Ordering::Acquire)
     }
 
     #[cfg(any(feature = "testing", test))]
