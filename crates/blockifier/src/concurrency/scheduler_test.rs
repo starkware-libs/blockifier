@@ -131,13 +131,13 @@ fn test_commit_flow(
 ) {
     let scheduler = default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, commit_index: commit_index);
     scheduler.set_tx_status(commit_index, commit_index_tx_status);
-    let mut guard = scheduler.try_lock_commit_index().unwrap();
+    let mut transaction_committer = scheduler.try_enter_commit_phase().unwrap();
     // Lock is already acquired.
-    assert!(scheduler.try_lock_commit_index().is_none());
-    if let Some(index) = scheduler.try_commit(&mut guard) {
+    assert!(scheduler.try_enter_commit_phase().is_none());
+    if let Some(index) = transaction_committer.try_commit() {
         assert_eq!(index, commit_index);
     }
-    drop(guard);
+    drop(transaction_committer);
     if commit_index_tx_status == TransactionStatus::Executed {
         assert_eq!(*scheduler.lock_tx_status(commit_index), TransactionStatus::Committed);
         assert_eq!(*scheduler.commit_index.lock().unwrap(), commit_index + 1);

@@ -76,8 +76,8 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     }
 
     fn commit_transactions_while_possible(&self) -> Result<(), StateError> {
-        if let Some(mut guard) = self.scheduler.try_lock_commit_index() {
-            while let Some(tx_index) = self.scheduler.try_commit(&mut guard) {
+        if let Some(mut transaction_committer) = self.scheduler.try_enter_commit_phase() {
+            while let Some(tx_index) = transaction_committer.try_commit() {
                 let commit_failed = !self.commit_tx(tx_index)?;
                 if commit_failed {
                     // Avi(01/06/2024): Halt the scheduler once implementation is ready.
