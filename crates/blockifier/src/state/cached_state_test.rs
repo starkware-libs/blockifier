@@ -287,7 +287,7 @@ fn cached_state_state_diff_conversion() {
         address_to_nonce: IndexMap::from_iter([(contract_address2, nonce!(1_u64))]),
     };
 
-    assert_eq!(expected_state_diff, state.to_state_diff());
+    assert_eq!(expected_state_diff, state.to_state_diff().unwrap().into());
 }
 
 fn create_state_changes_for_test<S: StateReader>(
