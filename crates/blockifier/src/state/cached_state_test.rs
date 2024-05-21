@@ -379,7 +379,7 @@ fn test_state_changes_merge(
     );
 
     // Get the storage updates addresses and keys from the state_changes1, to overwrite.
-    let mut storage_updates_keys = state_changes1.storage_updates.keys();
+    let mut storage_updates_keys = state_changes1.0.storage.keys();
     let &(contract_address, storage_key) = storage_updates_keys
         .find(|(contract_address, _)| contract_address == &contract_address!(CONTRACT_ADDRESS))
         .unwrap();
@@ -451,19 +451,20 @@ fn test_cache_get_write_keys() {
 
     let class_hash0 = class_hash!("0x300");
 
-    let state_changes = StateChanges {
-        nonce_updates: HashMap::from([(contract_address0, Nonce(some_felt))]),
-        class_hash_updates: HashMap::from([
+    let state_changes = StateChanges(StateMaps {
+        nonces: HashMap::from([(contract_address0, Nonce(some_felt))]),
+        class_hashes: HashMap::from([
             (contract_address1, some_class_hash),
             (contract_address2, some_class_hash),
         ]),
-        storage_updates: HashMap::from([
+        storage: HashMap::from([
             ((contract_address1, storage_key!("0x300")), some_felt),
             ((contract_address1, storage_key!("0x600")), some_felt),
             ((contract_address3, storage_key!("0x600")), some_felt),
         ]),
-        compiled_class_hash_updates: HashMap::from([(class_hash0, compiled_class_hash!("0x3"))]),
-    };
+        compiled_class_hashes: HashMap::from([(class_hash0, compiled_class_hash!("0x3"))]),
+        declared_contracts: HashMap::default(),
+    });
 
     let expected_keys = StateChangesKeys {
         nonce_keys: HashSet::from([contract_address0]),
