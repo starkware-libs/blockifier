@@ -11,7 +11,7 @@ use crate::blockifier::transaction_executor::{
 };
 use crate::execution::call_info::ExecutionSummary;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
-use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
+use crate::state::cached_state::{StateChangesKeys, StorageEntry};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{ExecutionResourcesTraits, TransactionResources};
@@ -201,15 +201,20 @@ impl Bouncer {
     /// Updates the bouncer with a new transaction.
     pub fn try_update<S: StateReader>(
         &mut self,
-        state: &mut TransactionalState<'_, S>,
+        state_reader: &S,
+        tx_state_changes_keys: &StateChangesKeys,
         tx_execution_summary: &ExecutionSummary,
         tx_resources: &TransactionResources,
     ) -> TransactionExecutorResult<()> {
         // The countings here should be linear in the transactional state changes and execution info
         // rather than the cumulative state attributes.
-        let state_changes_keys = self.get_state_changes_keys(state)?;
-        let tx_weights =
-            self.get_tx_weights(state, tx_execution_summary, tx_resources, &state_changes_keys)?;
+        let state_changes_keys = tx_state_changes_keys.difference(&self.state_changes_keys);
+        let tx_weights = self.get_tx_weights(
+            state_reader,
+            tx_execution_summary,
+            tx_resources,
+            &state_changes_keys,
+        )?;
 
         let mut max_capacity = self.bouncer_config.block_max_capacity;
         if self.accumulated_weights.builtin_count.keccak > 0 || tx_weights.builtin_count.keccak > 0
@@ -239,7 +244,7 @@ impl Bouncer {
 
     pub fn get_tx_weights<S: StateReader>(
         &mut self,
-        state: &mut TransactionalState<'_, S>,
+        state_reader: &S,
         tx_execution_summary: &ExecutionSummary,
         tx_resources: &TransactionResources,
         state_changes_keys: &StateChangesKeys,
@@ -248,7 +253,7 @@ impl Bouncer {
             tx_resources.starknet_resources.calculate_message_l1_resources();
 
         let mut additional_os_resources = get_casm_hash_calculation_resources(
-            state,
+            state_reader,
             &self.executed_class_hashes,
             &tx_execution_summary.executed_class_hashes,
         )?;
@@ -269,14 +274,6 @@ impl Bouncer {
         })
     }
 
-    pub fn get_state_changes_keys<S: StateReader>(
-        &self,
-        state: &mut TransactionalState<'_, S>,
-    ) -> TransactionExecutorResult<StateChangesKeys> {
-        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
-        Ok(tx_state_changes_keys.difference(&self.state_changes_keys))
-    }
-
     #[cfg(test)]
     pub fn set_accumulated_weights(&mut self, weights: BouncerWeights) {
         self.accumulated_weights = weights;
@@ -286,7 +283,7 @@ impl Bouncer {
 /// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
 /// executed classes by the current transaction.
 pub fn get_casm_hash_calculation_resources<S: StateReader>(
-    state: &mut TransactionalState<'_, S>,
+    state_reader: &S,
     block_executed_class_hashes: &HashSet<ClassHash>,
     tx_executed_class_hashes: &HashSet<ClassHash>,
 ) -> TransactionExecutorResult<ExecutionResources> {
@@ -296,7 +293,7 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     let mut casm_hash_computation_resources = ExecutionResources::default();
 
     for class_hash in newly_executed_class_hashes {
-        let class = state.get_compiled_contract_class(*class_hash)?;
+        let class = state_reader.get_compiled_contract_class(*class_hash)?;
         casm_hash_computation_resources += &class.estimate_casm_hash_computation_resources();
     }
 
