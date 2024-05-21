@@ -80,8 +80,11 @@ impl<S: StateReader> TransactionExecutor<S> {
             tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
         match tx_execution_result {
             Ok(tx_execution_info) => {
+                let tx_state_changes_keys =
+                    transactional_state.get_actual_state_changes()?.into_keys();
                 self.bouncer.try_update(
-                    &mut transactional_state,
+                    &transactional_state,
+                    &tx_state_changes_keys,
                     &tx_execution_info.summarize(),
                     &tx_execution_info.actual_resources,
                 )?;

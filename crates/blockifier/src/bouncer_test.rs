@@ -256,9 +256,15 @@ fn test_bouncer_try_update(
         },
         ..Default::default()
     };
+    let tx_state_changes_keys = transactional_state.get_actual_state_changes().unwrap().into_keys();
 
     // Try to update the bouncer.
-    let result = bouncer.try_update(&mut transactional_state, &execution_summary, &tx_resources);
+    let result = bouncer.try_update(
+        &transactional_state,
+        &tx_state_changes_keys,
+        &execution_summary,
+        &tx_resources,
+    );
 
     // TODO(yael 27/3/24): compare the results without using string comparison.
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
