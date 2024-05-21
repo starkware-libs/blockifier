@@ -203,6 +203,10 @@ impl<S: StateReader> TransactionExecutor<S> {
             .collect::<TransactionExecutorResult<_>>()?;
 
         log::debug!("Final block weights: {:?}.", self.bouncer.get_accumulated_weights());
-        Ok((self.state.to_state_diff(), visited_segments, *self.bouncer.get_accumulated_weights()))
+        Ok((
+            self.state.to_state_diff()?.into(),
+            visited_segments,
+            *self.bouncer.get_accumulated_weights(),
+        ))
     }
 }
