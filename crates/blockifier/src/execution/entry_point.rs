@@ -213,13 +213,8 @@ impl EntryPointExecutionContext {
         limit_steps_by_resources: bool,
     ) -> TransactionExecutionResult<usize> {
         let block_upper_bound = match mode {
-            ExecutionMode::Validate => min(
-                block_context.validate_max_n_steps as usize,
-                constants::MAX_VALIDATE_STEPS_PER_TX,
-            ),
-            ExecutionMode::Execute => {
-                min(block_context.invoke_tx_max_n_steps as usize, constants::MAX_STEPS_PER_TX)
-            }
+            ExecutionMode::Validate => block_context.validate_max_n_steps as usize,
+            ExecutionMode::Execute => block_context.invoke_tx_max_n_steps as usize,
         };
 
         if !limit_steps_by_resources || !account_tx_context.enforce_fee()? {
