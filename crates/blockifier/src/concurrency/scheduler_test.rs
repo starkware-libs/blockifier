@@ -81,15 +81,18 @@ fn test_next_task(
 }
 
 #[rstest]
-#[case::happy_flow(0, TransactionStatus::Executed)]
-#[case::last_transaction_to_commit(DEFAULT_CHUNK_SIZE - 1, TransactionStatus::Executed)]
-#[case::wrong_status_ready(0, TransactionStatus::ReadyToExecute)]
-#[case::wrong_status_executing(0, TransactionStatus::Executing)]
-#[case::wrong_status_aborting(0, TransactionStatus::Aborting)]
-#[case::wrong_status_committed(0, TransactionStatus::Committed)]
+#[case::happy_flow(0, TransactionStatus::Executed, false)]
+#[case::happy_flow_with_halt(0, TransactionStatus::Executed, true)]
+#[case::last_transaction_to_commit(DEFAULT_CHUNK_SIZE - 1, TransactionStatus::Executed, false)]
+#[case::last_transaction_to_commit_with_halt(DEFAULT_CHUNK_SIZE - 1, TransactionStatus::Executed, true)]
+#[case::wrong_status_ready(0, TransactionStatus::ReadyToExecute, false)]
+#[case::wrong_status_executing(0, TransactionStatus::Executing, false)]
+#[case::wrong_status_aborting(0, TransactionStatus::Aborting, false)]
+#[case::wrong_status_committed(0, TransactionStatus::Committed, false)]
 fn test_commit_flow(
     #[case] commit_index: TxIndex,
     #[case] commit_index_tx_status: TransactionStatus,
+    #[case] should_halt: bool,
 ) {
     let scheduler = default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, commit_index: commit_index);
     scheduler.set_tx_status(commit_index, commit_index_tx_status);
@@ -99,13 +102,19 @@ fn test_commit_flow(
     if let Some(index) = transaction_committer.try_commit() {
         assert_eq!(index, commit_index);
     }
+    if should_halt {
+        transaction_committer.halt_scheduler();
+    }
     drop(transaction_committer);
     if commit_index_tx_status == TransactionStatus::Executed {
         assert_eq!(*scheduler.lock_tx_status(commit_index), TransactionStatus::Committed);
-        assert_eq!(*scheduler.commit_index.lock().unwrap(), commit_index + 1);
+        assert_eq!(
+            *scheduler.commit_index.lock().unwrap(),
+            if should_halt { commit_index } else { commit_index + 1 }
+        );
         assert_eq!(
             scheduler.done_marker.load(Ordering::Acquire),
-            commit_index + 1 == DEFAULT_CHUNK_SIZE
+            commit_index + 1 == DEFAULT_CHUNK_SIZE || should_halt
         );
     } else {
         assert_eq!(*scheduler.lock_tx_status(commit_index), commit_index_tx_status);
