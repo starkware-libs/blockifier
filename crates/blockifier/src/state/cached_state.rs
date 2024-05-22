@@ -51,12 +51,17 @@ impl<S: StateReader> CachedState<S> {
         CachedState::new(MutRefState::new(state))
     }
 
-    /// Returns the storage changes done through this state.
-    /// For each contract instance (address) we have three attributes: (class hash, nonce, storage
-    /// root); the state updates correspond to them.
-    pub fn get_actual_state_changes(&mut self) -> StateResult<StateChanges> {
+    /// Returns the state diff resulting from the performed writes, with respect to the parent
+    /// state.
+    pub fn to_state_diff(&mut self) -> StateResult<StateMaps> {
         self.update_initial_values_of_write_only_access()?;
-        Ok(self.cache.borrow().to_state_diff().into())
+        Ok(self.cache.borrow().to_state_diff())
+    }
+
+    // TODO(Yoni, 1/8/2024): remove this function.
+    /// Returns the state changes made on this state.
+    pub fn get_actual_state_changes(&mut self) -> StateResult<StateChanges> {
+        Ok(self.to_state_diff()?.into())
     }
 
     pub fn update_cache(&mut self, write_updates: StateMaps) {
@@ -102,27 +107,6 @@ impl<S: StateReader> CachedState<S> {
             }
         }
         Ok(())
-    }
-
-    pub fn to_state_diff(&mut self) -> CommitmentStateDiff {
-        type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
-
-        // TODO(Gilad): Consider returning an error here, would require changing the API though.
-        self.update_initial_values_of_write_only_access()
-            .unwrap_or_else(|_| panic!("Cannot convert stateDiff to CommitmentStateDiff."));
-
-        let state_cache = self.cache.borrow();
-        let class_hash_updates = state_cache.get_class_hash_updates();
-        let storage_diffs = state_cache.get_storage_updates();
-        let nonces = state_cache.get_nonce_updates();
-        let declared_classes = state_cache.writes.compiled_class_hashes.clone();
-
-        CommitmentStateDiff {
-            address_to_class_hash: IndexMap::from_iter(class_hash_updates),
-            storage_updates: StorageDiff::from(StorageView(storage_diffs)),
-            class_hash_to_compiled_class_hash: IndexMap::from_iter(declared_classes),
-            address_to_nonce: IndexMap::from_iter(nonces),
-        }
     }
 }
 
@@ -480,18 +464,6 @@ impl StateCache {
     ) {
         self.writes.compiled_class_hashes.insert(class_hash, compiled_class_hash);
     }
-
-    fn get_storage_updates(&self) -> HashMap<StorageEntry, StarkFelt> {
-        strict_subtract_mappings(&self.writes.storage, &self.initial_reads.storage)
-    }
-
-    fn get_class_hash_updates(&self) -> HashMap<ContractAddress, ClassHash> {
-        strict_subtract_mappings(&self.writes.class_hashes, &self.initial_reads.class_hashes)
-    }
-
-    fn get_nonce_updates(&self) -> HashMap<ContractAddress, Nonce> {
-        strict_subtract_mappings(&self.writes.nonces, &self.initial_reads.nonces)
-    }
 }
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
@@ -548,6 +520,8 @@ impl<'a, S: StateReader> TransactionalState<'a, S> {
     pub fn abort(self) {}
 }
 
+type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
+
 /// Holds uncommitted changes induced on Starknet contracts.
 #[cfg_attr(any(feature = "testing", test), derive(Clone))]
 #[derive(Debug, Eq, PartialEq)]
@@ -559,6 +533,17 @@ pub struct CommitmentStateDiff {
 
     // Global attributes.
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,
+}
+
+impl From<StateMaps> for CommitmentStateDiff {
+    fn from(diff: StateMaps) -> Self {
+        Self {
+            address_to_class_hash: IndexMap::from_iter(diff.class_hashes),
+            storage_updates: StorageDiff::from(StorageView(diff.storage)),
+            class_hash_to_compiled_class_hash: IndexMap::from_iter(diff.compiled_class_hashes),
+            address_to_nonce: IndexMap::from_iter(diff.nonces),
+        }
+    }
 }
 
 /// Used to track the state diff size, which is determined by the number of new keys.
