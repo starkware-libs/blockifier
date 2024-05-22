@@ -80,8 +80,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             while let Some(tx_index) = transaction_committer.try_commit() {
                 let commit_succeeded = self.commit_tx(tx_index)?;
                 if !commit_succeeded {
-                    // Avi(01/06/2024): Halt the scheduler once implementation is ready.
-                    todo!();
+                    transaction_committer.halt_scheduler();
                 }
             }
         }
