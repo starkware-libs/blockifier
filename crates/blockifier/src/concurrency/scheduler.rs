@@ -37,6 +37,14 @@ impl<'a> TransactionCommitter<'a> {
         }
         Some(*self.commit_index_guard - 1)
     }
+
+    /// Halts the scheduler. Decrements the commit index to indicate that the final transaction to
+    /// commit has been excluded from the block.
+    pub fn halt_scheduler(&mut self) {
+        self.scheduler.done_marker.store(true, Ordering::Release);
+        assert!(*self.commit_index_guard > 0, "Commit index underflow.");
+        *self.commit_index_guard -= 1;
+    }
 }
 
 #[derive(Debug, Default)]
@@ -48,8 +56,8 @@ pub struct Scheduler {
     chunk_size: usize,
     // TODO(Avi, 15/05/2024): Consider using RwLock instead of Mutex.
     tx_statuses: Box<[Mutex<TransactionStatus>]>,
-    // Updated by the `check_done` procedure, providing a cheap way for all threads to exit their
-    // main loops.
+    // Set to true when all transactions have been committed, or when calling the halt_scheduler
+    // procedure, providing a cheap way for all threads to exit their main loops.
     done_marker: AtomicBool,
 }
 
