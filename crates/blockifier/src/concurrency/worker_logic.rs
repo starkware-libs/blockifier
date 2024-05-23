@@ -160,27 +160,32 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     ///         - Else (no room), do not commit. The block should be closed without the transaction.
     ///     * Else (execution failed), commit the transaction without fixing the call info or
     ///       updating the sequencer balance.
-    // TODO(Meshi, 01/06/2024): Remove dead code.
-    #[allow(dead_code)]
     fn commit_tx(&self, tx_index: TxIndex) -> StateResult<bool> {
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
+        let execution_output_ref = execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR);
 
         let tx = &self.chunk[tx_index];
         let mut tx_versioned_state = self.state.pin_version(tx_index);
 
-        let reads = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+        let reads = &execution_output_ref.reads;
         let reads_valid = tx_versioned_state.validate_reads(reads);
-        drop(execution_output);
 
         // First, re-validate the transaction.
         if !reads_valid {
             // Revalidate failed: re-execute the transaction, and commit.
-            // TODO(Meshi, 01/06/2024): Delete the transaction writes.
+            tx_versioned_state.delete_writes(
+                &execution_output_ref.writes,
+                &execution_output_ref.contract_classes,
+            );
+            drop(execution_output);
             self.execute_tx(tx_index);
             let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
             let read_set = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+            self.scheduler.finish_execution_during_commit(tx_index);
             // Another validation after the re-execution for sanity check.
             assert!(tx_versioned_state.validate_reads(read_set));
+        } else {
+            drop(execution_output);
         }
 
         // Execution is final.
@@ -229,8 +234,6 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 
 // Utilities.
 
-// TODO(Meshi, 01/06/2024): Remove dead code.
-#[allow(dead_code)]
 fn add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
     tx_versioned_state: &mut VersionedStateProxy<impl StateReader>,
