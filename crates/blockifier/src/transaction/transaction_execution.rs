@@ -9,7 +9,7 @@ use crate::execution::contract_class::ClassInfo;
 use crate::execution::entry_point::EntryPointExecutionContext;
 use crate::fee::actual_cost::TransactionReceipt;
 use crate::state::cached_state::TransactionalState;
-use crate::state::state_api::StateReader;
+use crate::state::state_api::UpdatableState;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
@@ -99,10 +99,10 @@ impl TransactionInfoCreator for Transaction {
     }
 }
 
-impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
+impl<U: UpdatableState> ExecutableTransaction<U> for L1HandlerTransaction {
     fn execute_raw(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         block_context: &BlockContext,
         _charge_fee: bool,
         _validate: bool,
@@ -144,10 +144,10 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
     }
 }
 
-impl<S: StateReader> ExecutableTransaction<S> for Transaction {
+impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
     fn execute_raw(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
