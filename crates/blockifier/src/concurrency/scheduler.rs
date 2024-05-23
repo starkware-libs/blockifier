@@ -135,8 +135,6 @@ impl Scheduler {
     /// This method is called after a transaction gets re-executed during a commit. It decreases the
     /// validation index to ensure that higher transactions are validated. There is no need to set
     /// the transaction status to Executed, as it is already set to Committed.
-    // TODO(Meshi, 01/06/2024): Add a call to this method after re-executing a transaction during
-    // commit.
     pub fn finish_execution_during_commit(&self, tx_index: TxIndex) {
         self.decrease_validation_index(tx_index + 1);
     }
