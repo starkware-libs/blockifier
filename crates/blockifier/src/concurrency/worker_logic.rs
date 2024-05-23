@@ -2,10 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-use cairo_felt::Felt252;
-use num_traits::Bounded;
+use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::hash::StarkFelt;
+use starknet_api::stark_felt;
 use starknet_api::transaction::Fee;
 
 use super::versioned_state::VersionedStateProxy;
@@ -15,7 +15,7 @@ use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state::ThreadSafeVersionedState;
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
 use crate::state::state_api::{StateReader, StateResult};
@@ -240,22 +240,23 @@ fn add_fee_to_sequencer_balance(
     sequencer_balance_value_low: StarkFelt,
     sequencer_balance_value_high: StarkFelt,
 ) {
+    // TODO(Meshi, 01/06/2024) consider extracting a util function for this.
+    let sequencer_balance_low_as_u128 = stark_felt_to_felt(sequencer_balance_value_low)
+        .to_u128()
+        .expect("sequencer balance low should be u128");
+    let sequencer_balance_high_as_u128 = stark_felt_to_felt(sequencer_balance_value_high)
+        .to_u128()
+        .expect("sequencer balance high should be u128");
+    let (new_value_low, carry) = sequencer_balance_low_as_u128.overflowing_add(actual_fee.0);
+    assert!(sequencer_balance_high_as_u128 < u128::MAX, "overflow");
+    let new_value_high = sequencer_balance_high_as_u128 + u128::from(carry);
+
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(block_context);
-    let felt_fee = &Felt252::from(actual_fee.0);
-    let new_value_low = stark_felt_to_felt(sequencer_balance_value_low) + felt_fee;
-    let overflow =
-        stark_felt_to_felt(sequencer_balance_value_low) > Felt252::max_value() - felt_fee;
-    let new_value_high = if overflow {
-        stark_felt_to_felt(sequencer_balance_value_high) + Felt252::from(1_u8)
-    } else {
-        stark_felt_to_felt(sequencer_balance_value_high)
-    };
-
     let writes = StateMaps {
         storage: HashMap::from([
-            ((fee_token_address, sequencer_balance_key_low), felt_to_stark_felt(&new_value_low)),
-            ((fee_token_address, sequencer_balance_key_high), felt_to_stark_felt(&new_value_high)),
+            ((fee_token_address, sequencer_balance_key_low), stark_felt!(new_value_low)),
+            ((fee_token_address, sequencer_balance_key_high), stark_felt!(new_value_high)),
         ]),
         ..StateMaps::default()
     };
