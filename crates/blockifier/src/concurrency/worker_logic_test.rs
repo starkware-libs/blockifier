@@ -81,7 +81,6 @@ fn test_worker_execute() {
 
     });
 
-    // Concurrency settings.
     let txs = [tx_success, tx_failure, tx_revert]
         .into_iter()
         .map(Transaction::AccountTransaction)
@@ -242,7 +241,6 @@ fn test_worker_validate() {
 
     });
 
-    // Concurrency settings.
     let txs = [account_tx0, account_tx1]
         .into_iter()
         .map(Transaction::AccountTransaction)
@@ -294,4 +292,107 @@ fn test_worker_validate() {
 
     let next_task2 = worker_executor.validate(tx_index);
     assert_eq!(next_task2, Task::NoTask);
+}
+
+#[test]
+fn test_worker_commit_phase() {
+    // Settings.
+    let concurrency_mode = true;
+    let block_context =
+        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let chain_info = &block_context.chain_info;
+
+    // Create the state.
+    let state_reader =
+        test_state_reader(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+
+    // Create transactions.
+    let test_contract_address = test_contract.get_instance_address(0);
+    let account_address = account_contract.get_instance_address(0);
+    let nonce_manager = &mut NonceManager::default();
+    let storage_value = stark_felt!(93_u8);
+    let storage_key = storage_key!(1993_u16);
+
+    let account_tx0 = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: create_calldata(
+            test_contract_address,
+            "test_storage_read_write",
+            &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
+        ),
+        max_fee: Fee(MAX_FEE),
+        nonce: nonce_manager.next(account_address)
+    });
+
+    let account_tx1 = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: create_calldata(
+            test_contract_address,
+            "test_storage_read_write",
+            &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
+        ),
+        max_fee: Fee(MAX_FEE),
+        nonce: nonce_manager.next(account_address)
+    });
+
+    let account_tx2 = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: create_calldata(
+            test_contract_address,
+            "test_storage_read_write",
+            &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
+        ),
+        max_fee: Fee(MAX_FEE),
+        nonce: nonce_manager.next(account_address)
+    });
+
+    let txs = [account_tx0, account_tx1, account_tx2]
+        .into_iter()
+        .map(Transaction::AccountTransaction)
+        .collect::<Vec<Transaction>>();
+
+    let worker_executor = WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context);
+
+    // Enter commit phase.
+    worker_executor.commit_while_possible().unwrap();
+
+    // Verify no transaction was committed.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 0);
+
+    // Creates 2 active tasks.
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(0));
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(1));
+
+    // Execute the first two transactions.
+    worker_executor.execute(0);
+    worker_executor.execute(1);
+
+    // Enter commit phase.
+    worker_executor.commit_while_possible().unwrap();
+
+    // Verify the commit index is now 2.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 2);
+
+    // Verify the status of the first two transactions is `Committed`.
+    assert_eq!(*worker_executor.scheduler.get_tx_status(0), TransactionStatus::Committed);
+    assert_eq!(*worker_executor.scheduler.get_tx_status(1), TransactionStatus::Committed);
+
+    // Create the final execution task and execute it.
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(2));
+    worker_executor.execute(2);
+
+    // Enter commit phase.
+    worker_executor.commit_while_possible().unwrap();
+
+    // Verify the commit index is now 3, the status of the last transaction is `Committed`, and the
+    // next task is `Done`.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
+    assert_eq!(*worker_executor.scheduler.get_tx_status(2), TransactionStatus::Committed);
+    assert_eq!(worker_executor.scheduler.next_task(), Task::Done);
+
+    // TODO(Avi, 15/06/2024): Check the halt mechanism once the bouncer is supported.
 }
