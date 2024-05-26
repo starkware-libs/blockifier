@@ -279,7 +279,7 @@ fn test_run_parallel_txs() {
 }
 
 #[rstest]
-fn test_validate_read_set(
+fn test_validate_reads(
     contract_address: ContractAddress,
     class_hash: ClassHash,
     safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
@@ -307,8 +307,14 @@ fn test_validate_read_set(
     transactional_state.get_compiled_class_hash(class_hash).unwrap();
     assert_eq!(transactional_state.cache.borrow().initial_reads.compiled_class_hashes.len(), 1);
 
-    // TODO(OriF 15/5/24): add a check for `get_compiled_contract_class`` once the deploy account
-    // preceding a declare flow is solved.
+    assert!(transactional_state.cache.borrow().initial_reads.declared_contracts.is_empty());
+    assert_matches!(
+        transactional_state.get_compiled_contract_class(class_hash),
+        Err(StateError::UndeclaredClassHash(err_class_hash)) if
+        err_class_hash == class_hash
+    );
+
+    assert_eq!(transactional_state.cache.borrow().initial_reads.declared_contracts.len(), 1);
 
     assert!(
         safe_versioned_state
