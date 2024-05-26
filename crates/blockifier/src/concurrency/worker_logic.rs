@@ -160,27 +160,36 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     ///         - Else (no room), do not commit. The block should be closed without the transaction.
     ///     * Else (execution failed), commit the transaction without fixing the call info or
     ///       updating the sequencer balance.
-    // TODO(Meshi, 01/06/2024): Remove dead code.
-    #[allow(dead_code)]
     fn commit_tx(&self, tx_index: TxIndex) -> StateResult<bool> {
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
+        let execution_output_ref = execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR);
 
         let tx = &self.chunk[tx_index];
         let mut tx_versioned_state = self.state.pin_version(tx_index);
 
-        let reads = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+        let reads = &execution_output_ref.reads;
         let reads_valid = tx_versioned_state.validate_reads(reads);
-        drop(execution_output);
 
         // First, re-validate the transaction.
         if !reads_valid {
-            // Revalidate failed: re-execute the transaction, and commit.
-            // TODO(Meshi, 01/06/2024): Delete the transaction writes.
+            // Revalidate failed: re-execute the transaction.
+            tx_versioned_state.delete_writes(
+                &execution_output_ref.writes,
+                &execution_output_ref.contract_classes,
+            );
+            // Release the execution output lock as it is acquired in execution (avoid dead-lock).
+            drop(execution_output);
+
             self.execute_tx(tx_index);
+            self.scheduler.finish_execution_during_commit(tx_index);
+
             let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
             let read_set = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
             // Another validation after the re-execution for sanity check.
             assert!(tx_versioned_state.validate_reads(read_set));
+        } else {
+            // Release the execution output lock, since it is has been released in the other flow.
+            drop(execution_output);
         }
 
         // Execution is final.
@@ -193,7 +202,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         // There is no need to fix the balance when the sequencer transfers fee to itself, since we
         // use the sequential fee transfer in this case.
         if let Ok(tx_info) = result_tx_info.as_mut() {
-            // TODO(Meshi, 01/06/2024): check if this is also needed in the bouncer.
+            // TODO(Meshi, 01/06/2024): ask the bouncer if there is enough room for the transaction.
             if tx_context.tx_info.sender_address()
                 != self.block_context.block_info.sequencer_address
             {
@@ -220,6 +229,8 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                     sequencer_balance_value_low,
                     sequencer_balance_value_high,
                 );
+                // Changing the sequencer balance storage cell does not trigger (re-)validation of
+                // the next transactions.
             }
         }
 
@@ -229,8 +240,6 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 
 // Utilities.
 
-// TODO(Meshi, 01/06/2024): Remove dead code.
-#[allow(dead_code)]
 fn add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
     tx_versioned_state: &mut VersionedStateProxy<impl StateReader>,
