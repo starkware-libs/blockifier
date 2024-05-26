@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use assert_matches::assert_matches;
 use rstest::{fixture, rstest};
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
@@ -18,6 +19,7 @@ use crate::concurrency::versioned_state::{
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, UpdatableState};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
@@ -53,6 +55,7 @@ fn test_versioned_state_proxy() {
     let stark_felt = stark_felt!(13_u8);
     let nonce = nonce!(2_u8);
     let class_hash = class_hash!(27_u8);
+    let another_class_hash = class_hash!(28_u8);
     let compiled_class_hash = compiled_class_hash!(29_u8);
     let contract_class = test_contract.get_class();
 
@@ -87,6 +90,14 @@ fn test_versioned_state_proxy() {
         versioned_state_proxys[7].get_compiled_contract_class(class_hash).unwrap(),
         contract_class
     );
+    assert_matches!(
+        versioned_state_proxys[7].get_compiled_contract_class(another_class_hash).unwrap_err(),
+        StateError::UndeclaredClassHash(class_hash) if
+        another_class_hash == class_hash
+    );
+    assert!(
+        !versioned_state_proxys[0].state().declared_contracts.read(0, another_class_hash).unwrap()
+    );
 
     // Write to the state.
     let new_key = storage_key!("0x11");
@@ -101,9 +112,10 @@ fn test_versioned_state_proxy() {
         3,
         &StateMaps {
             storage: HashMap::from([((contract_address, new_key), stark_felt_v3)]),
+            declared_contracts: HashMap::from([(another_class_hash, true)]),
             ..Default::default()
         },
-        &HashMap::default(),
+        &HashMap::from([(another_class_hash, contract_class.clone())]),
     );
     versioned_state_proxys[4].state().apply_writes(
         4,
@@ -155,6 +167,12 @@ fn test_versioned_state_proxy() {
     assert_eq!(
         versioned_state_proxys[9].get_class_hash_at(contract_address).unwrap(),
         class_hash_v7
+    );
+    assert!(
+        !versioned_state_proxys[0].state().declared_contracts.read(0, another_class_hash).unwrap()
+    );
+    assert!(
+        versioned_state_proxys[4].state().declared_contracts.read(4, another_class_hash).unwrap()
     );
     // Ignore the writes in the current transaction.
     assert_eq!(
@@ -431,20 +449,23 @@ fn test_delete_writes(
 fn test_delete_writes_completeness(
     safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
 ) {
+    let feature_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let state_maps_writes = StateMaps {
         nonces: HashMap::from([(contract_address!("0x1"), nonce!("0x1"))]),
-        class_hashes: HashMap::from([(contract_address!("0x1"), class_hash!("0x1"))]),
+        class_hashes: HashMap::from([(
+            contract_address!("0x1"),
+            feature_contract.get_class_hash(),
+        )]),
         storage: HashMap::from([(
             (contract_address!("0x1"), storage_key!("0x1")),
             stark_felt!("0x1"),
         )]),
-        compiled_class_hashes: HashMap::from([(class_hash!("0x1"), compiled_class_hash!("0x1"))]),
-        // TODO (OriF, 01/07/2024): Uncomment the following line and remove the line below it once
-        // `declared_contracts` mapping logic in StateMaps is complete.
-        // declared_contracts: HashMap::from([(class_hash!("0x1"), true)]),
-        declared_contracts: HashMap::default(),
+        compiled_class_hashes: HashMap::from([(
+            feature_contract.get_class_hash(),
+            compiled_class_hash!("0x1"),
+        )]),
+        declared_contracts: HashMap::from([(feature_contract.get_class_hash(), true)]),
     };
-    let feature_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let class_hash_to_class_writes =
         HashMap::from([(feature_contract.get_class_hash(), feature_contract.get_class())]);
 
