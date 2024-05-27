@@ -11,7 +11,9 @@ use blockifier::test_utils::transfers_simulator::TransfersSimulator;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 pub fn transfers_benchmark(c: &mut Criterion) {
-    let mut transfers_simulator = TransfersSimulator::new();
+    let random_recipients = true;
+    let disjoint_recipients = false;
+    let mut transfers_simulator = TransfersSimulator::new(random_recipients, disjoint_recipients);
     // Create a benchmark group called "transfers", which iterates over the accounts round-robin
     // and performs transfers.
     c.bench_function("transfers", |benchmark| {
