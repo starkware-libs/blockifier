@@ -1,3 +1,4 @@
+use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
@@ -25,22 +26,39 @@ const RANDOMIZATION_SEED: u64 = 0;
 const CHARGE_FEE: bool = false;
 const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(StarkFelt::ONE);
 
+#[allow(clippy::large_enum_variant)]
+enum RecipientGenerator {
+    Random(StdRng, Vec<ContractAddress>),
+    Sequential(usize, Vec<ContractAddress>),
+}
+impl RecipientGenerator {
+    fn next(&mut self) -> ContractAddress {
+        match self {
+            RecipientGenerator::Random(generator, accounts) => {
+                accounts[generator.gen::<usize>() % accounts.len()]
+            }
+            RecipientGenerator::Sequential(index, accounts) => {
+                *index += 1 % accounts.len();
+                accounts[*index]
+            }
+        }
+    }
+}
 pub struct TransfersSimulator {
     accounts: Vec<ContractAddress>,
     chain_info: ChainInfo,
     executor: TransactionExecutor<DictStateReader>,
     nonce_manager: NonceManager,
-    recipient_generator: rand::rngs::StdRng,
+    recipient_generator: RecipientGenerator,
     sender_index: usize,
 }
 
 impl TransfersSimulator {
-    pub fn new() -> Self {
+    pub fn new(random_recipients: bool, disjoint_recipients: bool) -> Self {
         let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-        let block_context = BlockContext::create_for_account_testing();
+        let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
         let chain_info = block_context.chain_info().clone();
         let state = test_state(&chain_info, BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);
-        // TODO(Avi, 20/05/2024): Enable concurrency.
         let executor_config = TransactionExecutorConfig::default();
         let executor =
             TransactionExecutor::new(state, block_context, BouncerConfig::max(), executor_config);
@@ -48,15 +66,21 @@ impl TransfersSimulator {
             .map(|instance_id| account_contract.get_instance_address(instance_id))
             .collect::<Vec<_>>();
         let nonce_manager = NonceManager::default();
-        let random_generator = rand::rngs::StdRng::seed_from_u64(RANDOMIZATION_SEED);
-        Self {
-            accounts,
-            nonce_manager,
-            chain_info,
-            executor,
-            sender_index: 0,
-            recipient_generator: random_generator,
-        }
+        let recipient_accounts = if disjoint_recipients {
+            (N_ACCOUNTS..2 * N_ACCOUNTS)
+                .map(|instance_id| account_contract.get_instance_address(instance_id))
+                .collect::<Vec<_>>()
+        } else {
+            accounts.clone()
+        };
+        let recipient_generator = if random_recipients {
+            let random_generator = StdRng::seed_from_u64(RANDOMIZATION_SEED);
+            RecipientGenerator::Random(random_generator, recipient_accounts)
+        } else {
+            let index = 1;
+            RecipientGenerator::Sequential(index, recipient_accounts)
+        };
+        Self { accounts, chain_info, executor, nonce_manager, recipient_generator, sender_index: 0 }
     }
 
     pub fn execute_chunk_of_transfers(&mut self) {
@@ -75,8 +99,7 @@ impl TransfersSimulator {
     pub fn generate_transfer(&mut self) -> AccountTransaction {
         let sender_address = self.accounts[self.sender_index];
         self.sender_index = (self.sender_index + 1) % self.accounts.len();
-        let recipient_index = self.recipient_generator.gen::<usize>() % self.accounts.len();
-        let recipient_address = self.accounts[recipient_index];
+        let recipient_address = self.recipient_generator.next();
         let nonce = self.nonce_manager.next(sender_address);
 
         let entry_point_selector = selector_from_name(TRANSFER_ENTRY_POINT_NAME);
@@ -112,6 +135,8 @@ impl TransfersSimulator {
 
 impl Default for TransfersSimulator {
     fn default() -> Self {
-        Self::new()
+        let random_recipients = false;
+        let disjoint_recipients = false;
+        Self::new(random_recipients, disjoint_recipients)
     }
 }
