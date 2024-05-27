@@ -1,3 +1,4 @@
+use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
@@ -25,22 +26,65 @@ const RANDOMIZATION_SEED: u64 = 0;
 const CHARGE_FEE: bool = false;
 const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(StarkFelt::ONE);
 
+pub enum RecipientIteratorKind {
+    Random,
+    RoundRobin,
+    DisjointFromSenders,
+}
+
+pub struct RandomRecipientIterator {
+    account_addresses: Vec<ContractAddress>,
+    random_generator: StdRng,
+}
+
+impl RandomRecipientIterator {
+    pub fn new(account_addresses: Vec<ContractAddress>, seed: u64) -> Self {
+        let random_generator = StdRng::seed_from_u64(seed);
+        Self { account_addresses, random_generator }
+    }
+}
+
+impl Iterator for RandomRecipientIterator {
+    type Item = ContractAddress;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let index = self.random_generator.gen::<usize>() % self.account_addresses.len();
+        Some(self.account_addresses[index])
+    }
+}
+
+pub struct RoundRobinRecipientIterator {
+    account_addresses: Vec<ContractAddress>,
+    index: usize,
+}
+
+impl Iterator for RoundRobinRecipientIterator {
+    type Item = ContractAddress;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current_index = self.index;
+        self.index = (self.index + 1) % self.account_addresses.len();
+        Some(self.account_addresses[current_index])
+    }
+}
+
 pub struct TransfersGenerator {
     account_addresses: Vec<ContractAddress>,
     chain_info: ChainInfo,
     executor: TransactionExecutor<DictStateReader>,
     nonce_manager: NonceManager,
-    recipient_generator: rand::rngs::StdRng,
+    recipient_iterator: Box<dyn Iterator<Item = ContractAddress>>,
     sender_index: usize,
 }
 
 impl TransfersGenerator {
-    pub fn new() -> Self {
+    pub fn new(recipient_iterator_kind: RecipientIteratorKind) -> Self {
         let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-        let block_context = BlockContext::create_for_account_testing();
+        let concurrency_mode = true;
+        let block_context =
+            BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
         let chain_info = block_context.chain_info().clone();
         let state = test_state(&chain_info, BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);
-        // TODO(Avi, 20/05/2024): Enable concurrency.
         let executor_config = TransactionExecutorConfig::default();
         let executor =
             TransactionExecutor::new(state, block_context, BouncerConfig::max(), executor_config);
@@ -48,14 +92,37 @@ impl TransfersGenerator {
             .map(|instance_id| account_contract.get_instance_address(instance_id))
             .collect::<Vec<_>>();
         let nonce_manager = NonceManager::default();
-        let random_generator = rand::rngs::StdRng::seed_from_u64(RANDOMIZATION_SEED);
+        let recipient_iterator: Box<dyn Iterator<Item = ContractAddress>> =
+            match recipient_iterator_kind {
+                RecipientIteratorKind::Random => Box::new(RandomRecipientIterator::new(
+                    account_addresses.clone(),
+                    RANDOMIZATION_SEED,
+                )),
+                RecipientIteratorKind::RoundRobin => {
+                    let first_recipient_index = 1;
+                    Box::new(RoundRobinRecipientIterator {
+                        account_addresses: account_addresses.clone(),
+                        index: first_recipient_index,
+                    })
+                }
+                RecipientIteratorKind::DisjointFromSenders => {
+                    let first_recipient_index = 0;
+                    let account_addresses = (N_ACCOUNTS..2 * N_ACCOUNTS)
+                        .map(|instance_id| account_contract.get_instance_address(instance_id))
+                        .collect::<Vec<_>>();
+                    Box::new(RoundRobinRecipientIterator {
+                        account_addresses,
+                        index: first_recipient_index,
+                    })
+                }
+            };
         Self {
             account_addresses,
-            nonce_manager,
             chain_info,
             executor,
+            nonce_manager,
+            recipient_iterator,
             sender_index: 0,
-            recipient_generator: random_generator,
         }
     }
 
@@ -64,9 +131,7 @@ impl TransfersGenerator {
         for _ in 0..CHUNK_SIZE {
             let sender_address = self.account_addresses[self.sender_index];
             self.sender_index = (self.sender_index + 1) % self.account_addresses.len();
-            let recipient_index =
-                self.recipient_generator.gen::<usize>() % self.account_addresses.len();
-            let recipient_address = self.account_addresses[recipient_index];
+            let recipient_address = self.recipient_iterator.next().unwrap();
 
             let account_tx = self.generate_transfer(sender_address, recipient_address);
             chunk.push(Transaction::AccountTransaction(account_tx));
@@ -120,6 +185,6 @@ impl TransfersGenerator {
 
 impl Default for TransfersGenerator {
     fn default() -> Self {
-        Self::new()
+        Self::new(RecipientIteratorKind::RoundRobin)
     }
 }

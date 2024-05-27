@@ -7,11 +7,11 @@
 //!
 //! Run the benchmarks using `cargo bench --bench blockifier_bench`.
 
-use blockifier::test_utils::transfers_generator::TransfersGenerator;
+use blockifier::test_utils::transfers_generator::{RecipientIteratorKind, TransfersGenerator};
 use criterion::{criterion_group, criterion_main, Criterion};
 
 pub fn transfers_benchmark(c: &mut Criterion) {
-    let mut transfers_generator = TransfersGenerator::new();
+    let mut transfers_generator = TransfersGenerator::new(RecipientIteratorKind::Random);
     // Create a benchmark group called "transfers", which iterates over the accounts round-robin
     // and performs transfers.
     c.bench_function("transfers", |benchmark| {
