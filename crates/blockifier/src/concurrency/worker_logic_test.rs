@@ -9,8 +9,10 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
+use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state::ThreadSafeVersionedState;
 use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
 use crate::context::BlockContext;
@@ -137,6 +139,96 @@ fn _change_account_balance_at_version(
         ..StateMaps::default()
     };
     versioned_state.apply_writes(&writes, &ContractClassMapping::default(), &HashMap::default());
+}
+
+fn _subtract_with_overflow(a_low: u128, a_high: u128, b_low: u128, b_high: u128) -> (u128, u128) {
+    let (low, overflow) = a_low.overflowing_sub(b_low);
+    let high = a_high.wrapping_sub(b_high).wrapping_sub(overflow.into());
+    (low, high)
+}
+
+fn _add_with_overflow(a_low: u128, a_high: u128, b_low: u128, b_high: u128) -> (u128, u128) {
+    let (low, overflow) = a_low.overflowing_add(b_low);
+    let high = a_high.wrapping_add(b_high).wrapping_add(overflow.into());
+    (low, high)
+}
+
+fn _check_pre_commit_tx<S: StateReader>(
+    executor: &WorkerExecutor<'_, S>,
+    tx_index: usize,
+    account_address: ContractAddress,
+    account_balance_low: u128,
+    sequencer_balance_low: u128,
+    sequencer_balance_high: u128,
+    should_fail: bool,
+) {
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    assert_eq!(execution_result.is_err(), should_fail);
+    // Extract the actual fee. If the transaction fails, no fee should be charged.
+    let actual_fee = if should_fail { 0 } else { execution_result.as_ref().unwrap().actual_fee.0 };
+    drop(execution_task_outputs);
+    // Check fee transfer before commit.
+    _validate_fee_transfer(
+        executor,
+        account_address,
+        tx_index,
+        stark_felt!(account_balance_low - actual_fee),
+        stark_felt!(sequencer_balance_low),
+        stark_felt!(sequencer_balance_high),
+    );
+}
+
+fn _check_post_commit_tx<S: StateReader>(
+    executor: &WorkerExecutor<'_, S>,
+    tx_index: usize,
+    account_address: ContractAddress,
+    expected_account_balance_low: u128,
+    expected_sequencer_balance_low: u128,
+    expected_sequencer_balance_high: u128,
+    should_fail: bool,
+) -> u128 {
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    assert_eq!(execution_result.is_err(), should_fail);
+    // Extract the actual fee. If the transaction fails, no fee should be charged.
+    let actual_fee = if should_fail { 0 } else { execution_result.as_ref().unwrap().actual_fee.0 };
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    if !should_fail {
+        // Check that fill_sequencer_balance_reads worked after commit.
+        for (expected_sequencer_storage_read, read_storage_index) in [
+            (expected_sequencer_balance_low, STORAGE_READ_SEQUENCER_BALANCE_INDICES.0),
+            (expected_sequencer_balance_high, STORAGE_READ_SEQUENCER_BALANCE_INDICES.1),
+        ] {
+            let actual_sequencer_storage_read = execution_result
+                .as_ref()
+                .unwrap()
+                .fee_transfer_call_info
+                .as_ref()
+                .unwrap()
+                .storage_read_values[read_storage_index];
+            assert_eq!(stark_felt!(expected_sequencer_storage_read), actual_sequencer_storage_read,);
+        }
+    }
+    drop(execution_task_outputs);
+
+    let (sequencer_balance_low, sequencer_balance_high) = _add_with_overflow(
+        expected_sequencer_balance_low,
+        expected_sequencer_balance_high,
+        actual_fee,
+        0_u128,
+    );
+
+    // Check fee transfer after commit.
+    _validate_fee_transfer(
+        executor,
+        account_address,
+        tx_index,
+        stark_felt!(expected_account_balance_low - actual_fee),
+        stark_felt!(sequencer_balance_low),
+        stark_felt!(sequencer_balance_high),
+    );
+    actual_fee
 }
 
 #[test]
