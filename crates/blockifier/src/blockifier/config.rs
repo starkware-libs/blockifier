@@ -14,6 +14,6 @@ pub struct ConcurrencyConfig {
 
 impl Default for ConcurrencyConfig {
     fn default() -> Self {
-        Self { enabled: false, n_workers: DEFAULT_N_WORKERS, chunk_size: DEFAULT_CHUNK_SIZE }
+        Self { enabled: true, n_workers: DEFAULT_N_WORKERS, chunk_size: DEFAULT_CHUNK_SIZE }
     }
 }
