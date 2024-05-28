@@ -8,7 +8,7 @@ mod test;
 // We read account balance (sender), and sequencer balance (recipient). The balance is of type
 // `Uint256`, consist of two felts (lsb, msb). Hence, storage read values =
 // [account_balance, 0, sequencer_balance, 0]
-const STORAGE_READ_SEQUENCER_BALANCE_INDICES: (usize, usize) = (2, 3);
+pub const STORAGE_READ_SEQUENCER_BALANCE_INDICES: (usize, usize) = (2, 3);
 
 // Completes the fee transfer execution by fixing the call info to have the correct sequencer
 // balance. In concurrency mode, the fee transfer is executed with a false (constant) sequencer
