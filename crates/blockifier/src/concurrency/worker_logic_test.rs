@@ -9,8 +9,10 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
+use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -35,7 +37,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
 
-fn _trivial_calldata_invoke_tx(
+fn trivial_calldata_invoke_tx(
     account_address: ContractAddress,
     nonce: Nonce,
 ) -> AccountTransaction {
@@ -77,7 +79,7 @@ fn _transfer_to_sequencer_tx(
 
 /// Checks that the storage values of the account and sequencer balances in the
 /// versioned state of tx_index equals the expected values.
-fn _validate_fee_transfer<S: StateReader>(
+fn validate_fee_transfer<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     account_address: ContractAddress,
     tx_index: usize,
@@ -105,6 +107,68 @@ fn _validate_fee_transfer<S: StateReader>(
             .unwrap();
         assert_eq!(expected_balance, actual_balance);
     }
+}
+
+#[test]
+// When the sequencer is the sender, we use the sequential (full) fee transfer.
+// Thus, we skip the last step of commit tx, meaning the execution result before and after
+// commit tx should be the same (except for re-execution changes).
+fn test_commit_tx_when_sender_is_sequencer() {
+    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let mut nonce_manager = NonceManager::default();
+    let account_address = account.get_instance_address(0_u16);
+    let mut block_info = block_context.block_info.clone();
+    block_info.sequencer_address = account_address;
+    block_context.block_info = block_info;
+
+    let txs = [Transaction::AccountTransaction(trivial_calldata_invoke_tx(
+        account_address,
+        nonce_manager.next(account_address),
+    ))];
+
+    let cached_state =
+        test_state(&block_context.chain_info, BALANCE, &[(account, txs.len().try_into().unwrap())]);
+    let versioned_state = safe_versioned_state_for_testing(cached_state);
+    let executor = WorkerExecutor::new(versioned_state, &txs, block_context);
+    let tx_index = 0;
+    executor.execute_tx(tx_index);
+    executor.commit_tx(tx_index);
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    assert!(execution_result.is_ok());
+    let actual_fee = execution_result.as_ref().unwrap().actual_fee.0;
+    let expected_sequencer_balance_low = BALANCE;
+    let expected_sequencer_balance_high = 0_u128;
+    for (index, expected_balance) in [
+        // Intuitively, the expected sequencer balance should be the initial sequencer balance, but
+        // in transfer, we read the sender balance and subtruct the transfer amount, then
+        // reading the receiver balance and adding the transfer amount. As the sequencer is the
+        // sender and the receiver when reading the sender balance as the receiver, we get
+        // the sequencer balance - actual fee.
+        (STORAGE_READ_SEQUENCER_BALANCE_INDICES.0, expected_sequencer_balance_low - actual_fee),
+        (STORAGE_READ_SEQUENCER_BALANCE_INDICES.1, expected_sequencer_balance_high),
+    ] {
+        assert_eq!(
+            execution_result
+                .as_ref()
+                .unwrap()
+                .fee_transfer_call_info
+                .as_ref()
+                .unwrap()
+                .storage_read_values[index],
+            stark_felt!(expected_balance)
+        );
+    }
+    drop(execution_task_outputs);
+
+    validate_fee_transfer(
+        &executor,
+        account_address,
+        tx_index,
+        stark_felt!(BALANCE),
+        stark_felt!(expected_sequencer_balance_low),
+    );
 }
 
 #[test]
