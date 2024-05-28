@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::FoldWhile::{Continue, Done};
@@ -45,12 +45,14 @@ pub struct TransactionExecutor<S: StateReader> {
     pub config: TransactionExecutorConfig,
 
     // State-related fields.
-    pub state: CachedState<S>,
+    // The transaction executor operates at the block level. It moves the block's state across
+    // threads, so it needs to be wrapped with Arc<Mutex<_>>.
+    pub block_state: Arc<Mutex<CachedState<S>>>,
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(
-        state: CachedState<S>,
+        block_state: CachedState<S>,
         block_context: BlockContext,
         bouncer_config: BouncerConfig,
         config: TransactionExecutorConfig,
@@ -58,8 +60,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         log::debug!("Initializing Transaction Executor...");
         // Note: the state might not be empty even at this point; it is the creator's
         // responsibility to tune the bouncer according to pre and post block process.
-        let tx_executor =
-            Self { block_context, bouncer: Bouncer::new(bouncer_config), config, state };
+        let tx_executor = Self {
+            block_context,
+            bouncer: Bouncer::new(bouncer_config),
+            config,
+            block_state: Arc::new(Mutex::new(block_state)),
+        };
         log::debug!("Initialized Transaction Executor.");
 
         tx_executor
@@ -73,7 +79,8 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &Transaction,
         charge_fee: bool,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
-        let mut transactional_state = TransactionalState::create_transactional(&mut self.state);
+        let mut block_state = self.block_state.lock().expect("Failed to acquire state lock.");
+        let mut transactional_state = TransactionalState::create_transactional(&mut *block_state);
         let validate = true;
 
         let tx_execution_result =
@@ -163,11 +170,14 @@ impl<S: StateReader> TransactionExecutor<S> {
         // For fee charging purposes, the nonce-increment cost is taken into consideration when
         // calculating the fees for validation.
         // Note: This assumes that the state is reset between calls to validate.
-        self.state.increment_nonce(tx_info.sender_address())?;
+        self.block_state
+            .lock()
+            .expect("Failed to acquire state lock.")
+            .increment_nonce(tx_info.sender_address())?;
 
         let limit_steps_by_resources = true;
         let validate_call_info = account_tx.validate_tx(
-            &mut self.state,
+            &mut *self.block_state.lock().expect("Failed to acquire state lock."),
             &mut execution_resources,
             tx_context.clone(),
             &mut remaining_gas,
@@ -177,7 +187,11 @@ impl<S: StateReader> TransactionExecutor<S> {
         let tx_receipt = TransactionReceipt::from_account_tx(
             account_tx,
             &tx_context,
-            &self.state.get_actual_state_changes()?,
+            &self
+                .block_state
+                .lock()
+                .expect("Failed to acquire state lock.")
+                .get_actual_state_changes()?,
             &execution_resources,
             validate_call_info.iter(),
             0,
@@ -196,18 +210,24 @@ impl<S: StateReader> TransactionExecutor<S> {
         // This is done by taking all the visited PCs of each contract, and compress them to one
         // representative for each visited segment.
         let visited_segments = self
-            .state
+            .block_state
+            .lock()
+            .expect("Failed to acquire state lock.")
             .visited_pcs
             .iter()
             .map(|(class_hash, class_visited_pcs)| -> TransactionExecutorResult<_> {
-                let contract_class = self.state.get_compiled_contract_class(*class_hash)?;
+                let contract_class = self
+                    .block_state
+                    .lock()
+                    .expect("Failed to acquire state lock.")
+                    .get_compiled_contract_class(*class_hash)?;
                 Ok((*class_hash, contract_class.get_visited_segments(class_visited_pcs)?))
             })
             .collect::<TransactionExecutorResult<_>>()?;
 
         log::debug!("Final block weights: {:?}.", self.bouncer.get_accumulated_weights());
         Ok((
-            self.state.to_state_diff()?.into(),
+            self.block_state.lock().expect("Failed to acquire state lock.").to_state_diff()?.into(),
             visited_segments,
             *self.bouncer.get_accumulated_weights(),
         ))
