@@ -70,7 +70,8 @@ fn test_versioned_state_proxy() {
         class_hash_to_class: HashMap::from([(class_hash, contract_class.clone())]),
     });
 
-    let versioned_state = Arc::new(Mutex::new(VersionedState::new(cached_state)));
+    let versioned_state =
+        Arc::new(Mutex::new(VersionedState::new(Arc::new(Mutex::new(cached_state)))));
 
     let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
     let versioned_state_proxys: Vec<VersionedStateProxy<CachedState<DictStateReader>>> =
@@ -208,11 +209,9 @@ fn test_run_parallel_txs() {
         FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
 
     // Initiate States
-    let versioned_state = Arc::new(Mutex::new(VersionedState::new(test_state(
-        chain_info,
-        BALANCE,
-        &[(account_without_validation, 1), (grindy_account, 1)],
-    ))));
+    let versioned_state = Arc::new(Mutex::new(VersionedState::new(Arc::new(Mutex::new(
+        test_state(chain_info, BALANCE, &[(account_without_validation, 1), (grindy_account, 1)]),
+    )))));
 
     let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
     let mut state_1 = CachedState::from(safe_versioned_state.pin_version(1));
