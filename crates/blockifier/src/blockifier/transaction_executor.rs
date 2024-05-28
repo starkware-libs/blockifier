@@ -8,6 +8,8 @@ use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
 use crate::bouncer::{Bouncer, BouncerConfig, BouncerWeights};
+use crate::concurrency::versioned_state::{ThreadSafeVersionedState, VersionedState};
+use crate::concurrency::worker_logic::WorkerExecutor;
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -50,7 +52,7 @@ pub struct TransactionExecutor<S: StateReader> {
     pub block_state: Arc<Mutex<CachedState<S>>>,
 }
 
-impl<S: StateReader> TransactionExecutor<S> {
+impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
     pub fn new(
         block_state: CachedState<S>,
         block_context: BlockContext,
@@ -134,10 +136,52 @@ impl<S: StateReader> TransactionExecutor<S> {
 
     pub fn execute_chunk(
         &mut self,
-        _chunk: &[Transaction],
+        chunk: &[Transaction],
         _charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
-        todo!()
+        let versioned_state = VersionedState::new(Arc::clone(&self.block_state));
+        let chunk_state = ThreadSafeVersionedState::new(versioned_state);
+        let worker_executor =
+            Arc::new(WorkerExecutor::new(chunk_state.clone(), chunk, self.block_context.clone()));
+        // No thread pool implementation is needed here since we already have our scheduler. The
+        // initialized threads below will "busy wait" for new tasks using the `run` method until the
+        // chunk execution is completed, and then they will be joined together in a for loop.
+        // TODO(barak, 01/07/2024): Consider using tokio and spawn tasks that will be served by some
+        // upper level tokio thread pool (Runtime in tokio terminology).
+        std::thread::scope(|s| {
+            for _ in 0..self.config.concurrency_config.n_workers {
+                let worker_executor = Arc::clone(&worker_executor);
+                s.spawn(move || {
+                    worker_executor.run();
+                });
+            }
+        });
+        let committed_chunk_size = worker_executor.scheduler.get_last_committed_index();
+        let tx_execution_results = worker_executor
+            .execution_outputs
+            .iter()
+            .fold_while(Vec::new(), |mut results, execution_output| {
+                if results.len() > committed_chunk_size {
+                    Done(results)
+                } else {
+                    let locked_execution_output = execution_output
+                        .lock()
+                        .expect("Failed to lock execution output.")
+                        .take()
+                        .expect("Output must be ready.");
+                    results.push(
+                        locked_execution_output.result.map_err(TransactionExecutorError::from),
+                    );
+                    Continue(results)
+                }
+            })
+            .into_inner();
+        chunk_state
+            .consume_versioned_state()
+            .lock()
+            .expect("Failed to acquire state lock.")
+            .commit(committed_chunk_size, Arc::clone(&self.block_state));
+        tx_execution_results
     }
 
     pub fn execute_txs_sequentially(

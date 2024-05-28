@@ -219,6 +219,10 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
     }
+
+    pub fn consume_versioned_state(self) -> Arc<Mutex<VersionedState<S>>> {
+        self.0
+    }
 }
 
 impl<S: StateReader> Clone for ThreadSafeVersionedState<S> {
