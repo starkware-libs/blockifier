@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use rstest::fixture;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
@@ -58,7 +60,7 @@ macro_rules! default_scheduler {
 pub fn safe_versioned_state_for_testing(
     block_state: DictStateReader,
 ) -> ThreadSafeVersionedState<DictStateReader> {
-    ThreadSafeVersionedState::new(VersionedState::new(block_state))
+    ThreadSafeVersionedState::new(VersionedState::new(Arc::new(Mutex::new(block_state))))
 }
 
 // Note: this function does not mutate the state.
