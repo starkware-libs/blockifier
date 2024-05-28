@@ -77,15 +77,16 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
-    where
-        T: StateReader,
-    {
-        let writes = self.get_writes_up_to_index(from_index);
-        parent_state.update_cache(&writes);
+    pub fn commit(
+        &mut self,
+        index: TxIndex,
+        parent_state: Arc<Mutex<CachedState<impl StateReader>>>,
+    ) {
+        let writes = self.get_writes_up_to_index(index);
+        parent_state.lock().expect("Failed to acquire state lock.").update_cache(&writes);
 
-        parent_state.update_contract_class_cache(
-            self.compiled_contract_classes.get_writes_up_to_index(from_index),
+        parent_state.lock().expect("Failed to acquire state lock.").update_contract_class_cache(
+            self.compiled_contract_classes.get_writes_up_to_index(index),
         );
     }
 
@@ -205,6 +206,8 @@ impl<S: StateReader> VersionedState<S> {
     }
 }
 
+// TODO(barak, 01/07/2024): Re-consider the API (pub functions) of VersionedState,
+// ThreadSafeVersionedState and VersionedStateProxy.
 pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
 pub type LockedVersionedState<'a, S> = MutexGuard<'a, VersionedState<S>>;
 
