@@ -106,9 +106,7 @@ impl Scheduler {
     /// already scheduled.
     pub fn finish_execution(&self, tx_index: TxIndex) {
         self.set_executed_status(tx_index);
-        if self.validation_index.load(Ordering::Acquire) > tx_index {
-            self.decrease_validation_index(tx_index);
-        }
+        self.decrease_validation_index(tx_index);
     }
 
     pub fn try_validation_abort(&self, tx_index: TxIndex) -> bool {
