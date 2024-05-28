@@ -72,14 +72,14 @@ fn verify_compiler_version(contract: FeatureContract, expected_version: &str) {
 // REBASE NOTE: only run on x86_64
 #[test]
 fn alignment_test() {
-    assert!(get_integer_layout(248).align() <= 8);
-    assert!(get_integer_layout(252).align() <= 8);
-    assert!(get_integer_layout(256).align() <= 8);
     assert!(get_integer_layout(0).align() <= 8);
     assert!(get_integer_layout(8).align() <= 8);
     assert!(get_integer_layout(16).align() <= 8);
     assert!(get_integer_layout(32).align() <= 8);
     assert!(get_integer_layout(64).align() <= 8);
-    assert!(get_integer_layout(128).align() <= 8);
-    assert!(get_integer_layout(129).align() <= 8);
+    assert!(get_integer_layout(128).align() <= 16);
+    assert!(get_integer_layout(129).align() <= 16);
+    assert!(get_integer_layout(248).align() <= 16);
+    assert!(get_integer_layout(252).align() <= 16);
+    assert!(get_integer_layout(256).align() <= 16);
 }

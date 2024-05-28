@@ -196,13 +196,7 @@ impl Storage for PapyrusStorage {
         state_diff.declared_classes = declared_classes;
         state_diff.replaced_classes = replaced_classes;
 
-        let deployed_contract_class_definitions =
-            IndexMap::<ClassHash, DeprecatedContractClass>::new();
-        append_txn = append_txn.append_state_diff(
-            block_number,
-            state_diff,
-            deployed_contract_class_definitions,
-        )?;
+        append_txn = append_txn.append_state_diff(block_number, state_diff.into())?;
 
         let previous_block_id = previous_block_id.unwrap_or_else(|| PyFelt::from(GENESIS_BLOCK_ID));
         let block_header = BlockHeader {

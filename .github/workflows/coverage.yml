@@ -21,13 +21,12 @@ jobs:
         env:
           SEED: 0
           CAIRO_NATIVE_RUNTIME_LIBRARY: ${{ steps.native-deps.outputs.cairo-native-runtime-library }}
-          MLIR_SYS_170_PREFIX: /usr/lib/llvm-17/
-          LLVM_SYS_170_PREFIX: /usr/lib/llvm-17/
-          TABLEGEN_170_PREFIX: /usr/lib/llvm-17/
+          MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
+          LLVM_SYS_180_PREFIX: /usr/lib/llvm-18/
+          TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           fail_ci_if_error: true
-      
