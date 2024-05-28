@@ -37,12 +37,12 @@ pub enum StatefulValidatorError {
 pub type StatefulValidatorResult<T> = Result<T, StatefulValidatorError>;
 
 /// Manages state related transaction validations for pre-execution flows.
-pub struct StatefulValidator<S: StateReader> {
+pub struct StatefulValidator<S: StateReader + std::marker::Send + std::marker::Sync> {
     tx_executor: TransactionExecutor<S>,
     max_nonce_for_validation_skip: Nonce,
 }
 
-impl<S: StateReader> StatefulValidator<S> {
+impl<S: StateReader + std::marker::Send + std::marker::Sync> StatefulValidator<S> {
     pub fn create(
         state: CachedState<S>,
         block_context: BlockContext,

@@ -28,7 +28,7 @@ use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::L1HandlerTransaction;
 use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args, nonce};
 
-fn tx_executor_test_body<S: StateReader>(
+fn tx_executor_test_body<S: StateReader + std::marker::Send + std::marker::Sync>(
     state: CachedState<S>,
     block_context: BlockContext,
     tx: Transaction,
