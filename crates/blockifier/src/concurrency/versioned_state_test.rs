@@ -521,7 +521,7 @@ fn test_versioned_proxy_state_flow(
     let contract_address = contract_address!("0x1");
     let class_hash = ClassHash(stark_felt!(27_u8));
 
-    let mut block_state = CachedState::from(DictStateReader::default());
+    let block_state = Arc::new(Mutex::new(CachedState::from(DictStateReader::default())));
     let mut versioned_proxy_states: Vec<VersionedStateProxy<DictStateReader>> =
         (0..4).map(|i| safe_versioned_state.pin_version(i)).collect();
 
@@ -555,8 +555,22 @@ fn test_versioned_proxy_state_flow(
     }
 
     // Check the final state.
-    safe_versioned_state.0.lock().unwrap().commit(4, &mut block_state);
+    safe_versioned_state.0.lock().unwrap().commit(4, Arc::clone(&block_state));
 
-    assert!(block_state.get_class_hash_at(contract_address).unwrap() == class_hash_3);
-    assert!(block_state.get_compiled_contract_class(class_hash).unwrap() == contract_class_2);
+    assert!(
+        block_state
+            .lock()
+            .expect("Failed to acquire state lock.")
+            .get_class_hash_at(contract_address)
+            .unwrap()
+            == class_hash_3
+    );
+    assert!(
+        block_state
+            .lock()
+            .expect("Failed to acquire state lock.")
+            .get_compiled_contract_class(class_hash)
+            .unwrap()
+            == contract_class_2
+    );
 }

@@ -77,15 +77,12 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
-    where
-        T: StateReader,
-    {
-        let writes = self.get_writes_up_to_index(from_index);
-        parent_state.update_cache(&writes);
+    fn commit(&mut self, index: TxIndex, parent_state: Arc<Mutex<CachedState<impl StateReader>>>) {
+        let writes = self.get_writes_up_to_index(index);
+        parent_state.lock().expect("Failed to acquire state lock.").update_cache(&writes);
 
-        parent_state.update_contract_class_cache(
-            self.compiled_contract_classes.get_writes_up_to_index(from_index),
+        parent_state.lock().expect("Failed to acquire state lock.").update_contract_class_cache(
+            self.compiled_contract_classes.get_writes_up_to_index(index),
         );
     }
 
@@ -215,6 +212,15 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
 
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
+    }
+
+    // TODO(barak, 01/07/2024): Re-consider where to place the 'commit_chunk' API.
+    pub fn commit(
+        &mut self,
+        chunk_size: usize,
+        parent_state: Arc<Mutex<CachedState<impl StateReader>>>,
+    ) {
+        self.0.lock().expect("Failed to acquire state lock.").commit(chunk_size, parent_state);
     }
 }
 
