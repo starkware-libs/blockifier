@@ -9,8 +9,10 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
+use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state::ThreadSafeVersionedState;
 use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
 use crate::context::BlockContext;
@@ -31,7 +33,7 @@ use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
 use crate::transaction::transaction_execution::Transaction;
 use crate::{invoke_tx_args, nonce, storage_key};
 
-fn _trivial_calldata_invoke_tx(
+fn trivial_calldata_invoke_tx(
     account_address: ContractAddress,
     nonce_manager: &mut NonceManager,
 ) -> AccountTransaction {
@@ -86,7 +88,7 @@ fn _invalid_tx(
 
 // This function checks that the storage values of the account and sequencer balances in the
 // versioned state of tx_index are equal to the expected_storage_values.
-fn _validate_fee_transfer<S: StateReader>(
+fn validate_fee_transfer<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     account_address: ContractAddress,
     tx_index: usize,
@@ -137,6 +139,77 @@ fn _change_account_balance_at_version(
         ..StateMaps::default()
     };
     versioned_state.apply_writes(&writes, &ContractClassMapping::default(), &HashMap::default());
+}
+
+fn check_sequencer_sender_fee_transfer<S: StateReader>(
+    executor: &WorkerExecutor<'_, S>,
+    tx_index: usize,
+    account_address: ContractAddress,
+) {
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    let actual_fee = execution_result.as_ref().unwrap().actual_fee.0;
+    assert!(execution_result.is_ok());
+    let expected_sequencer_balance_low = BALANCE;
+    let expected_sequencer_balance_high = 0_u128;
+    for (index, expected_balance) in [
+        // TODO(Meshi, 03/06/2024): check with Yoni to see if this makes sence (intuitively it
+        // should be sequencer_balance_low).
+        (STORAGE_READ_SEQUENCER_BALANCE_INDICES.0, expected_sequencer_balance_low - actual_fee),
+        (STORAGE_READ_SEQUENCER_BALANCE_INDICES.1, expected_sequencer_balance_high),
+    ] {
+        assert_eq!(
+            execution_result
+                .as_ref()
+                .unwrap()
+                .fee_transfer_call_info
+                .as_ref()
+                .unwrap()
+                .storage_read_values[index],
+            stark_felt!(expected_balance)
+        );
+    }
+    drop(execution_task_outputs);
+
+    // Check fee transfer after commit.
+    validate_fee_transfer(
+        executor,
+        account_address,
+        tx_index,
+        stark_felt!(BALANCE),
+        stark_felt!(expected_sequencer_balance_low),
+        stark_felt!(expected_sequencer_balance_high),
+    );
+}
+
+#[test]
+fn test_commit_tx_when_the_sqeuncer_is_the_sender() {
+    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let mut nonce_manager = NonceManager::default();
+    let account_address = account.get_instance_address(0_u16);
+    let mut block_info = block_context.block_info.clone();
+    block_info.sequencer_address = account_address;
+    block_context.block_info = block_info;
+
+    // Create transactions.
+    let transactions_array = [Transaction::AccountTransaction(trivial_calldata_invoke_tx(
+        account.get_instance_address(0_u16),
+        &mut nonce_manager,
+    ))];
+
+    let state_reader = test_state_reader(
+        &block_context.chain_info,
+        BALANCE,
+        &[(account, transactions_array.len().try_into().unwrap())],
+    );
+    let versioned_state = safe_versioned_state_for_testing(state_reader);
+    let executor = WorkerExecutor::new(versioned_state, &transactions_array, block_context);
+    let tx_index = 0;
+    executor.execute_tx(tx_index);
+    check_sequencer_sender_fee_transfer(&executor, tx_index, account_address);
+    executor.commit_tx(tx_index).unwrap();
+    check_sequencer_sender_fee_transfer(&executor, tx_index, account_address);
 }
 
 #[test]
