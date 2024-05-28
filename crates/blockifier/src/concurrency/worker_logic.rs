@@ -9,6 +9,8 @@ use starknet_api::stark_felt;
 use starknet_api::transaction::Fee;
 
 use super::versioned_state::VersionedStateProxy;
+use crate::blockifier::transaction_executor::TransactionExecutorError;
+use crate::bouncer::Bouncer;
 use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
@@ -17,7 +19,9 @@ use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::get_sequencer_balance_keys;
-use crate::state::cached_state::{ContractClassMapping, StateMaps, TransactionalState};
+use crate::state::cached_state::{
+    ContractClassMapping, StateChanges, StateMaps, TransactionalState,
+};
 use crate::state::state_api::{StateReader, StateResult, UpdatableState};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
@@ -44,18 +48,20 @@ pub struct WorkerExecutor<'a, S: StateReader> {
     pub chunk: &'a [Transaction],
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
+    pub bouncer: Arc<Mutex<Bouncer>>,
 }
 impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     pub fn new(
         state: ThreadSafeVersionedState<S>,
         chunk: &'a [Transaction],
         block_context: BlockContext,
+        bouncer: Arc<Mutex<Bouncer>>,
     ) -> Self {
         let scheduler = Scheduler::new(chunk.len());
         let execution_outputs =
             std::iter::repeat_with(|| Mutex::new(None)).take(chunk.len()).collect();
 
-        WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context }
+        WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context, bouncer }
     }
 
     pub fn run(&self) -> StateResult<()> {
@@ -194,12 +200,42 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 
         // Execution is final.
         let mut execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
-        let result_tx_info =
+        let writes = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).writes;
+        let reads = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
+        let tx_state_changes_keys = StateChanges::from(writes.diff(reads)).into_keys();
+        let tx_result =
             &mut execution_output.as_mut().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).result;
 
         let tx_context = Arc::new(self.block_context.to_tx_context(tx));
-        if let Ok(tx_info) = result_tx_info.as_mut() {
-            // TODO(Meshi, 01/06/2024): ask the bouncer if there is enough room for the transaction.
+        if let Ok(tx_execution_info) = tx_result.as_mut() {
+            // Ask the bouncer if there is room for the transaction in the block.
+            let bouncer_result = self.bouncer.lock().expect("Bouncer lock failed.").try_update(
+                &tx_versioned_state,
+                &tx_state_changes_keys,
+                &tx_execution_info.summarize(),
+                &tx_execution_info.actual_resources,
+            );
+            if let Err(error) = bouncer_result {
+                match error {
+                    TransactionExecutorError::BlockFull => return Ok(false),
+                    TransactionExecutorError::StateError(e) => return Err(e),
+                    TransactionExecutorError::TransactionExecutionError(e) => {
+                        // TransactionTooLarge error - revise the execution result, delete writes
+                        // and commit.
+                        *tx_result = Err(e);
+                        let writes = &execution_output
+                            .as_ref()
+                            .expect(EXECUTION_OUTPUTS_UNWRAP_ERROR)
+                            .writes;
+                        let contract_classes = &execution_output
+                            .as_ref()
+                            .expect(EXECUTION_OUTPUTS_UNWRAP_ERROR)
+                            .contract_classes;
+                        tx_versioned_state.delete_writes(writes, contract_classes);
+                        return Ok(true);
+                    }
+                }
+            }
             // Update the sequencer balance (in state + call info).
             if tx_context.tx_info.sender_address()
                 == self.block_context.block_info.sequencer_address
@@ -214,7 +250,8 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                     tx_context.block_context.block_info.sequencer_address,
                     tx_context.fee_token_address(),
                 )?;
-            if let Some(fee_transfer_call_info) = tx_info.fee_transfer_call_info.as_mut() {
+            if let Some(fee_transfer_call_info) = tx_execution_info.fee_transfer_call_info.as_mut()
+            {
                 // Fix the transfer call info.
                 fill_sequencer_balance_reads(
                     fee_transfer_call_info,
@@ -225,7 +262,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             add_fee_to_sequencer_balance(
                 tx_context.fee_token_address(),
                 &mut tx_versioned_state,
-                tx_info.actual_fee,
+                tx_execution_info.actual_fee,
                 &self.block_context,
                 sequencer_balance_value_low,
                 sequencer_balance_value_high,
