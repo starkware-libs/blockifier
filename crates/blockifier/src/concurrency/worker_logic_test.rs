@@ -9,8 +9,10 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
+use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state::ThreadSafeVersionedState;
 use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
 use crate::context::BlockContext;
@@ -132,11 +134,109 @@ fn _write_account_balance_at_versioned_state(
     versioned_state.apply_writes(&writes, &ContractClassMapping::default(), &HashMap::default());
 }
 
+fn _subtract_with_overflow(a_low: u128, a_high: u128, b_low: u128, b_high: u128) -> (u128, u128) {
+    let (low, overflow) = a_low.overflowing_sub(b_low);
+    let high = a_high.wrapping_sub(b_high).wrapping_sub(overflow.into());
+    (low, high)
+}
+
+fn _add_with_overflow(a_low: u128, a_high: u128, b_low: u128, b_high: u128) -> (u128, u128) {
+    let (low, overflow) = a_low.overflowing_add(b_low);
+    let high = a_high.wrapping_add(b_high).wrapping_add(overflow.into());
+    (low, high)
+}
+
+fn _check_pre_commit_tx<S: StateReader>(
+    executor: &WorkerExecutor<'_, S>,
+    tx_index: usize,
+    account_address: ContractAddress,
+    account_balances: (u128, u128),
+    sequencer_balances: (u128, u128),
+    should_fail: bool,
+) {
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    assert_eq!(execution_result.is_err(), should_fail);
+    // Extract the actual fee. If the transaction fails, no fee should be charged.
+    let actual_fee = if should_fail { 0 } else { execution_result.as_ref().unwrap().actual_fee.0 };
+    let (account_balance_low, account_balance_high) =
+        _subtract_with_overflow(account_balances.0, account_balances.1, actual_fee, 0_u128);
+    let (sequencer_balances_low, sequencer_balance_high) = sequencer_balances;
+    drop(execution_task_outputs);
+    // Check fee transfer before commit.
+    _validate_fee_transfer(
+        executor,
+        account_address,
+        tx_index,
+        (
+            stark_felt!(account_balance_low),
+            stark_felt!(account_balance_high),
+            stark_felt!(sequencer_balances_low),
+            stark_felt!(sequencer_balance_high),
+        ),
+    );
+}
+
+fn _check_post_commit_tx<S: StateReader>(
+    executor: &WorkerExecutor<'_, S>,
+    tx_index: usize,
+    account_address: ContractAddress,
+    account_balances: (u128, u128),
+    sequencer_balances: (u128, u128),
+    should_fail: bool,
+) -> u128 {
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    assert_eq!(execution_result.is_err(), should_fail);
+    // Extract the actual fee. If the transaction fails, no fee should be charged.
+    let actual_fee = if should_fail { 0 } else { execution_result.as_ref().unwrap().actual_fee.0 };
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    let (sequencer_balance_low, sequencer_balance_high) = sequencer_balances;
+    if !should_fail {
+        // Check that fill_sequencer_balance_reads worked after commit.
+        for (index, expected_balance) in [
+            (STORAGE_READ_SEQUENCER_BALANCE_INDICES.0, sequencer_balance_low),
+            (STORAGE_READ_SEQUENCER_BALANCE_INDICES.1, sequencer_balance_high),
+        ] {
+            assert_eq!(
+                execution_result
+                    .as_ref()
+                    .unwrap()
+                    .fee_transfer_call_info
+                    .as_ref()
+                    .unwrap()
+                    .storage_read_values[index],
+                stark_felt!(expected_balance)
+            );
+        }
+    }
+    drop(execution_task_outputs);
+    let (account_balance_low, account_balance_high) =
+        _subtract_with_overflow(account_balances.0, account_balances.1, actual_fee, 0_u128);
+    let (sequencer_balance_low, sequencer_balance_high) =
+        _add_with_overflow(sequencer_balances.0, sequencer_balances.1, actual_fee, 0_u128);
+
+    // Check fee transfer after commit.
+    _validate_fee_transfer(
+        executor,
+        account_address,
+        tx_index,
+        (
+            stark_felt!(account_balance_low),
+            stark_felt!(account_balance_high),
+            stark_felt!(sequencer_balance_low),
+            stark_felt!(sequencer_balance_high),
+        ),
+    );
+    actual_fee
+}
+
 #[test]
 fn test_worker_execute() {
     // Settings.
     let concurrency_mode = true;
-    let block_context = BlockContext::create_for_testing_with_concurrency_mode(concurrency_mode);
+    let block_context =
+        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -307,7 +407,8 @@ fn test_worker_execute() {
 fn test_worker_validate() {
     // Settings.
     let concurrency_mode = true;
-    let block_context = BlockContext::create_for_testing_with_concurrency_mode(concurrency_mode);
+    let block_context =
+        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
 
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -416,7 +517,7 @@ pub fn test_add_fee_to_sequencer_balance(
     #[case] sequencer_balance_high: StarkFelt,
 ) {
     let tx_index = 0;
-    let block_context = BlockContext::create_for_testing_with_concurrency_mode(true);
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
     let account = FeatureContract::Empty(CairoVersion::Cairo1);
     let safe_versioned_state = safe_versioned_state_for_testing(test_state_reader(
         &block_context.chain_info,
