@@ -11,6 +11,7 @@ use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
+use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -33,7 +34,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
 
-fn _trivial_calldata_invoke_tx(
+fn trivial_calldata_invoke_tx(
     account_address: ContractAddress,
     nonce: Nonce,
 ) -> AccountTransaction {
@@ -76,6 +77,79 @@ fn _validate_fee_transfer<S: StateReader>(
             .unwrap();
         assert_eq!(expected_balance, actual_balance);
     }
+}
+
+#[test]
+// When the sequencer is the sender, we use the sequential (full) fee transfer.
+// Thus, we skip the last step of commit tx, meaning the execution result before and after
+// commit tx should be the same (except for re-execution changes).
+fn test_commit_tx_when_sender_is_sequencer() {
+    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let mut nonce_manager = NonceManager::default();
+    let account_address = account.get_instance_address(0_u16);
+    let mut block_info = block_context.block_info.clone();
+    block_info.sequencer_address = account_address;
+    block_context.block_info = block_info;
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(&block_context);
+
+    let sequencer_tx = [Transaction::AccountTransaction(trivial_calldata_invoke_tx(
+        account_address,
+        nonce_manager.next(account_address),
+    ))];
+
+    let cached_state = test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
+    let versioned_state = safe_versioned_state_for_testing(cached_state);
+    let executor = WorkerExecutor::new(versioned_state, &sequencer_tx, block_context);
+    let tx_index = 0;
+    let tx_versioned_state = executor.state.pin_version(tx_index);
+    executor.execute_tx(tx_index);
+
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    let fee_transfer_call_info =
+        execution_result.as_ref().unwrap().fee_transfer_call_info.as_ref().unwrap();
+    let read_values_before_commit = fee_transfer_call_info.storage_read_values.clone();
+    drop(execution_task_outputs);
+
+    let sequencer_balance_high_before = tx_versioned_state
+        .get_storage_at(
+            executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+            sequencer_balance_key_high,
+        )
+        .unwrap();
+    let sequencer_balance_low_before = tx_versioned_state
+        .get_storage_at(
+            executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+            sequencer_balance_key_low,
+        )
+        .unwrap();
+
+    // Commit tx and check that the commit made no changes in the execution result or the state.
+    executor.commit_tx(tx_index);
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let commit_result = &execution_task_outputs.as_ref().unwrap().result;
+    let fee_transfer_call_info =
+        commit_result.as_ref().unwrap().fee_transfer_call_info.as_ref().unwrap();
+    assert_eq!(read_values_before_commit, fee_transfer_call_info.storage_read_values);
+    drop(execution_task_outputs);
+
+    let sequencer_balance_low_after = tx_versioned_state
+        .get_storage_at(
+            executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+            sequencer_balance_key_low,
+        )
+        .unwrap();
+    let sequencer_balance_high_after = tx_versioned_state
+        .get_storage_at(
+            executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+            sequencer_balance_key_high,
+        )
+        .unwrap();
+
+    assert_eq!(sequencer_balance_low_before, sequencer_balance_low_after);
+    assert_eq!(sequencer_balance_high_before, sequencer_balance_high_after);
 }
 
 #[test]
