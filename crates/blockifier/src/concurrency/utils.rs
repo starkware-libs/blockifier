@@ -8,3 +8,8 @@ pub fn lock_mutex_in_array<T: Debug>(array: &[Mutex<T>], tx_index: TxIndex) -> M
         panic!("Cell of transaction index {} is poisoned. Data: {:?}.", tx_index, *error.get_ref())
     })
 }
+
+// Constants.
+
+pub const DEFAULT_CHUNK_SIZE: usize = 64;
+pub const DEFAULT_N_WORKERS: usize = 4;
