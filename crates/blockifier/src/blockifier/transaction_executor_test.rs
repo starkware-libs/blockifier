@@ -338,7 +338,15 @@ fn test_execute_txs_bouncing(block_context: BlockContext) {
     assert!(results[2].is_ok());
 
     // Check state.
-    assert_eq!(tx_executor.state.get_nonce_at(account_address).unwrap(), nonce!(2_u32));
+    assert_eq!(
+        tx_executor
+            .block_state
+            .lock()
+            .expect("Failed to acquire state lock.")
+            .get_nonce_at(account_address)
+            .unwrap(),
+        nonce!(2_u32)
+    );
 
     // Check idempotency: excess transactions should not be added.
     let remaining_txs = &txs[expected_offset..];
@@ -352,5 +360,13 @@ fn test_execute_txs_bouncing(block_context: BlockContext) {
     assert_eq!(remaining_tx_results.len(), 2);
     assert!(remaining_tx_results[0].is_ok());
     assert!(remaining_tx_results[1].is_ok());
-    assert_eq!(tx_executor.state.get_nonce_at(account_address).unwrap(), nonce!(4_u32));
+    assert_eq!(
+        tx_executor
+            .block_state
+            .lock()
+            .expect("Failed to acquire state lock.")
+            .get_nonce_at(account_address)
+            .unwrap(),
+        nonce!(4_u32)
+    );
 }
