@@ -33,7 +33,7 @@ use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds};
 use crate::transaction::transaction_execution::Transaction;
 use crate::{invoke_tx_args, nonce, storage_key};
 
-fn _trivial_calldata_invoke_tx(
+fn trivial_calldata_invoke_tx(
     account_address: ContractAddress,
     nonce_manager: &mut NonceManager,
 ) -> AccountTransaction {
@@ -46,7 +46,7 @@ fn _trivial_calldata_invoke_tx(
     })
 }
 
-fn _sequencer_transfer_invoke_tx(
+fn sequencer_transfer_invoke_tx(
     account_address: ContractAddress,
     block_context: &BlockContext,
     transfer_amount: u128,
@@ -69,7 +69,7 @@ fn _sequencer_transfer_invoke_tx(
     })
 }
 
-fn _invoke_tx_without_calldata(
+fn invoke_tx_without_calldata(
     account_address: ContractAddress,
     nonce_manager: &mut NonceManager,
 ) -> AccountTransaction {
@@ -83,7 +83,7 @@ fn _invoke_tx_without_calldata(
 
 // This function checks that the storage values of the account and sequencer balances in the
 // versioned state of tx_index are equal to the expected_storage_values.
-fn _validate_fee_transfer<S: StateReader>(
+fn validate_fee_transfer<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     account_address: ContractAddress,
     tx_index: usize,
@@ -95,6 +95,7 @@ fn _validate_fee_transfer<S: StateReader>(
 
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(&executor.block_context);
+
     for (balance, storage_key) in [
         (expected_storage_values.0, account_balance_key_low),
         (expected_storage_values.1, account_balance_key_high),
@@ -102,18 +103,18 @@ fn _validate_fee_transfer<S: StateReader>(
         (expected_storage_values.3, sequencer_balance_key_high),
     ] {
         assert_eq!(
+            balance,
             tx_version_state
                 .get_storage_at(
                     executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
                     storage_key
                 )
-                .unwrap(),
-            balance
+                .unwrap()
         );
     }
 }
 
-fn _write_account_balance_at_versioned_state(
+fn write_account_balance_at_versioned_state(
     account_address: ContractAddress,
     state: &mut ThreadSafeVersionedState<impl StateReader>,
     tx_index: usize,
@@ -134,19 +135,19 @@ fn _write_account_balance_at_versioned_state(
     versioned_state.apply_writes(&writes, &ContractClassMapping::default(), &HashMap::default());
 }
 
-fn _subtract_with_overflow(a_low: u128, a_high: u128, b_low: u128, b_high: u128) -> (u128, u128) {
+fn subtract_with_overflow(a_low: u128, a_high: u128, b_low: u128, b_high: u128) -> (u128, u128) {
     let (low, overflow) = a_low.overflowing_sub(b_low);
     let high = a_high.wrapping_sub(b_high).wrapping_sub(overflow.into());
     (low, high)
 }
 
-fn _add_with_overflow(a_low: u128, a_high: u128, b_low: u128, b_high: u128) -> (u128, u128) {
+fn add_with_overflow(a_low: u128, a_high: u128, b_low: u128, b_high: u128) -> (u128, u128) {
     let (low, overflow) = a_low.overflowing_add(b_low);
     let high = a_high.wrapping_add(b_high).wrapping_add(overflow.into());
     (low, high)
 }
 
-fn _check_pre_commit_tx<S: StateReader>(
+fn check_pre_commit_tx<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     tx_index: usize,
     account_address: ContractAddress,
@@ -160,11 +161,11 @@ fn _check_pre_commit_tx<S: StateReader>(
     // Extract the actual fee. If the transaction fails, no fee should be charged.
     let actual_fee = if should_fail { 0 } else { execution_result.as_ref().unwrap().actual_fee.0 };
     let (account_balance_low, account_balance_high) =
-        _subtract_with_overflow(account_balances.0, account_balances.1, actual_fee, 0_u128);
+        subtract_with_overflow(account_balances.0, account_balances.1, actual_fee, 0_u128);
     let (sequencer_balances_low, sequencer_balance_high) = sequencer_balances;
     drop(execution_task_outputs);
     // Check fee transfer before commit.
-    _validate_fee_transfer(
+    validate_fee_transfer(
         executor,
         account_address,
         tx_index,
@@ -177,7 +178,7 @@ fn _check_pre_commit_tx<S: StateReader>(
     );
 }
 
-fn _check_post_commit_tx<S: StateReader>(
+fn check_post_commit_tx<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     tx_index: usize,
     account_address: ContractAddress,
@@ -212,12 +213,12 @@ fn _check_post_commit_tx<S: StateReader>(
     }
     drop(execution_task_outputs);
     let (account_balance_low, account_balance_high) =
-        _subtract_with_overflow(account_balances.0, account_balances.1, actual_fee, 0_u128);
+        subtract_with_overflow(account_balances.0, account_balances.1, actual_fee, 0_u128);
     let (sequencer_balance_low, sequencer_balance_high) =
-        _add_with_overflow(sequencer_balances.0, sequencer_balances.1, actual_fee, 0_u128);
+        add_with_overflow(sequencer_balances.0, sequencer_balances.1, actual_fee, 0_u128);
 
     // Check fee transfer after commit.
-    _validate_fee_transfer(
+    validate_fee_transfer(
         executor,
         account_address,
         tx_index,
@@ -229,6 +230,221 @@ fn _check_post_commit_tx<S: StateReader>(
         ),
     );
     actual_fee
+}
+
+#[rstest]
+pub fn test_commit_tx() {
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let transfer_amount = 50_u128;
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let mut sequencer_balance_low = 0_u128;
+    let mut nonce_manager = NonceManager::default();
+
+    // Create transactions.
+    let transactions_array = [
+        trivial_calldata_invoke_tx(account.get_instance_address(0_u16), &mut nonce_manager),
+        sequencer_transfer_invoke_tx(
+            account.get_instance_address(1_u16),
+            &block_context,
+            transfer_amount,
+            &mut nonce_manager,
+        ),
+        invoke_tx_without_calldata(account.get_instance_address(2_u16), &mut nonce_manager),
+        trivial_calldata_invoke_tx(account.get_instance_address(3_u16), &mut nonce_manager),
+        trivial_calldata_invoke_tx(account.get_instance_address(4_u16), &mut nonce_manager),
+    ]
+    .into_iter()
+    .map(Transaction::AccountTransaction)
+    .collect::<Vec<Transaction>>();
+
+    let state_reader = test_state_reader(
+        &block_context.chain_info,
+        BALANCE,
+        &[(account, transactions_array.len().try_into().unwrap())],
+    );
+    let versioned_state = safe_versioned_state_for_testing(state_reader);
+    let mut executor = WorkerExecutor::new(versioned_state, &transactions_array, block_context);
+
+    // tx0: pass execute -> pass re-validate ->  fix and commit.
+    // This is an invoke transaction with trivial calldata.
+    // We do not change any values in the read and write sets,
+    // thus the transaction should pass the re-validate in the commit phase.
+    let tx_index = 0;
+    let account_id = 0_u16;
+    let account_balance = BALANCE;
+    let should_fail = false;
+    let account_address = account.get_instance_address(account_id);
+    executor.execute_tx(tx_index);
+    check_pre_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (account_balance, 0_u128),
+        (sequencer_balance_low, 0_u128),
+        should_fail,
+    );
+    executor.commit_tx(tx_index).unwrap();
+    let actual_fee = check_post_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (account_balance, 0_u128),
+        (sequencer_balance_low, 0_u128),
+        should_fail,
+    );
+    sequencer_balance_low += actual_fee;
+
+    // tx1: pass execute -> fail re-validate ->  pass re-executed -> fixed and commit.
+    // This is an invoke transaction with calldata that transfers an amount to the sequencer
+    // balance. We change the sequencer balance in the write set, thus the transaction should
+    // fail the re-validate in the commit phase, but pass the re-execute.
+    let tx_index = 1;
+    let account_id = 1_u16;
+    let account_balance = BALANCE;
+    let should_fail = false;
+    executor.execute_tx(tx_index);
+    let account_address = account.get_instance_address(account_id);
+    check_pre_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (account_balance - transfer_amount, 0_u128),
+        (sequencer_balance_low + transfer_amount, 0_u128),
+        should_fail,
+    );
+    executor.commit_tx(tx_index).unwrap();
+    let actual_fee = check_post_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (account_balance - transfer_amount, 0_u128),
+        (sequencer_balance_low + transfer_amount, 0_u128),
+        should_fail,
+    );
+    sequencer_balance_low += actual_fee + transfer_amount;
+
+    // tx2: failed execute -> pass re-validate -> commit.
+    // This is an invoke transaction with no call data, thus it should fail execution,
+    // we do not change any values in the read and write sets, thus the transaction should pass the
+    // re-validate in the commit phase.
+    let account_id = 2_u16;
+    let tx_index = 2;
+    executor.execute_tx(tx_index);
+    let should_fail = true;
+    let account_address = account.get_instance_address(account_id);
+    check_pre_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (account_balance, 0_u128),
+        (sequencer_balance_low, 0_u128),
+        should_fail,
+    );
+    executor.commit_tx(tx_index).unwrap();
+    let actual_fee = check_post_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (account_balance, 0_u128),
+        (sequencer_balance_low, 0_u128),
+        should_fail,
+    );
+
+    sequencer_balance_low += actual_fee;
+
+    // tx3: passed execute ->  failed re-validate ->  failed re-execute (rejected) -> fixed and
+    // commit. This is an invoke transaction with trivial calldata. we change the account
+    // balance in the write set, thus the transaction should fail the re-validate in the commit
+    // phase, and becuse the ne account balance is zero, the re-execute should fail as well.
+    let account_id = 3_u16;
+    let tx_index = 3;
+    let mut should_fail = false;
+    let account_address = account.get_instance_address(account_id);
+    executor.execute_tx(tx_index);
+    check_pre_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (account_balance, 0_u128),
+        (sequencer_balance_low, 0_u128),
+        should_fail,
+    );
+
+    // Sets the account balance to zero so that the commit re-validation and re-execution will fail.
+    let new_account_balance = 0_u128;
+    write_account_balance_at_versioned_state(
+        account_address,
+        &mut executor.state,
+        tx_index,
+        executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+        stark_felt!(new_account_balance),
+        StarkFelt::ZERO,
+    );
+    executor.commit_tx(tx_index).unwrap();
+
+    should_fail = true;
+    let actual_fee = check_post_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (new_account_balance, 0_u128),
+        (sequencer_balance_low, 0_u128),
+        should_fail,
+    );
+
+    sequencer_balance_low += actual_fee;
+
+    // tx4: failed execute -> failed revalidate -> passed re-execute -> commit.
+    // This is an invoke transaction with trivial calldata. we change the account balance to zero
+    // before the first execution, thus the transaction should fail the execution, then we change
+    // the account balance back to BALANCE, thus the transaction should fail re-validate and pass
+    // the re-execute in the commit phase.
+    let account_id = 4_u16;
+    let tx_index = 4;
+    let new_account_balance = 0_u128;
+    let mut should_fail = true;
+    let account_address = account.get_instance_address(account_id);
+
+    // Sets the account balance to zero so that the first execution of the transaction will fail.
+    write_account_balance_at_versioned_state(
+        account_address,
+        &mut executor.state,
+        tx_index,
+        executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+        stark_felt!(new_account_balance),
+        StarkFelt::ZERO,
+    );
+
+    executor.execute_tx(tx_index);
+    check_pre_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (new_account_balance, 0_u128),
+        (sequencer_balance_low, 0_u128),
+        should_fail,
+    );
+
+    // Sets the account balance back to BALANCE so that the commit re-validation will fail and the
+    // re-execution will pass.
+    write_account_balance_at_versioned_state(
+        account_address,
+        &mut executor.state,
+        tx_index,
+        executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+        stark_felt!(BALANCE),
+        StarkFelt::ZERO,
+    );
+    executor.commit_tx(tx_index).unwrap();
+    should_fail = false;
+    let _actual_fee = check_post_commit_tx(
+        &executor,
+        tx_index,
+        account_address,
+        (account_balance, 0_u128),
+        (sequencer_balance_low, 0_u128),
+        should_fail,
+    );
 }
 
 #[test]
