@@ -28,7 +28,6 @@ use crate::transaction::transactions::ExecutableTransaction;
 pub mod test;
 
 const EXECUTION_OUTPUTS_UNWRAP_ERROR: &str = "Execution task outputs should not be None.";
-
 #[derive(Debug)]
 pub struct ExecutionTaskOutput {
     pub reads: StateMaps,
