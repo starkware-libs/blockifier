@@ -18,7 +18,7 @@ use crate::context::BlockContext;
 use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{ContractClassMapping, StateMaps, TransactionalState};
-use crate::state::state_api::{StateReader, StateResult, UpdatableState};
+use crate::state::state_api::{StateReader, UpdatableState};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
@@ -58,10 +58,10 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context }
     }
 
-    pub fn run(&self) -> StateResult<()> {
+    pub fn run(&self) {
         let mut task = Task::NoTask;
         loop {
-            self.commit_while_possible()?;
+            self.commit_while_possible();
             task = match task {
                 Task::ExecutionTask(tx_index) => {
                     self.execute(tx_index);
@@ -72,19 +72,17 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 Task::Done => break,
             };
         }
-        Ok(())
     }
 
-    fn commit_while_possible(&self) -> StateResult<()> {
+    fn commit_while_possible(&self) {
         if let Some(mut transaction_committer) = self.scheduler.try_enter_commit_phase() {
             while let Some(tx_index) = transaction_committer.try_commit() {
-                let commit_succeeded = self.commit_tx(tx_index)?;
+                let commit_succeeded = self.commit_tx(tx_index);
                 if !commit_succeeded {
                     transaction_committer.halt_scheduler();
                 }
             }
         }
-        Ok(())
     }
 
     fn execute(&self, tx_index: TxIndex) {
@@ -160,7 +158,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     ///         - Else (no room), do not commit. The block should be closed without the transaction.
     ///     * Else (execution failed), commit the transaction without fixing the call info or
     ///       updating the sequencer balance.
-    fn commit_tx(&self, tx_index: TxIndex) -> StateResult<bool> {
+    fn commit_tx(&self, tx_index: TxIndex) -> bool {
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
         let execution_output_ref = execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR);
 
@@ -205,15 +203,23 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 == self.block_context.block_info.sequencer_address
             {
                 // When the sequencer is the sender, we use the sequential (full) fee transfer.
-                return Ok(true);
+                return true;
             }
 
             let mut next_tx_versioned_state = self.state.pin_version(tx_index + 1);
             let (sequencer_balance_value_low, sequencer_balance_value_high) =
-                next_tx_versioned_state.get_fee_token_balance(
-                    tx_context.block_context.block_info.sequencer_address,
-                    tx_context.fee_token_address(),
-                )?;
+                next_tx_versioned_state
+                    .get_fee_token_balance(
+                        tx_context.block_context.block_info.sequencer_address,
+                        tx_context.fee_token_address(),
+                    )
+                    // TODO(barak, 01/07/2024): Consider propagating the error.
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "Access to storage failed. Probably due to a bug in Papyrus. {error:?}: {error}"
+                        )
+                    });
+
             if let Some(fee_transfer_call_info) = tx_info.fee_transfer_call_info.as_mut() {
                 // Fix the transfer call info.
                 fill_sequencer_balance_reads(
@@ -234,7 +240,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             // the next transactions.
         }
 
-        Ok(true)
+        true
     }
 }
 
