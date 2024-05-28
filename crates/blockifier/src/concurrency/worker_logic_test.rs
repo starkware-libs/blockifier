@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use num_bigint::BigUint;
 use starknet_api::core::{ContractAddress, PatriciaKey};
@@ -9,6 +10,7 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
+use crate::bouncer::{Bouncer, BouncerConfig};
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
 use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
@@ -97,7 +99,9 @@ fn test_worker_execute() {
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let worker_executor = WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context);
+    let bouncer = Arc::new(Mutex::new(Bouncer::new(BouncerConfig::default())));
+    let worker_executor =
+        WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context, bouncer);
 
     // Creates 3 execution active tasks.
     worker_executor.scheduler.next_task();
@@ -258,7 +262,9 @@ fn test_worker_validate() {
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let worker_executor = WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context);
+    let bouncer = Arc::new(Mutex::new(Bouncer::new(BouncerConfig::default())));
+    let worker_executor =
+        WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context, bouncer);
 
     // Creates 2 active tasks.
     worker_executor.scheduler.next_task();
@@ -418,7 +424,8 @@ fn test_deploy_before_declare() {
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let worker_executor = WorkerExecutor::new(safe_versioned_state, &txs, block_context);
+    let bouncer = Arc::new(Mutex::new(Bouncer::new(BouncerConfig::default())));
+    let worker_executor = WorkerExecutor::new(safe_versioned_state, &txs, block_context, bouncer);
 
     // Creates 2 active tasks.
     worker_executor.scheduler.next_task();
