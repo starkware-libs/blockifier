@@ -24,7 +24,10 @@ const READ_ERR: &str = "Error: read value missing in the versioned storage";
 /// Reader functionality is injected through initial state.
 #[derive(Debug)]
 pub struct VersionedState<S: StateReader> {
-    initial_state: S,
+    // The VersionedState is passed across threads. The generic S represents the block state and is
+    // not necessarily thread-safe. For example, if the block state is of type CachedState, it
+    // would have RefCell members. Thus, it needs to be wrapped by Arc with a Mutex.
+    initial_state: Arc<Mutex<S>>,
     storage: VersionedStorage<(ContractAddress, StorageKey), StarkFelt>,
     nonces: VersionedStorage<ContractAddress, Nonce>,
     class_hashes: VersionedStorage<ContractAddress, ClassHash>,
@@ -37,7 +40,7 @@ pub struct VersionedState<S: StateReader> {
 }
 
 impl<S: StateReader> VersionedState<S> {
-    pub fn new(initial_state: S) -> Self {
+    pub fn new(initial_state: Arc<Mutex<S>>) -> Self {
         VersionedState {
             initial_state,
             storage: VersionedStorage::default(),
@@ -258,7 +261,11 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
         match state.storage.read(self.tx_index, (contract_address, key)) {
             Some(value) => Ok(value),
             None => {
-                let initial_value = state.initial_state.get_storage_at(contract_address, key)?;
+                let initial_value = state
+                    .initial_state
+                    .lock()
+                    .expect("Failed to acquire state lock.")
+                    .get_storage_at(contract_address, key)?;
                 state.storage.set_initial_value((contract_address, key), initial_value);
                 Ok(initial_value)
             }
@@ -270,7 +277,11 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
         match state.nonces.read(self.tx_index, contract_address) {
             Some(value) => Ok(value),
             None => {
-                let initial_value = state.initial_state.get_nonce_at(contract_address)?;
+                let initial_value = state
+                    .initial_state
+                    .lock()
+                    .expect("Failed to acquire state lock.")
+                    .get_nonce_at(contract_address)?;
                 state.nonces.set_initial_value(contract_address, initial_value);
                 Ok(initial_value)
             }
@@ -282,7 +293,11 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
         match state.class_hashes.read(self.tx_index, contract_address) {
             Some(value) => Ok(value),
             None => {
-                let initial_value = state.initial_state.get_class_hash_at(contract_address)?;
+                let initial_value = state
+                    .initial_state
+                    .lock()
+                    .expect("Failed to acquire state lock.")
+                    .get_class_hash_at(contract_address)?;
                 state.class_hashes.set_initial_value(contract_address, initial_value);
                 Ok(initial_value)
             }
@@ -294,7 +309,11 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
         match state.compiled_class_hashes.read(self.tx_index, class_hash) {
             Some(value) => Ok(value),
             None => {
-                let initial_value = state.initial_state.get_compiled_class_hash(class_hash)?;
+                let initial_value = state
+                    .initial_state
+                    .lock()
+                    .expect("Failed to acquire state lock.")
+                    .get_compiled_class_hash(class_hash)?;
                 state.compiled_class_hashes.set_initial_value(class_hash, initial_value);
                 Ok(initial_value)
             }
@@ -305,20 +324,27 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
         let mut state = self.state();
         match state.compiled_contract_classes.read(self.tx_index, class_hash) {
             Some(value) => Ok(value),
-            None => match state.initial_state.get_compiled_contract_class(class_hash) {
-                Ok(initial_value) => {
-                    state.declared_contracts.set_initial_value(class_hash, true);
-                    state
-                        .compiled_contract_classes
-                        .set_initial_value(class_hash, initial_value.clone());
-                    Ok(initial_value)
+            None => {
+                let contract_class = state
+                    .initial_state
+                    .lock()
+                    .expect("Failed to acquire state lock.")
+                    .get_compiled_contract_class(class_hash);
+                match contract_class {
+                    Ok(initial_value) => {
+                        state.declared_contracts.set_initial_value(class_hash, true);
+                        state
+                            .compiled_contract_classes
+                            .set_initial_value(class_hash, initial_value.clone());
+                        Ok(initial_value)
+                    }
+                    Err(StateError::UndeclaredClassHash(class_hash)) => {
+                        state.declared_contracts.set_initial_value(class_hash, false);
+                        Err(StateError::UndeclaredClassHash(class_hash))?
+                    }
+                    Err(error) => Err(error)?,
                 }
-                Err(StateError::UndeclaredClassHash(class_hash)) => {
-                    state.declared_contracts.set_initial_value(class_hash, false);
-                    Err(StateError::UndeclaredClassHash(class_hash))?
-                }
-                Err(error) => Err(error)?,
-            },
+            }
         }
     }
 }
