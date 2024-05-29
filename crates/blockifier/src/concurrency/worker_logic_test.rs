@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use num_bigint::BigUint;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::transaction::Fee;
+use starknet_api::transaction::{ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use super::WorkerExecutor;
@@ -18,14 +18,19 @@ use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::StateMaps;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::declare::declare_tx;
 use crate::test_utils::initial_test_state::test_state_reader;
 use crate::test_utils::{
-    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, TEST_ERC20_CONTRACT_ADDRESS,
+    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
 };
+use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
 use crate::transaction::objects::FeeType;
-use crate::transaction::test_utils::account_invoke_tx;
+use crate::transaction::test_utils::{
+    account_invoke_tx, calculate_class_info_for_testing, l1_resource_bounds,
+};
 use crate::transaction::transaction_execution::Transaction;
-use crate::{invoke_tx_args, nonce, storage_key};
+use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
 
 #[test]
 fn test_worker_execute() {
@@ -358,4 +363,87 @@ pub fn test_add_fee_to_sequencer_balance(
         new_sequencer_balance_value_high,
         felt_to_stark_felt(&expected_sequencer_balance_value_high)
     );
+}
+
+#[test]
+fn test_deploy_before_declare() {
+    // Create the state.
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let chain_info = &block_context.chain_info;
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let state_reader = test_state_reader(chain_info, BALANCE, &[(account_contract, 2)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+
+    // Create transactions.
+    let account_address_0 = account_contract.get_instance_address(0);
+    let account_address_1 = account_contract.get_instance_address(1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_class_hash = test_contract.get_class_hash();
+    let test_class_info = calculate_class_info_for_testing(test_contract.get_class());
+    let test_compiled_class_hash = test_contract.get_compiled_class_hash();
+
+    let declare_tx = declare_tx(
+        declare_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            sender_address: account_address_0,
+            version: TransactionVersion::THREE,
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            class_hash: test_class_hash,
+            compiled_class_hash: test_compiled_class_hash,
+            nonce: nonce!(0_u8),
+        },
+        test_class_info.clone(),
+    );
+
+    // Deploy test contract.
+    let invoke_tx = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address_1,
+        calldata: create_calldata(
+            account_contract.get_instance_address(0),
+            DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME,
+            &[
+                test_class_hash.0,                  // Class hash.
+                ContractAddressSalt::default().0,   // Salt.
+                stark_felt!(2_u8),                  // Constructor calldata length.
+                stark_felt!(1_u8),                  // Constructor calldata arg1.
+                stark_felt!(1_u8),                  // Constructor calldata arg2.
+            ]
+        ),
+        max_fee: Fee(MAX_FEE),
+        nonce: nonce!(0_u8)
+    });
+
+    let txs = [declare_tx, invoke_tx]
+        .into_iter()
+        .map(Transaction::AccountTransaction)
+        .collect::<Vec<Transaction>>();
+
+    let worker_executor = WorkerExecutor::new(safe_versioned_state, &txs, block_context);
+
+    // Creates 2 active tasks.
+    worker_executor.scheduler.next_task();
+    worker_executor.scheduler.next_task();
+
+    // Execute transactions in the wrong order, making the first execution invalid.
+    worker_executor.execute(1);
+    worker_executor.execute(0);
+
+    let execution_output = worker_executor.execution_outputs[1].lock().unwrap();
+    let tx_execution_info = execution_output.as_ref().unwrap().result.as_ref().unwrap();
+    assert!(tx_execution_info.is_reverted());
+    assert!(tx_execution_info.revert_error.clone().unwrap().contains("not declared."));
+    drop(execution_output);
+
+    // Creates 2 active tasks.
+    worker_executor.scheduler.next_task();
+    worker_executor.scheduler.next_task();
+
+    // Verify validation failed.
+    assert_eq!(worker_executor.validate(1), Task::ExecutionTask(1));
+
+    // Execute transaction 1 again.
+    worker_executor.execute(1);
+
+    let execution_output = worker_executor.execution_outputs[1].lock().unwrap();
+    assert!(!execution_output.as_ref().unwrap().result.as_ref().unwrap().is_reverted());
 }
