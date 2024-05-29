@@ -132,6 +132,11 @@ impl<U: UpdatableState> ExecutableTransaction<U> for L1HandlerTransaction {
             return Err(TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee })?;
         }
 
+        let total_gas = actual_resources.to_gas_vector(
+            &block_context.versioned_constants,
+            block_context.block_info.use_kzg_da,
+        )?;
+
         Ok(TransactionExecutionInfo {
             validate_call_info: None,
             execute_call_info,
@@ -140,6 +145,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for L1HandlerTransaction {
             da_gas,
             revert_error: None,
             actual_resources,
+            total_gas,
         })
     }
 }

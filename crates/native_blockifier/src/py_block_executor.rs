@@ -56,6 +56,7 @@ pub(crate) struct ThinTransactionExecutionInfo {
     pub da_gas: GasVector,
     pub actual_resources: ResourcesMapping,
     pub revert_error: Option<String>,
+    pub total_gas: GasVector,
 }
 
 impl ThinTransactionExecutionInfo {
@@ -75,6 +76,7 @@ impl ThinTransactionExecutionInfo {
                 true,
             ),
             revert_error: tx_execution_info.revert_error,
+            total_gas: tx_execution_info.total_gas,
         }
     }
 }
