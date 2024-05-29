@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use num_bigint::BigUint;
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::transaction::Fee;
+use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use super::WorkerExecutor;
@@ -18,14 +18,18 @@ use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::StateMaps;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
+use crate::test_utils::declare::declare_tx;
 use crate::test_utils::initial_test_state::test_state_reader;
 use crate::test_utils::{
-    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, TEST_ERC20_CONTRACT_ADDRESS,
+    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
+    MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
 };
 use crate::transaction::objects::FeeType;
-use crate::transaction::test_utils::account_invoke_tx;
+use crate::transaction::test_utils::{
+    account_invoke_tx, calculate_class_info_for_testing, l1_resource_bounds,
+};
 use crate::transaction::transaction_execution::Transaction;
-use crate::{invoke_tx_args, nonce, storage_key};
+use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
 
 #[test]
 fn test_worker_execute() {
@@ -358,4 +362,108 @@ pub fn test_add_fee_to_sequencer_balance(
         new_sequencer_balance_value_high,
         felt_to_stark_felt(&expected_sequencer_balance_value_high)
     );
+}
+
+#[test]
+fn test_deploy_before_declare() {
+    // Create the state.
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let chain_info = &block_context.chain_info;
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let state_reader = test_state_reader(chain_info, BALANCE, &[(account_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+
+    // Create transactions.
+    let account_address = account_contract.get_instance_address(0);
+    let nonce_manager = &mut NonceManager::default();
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let class_hash = test_contract.get_class_hash();
+    let class_info = calculate_class_info_for_testing(test_contract.get_class());
+    let compiled_class_hash = test_contract.get_compiled_class_hash();
+
+    let declare = declare_tx(
+        declare_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            sender_address: account_address,
+            version: TransactionVersion::THREE,
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            class_hash,
+            compiled_class_hash,
+        },
+        class_info.clone(),
+    );
+
+    nonce_manager.next(account_address);
+
+    let deploy = account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: Calldata(
+            vec![
+                class_hash.0,
+                stark_felt!(0_u8),
+                stark_felt!(2_u8),
+                stark_felt!(1_u8),
+                stark_felt!(1_u8),
+            ].into()
+        ),
+        max_fee: Fee(MAX_FEE),
+        nonce: nonce_manager.next(account_address)
+    });
+
+    let txs = [declare, deploy]
+        .into_iter()
+        .map(Transaction::AccountTransaction)
+        .collect::<Vec<Transaction>>();
+
+    let worker_executor = WorkerExecutor::new(safe_versioned_state, &txs, block_context);
+
+    // Creates 2 active tasks.
+    worker_executor.scheduler.next_task();
+    worker_executor.scheduler.next_task();
+
+    // Execute transactions in the wrong order, making the first execution invalid.
+    worker_executor.execute(1);
+    worker_executor.execute(0);
+
+    let execution_output = worker_executor.execution_outputs[1].lock().unwrap();
+    let execution_output_ref = execution_output.as_ref().unwrap();
+    assert!(execution_output_ref.result.as_ref().is_err());
+    drop(execution_output);
+
+    // Creates 2 active tasks.
+    worker_executor.scheduler.next_task();
+    worker_executor.scheduler.next_task();
+
+    // Validate succeeds.
+    let tx_index = 0;
+    let next_task = worker_executor.validate(tx_index);
+    assert_eq!(next_task, Task::NoTask);
+
+    // No status change.
+    assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executed);
+
+    // Validate failed. This leads to a re-execution.
+    let tx_index = 1;
+    let next_task1 = worker_executor.validate(tx_index);
+    assert_eq!(next_task1, Task::ExecutionTask(tx_index));
+
+    // Verify status change.
+    assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executing);
+
+    let next_task2 = worker_executor.validate(tx_index);
+    assert_eq!(next_task2, Task::NoTask);
+
+    // Execute transaction 1 again.
+    worker_executor.execute(1);
+    worker_executor.scheduler.next_task();
+    assert_eq!(*worker_executor.scheduler.get_tx_status(1), TransactionStatus::Executed);
+
+    let execution_output = worker_executor.execution_outputs[1].lock().unwrap();
+    let execution_output_ref = execution_output.as_ref().unwrap();
+    execution_output_ref.result.as_ref().unwrap();
+    drop(execution_output);
+
+    // Successful validatation for transaction 1.
+    let next_task = worker_executor.validate(1);
+    assert_eq!(next_task, Task::NoTask);
 }
