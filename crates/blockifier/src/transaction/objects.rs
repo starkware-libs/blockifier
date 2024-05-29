@@ -214,6 +214,8 @@ pub struct TransactionExecutionInfo {
     // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
     //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
     pub revert_error: Option<String>,
+    
+    pub total_gas: GasVector,
 }
 
 impl TransactionExecutionInfo {
