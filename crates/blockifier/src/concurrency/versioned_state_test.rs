@@ -18,7 +18,9 @@ use crate::concurrency::versioned_state::{
 };
 use crate::concurrency::TxIndex;
 use crate::context::BlockContext;
-use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::cached_state::{
+    CachedState, ContractClassMapping, StateMaps, TransactionalState,
+};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, UpdatableState};
 use crate::test_utils::contracts::FeatureContract;
@@ -511,4 +513,51 @@ fn test_delete_writes_completeness(
             .get_writes_of_index(tx_index),
         ContractClassMapping::default()
     );
+}
+
+#[rstest]
+fn test_versioned_proxy_state_flow(
+    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+) {
+    let contract_address = contract_address!("0x1");
+    let class_hash = ClassHash(stark_felt!(27_u8));
+
+    let mut block_state = CachedState::from(DictStateReader::default());
+    let mut versioned_proxy_states: Vec<VersionedStateProxy<DictStateReader>> =
+        (0..4).map(|i| safe_versioned_state.pin_version(i)).collect();
+
+    let mut transactional_states = Vec::with_capacity(4);
+    for proxy_state in &mut versioned_proxy_states {
+        transactional_states.push(TransactionalState::create_transactional(proxy_state));
+    }
+
+    // Clients class hash values.
+    let class_hash_1 = ClassHash(stark_felt!(76_u8));
+    let class_hash_3 = ClassHash(stark_felt!(234_u8));
+
+    transactional_states[1].set_class_hash_at(contract_address, class_hash_1).unwrap();
+    transactional_states[3].set_class_hash_at(contract_address, class_hash_3).unwrap();
+
+    // Clients contract class values.
+    let contract_class_0 = FeatureContract::TestContract(CairoVersion::Cairo0).get_class();
+    let contract_class_2 =
+        FeatureContract::AccountWithLongValidate(CairoVersion::Cairo1).get_class();
+
+    transactional_states[0].set_contract_class(class_hash, contract_class_0).unwrap();
+    transactional_states[2].set_contract_class(class_hash, contract_class_2.clone()).unwrap();
+
+    // Apply the changes.
+    for (i, transactional_state) in transactional_states.iter_mut().enumerate() {
+        safe_versioned_state.0.lock().unwrap().apply_writes(
+            i,
+            &transactional_state.cache.borrow().writes,
+            &transactional_state.class_hash_to_class.borrow().clone(),
+        );
+    }
+
+    // Check the final state.
+    safe_versioned_state.0.lock().unwrap().commit(4, &mut block_state);
+
+    assert!(block_state.get_class_hash_at(contract_address).unwrap() == class_hash_3);
+    assert!(block_state.get_compiled_contract_class(class_hash).unwrap() == contract_class_2);
 }
