@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use num_bigint::BigUint;
-use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{contract_address, patricia_key, stark_felt};
@@ -14,16 +14,17 @@ use crate::concurrency::test_utils::safe_versioned_state_for_testing;
 use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::fee::fee_utils::get_sequencer_balance_keys;
+use crate::fee::fee_utils::{get_address_balance_keys, get_sequencer_balance_keys};
 use crate::state::cached_state::StateMaps;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
-    MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
+    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
 };
+use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
 use crate::transaction::objects::FeeType;
 use crate::transaction::test_utils::{
@@ -31,6 +32,51 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
+
+fn _trivial_calldata_invoke_tx(
+    account_address: ContractAddress,
+    nonce: Nonce,
+) -> AccountTransaction {
+    account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: create_trivial_calldata(account_address),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        version: TransactionVersion::THREE,
+        nonce: nonce,
+    })
+}
+
+/// Checks that the storage values of the account and sequencer balances in the
+/// versioned state of tx_index equals the expected values.
+fn _validate_fee_transfer<S: StateReader>(
+    executor: &WorkerExecutor<'_, S>,
+    account_address: ContractAddress,
+    tx_index: usize,
+    expected_account_balance_low: StarkFelt,
+    expected_sequencer_balance_low: StarkFelt,
+) {
+    let tx_version_state = executor.state.pin_version(tx_index + 1);
+    let (account_balance_key_low, account_balance_key_high) =
+        get_address_balance_keys(account_address);
+
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(&executor.block_context);
+    for (expected_balance, storage_key) in [
+        (expected_account_balance_low, account_balance_key_low),
+        // In tests, we assume that the account balance can be represented as u128.
+        (StarkFelt::ZERO, account_balance_key_high),
+        (expected_sequencer_balance_low, sequencer_balance_key_low),
+        (StarkFelt::ZERO, sequencer_balance_key_high),
+    ] {
+        let actual_balance = tx_version_state
+            .get_storage_at(
+                executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+                storage_key,
+            )
+            .unwrap();
+        assert_eq!(expected_balance, actual_balance);
+    }
+}
 
 #[test]
 fn test_worker_execute() {
