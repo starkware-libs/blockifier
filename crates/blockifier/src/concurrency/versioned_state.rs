@@ -75,6 +75,12 @@ impl<S: StateReader> VersionedState<S> {
         T: StateReader,
     {
         let writes = self.get_writes_up_to_index(from_index);
+
+        // Check consistency between declared_contracts and compiled_contract_classes.
+        for (&key, &value) in &writes.declared_contracts {
+            assert_eq!(value, self.compiled_contract_classes.read(from_index, key).is_some());
+        }
+
         parent_state.update_cache(&writes);
 
         parent_state.update_contract_class_cache(

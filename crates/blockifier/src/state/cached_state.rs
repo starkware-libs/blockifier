@@ -110,6 +110,11 @@ impl<S: StateReader> UpdatableState for CachedState<S> {
         class_hash_to_class: &ContractClassMapping,
         visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
     ) {
+        // Check consistency between declared_contracts and class_hash_to_class.
+        for (&key, &value) in &writes.declared_contracts {
+            assert_eq!(value, class_hash_to_class.get(&key).is_some());
+        }
+
         self.update_cache(writes);
         // TODO(OriF,15/5/24): Reconsider the clone.
         self.update_contract_class_cache(class_hash_to_class.clone());
