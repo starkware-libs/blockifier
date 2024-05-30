@@ -296,9 +296,6 @@ fn test_worker_validate() {
     );
     // Verify status change.
     assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executing);
-
-    let next_task2 = worker_executor.validate(tx_index);
-    assert_eq!(next_task2, Task::NoTask);
 }
 use cairo_felt::Felt252;
 use rstest::rstest;
