@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use num_bigint::BigUint;
-use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{contract_address, patricia_key, stark_felt};
@@ -26,13 +26,65 @@ use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
     MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
 };
-use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
+use crate::transaction::account_transaction::AccountTransaction;
+use crate::transaction::constants::{
+    DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME, TRANSFER_ENTRY_POINT_NAME,
+};
 use crate::transaction::objects::FeeType;
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, l1_resource_bounds,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
+
+// Creates a tx that transfers 0 to self.
+fn _trivial_transfer_tx(
+    account_address: ContractAddress,
+    fee_token_address: ContractAddress,
+    nonce: Nonce,
+) -> AccountTransaction {
+    let transfer_calldata = create_calldata(
+        fee_token_address,
+        TRANSFER_ENTRY_POINT_NAME,
+        &[
+            *account_address.0.key(), // Calldata: recipient.
+            stark_felt!(0_u8),        // Calldata: lsb amount.
+            stark_felt!(0_u8),        // Calldata: msb amount.
+        ],
+    );
+    account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: transfer_calldata,
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        version: TransactionVersion::THREE,
+        nonce: nonce,
+    })
+}
+
+/// Checks that the storage values of the account and sequencer balances in the
+/// versioned state of tx_index equals the expected values.
+fn _verify_sequencer_balance_update<S: StateReader>(
+    executor: &WorkerExecutor<'_, S>,
+    tx_index: usize,
+    // We assume the balance is at most 2^128, so the "low" value is sufficient.
+    expected_sequencer_balance_low: StarkFelt,
+) {
+    let tx_version_state = executor.state.pin_version(tx_index);
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(executor.block_context);
+    for (expected_balance, storage_key) in [
+        (expected_sequencer_balance_low, sequencer_balance_key_low),
+        (StarkFelt::ZERO, sequencer_balance_key_high),
+    ] {
+        let actual_balance = tx_version_state
+            .get_storage_at(
+                executor.block_context.chain_info.fee_token_address(&FeeType::Strk),
+                storage_key,
+            )
+            .unwrap();
+        assert_eq!(expected_balance, actual_balance);
+    }
+}
 
 #[test]
 fn test_worker_execute() {
