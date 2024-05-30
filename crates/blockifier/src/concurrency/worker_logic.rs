@@ -255,9 +255,11 @@ fn add_fee_to_sequencer_balance(
         .to_u128()
         .expect("sequencer balance high should be u128");
     let (new_value_low, carry) = sequencer_balance_low_as_u128.overflowing_add(actual_fee.0);
-    // TODO (Meshi, 01/06/2024): Check if this is the correct way to handle the overflow according
-    // to cairo1.
-    let new_value_high = sequencer_balance_high_as_u128.wrapping_add(u128::from(carry));
+    let (new_value_high, carry) = sequencer_balance_high_as_u128.overflowing_add(carry.into());
+    assert!(
+        !carry,
+        "The sequencer balance overflowed when adding the fee. This should not happen."
+    );
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(block_context);
     let writes = StateMaps {
