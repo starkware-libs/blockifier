@@ -156,13 +156,31 @@ impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
 }
 
 // V1.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractClassV1(pub Arc<ContractClassV1Inner>);
 impl Deref for ContractClassV1 {
     type Target = ContractClassV1Inner;
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for ContractClassV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Deserialize into a JSON value
+        let json_value: serde_json::Value = Deserialize::deserialize(deserializer)?;
+
+        // Convert into a JSON string
+        let json_string = serde_json::to_string(&json_value)
+            .map_err(|err| DeserializationError::custom(err.to_string()))?;
+
+        // Use try_from_json_string to deserialize into ContractClassV1
+        ContractClassV1::try_from_json_string(&json_string)
+            .map_err(|err| DeserializationError::custom(err.to_string()))
     }
 }
 
@@ -332,9 +350,8 @@ fn get_visited_segments(
     Ok(res)
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractClassV1Inner {
-    #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
     pub hints: HashMap<String, Hint>,
