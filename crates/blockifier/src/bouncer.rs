@@ -49,6 +49,16 @@ impl BouncerConfig {
             block_max_capacity: BouncerWeights::max(false),
         }
     }
+
+    pub fn has_room(&self, weights: BouncerWeights) -> bool {
+        let max_capacity = if weights.builtin_count.keccak > 0 {
+            self.block_max_capacity_with_keccak
+        } else {
+            self.block_max_capacity
+        };
+
+        max_capacity.has_room(weights)
+    }
 }
 
 #[derive(
@@ -216,19 +226,13 @@ impl Bouncer {
             &state_changes_keys,
         )?;
 
-        let mut max_capacity = self.bouncer_config.block_max_capacity;
-        if self.accumulated_weights.builtin_count.keccak > 0 || tx_weights.builtin_count.keccak > 0
-        {
-            max_capacity = self.bouncer_config.block_max_capacity_with_keccak;
-        }
-
         // Check if the transaction is too large to fit any block.
-        if !max_capacity.has_room(tx_weights) {
+        if !self.bouncer_config.has_room(tx_weights) {
             Err(TransactionExecutionError::TransactionTooLarge)?
         }
 
         // Check if the transaction can fit the current block available capacity.
-        if !max_capacity.has_room(self.accumulated_weights + tx_weights) {
+        if !self.bouncer_config.has_room(self.accumulated_weights + tx_weights) {
             log::debug!(
                 "Transaction cannot be added to the current block, block capacity reached; \
                  transaction weights: {tx_weights:?}, block weights: {:?}.",
