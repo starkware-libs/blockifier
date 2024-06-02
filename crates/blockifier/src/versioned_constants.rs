@@ -375,6 +375,12 @@ impl OsResources {
     }
 
     fn os_kzg_da_resources(&self, data_segment_length: usize) -> ExecutionResources {
+        // TODO(Avi, 15/6/2026): BACKWARD COMPATIBILITY: we set compute_os_kzg_commitment_info to
+        // empty in older versions where this was not yet computed.
+        let empty_resources = ExecutionResources::default();
+        if self.compute_os_kzg_commitment_info == empty_resources {
+            return empty_resources;
+        }
         &(&self.compute_os_kzg_commitment_info * data_segment_length)
             + &poseidon_hash_many_cost(data_segment_length)
     }
