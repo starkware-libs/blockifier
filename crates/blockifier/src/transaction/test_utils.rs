@@ -162,8 +162,21 @@ impl Default for FaultyAccountTxCreatorArgs {
     }
 }
 
-/// Creates an account transaction to test the 'validate' method of account transactions. These
-/// transactions should be used for unit tests. For example, it is not intended to deploy a contract
+/// This function is similar to the function 'create_account_tx_for_validate_test' except it ignores
+/// the nonce manager. Should be used for transactions which are expected to fail or if the nonce is
+/// irrelevant to the test.
+pub fn simple_create_account_tx_for_validate_test(
+    faulty_account_tx_creator_args: FaultyAccountTxCreatorArgs,
+) -> AccountTransaction {
+    create_account_tx_for_validate_test(
+        &mut NonceManager::default(),
+        faulty_account_tx_creator_args,
+    )
+}
+
+/// Creates an account transaction to test the 'validate' method of account transactions. The
+/// transaction is formatted to work with the account contract 'FaultyAccount'. These transactions
+/// should be used for unit tests. For example, it is not intended to deploy a contract
 /// and later call it.
 pub fn create_account_tx_for_validate_test(
     nonce_manager: &mut NonceManager,

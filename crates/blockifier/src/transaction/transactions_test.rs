@@ -66,8 +66,9 @@ use crate::transaction::objects::{
 };
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
-    create_account_tx_for_validate_test, l1_resource_bounds, FaultyAccountTxCreatorArgs,
-    CALL_CONTRACT, GET_BLOCK_HASH, GET_BLOCK_NUMBER, GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO,
+    create_account_tx_for_validate_test, l1_resource_bounds,
+    simple_create_account_tx_for_validate_test, FaultyAccountTxCreatorArgs, CALL_CONTRACT,
+    GET_BLOCK_HASH, GET_BLOCK_NUMBER, GET_BLOCK_TIMESTAMP, GET_EXECUTION_INFO,
     GET_SEQUENCER_ADDRESS, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
@@ -1438,15 +1439,12 @@ fn test_validate_accounts_tx(
     // Negative flows.
 
     // Logic failure.
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: INVALID,
-            contract_address_salt: salt_manager.next_salt(),
-            additional_data: None,
-            ..default_args
-        },
-    );
+    let account_tx = simple_create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+        scenario: INVALID,
+        contract_address_salt: salt_manager.next_salt(),
+        additional_data: None,
+        ..default_args
+    });
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_invalid_scenario!(
         cairo_version,
@@ -1455,17 +1453,14 @@ fn test_validate_accounts_tx(
     );
 
     // Try to call another contract (forbidden).
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: CALL_CONTRACT,
-            additional_data: Some(vec![stark_felt!("0x1991")]), /* Some address different than
-                                                                 * the address of
-                                                                 * faulty_account. */
-            contract_address_salt: salt_manager.next_salt(),
-            ..default_args
-        },
-    );
+    let account_tx = simple_create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+        scenario: CALL_CONTRACT,
+        additional_data: Some(vec![stark_felt!("0x1991")]), /* Some address different than
+                                                             * the address of
+                                                             * faulty_account. */
+        contract_address_salt: salt_manager.next_salt(),
+        ..default_args
+    });
     let error = account_tx.execute(state, block_context, true, true).unwrap_err();
     check_transaction_execution_error_for_custom_hint!(
         &error,
@@ -1475,15 +1470,12 @@ fn test_validate_accounts_tx(
 
     if let CairoVersion::Cairo1 = cairo_version {
         // Try to use the syscall get_block_hash (forbidden).
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_BLOCK_HASH,
-                contract_address_salt: salt_manager.next_salt(),
-                additional_data: None,
-                ..default_args
-            },
-        );
+        let account_tx = simple_create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+            scenario: GET_BLOCK_HASH,
+            contract_address_salt: salt_manager.next_salt(),
+            additional_data: None,
+            ..default_args
+        });
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
         check_transaction_execution_error_for_custom_hint!(
             &error,
@@ -1493,14 +1485,11 @@ fn test_validate_accounts_tx(
     }
     if let CairoVersion::Cairo0 = cairo_version {
         // Try to use the syscall get_sequencer_address (forbidden).
-        let account_tx = create_account_tx_for_validate_test(
-            &mut NonceManager::default(),
-            FaultyAccountTxCreatorArgs {
-                scenario: GET_SEQUENCER_ADDRESS,
-                contract_address_salt: salt_manager.next_salt(),
-                ..default_args
-            },
-        );
+        let account_tx = simple_create_account_tx_for_validate_test(FaultyAccountTxCreatorArgs {
+            scenario: GET_SEQUENCER_ADDRESS,
+            contract_address_salt: salt_manager.next_salt(),
+            ..default_args
+        });
         let error = account_tx.execute(state, block_context, true, true).unwrap_err();
         check_transaction_execution_error_for_custom_hint!(
             &error,
