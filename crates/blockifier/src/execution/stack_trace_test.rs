@@ -14,14 +14,14 @@ use crate::context::{BlockContext, ChainInfo};
 use crate::invoke_tx_args;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
-use crate::test_utils::{create_calldata, CairoVersion, NonceManager, BALANCE};
+use crate::test_utils::{create_calldata, CairoVersion, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::{
     DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME, EXECUTE_ENTRY_POINT_NAME, FELT_TRUE,
     VALIDATE_DECLARE_ENTRY_POINT_NAME, VALIDATE_DEPLOY_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test, run_invoke_tx,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test_nonce_0, run_invoke_tx,
     FaultyAccountTxCreatorArgs, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
@@ -465,17 +465,14 @@ fn test_validate_trace(
     let selector = selector_from_name(entry_point_name).0;
 
     // Logic failure.
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: INVALID,
-            tx_type,
-            tx_version,
-            sender_address,
-            class_hash,
-            ..Default::default()
-        },
-    );
+    let account_tx = create_account_tx_for_validate_test_nonce_0(FaultyAccountTxCreatorArgs {
+        scenario: INVALID,
+        tx_type,
+        tx_version,
+        sender_address,
+        class_hash,
+        ..Default::default()
+    });
 
     if let TransactionType::DeployAccount = tx_type {
         // Deploy account uses the actual address as the sender address.
@@ -534,17 +531,15 @@ fn test_account_ctor_frame_stack_trace(
     let class_hash = faulty_account.get_class_hash();
 
     // Create and execute deploy account transaction that passes validation and fails in the ctor.
-    let deploy_account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
+    let deploy_account_tx =
+        create_account_tx_for_validate_test_nonce_0(FaultyAccountTxCreatorArgs {
             tx_type: TransactionType::DeployAccount,
             scenario: INVALID,
             class_hash,
             max_fee: Fee(BALANCE),
             validate_constructor: true,
             ..Default::default()
-        },
-    );
+        });
 
     // Fund the account so it can afford the deployment.
     let deploy_address = match &deploy_account_tx {
