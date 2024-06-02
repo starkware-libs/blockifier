@@ -57,15 +57,17 @@ impl<S: StateReader> CachedState<S> {
         Ok(self.to_state_diff()?.into())
     }
 
-    pub fn update_cache(&mut self, write_updates: &StateMaps) {
-        let mut cache = self.cache.borrow_mut();
-        cache.writes.extend(write_updates);
-    }
-
-    pub fn update_contract_class_cache(
+    pub fn update_cache(
         &mut self,
+        write_updates: &StateMaps,
         local_contract_cache_updates: ContractClassMapping,
     ) {
+        // Check consistency between declared_contracts and class_hash_to_class.
+        for (&key, &value) in &write_updates.declared_contracts {
+            assert_eq!(value, local_contract_cache_updates.contains_key(&key));
+        }
+        let mut cache = self.cache.borrow_mut();
+        cache.writes.extend(write_updates);
         self.class_hash_to_class.get_mut().extend(local_contract_cache_updates);
     }
 
@@ -110,9 +112,8 @@ impl<S: StateReader> UpdatableState for CachedState<S> {
         class_hash_to_class: &ContractClassMapping,
         visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
     ) {
-        self.update_cache(writes);
         // TODO(OriF,15/5/24): Reconsider the clone.
-        self.update_contract_class_cache(class_hash_to_class.clone());
+        self.update_cache(writes, class_hash_to_class.clone());
         self.update_visited_pcs_cache(visited_pcs);
     }
 }

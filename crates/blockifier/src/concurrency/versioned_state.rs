@@ -75,9 +75,9 @@ impl<S: StateReader> VersionedState<S> {
         T: StateReader,
     {
         let writes = self.get_writes_up_to_index(from_index);
-        parent_state.update_cache(&writes);
 
-        parent_state.update_contract_class_cache(
+        parent_state.update_cache(
+            &writes,
             self.compiled_contract_classes.get_writes_up_to_index(from_index),
         );
     }
