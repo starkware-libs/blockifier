@@ -40,9 +40,9 @@ where
     V: Clone + Debug,
 {
     pub fn read(&self, tx_index: TxIndex, key: K) -> Option<V> {
-        // Ignore the writes in the current transaction (may contain an `ESTIMATE` value). Reading
-        // the value written in this transaction should be handled by the state.
-        let value = self.writes.get(&key).and_then(|cell| cell.range(..tx_index).next_back());
+        // Reads the values that all transaction with an index leq then the given tx index.
+        // Note, the reads inclued the values that the transaction wrote.
+        let value = self.writes.get(&key).and_then(|cell| cell.range(..=tx_index).next_back());
         value.map(|(_, value)| value).or_else(|| self.cached_initial_values.get(&key)).cloned()
     }
 

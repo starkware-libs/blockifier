@@ -69,7 +69,6 @@ fn test_versioned_state_proxy() {
     });
 
     let versioned_state = Arc::new(Mutex::new(VersionedState::new(cached_state)));
-
     let safe_versioned_state = ThreadSafeVersionedState(Arc::clone(&versioned_state));
     let versioned_state_proxys: Vec<VersionedStateProxy<CachedState<DictStateReader>>> =
         (0..20).map(|i| safe_versioned_state.pin_version(i)).collect();
@@ -81,6 +80,7 @@ fn test_versioned_state_proxy() {
         versioned_state_proxys[7].get_storage_at(contract_address, key).unwrap(),
         stark_felt
     );
+
     assert_eq!(versioned_state_proxys[2].get_class_hash_at(contract_address).unwrap(), class_hash);
     assert_eq!(
         versioned_state_proxys[5].get_compiled_class_hash(class_hash).unwrap(),
@@ -130,6 +130,7 @@ fn test_versioned_state_proxy() {
         },
         &HashMap::default(),
     );
+
     versioned_state_proxys[10].state().apply_writes(
         10,
         &StateMaps {
@@ -146,6 +147,7 @@ fn test_versioned_state_proxy() {
         },
         &HashMap::default(),
     );
+
     versioned_state_proxys[11].state().apply_writes(
         11,
         &StateMaps::default(),
@@ -174,10 +176,11 @@ fn test_versioned_state_proxy() {
     assert!(
         versioned_state_proxys[4].state().declared_contracts.read(4, another_class_hash).unwrap()
     );
-    // Ignore the writes in the current transaction.
+
+    // Includes the writes in the current transaction.
     assert_eq!(
         versioned_state_proxys[10].get_class_hash_at(contract_address).unwrap(),
-        class_hash_v7
+        class_hash_v10
     );
     assert_eq!(
         versioned_state_proxys[2].get_compiled_class_hash(class_hash).unwrap(),
@@ -187,6 +190,7 @@ fn test_versioned_state_proxy() {
         versioned_state_proxys[19].get_compiled_class_hash(class_hash).unwrap(),
         compiled_class_hash_v18
     );
+
     assert_eq!(
         versioned_state_proxys[15].get_compiled_contract_class(class_hash).unwrap(),
         contract_class_v11

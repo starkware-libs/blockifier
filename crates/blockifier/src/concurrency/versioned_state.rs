@@ -93,7 +93,8 @@ impl<S: StateReader> VersionedState<S> {
         if tx_index == 0 {
             return true;
         }
-
+        // Otherwise we are checking the writes of the current transaction.
+        let tx_index = tx_index - 1;
         for (&(contract_address, storage_key), expected_value) in &reads.storage {
             let value =
                 self.storage.read(tx_index, (contract_address, storage_key)).expect(READ_ERR);
