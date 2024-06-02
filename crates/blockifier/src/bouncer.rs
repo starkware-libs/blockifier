@@ -218,12 +218,24 @@ impl Bouncer {
     ) -> TransactionExecutorResult<()> {
         // The countings here should be linear in the transactional state changes and execution info
         // rather than the cumulative state attributes.
-        let state_changes_keys = tx_state_changes_keys.difference(&self.state_changes_keys);
-        let tx_weights = self.get_tx_weights(
+        let marginal_state_changes_keys =
+            tx_state_changes_keys.difference(&self.state_changes_keys);
+        let marginal_executed_class_hashes = tx_execution_summary
+            .executed_class_hashes
+            .difference(&self.executed_class_hashes)
+            .cloned()
+            .collect();
+        let marginal_visited_storage_entries = tx_execution_summary
+            .visited_storage_entries
+            .difference(&self.visited_storage_entries)
+            .cloned()
+            .collect();
+        let tx_weights = get_tx_weights(
             state_reader,
-            tx_execution_summary,
+            &marginal_executed_class_hashes,
+            &marginal_visited_storage_entries,
             tx_resources,
-            &state_changes_keys,
+            &marginal_state_changes_keys,
         )?;
 
         // Check if the transaction is too large to fit any block.
@@ -241,41 +253,9 @@ impl Bouncer {
             Err(TransactionExecutorError::BlockFull)?
         }
 
-        self._update(tx_weights, tx_execution_summary, &state_changes_keys);
+        self._update(tx_weights, tx_execution_summary, &marginal_state_changes_keys);
 
         Ok(())
-    }
-
-    pub fn get_tx_weights<S: StateReader>(
-        &mut self,
-        state_reader: &S,
-        tx_execution_summary: &ExecutionSummary,
-        tx_resources: &TransactionResources,
-        state_changes_keys: &StateChangesKeys,
-    ) -> TransactionExecutorResult<BouncerWeights> {
-        let (message_segment_length, gas_usage) =
-            tx_resources.starknet_resources.calculate_message_l1_resources();
-
-        let mut additional_os_resources = get_casm_hash_calculation_resources(
-            state_reader,
-            &self.executed_class_hashes,
-            &tx_execution_summary.executed_class_hashes,
-        )?;
-        additional_os_resources += &get_particia_update_resources(
-            &self.visited_storage_entries,
-            &tx_execution_summary.visited_storage_entries,
-        );
-
-        let vm_resources = &additional_os_resources + &tx_resources.vm_resources;
-
-        Ok(BouncerWeights {
-            gas: gas_usage,
-            message_segment_length,
-            n_events: tx_resources.starknet_resources.n_events,
-            n_steps: vm_resources.total_n_steps(),
-            builtin_count: BuiltinCount::from(vm_resources.prover_builtins()),
-            state_diff_size: get_onchain_data_segment_length(&state_changes_keys.count()),
-        })
     }
 
     #[cfg(test)]
@@ -284,19 +264,41 @@ impl Bouncer {
     }
 }
 
-/// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
-/// executed classes by the current transaction.
+pub fn get_tx_weights<S: StateReader>(
+    state_reader: &S,
+    executed_class_hashes: &HashSet<ClassHash>,
+    visited_storage_entries: &HashSet<StorageEntry>,
+    tx_resources: &TransactionResources,
+    state_changes_keys: &StateChangesKeys,
+) -> TransactionExecutorResult<BouncerWeights> {
+    let (message_segment_length, gas_usage) =
+        tx_resources.starknet_resources.calculate_message_l1_resources();
+
+    let mut additional_os_resources =
+        get_casm_hash_calculation_resources(state_reader, executed_class_hashes)?;
+    additional_os_resources += &get_particia_update_resources(visited_storage_entries);
+
+    let vm_resources = &additional_os_resources + &tx_resources.vm_resources;
+
+    Ok(BouncerWeights {
+        gas: gas_usage,
+        message_segment_length,
+        n_events: tx_resources.starknet_resources.n_events,
+        n_steps: vm_resources.total_n_steps(),
+        builtin_count: BuiltinCount::from(vm_resources.prover_builtins()),
+        state_diff_size: get_onchain_data_segment_length(&state_changes_keys.count()),
+    })
+}
+
+/// Returns the estimated Cairo resources for Casm hash calculation (done by the OS), of the given
+/// classes.
 pub fn get_casm_hash_calculation_resources<S: StateReader>(
     state_reader: &S,
-    block_executed_class_hashes: &HashSet<ClassHash>,
-    tx_executed_class_hashes: &HashSet<ClassHash>,
+    executed_class_hashes: &HashSet<ClassHash>,
 ) -> TransactionExecutorResult<ExecutionResources> {
-    let newly_executed_class_hashes: HashSet<&ClassHash> =
-        tx_executed_class_hashes.difference(block_executed_class_hashes).collect();
-
     let mut casm_hash_computation_resources = ExecutionResources::default();
 
-    for class_hash in newly_executed_class_hashes {
+    for class_hash in executed_class_hashes {
         let class = state_reader.get_compiled_contract_class(*class_hash)?;
         casm_hash_computation_resources += &class.estimate_casm_hash_computation_resources();
     }
@@ -304,18 +306,15 @@ pub fn get_casm_hash_calculation_resources<S: StateReader>(
     Ok(casm_hash_computation_resources)
 }
 
-/// Returns the estimated VM resources for Patricia tree updates, or hash invocations
-/// (done by the OS), required by the execution of the current transaction.
+/// Returns the estimated Cairo resources for Patricia tree updates, or hash invocations
+/// (done by the OS), required for accessing (read/write) the given storage entries.
 // For each tree: n_visited_leaves * log(n_initialized_leaves)
 // as the height of a Patricia tree with N uniformly distributed leaves is ~log(N),
 // and number of visited leaves includes reads and writes.
 pub fn get_particia_update_resources(
-    block_visited_storage_entries: &HashSet<StorageEntry>,
-    tx_visited_storage_entries: &HashSet<StorageEntry>,
+    visited_storage_entries: &HashSet<StorageEntry>,
 ) -> ExecutionResources {
-    let newly_visited_storage_entries: HashSet<&StorageEntry> =
-        tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
-    let n_newly_visited_leaves = newly_visited_storage_entries.len();
+    let n_newly_visited_leaves = visited_storage_entries.len();
 
     const TREE_HEIGHT_UPPER_BOUND: usize = 24;
     let n_updates = n_newly_visited_leaves * TREE_HEIGHT_UPPER_BOUND;
