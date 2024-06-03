@@ -20,15 +20,49 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::transaction_execution::Transaction;
 
 const N_ACCOUNTS: u16 = 10000;
-const STREAM_SIZE: usize = 1000;
+const N_TXS: usize = 1000;
 const RANDOMIZATION_SEED: u64 = 0;
+const CAIRO_VERSION: CairoVersion = CairoVersion::Cairo0;
 const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(Felt::THREE);
+const RECIPIENT_GENERATOR_TYPE: RecipientGeneratorType = RecipientGeneratorType::RoundRobin;
 #[cfg(feature = "concurrency")]
 const CONCURRENCY_MODE: bool = true;
 #[cfg(not(feature = "concurrency"))]
 const CONCURRENCY_MODE: bool = false;
 const N_WORKERS: usize = 4;
 const CHUNK_SIZE: usize = 100;
+
+pub struct TransfersGeneratorConfig {
+    pub n_accounts: u16,
+    pub balance: u128,
+    pub max_fee: u128,
+    pub n_txs: usize,
+    pub randomization_seed: u64,
+    pub cairo_version: CairoVersion,
+    pub transaction_version: TransactionVersion,
+    pub recipient_generator_type: RecipientGeneratorType,
+    pub concurrency_config: ConcurrencyConfig,
+}
+
+impl Default for TransfersGeneratorConfig {
+    fn default() -> Self {
+        Self {
+            n_accounts: N_ACCOUNTS,
+            balance: BALANCE * 1000,
+            max_fee: MAX_FEE,
+            n_txs: N_TXS,
+            randomization_seed: RANDOMIZATION_SEED,
+            cairo_version: CAIRO_VERSION,
+            transaction_version: TRANSACTION_VERSION,
+            recipient_generator_type: RECIPIENT_GENERATOR_TYPE,
+            concurrency_config: ConcurrencyConfig {
+                enabled: CONCURRENCY_MODE,
+                n_workers: N_WORKERS,
+                chunk_size: CHUNK_SIZE,
+            },
+        }
+    }
+}
 
 pub enum RecipientGeneratorType {
     Random,
@@ -42,34 +76,31 @@ pub struct TransfersGenerator {
     executor: TransactionExecutor<DictStateReader>,
     nonce_manager: NonceManager,
     sender_index: usize,
-    recipient_generator_type: RecipientGeneratorType,
     random_recipient_generator: Option<StdRng>,
     recipient_addresses: Option<Vec<ContractAddress>>,
+    config: TransfersGeneratorConfig,
 }
 
 impl TransfersGenerator {
-    pub fn new(recipient_generator_type: RecipientGeneratorType) -> Self {
-        let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
+    pub fn new(config: TransfersGeneratorConfig) -> Self {
+        let account_contract = FeatureContract::AccountWithoutValidations(config.cairo_version);
         let block_context = BlockContext::create_for_account_testing();
         let chain_info = block_context.chain_info().clone();
-        let state = test_state(&chain_info, BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);
-        let concurrency_config = ConcurrencyConfig {
-            enabled: CONCURRENCY_MODE,
-            n_workers: N_WORKERS,
-            chunk_size: CHUNK_SIZE,
-        };
-        let executor_config = TransactionExecutorConfig { concurrency_config };
+        let state =
+            test_state(&chain_info, config.balance, &[(account_contract, config.n_accounts)]);
+        let executor_config =
+            TransactionExecutorConfig { concurrency_config: config.concurrency_config.clone() };
         let executor = TransactionExecutor::new(state, block_context, executor_config);
-        let account_addresses = (0..N_ACCOUNTS)
+        let account_addresses = (0..config.n_accounts)
             .map(|instance_id| account_contract.get_instance_address(instance_id))
             .collect::<Vec<_>>();
         let nonce_manager = NonceManager::default();
         let mut recipient_addresses = None;
         let mut random_recipient_generator = None;
-        match recipient_generator_type {
+        match config.recipient_generator_type {
             RecipientGeneratorType::Random => {
                 // Use a random generator to get the next recipient.
-                random_recipient_generator = Some(StdRng::seed_from_u64(RANDOMIZATION_SEED));
+                random_recipient_generator = Some(StdRng::seed_from_u64(config.randomization_seed));
             }
             RecipientGeneratorType::RoundRobin => {
                 // Use the next account after the sender in the list as the recipient.
@@ -78,7 +109,7 @@ impl TransfersGenerator {
                 // Use a disjoint set of accounts as recipients. The index of the recipient is the
                 // same as the index of the sender.
                 recipient_addresses = Some(
-                    (N_ACCOUNTS..2 * N_ACCOUNTS)
+                    (config.n_accounts..2 * config.n_accounts)
                         .map(|instance_id| account_contract.get_instance_address(instance_id))
                         .collect::<Vec<_>>(),
                 );
@@ -90,14 +121,14 @@ impl TransfersGenerator {
             executor,
             nonce_manager,
             sender_index: 0,
-            recipient_generator_type,
             random_recipient_generator,
             recipient_addresses,
+            config,
         }
     }
 
     pub fn get_next_recipient(&mut self) -> ContractAddress {
-        match self.recipient_generator_type {
+        match self.config.recipient_generator_type {
             RecipientGeneratorType::Random => {
                 let random_recipient_generator = self.random_recipient_generator.as_mut().unwrap();
                 let recipient_index =
@@ -114,18 +145,18 @@ impl TransfersGenerator {
         }
     }
 
-    pub fn execute_transfers_stream(&mut self) {
-        let mut tx_stream: Vec<Transaction> = Vec::with_capacity(STREAM_SIZE);
-        for _ in 0..STREAM_SIZE {
+    pub fn execute_transfers(&mut self) {
+        let mut txs: Vec<Transaction> = Vec::with_capacity(self.config.n_txs);
+        for _ in 0..self.config.n_txs {
             let sender_address = self.account_addresses[self.sender_index];
             let recipient_address = self.get_next_recipient();
             self.sender_index = (self.sender_index + 1) % self.account_addresses.len();
 
             let account_tx = self.generate_transfer(sender_address, recipient_address);
-            tx_stream.push(Transaction::AccountTransaction(account_tx));
+            txs.push(Transaction::AccountTransaction(account_tx));
         }
-        let results = self.executor.execute_txs(&tx_stream);
-        assert_eq!(results.len(), STREAM_SIZE);
+        let results = self.executor.execute_txs(&txs);
+        assert_eq!(results.len(), self.config.n_txs);
         for result in results {
             assert!(!result.unwrap().is_reverted());
         }
@@ -141,12 +172,12 @@ impl TransfersGenerator {
         let nonce = self.nonce_manager.next(sender_address);
 
         let entry_point_selector = selector_from_name(TRANSFER_ENTRY_POINT_NAME);
-        let contract_address = if TRANSACTION_VERSION == TransactionVersion::ONE {
+        let contract_address = if self.config.transaction_version == TransactionVersion::ONE {
             *self.chain_info.fee_token_addresses.eth_fee_token_address.0.key()
-        } else if TRANSACTION_VERSION == TransactionVersion::THREE {
+        } else if self.config.transaction_version == TransactionVersion::THREE {
             *self.chain_info.fee_token_addresses.strk_fee_token_address.0.key()
         } else {
-            panic!("Unsupported transaction version: {TRANSACTION_VERSION:?}")
+            panic!("Unsupported transaction version: {:?}", self.config.transaction_version)
         };
 
         let execute_calldata = calldata![
@@ -159,10 +190,10 @@ impl TransfersGenerator {
         ];
 
         let tx = invoke_tx(invoke_tx_args! {
-            max_fee: Fee(MAX_FEE),
+            max_fee: Fee(self.config.max_fee),
             sender_address,
             calldata: execute_calldata,
-            version: TRANSACTION_VERSION,
+            version: self.config.transaction_version,
             nonce,
         });
         AccountTransaction::Invoke(tx)
@@ -171,6 +202,6 @@ impl TransfersGenerator {
 
 impl Default for TransfersGenerator {
     fn default() -> Self {
-        Self::new(RecipientGeneratorType::RoundRobin)
+        Self::new(TransfersGeneratorConfig::default())
     }
 }
