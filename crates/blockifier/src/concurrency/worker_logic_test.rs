@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use num_bigint::BigUint;
+use rstest::rstest;
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::{Felt, FeltConverter, TryIntoFelt};
 use starknet_api::transaction::{ContractAddressSalt, Fee, TransactionVersion};
-use starknet_api::{contract_address, patricia_key, stark_felt};
+use starknet_api::{contract_address, felt, patricia_key};
 
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
@@ -51,7 +52,7 @@ fn test_worker_execute() {
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account_contract.get_instance_address(0);
     let nonce_manager = &mut NonceManager::default();
-    let storage_value = stark_felt!(93_u8);
+    let storage_value = felt!(93_u8);
     let storage_key = storage_key!(1993_u16);
 
     let tx_success = account_invoke_tx(invoke_tx_args! {
@@ -84,7 +85,7 @@ fn test_worker_execute() {
         calldata: create_calldata(
             test_contract_address,
             "write_and_revert",
-            &[stark_felt!(1991_u16),storage_value ], // Calldata:  address, value.
+            &[felt!(1991_u16),storage_value ], // Calldata:  address, value.
         ),
         max_fee: Fee(MAX_FEE),
         nonce: nonce_manager.next(account_address)
@@ -134,8 +135,8 @@ fn test_worker_execute() {
         nonces: HashMap::from([(account_address, nonce!(1_u8))]),
         storage: HashMap::from([
             ((test_contract_address, storage_key), storage_value),
-            ((erc_contract_address, account_balance_key_low), stark_felt!(account_balance)),
-            ((erc_contract_address, account_balance_key_high), stark_felt!(0_u8)),
+            ((erc_contract_address, account_balance_key_low), felt!(account_balance)),
+            ((erc_contract_address, account_balance_key_high), felt!(0_u8)),
         ]),
         ..Default::default()
     };
@@ -148,9 +149,9 @@ fn test_worker_execute() {
             (erc_contract_address, erc20.get_class_hash()),
         ]),
         storage: HashMap::from([
-            ((test_contract_address, storage_key), stark_felt!(0_u8)),
-            ((erc_contract_address, account_balance_key_low), stark_felt!(BALANCE)),
-            ((erc_contract_address, account_balance_key_high), stark_felt!(0_u8)),
+            ((test_contract_address, storage_key), felt!(0_u8)),
+            ((erc_contract_address, account_balance_key_low), felt!(BALANCE)),
+            ((erc_contract_address, account_balance_key_high), felt!(0_u8)),
         ]),
         // When running an entry point, we load its contract class.
         declared_contracts: HashMap::from([
@@ -224,8 +225,8 @@ fn test_worker_validate() {
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account_contract.get_instance_address(0);
     let nonce_manager = &mut NonceManager::default();
-    let storage_value0 = stark_felt!(93_u8);
-    let storage_value1 = stark_felt!(39_u8);
+    let storage_value0 = felt!(93_u8);
+    let storage_value1 = felt!(39_u8);
     let storage_key = storage_key!(1993_u16);
 
     // Both transactions change the same storage key.
@@ -305,13 +306,11 @@ fn test_worker_validate() {
     let next_task2 = worker_executor.validate(tx_index);
     assert_eq!(next_task2, Task::NoTask);
 }
-use cairo_felt::Felt252;
-use rstest::rstest;
 
 #[rstest]
-#[case::no_overflow(Fee(50_u128), stark_felt!(100_u128), StarkFelt::ZERO)]
-#[case::overflow(Fee(150_u128), stark_felt!(u128::max_value()), stark_felt!(5_u128))]
-#[case::overflow_edge_case(Fee(500_u128), stark_felt!(u128::max_value()), stark_felt!(u128::max_value()-1))]
+#[case::no_overflow(Fee(50_u128), felt!(100_u128), StarkFelt::ZERO)]
+#[case::overflow(Fee(150_u128), felt!(u128::max_value()), felt!(5_u128))]
+#[case::overflow_edge_case(Fee(500_u128), felt!(u128::max_value()), felt!(u128::max_value()-1))]
 pub fn test_add_fee_to_sequencer_balance(
     #[case] actual_fee: Fee,
     #[case] sequencer_balance_low: StarkFelt,
@@ -404,9 +403,9 @@ fn test_deploy_before_declare() {
             &[
                 test_class_hash.0,                  // Class hash.
                 ContractAddressSalt::default().0,   // Salt.
-                stark_felt!(2_u8),                  // Constructor calldata length.
-                stark_felt!(1_u8),                  // Constructor calldata arg1.
-                stark_felt!(1_u8),                  // Constructor calldata arg2.
+                felt!(2_u8),                  // Constructor calldata length.
+                felt!(1_u8),                  // Constructor calldata arg1.
+                felt!(1_u8),                  // Constructor calldata arg2.
             ]
         ),
         max_fee: Fee(MAX_FEE),

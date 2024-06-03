@@ -4,8 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::hash::Felt;
 use starknet_api::transaction::Fee;
 
 use super::versioned_state::VersionedStateProxy;
@@ -245,8 +244,8 @@ fn add_fee_to_sequencer_balance(
     tx_versioned_state: &mut VersionedStateProxy<impl StateReader>,
     actual_fee: Fee,
     block_context: &BlockContext,
-    sequencer_balance_value_low: StarkFelt,
-    sequencer_balance_value_high: StarkFelt,
+    sequencer_balance_value_low: Felt,
+    sequencer_balance_value_high: Felt,
 ) {
     let sequencer_balance_low_as_u128 = stark_felt_to_felt(sequencer_balance_value_low)
         .to_u128()
@@ -264,8 +263,8 @@ fn add_fee_to_sequencer_balance(
         get_sequencer_balance_keys(block_context);
     let writes = StateMaps {
         storage: HashMap::from([
-            ((fee_token_address, sequencer_balance_key_low), stark_felt!(new_value_low)),
-            ((fee_token_address, sequencer_balance_key_high), stark_felt!(new_value_high)),
+            ((fee_token_address, sequencer_balance_key_low), felt!(new_value_low)),
+            ((fee_token_address, sequencer_balance_key_high), felt!(new_value_high)),
         ]),
         ..StateMaps::default()
     };

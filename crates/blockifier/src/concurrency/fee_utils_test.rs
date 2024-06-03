@@ -1,5 +1,5 @@
 use rstest::rstest;
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::Felt;
 use starknet_api::transaction::TransactionVersion;
 
 use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
@@ -36,8 +36,8 @@ pub fn test_fill_sequencer_balance_reads(block_context: BlockContext) {
 
     fill_sequencer_balance_reads(
         &mut concurrency_call_info,
-        StarkFelt::from(sequencer_balance),
-        StarkFelt::ZERO,
+        Felt::from(sequencer_balance),
+        Felt::ZERO,
     );
 
     assert_eq!(concurrency_call_info, call_info);

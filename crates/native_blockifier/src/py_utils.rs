@@ -4,13 +4,13 @@ use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress, EthAddress};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::Felt;
 use starknet_api::state::StorageKey;
 
 use crate::errors::NativeBlockifierResult;
 
 #[derive(Clone, Copy, Debug, Default, Eq, FromPyObject, Hash, PartialEq)]
-pub struct PyFelt(#[pyo3(from_py_with = "int_to_stark_felt")] pub StarkFelt);
+pub struct PyFelt(#[pyo3(from_py_with = "int_to_stark_felt")] pub Felt);
 
 impl IntoPy<PyObject> for PyFelt {
     fn into_py(self, py: Python<'_>) -> PyObject {
@@ -20,13 +20,13 @@ impl IntoPy<PyObject> for PyFelt {
 
 impl From<u64> for PyFelt {
     fn from(value: u64) -> Self {
-        Self(StarkFelt::from(value))
+        Self(Felt::from(value))
     }
 }
 
 impl From<u8> for PyFelt {
     fn from(value: u8) -> Self {
-        Self(StarkFelt::from(value))
+        Self(Felt::from(value))
     }
 }
 
@@ -42,7 +42,7 @@ impl From<EthAddress> for PyFelt {
         // Pad with 12 zeros.
         let mut bytes = [0; 32];
         bytes[12..32].copy_from_slice(&address_as_bytes);
-        PyFelt(StarkFelt::new(bytes).expect("Convert Ethereum address to StarkFelt"))
+        PyFelt(Felt::new(bytes).expect("Convert Ethereum address to Felt"))
     }
 }
 
@@ -64,15 +64,15 @@ impl From<StorageKey> for PyFelt {
     }
 }
 
-fn int_to_stark_felt(int: &PyAny) -> PyResult<StarkFelt> {
+fn int_to_stark_felt(int: &PyAny) -> PyResult<Felt> {
     let biguint: BigUint = int.extract()?;
     biguint_to_felt(biguint).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
-// TODO: Convert to a `TryFrom` cast and put in starknet-api (In StarkFelt).
-pub fn biguint_to_felt(biguint: BigUint) -> NativeBlockifierResult<StarkFelt> {
+// TODO: Convert to a `TryFrom` cast and put in starknet-api (In Felt).
+pub fn biguint_to_felt(biguint: BigUint) -> NativeBlockifierResult<Felt> {
     let biguint_hex = format!("{biguint:#x}");
-    Ok(StarkFelt::try_from(&*biguint_hex)?)
+    Ok(Felt::try_from(&*biguint_hex)?)
 }
 
 pub fn to_py_vec<T, PyT, F>(values: Vec<T>, converter: F) -> Vec<PyT>
@@ -82,7 +82,7 @@ where
     values.into_iter().map(converter).collect()
 }
 
-pub fn from_py_felts(py_felts: Vec<PyFelt>) -> Vec<StarkFelt> {
+pub fn from_py_felts(py_felts: Vec<PyFelt>) -> Vec<Felt> {
     py_felts.into_iter().map(|felt| felt.0).collect()
 }
 

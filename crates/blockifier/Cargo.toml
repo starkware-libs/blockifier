@@ -10,8 +10,8 @@ description = "The transaction-executing component in the Starknet sequencer."
 workspace = true
 
 [features]
-testing = ["rstest"]
 concurrency = []
+testing = ["rstest"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,7 +22,6 @@ ark-ff.workspace = true
 ark-secp256k1.workspace = true
 ark-secp256r1.workspace = true
 cached.workspace = true
-cairo-felt.workspace = true
 cairo-lang-casm = { workspace = true, features = ["parity-scale-codec"] }
 cairo-lang-runner.workspace = true
 cairo-lang-starknet-classes.workspace = true
@@ -35,8 +34,8 @@ keccak.workspace = true
 log.workspace = true
 num-bigint.workspace = true
 num-integer.workspace = true
-num-traits.workspace = true
 num-rational.workspace = true
+num-traits.workspace = true
 once_cell.workspace = true
 phf.workspace = true
 rstest = { workspace = true, optional = true }
@@ -44,6 +43,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 sha3.workspace = true
 starknet-crypto.workspace = true
+starknet-types-core.workspace = true
 starknet_api = { workspace = true, features = ["testing"] }
 strum.workspace = true
 strum_macros.workspace = true
@@ -60,6 +60,10 @@ rstest.workspace = true
 test-case.workspace = true
 
 [[bench]]
-path = "bench/blockifier_bench.rs"
-name = "blockifier_bench"
 harness = false
+name = "blockifier_bench"
+path = "bench/blockifier_bench.rs"
+
+[[test]]
+name = "feature_contracts_compatibility_test"
+required-features = ["testing"]

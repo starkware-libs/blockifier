@@ -1,23 +1,22 @@
 use std::collections::HashMap;
 
-use cairo_felt::Felt252;
 use cairo_lang_runner::casm_run::format_next_item;
 use cairo_vm::serde::deserialize_program::{
     deserialize_array_of_bigint_hex, Attribute, HintParams, Identifier, ReferenceManager,
 };
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use starknet_api::core::ClassHash;
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
+use starknet_types_core::felt::Felt;
 
 use super::entry_point::ConstructorEntryPointExecutionResult;
 use super::errors::ConstructorEntryPointExecutionError;
@@ -38,15 +37,6 @@ pub type Args = Vec<CairoArg>;
 #[cfg(test)]
 #[path = "execution_utils_test.rs"]
 pub mod test;
-
-pub fn stark_felt_to_felt(stark_felt: StarkFelt) -> Felt252 {
-    Felt252::from_bytes_be(stark_felt.bytes())
-}
-
-pub fn felt_to_stark_felt(felt: &Felt252) -> StarkFelt {
-    let biguint = format!("{:#x}", felt.to_biguint());
-    StarkFelt::try_from(biguint.as_str()).expect("Felt252 must be in StarkFelt's range.")
-}
 
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
@@ -92,17 +82,10 @@ pub fn read_execution_retdata(
     Ok(Retdata(felt_range_from_ptr(vm, Relocatable::try_from(retdata_ptr)?, retdata_size)?))
 }
 
-pub fn stark_felt_from_ptr(
-    vm: &VirtualMachine,
-    ptr: &mut Relocatable,
-) -> Result<StarkFelt, VirtualMachineError> {
-    Ok(felt_to_stark_felt(&felt_from_ptr(vm, ptr)?))
-}
-
 pub fn felt_from_ptr(
     vm: &VirtualMachine,
     ptr: &mut Relocatable,
-) -> Result<Felt252, VirtualMachineError> {
+) -> Result<Felt, VirtualMachineError> {
     let felt = vm.get_integer(*ptr)?.into_owned();
     *ptr = (*ptr + 1)?;
     Ok(felt)
@@ -113,18 +96,18 @@ pub fn write_u256(
     ptr: &mut Relocatable,
     value: BigUint,
 ) -> Result<(), MemoryError> {
-    write_felt(vm, ptr, Felt252::from(&value & BigUint::from(u128::MAX)))?;
-    write_felt(vm, ptr, Felt252::from(value >> 128))
+    write_felt(vm, ptr, Felt::from(&value & BigUint::from(u128::MAX)))?;
+    write_felt(vm, ptr, Felt::from(value >> 128))
 }
 
 pub fn felt_range_from_ptr(
     vm: &VirtualMachine,
     ptr: Relocatable,
     size: usize,
-) -> Result<Vec<StarkFelt>, VirtualMachineError> {
+) -> Result<Vec<Felt>, VirtualMachineError> {
     let values = vm.get_integer_range(ptr, size)?;
-    // Extract values as `StarkFelt`.
-    let values = values.into_iter().map(|felt| felt_to_stark_felt(felt.as_ref())).collect();
+    // Extract values as `Felt`.
+    let values = values.into_iter().map(|felt| *felt).collect();
     Ok(values)
 }
 
@@ -253,18 +236,10 @@ pub fn execute_deployment(
     )
 }
 
-pub fn write_stark_felt(
-    vm: &mut VirtualMachine,
-    ptr: &mut Relocatable,
-    felt: StarkFelt,
-) -> Result<(), MemoryError> {
-    write_felt(vm, ptr, stark_felt_to_felt(felt))
-}
-
 pub fn write_felt(
     vm: &mut VirtualMachine,
     ptr: &mut Relocatable,
-    felt: Felt252,
+    felt: Felt,
 ) -> Result<(), MemoryError> {
     write_maybe_relocatable(vm, ptr, felt)
 }
@@ -279,7 +254,7 @@ pub fn write_maybe_relocatable<T: Into<MaybeRelocatable>>(
     Ok(())
 }
 
-pub fn max_fee_for_execution_info(tx_info: &TransactionInfo) -> Felt252 {
+pub fn max_fee_for_execution_info(tx_info: &TransactionInfo) -> Felt {
     match tx_info {
         TransactionInfo::Current(_) => 0,
         TransactionInfo::Deprecated(tx_info) => tx_info.max_fee.0,
@@ -287,8 +262,8 @@ pub fn max_fee_for_execution_info(tx_info: &TransactionInfo) -> Felt252 {
     .into()
 }
 
-pub fn format_panic_data(felts: &[StarkFelt]) -> String {
-    let mut felts = felts.iter().map(|felt| stark_felt_to_felt(*felt));
+pub fn format_panic_data(felts: &[Felt]) -> String {
+    let mut felts = felts.iter().map(|felt| *felt);
     let mut items = Vec::new();
     while let Some(item) = format_next_item(&mut felts) {
         items.push(item.quote_if_string());
@@ -304,9 +279,6 @@ pub fn poseidon_hash_many_cost(data_length: usize) -> ExecutionResources {
             + (data_length % 2) * 3
             + 21,
         n_memory_holes: 0,
-        builtin_instance_counter: HashMap::from([(
-            POSEIDON_BUILTIN_NAME.to_string(),
-            data_length / 2 + 1,
-        )]),
+        builtin_instance_counter: HashMap::from([(BuiltinName::poseidon, data_length / 2 + 1)]),
     }
 }

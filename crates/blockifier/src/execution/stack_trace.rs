@@ -1,3 +1,4 @@
+use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
@@ -64,13 +65,13 @@ impl From<&EntryPointErrorFrame> for String {
 }
 
 pub struct VmExceptionFrame {
-    pc: usize,
+    pc: Relocatable,
     traceback: Option<String>,
 }
 
 impl From<&VmExceptionFrame> for String {
     fn from(value: &VmExceptionFrame) -> Self {
-        let vm_exception_preamble = format!("Error at pc=0:{}:", value.pc);
+        let vm_exception_preamble = format!("Error at pc={}:", value.pc);
         let vm_exception_traceback = if let Some(traceback) = &value.traceback {
             format!("\n{}", traceback)
         } else {

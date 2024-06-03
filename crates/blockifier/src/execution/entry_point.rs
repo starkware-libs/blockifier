@@ -7,8 +7,8 @@ use num_traits::{Inv, Zero};
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, TransactionVersion};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
@@ -89,7 +89,7 @@ impl CallEntryPoint {
         if tx_context.tx_info.version() == TransactionVersion::ZERO
             && class_hash
                 == ClassHash(
-                    StarkFelt::try_from(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
+                    Felt::from_hex(FAULTY_CLASS_HASH).expect("A class hash must be a felt."),
                 )
         {
             return Err(PreExecutionError::FraudAttempt.into());
