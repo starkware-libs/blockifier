@@ -5,9 +5,9 @@ use std::thread;
 use assert_matches::assert_matches;
 use rstest::{fixture, rstest};
 use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::{Felt, FeltConverter, TryIntoFelt};
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, felt, patricia_key};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
 use crate::concurrency::test_utils::{
@@ -51,8 +51,8 @@ fn test_versioned_state_proxy() {
     // Test data
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let contract_address = contract_address!("0x1");
-    let key = storage_key!("0x10");
-    let stark_felt = stark_felt!(13_u8);
+    let key = storage_key!(16);
+    let stark_felt = felt!(13_u8);
     let nonce = nonce!(2_u8);
     let class_hash = class_hash!(27_u8);
     let another_class_hash = class_hash!(28_u8);
@@ -100,8 +100,8 @@ fn test_versioned_state_proxy() {
     );
 
     // Write to the state.
-    let new_key = storage_key!("0x11");
-    let stark_felt_v3 = stark_felt!(14_u8);
+    let new_key = storage_key!(17);
+    let stark_felt_v3 = felt!(14_u8);
     let nonce_v4 = nonce!(3_u8);
     let class_hash_v7 = class_hash!(28_u8);
     let class_hash_v10 = class_hash!(29_u8);
@@ -232,8 +232,8 @@ fn test_run_parallel_txs() {
     let enforce_fee = account_tx_1.create_tx_info().enforce_fee().unwrap();
 
     let class_hash = grindy_account.get_class_hash();
-    let ctor_storage_arg = stark_felt!(1_u8);
-    let ctor_grind_arg = stark_felt!(0_u8); // Do not grind in deploy phase.
+    let ctor_storage_arg = felt!(1_u8);
+    let ctor_grind_arg = felt!(0_u8); // Do not grind in deploy phase.
     let constructor_calldata = calldata![ctor_grind_arg, ctor_storage_arg];
     let deploy_tx_args = deploy_account_tx_args! {
         class_hash,
@@ -248,7 +248,7 @@ fn test_run_parallel_txs() {
     let deployed_account_balance_key = get_fee_token_var_address(account_address);
     let fee_token_address = chain_info.fee_token_address(&FeeType::Eth);
     state_2
-        .set_storage_at(fee_token_address, deployed_account_balance_key, stark_felt!(BALANCE))
+        .set_storage_at(fee_token_address, deployed_account_balance_key, felt!(BALANCE))
         .unwrap();
 
     let block_context_1 = block_context.clone();
@@ -284,7 +284,7 @@ fn test_validate_reads(
     class_hash: ClassHash,
     safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
 ) {
-    let storage_key = storage_key!("0x10");
+    let storage_key = storage_key!(16);
 
     let mut version_state_proxy = safe_versioned_state.pin_version(1);
     let transactional_state = TransactionalState::create_transactional(&mut version_state_proxy);
@@ -469,18 +469,15 @@ fn test_delete_writes_completeness(
 ) {
     let feature_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let state_maps_writes = StateMaps {
-        nonces: HashMap::from([(contract_address!("0x1"), nonce!("0x1"))]),
+        nonces: HashMap::from([(contract_address!("0x1"), Nonce(Felt::from_hex("0x1").unwrap()))]),
         class_hashes: HashMap::from([(
             contract_address!("0x1"),
             feature_contract.get_class_hash(),
         )]),
-        storage: HashMap::from([(
-            (contract_address!("0x1"), storage_key!("0x1")),
-            stark_felt!("0x1"),
-        )]),
+        storage: HashMap::from([((contract_address!("0x1"), storage_key!(1)), felt!("0x1"))]),
         compiled_class_hashes: HashMap::from([(
             feature_contract.get_class_hash(),
-            compiled_class_hash!("0x1"),
+            compiled_class_hash!(0x1_u16),
         )]),
         declared_contracts: HashMap::from([(feature_contract.get_class_hash(), true)]),
     };
@@ -530,7 +527,7 @@ fn test_versioned_proxy_state_flow(
     safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
 ) {
     let contract_address = contract_address!("0x1");
-    let class_hash = ClassHash(stark_felt!(27_u8));
+    let class_hash = ClassHash(felt!(27_u8));
 
     let mut block_state = CachedState::from(DictStateReader::default());
     let mut versioned_proxy_states: Vec<VersionedStateProxy<DictStateReader>> =
@@ -542,8 +539,8 @@ fn test_versioned_proxy_state_flow(
     }
 
     // Clients class hash values.
-    let class_hash_1 = ClassHash(stark_felt!(76_u8));
-    let class_hash_3 = ClassHash(stark_felt!(234_u8));
+    let class_hash_1 = ClassHash(felt!(76_u8));
+    let class_hash_3 = ClassHash(felt!(234_u8));
 
     transactional_states[1].set_class_hash_at(contract_address, class_hash_1).unwrap();
     transactional_states[3].set_class_hash_at(contract_address, class_hash_3).unwrap();

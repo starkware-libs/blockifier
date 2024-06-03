@@ -1,15 +1,15 @@
 use std::collections::HashSet;
 
-use cairo_felt::Felt252;
-use cairo_vm::serde::deserialize_program::BuiltinName;
+use cairo_vm::types::builtin_name::BuiltinName;
+use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::ToPrimitive;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
+use starknet_api::hash::{FeltConverter, TryIntoFelt};
+use starknet_types_core::felt::Felt;
 
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV1, EntryPointV1};
@@ -18,8 +18,7 @@ use crate::execution::entry_point::{
 };
 use crate::execution::errors::{EntryPointExecutionError, PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
-    read_execution_retdata, stark_felt_to_felt, write_maybe_relocatable, write_stark_felt, Args,
-    ReadOnlySegments,
+    read_execution_retdata, write_maybe_relocatable, write_stark_felt, Args, ReadOnlySegments,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
@@ -79,14 +78,7 @@ pub fn execute_entry_point_call(
     // Execute.
     let bytecode_length = contract_class.bytecode_length();
     let program_segment_size = bytecode_length + program_extra_data_length;
-    run_entry_point(
-        &mut vm,
-        &mut runner,
-        &mut syscall_handler,
-        entry_point,
-        args,
-        program_segment_size,
-    )?;
+    run_entry_point(&mut runner, &mut syscall_handler, entry_point, args, program_segment_size)?;
 
     // Collect the set PC values that were visited during the entry point execution.
     register_visited_pcs(
@@ -157,9 +149,14 @@ pub fn initialize_execution_context<'a>(
 
     // Instantiate Cairo runner.
     let proof_mode = false;
-    let mut runner = CairoRunner::new(&contract_class.0.program, "starknet", proof_mode)?;
-
     let trace_enabled = true;
+    let mut runner = CairoRunner::new(
+        &contract_class.0.program,
+        LayoutName::starknet,
+        proof_mode,
+        trace_enabled,
+    )?;
+
     let mut vm = VirtualMachine::new(trace_enabled);
 
     // Initialize program with all builtins.
@@ -173,7 +170,7 @@ pub fn initialize_execution_context<'a>(
         BuiltinName::range_check,
         BuiltinName::segment_arena,
     ];
-    runner.initialize_function_runner_cairo_1(&mut vm, &program_builtins)?;
+    runner.initialize_function_runner_cairo_1(&program_builtins)?;
     let mut read_only_segments = ReadOnlySegments::default();
     let program_extra_data_length =
         prepare_program_extra_data(&mut vm, contract_class, &mut read_only_segments)?;
@@ -218,7 +215,7 @@ fn prepare_program_extra_data(
     // additional `ret` statement).
     let mut ptr = (vm.get_pc() + contract_class.bytecode_length())?;
     // Push a `ret` opcode.
-    write_stark_felt(vm, &mut ptr, stark_felt!("0x208b7fff7fff7ffe"))?;
+    write_stark_felt(vm, &mut ptr, felt!(0x208b7fff7fff7ffe_u128))?;
     // Push a pointer to the builtin cost segment.
     write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
 
@@ -238,19 +235,19 @@ pub fn prepare_call_arguments(
     // Push builtins.
     for builtin_name in &entrypoint.builtins {
         if let Some(builtin) =
-            vm.get_builtin_runners().iter().find(|builtin| builtin.name() == builtin_name)
+            vm.get_builtin_runners().iter().find(|builtin| builtin.name().to_str() == builtin_name)
         {
             args.extend(builtin.initial_stack().into_iter().map(CairoArg::Single));
             continue;
         }
-        if builtin_name == SEGMENT_ARENA_BUILTIN_NAME {
+        if builtin_name == BuiltinName::segment_arena.to_str() {
             let segment_arena = vm.add_memory_segment();
 
             // Write into segment_arena.
             let mut ptr = segment_arena;
             let info_segment = vm.add_memory_segment();
-            let n_constructed = StarkFelt::default();
-            let n_destructed = StarkFelt::default();
+            let n_constructed = Felt::default();
+            let n_destructed = Felt::default();
             write_maybe_relocatable(vm, &mut ptr, info_segment)?;
             write_stark_felt(vm, &mut ptr, n_constructed)?;
             write_stark_felt(vm, &mut ptr, n_destructed)?;
@@ -261,14 +258,14 @@ pub fn prepare_call_arguments(
         return Err(PreExecutionError::InvalidBuiltin(builtin_name.clone()));
     }
     // Push gas counter.
-    args.push(CairoArg::Single(MaybeRelocatable::from(Felt252::from(call.initial_gas))));
+    args.push(CairoArg::Single(MaybeRelocatable::from(Felt::from(call.initial_gas))));
     // Push syscall ptr.
     args.push(CairoArg::Single(MaybeRelocatable::from(initial_syscall_ptr)));
 
     // Prepare calldata arguments.
     let calldata = &call.calldata.0;
     let calldata: Vec<MaybeRelocatable> =
-        calldata.iter().map(|&arg| MaybeRelocatable::from(stark_felt_to_felt(arg))).collect();
+        calldata.iter().map(|&arg| MaybeRelocatable::from(arg)).collect();
 
     let calldata_start_ptr = read_only_segments.allocate(vm, &calldata)?;
     let calldata_end_ptr = MaybeRelocatable::from((calldata_start_ptr + calldata.len())?);
@@ -279,7 +276,6 @@ pub fn prepare_call_arguments(
 }
 /// Runs the runner from the given PC.
 pub fn run_entry_point(
-    vm: &mut VirtualMachine,
     runner: &mut CairoRunner,
     hint_processor: &mut SyscallHintProcessor<'_>,
     entry_point: EntryPointV1,
@@ -293,7 +289,6 @@ pub fn run_entry_point(
         &args,
         verify_secure,
         Some(program_segment_size),
-        vm,
         hint_processor,
     );
 
@@ -328,7 +323,7 @@ pub fn finalize_execution(
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
     let vm_resources_without_inner_calls = runner
-        .get_execution_resources(&vm)
+        .get_execution_resources()
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
     *syscall_handler.resources += &vm_resources_without_inner_calls;

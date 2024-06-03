@@ -1,5 +1,5 @@
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionVersion;
+use starknet_types_core::felt::Felt;
 
 pub const CONSTRUCTOR_ENTRY_POINT_NAME: &str = "constructor";
 pub const DEFAULT_ENTRY_POINT_NAME: &str = "__default__";
@@ -7,7 +7,7 @@ pub const DEFAULT_ENTRY_POINT_SELECTOR: u64 = 0;
 pub const DEFAULT_L1_ENTRY_POINT_NAME: &str = "__l1_default__";
 
 // The version is considered 0 for L1-Handler transaction hash calculation purposes.
-pub const L1_HANDLER_VERSION: TransactionVersion = TransactionVersion(StarkFelt::ZERO);
+pub const L1_HANDLER_VERSION: TransactionVersion = TransactionVersion(Felt::ZERO);
 
 // OS-related constants.
 pub const L1_TO_L2_MSG_HEADER_SIZE: usize = 5;

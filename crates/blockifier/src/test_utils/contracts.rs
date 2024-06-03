@@ -4,8 +4,9 @@ use starknet_api::core::{
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointOffset, EntryPointType,
 };
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::hash::{FeltConverter, TryIntoFelt};
+use starknet_api::{class_hash, contract_address, felt, patricia_key};
+use starknet_types_core::felt::Felt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -166,8 +167,8 @@ impl FeatureContract {
 
     pub fn get_compiled_class_hash(&self) -> CompiledClassHash {
         match self.cairo_version() {
-            CairoVersion::Cairo0 => CompiledClassHash(StarkFelt::ZERO),
-            CairoVersion::Cairo1 => CompiledClassHash(stark_felt!(self.get_integer_base())),
+            CairoVersion::Cairo0 => CompiledClassHash(Felt::ZERO),
+            CairoVersion::Cairo1 => CompiledClassHash(felt!(self.get_integer_base())),
         }
     }
 

@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_vm::serde::deserialize_program::BuiltinName;
-use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::ClassHash;
@@ -34,7 +33,7 @@ macro_rules! impl_checked_sub {
     };
 }
 
-pub type HashMapWrapper = HashMap<String, usize>;
+pub type HashMapWrapper = HashMap<BuiltinName, usize>;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BouncerConfig {
@@ -154,13 +153,13 @@ impl From<HashMapWrapper> for BuiltinCount {
         // ExecutionResources contains all the builtins.
         // The keccak config we get from python is not always present.
         let builtin_count = Self {
-            bitwise: data.remove(BuiltinName::bitwise.name()).unwrap_or_default(),
-            ecdsa: data.remove(BuiltinName::ecdsa.name()).unwrap_or_default(),
-            ec_op: data.remove(BuiltinName::ec_op.name()).unwrap_or_default(),
-            keccak: data.remove(BuiltinName::keccak.name()).unwrap_or_default(),
-            pedersen: data.remove(BuiltinName::pedersen.name()).unwrap_or_default(),
-            poseidon: data.remove(BuiltinName::poseidon.name()).unwrap_or_default(),
-            range_check: data.remove(BuiltinName::range_check.name()).unwrap_or_default(),
+            bitwise: data.remove(&BuiltinName::bitwise).unwrap_or_default(),
+            ecdsa: data.remove(&BuiltinName::ecdsa).unwrap_or_default(),
+            ec_op: data.remove(&BuiltinName::ec_op).unwrap_or_default(),
+            keccak: data.remove(&BuiltinName::keccak).unwrap_or_default(),
+            pedersen: data.remove(&BuiltinName::pedersen).unwrap_or_default(),
+            poseidon: data.remove(&BuiltinName::poseidon).unwrap_or_default(),
+            range_check: data.remove(&BuiltinName::range_check).unwrap_or_default(),
         };
         assert!(
             data.is_empty(),
@@ -324,7 +323,7 @@ pub fn get_particia_update_resources(
         // TODO(Yoni, 1/5/2024): re-estimate this.
         n_steps: 32 * n_updates,
         // For each Patricia update there are two hash calculations.
-        builtin_instance_counter: HashMap::from([(HASH_BUILTIN_NAME.to_string(), 2 * n_updates)]),
+        builtin_instance_counter: HashMap::from([(BuiltinName::pedersen, 2 * n_updates)]),
         n_memory_holes: 0,
     }
 }
