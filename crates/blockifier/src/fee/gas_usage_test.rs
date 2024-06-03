@@ -2,8 +2,8 @@ use std::num::NonZeroU128;
 
 use pretty_assertions::assert_eq;
 use rstest::{fixture, rstest};
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{EventContent, EventData, EventKey, Fee};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::constants;
 use crate::context::BlockContext;
@@ -45,8 +45,8 @@ fn test_get_event_gas_cost(
     let create_event = |keys_size: usize, data_size: usize| OrderedEvent {
         order: 0,
         event: EventContent {
-            keys: vec![EventKey(StarkFelt::ZERO); keys_size],
-            data: EventData(vec![StarkFelt::ZERO; data_size]),
+            keys: vec![EventKey(Felt::ZERO); keys_size],
+            data: EventData(vec![Felt::ZERO; data_size]),
         },
     };
     let call_info_1 = CallInfo {

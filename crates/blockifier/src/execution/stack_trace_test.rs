@@ -2,11 +2,11 @@ use pretty_assertions::assert_eq;
 use regex::Regex;
 use rstest::rstest;
 use starknet_api::core::{calculate_contract_address, Nonce};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{FeltConverter, TryIntoFelt};
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, Fee, TransactionSignature, TransactionVersion,
 };
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
@@ -56,7 +56,7 @@ fn test_stack_trace(
         &[
             test_contract_address_2_felt,    // Contract address.
             inner_entry_point_selector_felt, // Function selector.
-            stark_felt!(0_u8),               // Innermost calldata length.
+            felt!(0_u8),                     // Innermost calldata length.
         ],
     );
 
@@ -167,14 +167,14 @@ fn test_trace_callchain_ends_with_regular_call(
         test_contract_address, // contract_address
         "invoke_call_chain",
         &[
-            stark_felt!(7_u8),                    // Calldata length
+            felt!(7_u8),                          // Calldata length
             contract_address_felt,                // Contract address.
             invoke_call_chain_selector_felt,      // Function selector.
-            stark_felt!(0_u8),                    // Call type: call_contract_syscall.
-            stark_felt!(3_u8),                    // Calldata length
+            felt!(0_u8),                          // Call type: call_contract_syscall.
+            felt!(3_u8),                          // Calldata length
             contract_address_felt,                // Contract address.
             selector_from_name(last_func_name).0, // Function selector.
-            stark_felt!(2_u8),                    // Call type: regular call.
+            felt!(2_u8),                          // Call type: regular call.
         ],
     );
 
@@ -293,19 +293,19 @@ fn test_trace_call_chain_with_syscalls(
     let last_func_selector_felt = selector_from_name(last_func_name).0;
 
     let mut raw_calldata = vec![
-        stark_felt!(7_u8 + calldata_extra_length), // Calldata length
-        address_felt,                              // Contract address.
-        invoke_call_chain_selector_felt,           // Function selector.
-        stark_felt!(0_u8),                         // Call type: call_contract_syscall.
-        stark_felt!(3_u8 + calldata_extra_length), // Calldata length
-        contract_id,                               // Contract address / class hash.
-        last_func_selector_felt,                   // Function selector.
-        stark_felt!(call_type),                    // Syscall type: library_call or call_contract.
+        felt!(7_u8 + calldata_extra_length), // Calldata length
+        address_felt,                        // Contract address.
+        invoke_call_chain_selector_felt,     // Function selector.
+        felt!(0_u8),                         // Call type: call_contract_syscall.
+        felt!(3_u8 + calldata_extra_length), // Calldata length
+        contract_id,                         // Contract address / class hash.
+        last_func_selector_felt,             // Function selector.
+        felt!(call_type),                    // Syscall type: library_call or call_contract.
     ];
 
     // Need to send an empty array for the last call in `invoke_call_chain` variant.
     if last_func_name == "invoke_call_chain" {
-        raw_calldata.push(stark_felt!(0_u8));
+        raw_calldata.push(felt!(0_u8));
     }
 
     let calldata = create_calldata(
@@ -599,10 +599,10 @@ fn test_contract_ctor_frame_stack_trace(
     let account_class_hash = account.get_class_hash();
     let faulty_class_hash = faulty_ctor.get_class_hash();
 
-    let salt = stark_felt!(7_u8);
+    let salt = felt!(7_u8);
     // Constructor arg: set to true to fail deployment.
-    let validate_constructor = stark_felt!(FELT_TRUE);
-    let signature = TransactionSignature(vec![stark_felt!(INVALID)]);
+    let validate_constructor = felt!(FELT_TRUE);
+    let signature = TransactionSignature(vec![felt!(INVALID)]);
     let expected_deployed_address = calculate_contract_address(
         ContractAddressSalt(salt),
         faulty_class_hash,
@@ -622,12 +622,12 @@ fn test_contract_ctor_frame_stack_trace(
             &[
                 faulty_class_hash.0,
                 salt,
-                stark_felt!(1_u8), // Calldata: ctor args length.
+                felt!(1_u8), // Calldata: ctor args length.
                 validate_constructor,
             ]
         ),
         version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(0_u8)),
+        nonce: Nonce(felt!(0_u8)),
     });
 
     // Construct expected output.
