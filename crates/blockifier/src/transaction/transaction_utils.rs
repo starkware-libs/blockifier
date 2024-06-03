@@ -13,8 +13,11 @@ pub fn verify_contract_class_version(
     declare_version: TransactionVersion,
 ) -> Result<(), TransactionExecutionError> {
     match contract_class {
+        // TODO: Make TransactionVersion an enum and use match here.
         ContractClass::V0(_) => {
-            if let TransactionVersion::ZERO | TransactionVersion::ONE = declare_version {
+            if declare_version == TransactionVersion::ZERO
+                || declare_version == TransactionVersion::ONE
+            {
                 return Ok(());
             }
             Err(TransactionExecutionError::ContractClassVersionMismatch {
@@ -23,7 +26,9 @@ pub fn verify_contract_class_version(
             })
         }
         ContractClass::V1(_) => {
-            if let TransactionVersion::TWO | TransactionVersion::THREE = declare_version {
+            if declare_version == TransactionVersion::TWO
+                || declare_version == TransactionVersion::THREE
+            {
                 return Ok(());
             }
             Err(TransactionExecutionError::ContractClassVersionMismatch {

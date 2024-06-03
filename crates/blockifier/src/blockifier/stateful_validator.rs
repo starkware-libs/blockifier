@@ -1,6 +1,6 @@
 use starknet_api::core::Nonce;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionHash;
+use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
@@ -131,8 +131,8 @@ impl<S: StateReader> StatefulValidator<S> {
         let tx_nonce = tx_info.nonce();
 
         let deploy_account_not_processed =
-            deploy_account_tx_hash.is_some() && nonce == Nonce(StarkFelt::ZERO);
-        let is_post_deploy_nonce = Nonce(StarkFelt::ONE) <= tx_nonce;
+            deploy_account_tx_hash.is_some() && nonce == Nonce(Felt::ZERO);
+        let is_post_deploy_nonce = Nonce(Felt::ONE) <= tx_nonce;
         let nonce_small_enough_to_qualify_for_validation_skip =
             tx_nonce <= self.max_nonce_for_validation_skip;
 

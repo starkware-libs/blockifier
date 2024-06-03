@@ -91,7 +91,7 @@ impl ChainInfo {
 impl Default for ChainInfo {
     fn default() -> Self {
         ChainInfo {
-            chain_id: ChainId("0x0".to_string()),
+            chain_id: ChainId::Other("0x0".to_string()),
             fee_token_addresses: FeeTokenAddresses::default(),
         }
     }
