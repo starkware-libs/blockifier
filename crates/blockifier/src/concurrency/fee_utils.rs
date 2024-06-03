@@ -1,4 +1,4 @@
-use starknet_api::hash::StarkFelt;
+use starknet_types_core::felt::Felt;
 
 use crate::execution::call_info::CallInfo;
 #[cfg(test)]
@@ -15,15 +15,15 @@ const STORAGE_READ_SEQUENCER_BALANCE_INDICES: (usize, usize) = (2, 3);
 // balance. This affects the call info.
 pub fn fill_sequencer_balance_reads(
     fee_transfer_call_info: &mut CallInfo,
-    sequencer_balance_low: StarkFelt,
-    sequencer_balance_high: StarkFelt,
+    sequencer_balance_low: Felt,
+    sequencer_balance_high: Felt,
 ) {
     let storage_read_values = &mut fee_transfer_call_info.storage_read_values;
     assert_eq!(storage_read_values.len(), 4, "Storage read values should have 4 elements");
 
     let (low_index, high_index) = STORAGE_READ_SEQUENCER_BALANCE_INDICES;
     for index in [low_index, high_index] {
-        assert_eq!(storage_read_values[index], StarkFelt::ZERO, "Sequencer balance should be zero");
+        assert_eq!(storage_read_values[index], Felt::ZERO, "Sequencer balance should be zero");
     }
     storage_read_values[low_index] = sequencer_balance_low;
     storage_read_values[high_index] = sequencer_balance_high;

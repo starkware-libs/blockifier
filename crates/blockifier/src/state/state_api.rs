@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 use super::cached_state::{ContractClassMapping, StateMaps};
 use crate::abi::abi_utils::get_fee_token_var_address;
@@ -30,7 +30,7 @@ pub trait StateReader {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt>;
+    ) -> StateResult<Felt>;
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
@@ -55,7 +55,7 @@ pub trait StateReader {
         &mut self,
         contract_address: ContractAddress,
         fee_token_address: ContractAddress,
-    ) -> Result<(StarkFelt, StarkFelt), StateError> {
+    ) -> Result<(Felt, Felt), StateError> {
         let low_key = get_fee_token_var_address(contract_address);
         let high_key = next_storage_key(&low_key)?;
         let low = self.get_storage_at(fee_token_address, low_key)?;
@@ -75,7 +75,7 @@ pub trait State: StateReader {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) -> StateResult<()>;
 
     /// Increments the nonce of the given contract instance.

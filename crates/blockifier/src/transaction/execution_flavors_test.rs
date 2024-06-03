@@ -1,14 +1,12 @@
 use assert_matches::assert_matches;
-use cairo_felt::Felt252;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
+use starknet_types_core::felt::Felt;
 
 use crate::context::{BlockContext, ChainInfo};
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::SyscallSelector;
 use crate::fee::fee_utils::{calculate_tx_fee, get_fee_by_gas_vector};
 use crate::state::cached_state::CachedState;
@@ -63,13 +61,13 @@ fn create_flavors_test_state(
 /// Checks that balance of the account decreased if and only if `charge_fee` is true.
 /// Returns the new balance.
 fn check_balance<S: StateReader>(
-    current_balance: StarkFelt,
+    current_balance: Felt,
     state: &mut CachedState<S>,
     account_address: ContractAddress,
     chain_info: &ChainInfo,
     fee_type: &FeeType,
     charge_fee: bool,
-) -> StarkFelt {
+) -> Felt {
     let (new_balance, _) = state
         .get_fee_token_balance(account_address, chain_info.fee_token_address(fee_type))
         .unwrap();
@@ -128,7 +126,7 @@ fn recurse_calldata(contract_address: ContractAddress, fail: bool, depth: u32) -
     create_calldata(
         contract_address,
         if fail { "recursive_fail" } else { "recurse" },
-        &[stark_felt!(depth)],
+        &[felt!(depth)],
     )
 }
 
@@ -348,8 +346,8 @@ fn test_simulate_validate_charge_fee_fail_validate(
         max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         signature: TransactionSignature(vec![
-            StarkFelt::from(INVALID),
-            StarkFelt::ZERO
+            Felt::from(INVALID),
+            Felt::ZERO
         ]),
         sender_address: faulty_account_address,
         calldata: create_calldata(faulty_account_address, "foo", &[]),
@@ -648,16 +646,16 @@ fn test_simulate_validate_charge_fee_post_execution(
         validate,
         &fee_type,
     );
-    assert!(stark_felt!(actual_fee) < current_balance);
-    let transfer_amount = stark_felt_to_felt(current_balance) - Felt252::from(actual_fee.0 / 2);
-    let recipient = stark_felt!(7_u8);
+    assert!(felt!(actual_fee.0) < current_balance);
+    let transfer_amount = current_balance - Felt::from(actual_fee.0 / 2);
+    let recipient = felt!(7_u8);
     let transfer_calldata = create_calldata(
         fee_token_address,
         "transfer",
         &[
             recipient, // Calldata: to.
-            felt_to_stark_felt(&transfer_amount),
-            stark_felt!(0_u8),
+            transfer_amount,
+            felt!(0_u8),
         ],
     );
     let tx_execution_info = account_invoke_tx(invoke_tx_args! {

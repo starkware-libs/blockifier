@@ -4,11 +4,11 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::calldata;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV2,
     DeclareTransactionV3, Fee, TransactionHash, TransactionSignature, TransactionVersion,
 };
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::{BlockContext, TransactionContext};
@@ -473,9 +473,9 @@ impl L1HandlerTransaction {
 
     pub fn create_for_testing(l1_fee: Fee, contract_address: ContractAddress) -> Self {
         let calldata = calldata![
-            StarkFelt::from_u128(0x123), // from_address.
-            StarkFelt::from_u128(0x876), // key.
-            StarkFelt::from_u128(0x44)   // value.
+            Felt::from(0x123), // from_address.
+            Felt::from(0x876), // key.
+            Felt::from(0x44)   // value.
         ];
         let tx = starknet_api::transaction::L1HandlerTransaction {
             version: TransactionVersion::ZERO,
