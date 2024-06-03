@@ -3,9 +3,8 @@ use std::sync::Arc;
 use cached::proc_macro::cached;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
 use crate::context::BlockContext;
@@ -52,7 +51,7 @@ fn fee_transfer_resources(
         .set_storage_at(
             token_address,
             get_fee_token_var_address(account_contract_address),
-            stark_felt!(BALANCE),
+            felt!(BALANCE),
         )
         .unwrap();
 
@@ -61,8 +60,8 @@ fn fee_transfer_resources(
         entry_point_selector: selector_from_name(constants::TRANSFER_ENTRY_POINT_NAME),
         calldata: calldata![
             *block_context.block_info.sequencer_address.0.key(), // Recipient.
-            stark_felt!(7_u8),                                   // LSB of Amount.
-            stark_felt!(0_u8)                                    // MSB of Amount.
+            felt!(7_u8),                                         // LSB of Amount.
+            felt!(0_u8)                                          // MSB of Amount.
         ],
         storage_address: token_address,
         caller_address: account_contract_address,

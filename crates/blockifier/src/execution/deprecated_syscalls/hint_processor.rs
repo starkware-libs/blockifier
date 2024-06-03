@@ -1,7 +1,6 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
-use cairo_felt::Felt252;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -16,12 +15,13 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
+use num_bigint::{BigUint, TryFromBigIntError};
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::{Felt, FromStrError};
 use thiserror::Error;
 
 use crate::blockifier::block::BlockInfo;
@@ -41,8 +41,8 @@ use crate::execution::deprecated_syscalls::{
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::execution::execution_utils::{
-    felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
-    ReadOnlySegment, ReadOnlySegments,
+    felt_from_ptr, felt_range_from_ptr, max_fee_for_execution_info, ReadOnlySegment,
+    ReadOnlySegments,
 };
 use crate::execution::hint_code;
 use crate::execution::syscalls::hint_processor::EmitEventError;
@@ -68,6 +68,10 @@ pub enum DeprecatedSyscallExecutionError {
     },
     #[error(transparent)]
     EmitEventError(#[from] EmitEventError),
+    #[error(transparent)]
+    FromBigUint(#[from] TryFromBigIntError<BigUint>),
+    #[error(transparent)]
+    FromStr(#[from] FromStrError),
     #[error("{error}")]
     LibraryCallExecutionError {
         class_hash: ClassHash,
@@ -76,9 +80,9 @@ pub enum DeprecatedSyscallExecutionError {
         error: Box<DeprecatedSyscallExecutionError>,
     },
     #[error("Invalid syscall input: {input:?}; {info}")]
-    InvalidSyscallInput { input: StarkFelt, info: String },
+    InvalidSyscallInput { input: Felt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
-    InvalidDeprecatedSyscallSelector(StarkFelt),
+    InvalidDeprecatedSyscallSelector(Felt),
     #[error(transparent)]
     MathError(#[from] cairo_vm::types::errors::math_errors::MathError),
     #[error(transparent)]
@@ -153,7 +157,7 @@ pub struct DeprecatedSyscallHintProcessor<'a> {
     pub syscall_ptr: Relocatable,
 
     // Additional information gathered during execution.
-    pub read_values: Vec<StarkFelt>,
+    pub read_values: Vec<Felt>,
     pub accessed_keys: HashSet<StorageKey>,
 
     // Additional fields.
@@ -330,8 +334,8 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     fn read_next_syscall_selector(
         &mut self,
         vm: &mut VirtualMachine,
-    ) -> DeprecatedSyscallResult<StarkFelt> {
-        let selector = stark_felt_from_ptr(vm, &mut self.syscall_ptr)?;
+    ) -> DeprecatedSyscallResult<Felt> {
+        let selector = felt_from_ptr(vm, &mut self.syscall_ptr)?;
 
         Ok(selector)
     }
@@ -346,8 +350,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
     ) -> DeprecatedSyscallResult<Relocatable> {
         let signature = &self.context.tx_context.tx_info.signature().0;
-        let signature =
-            signature.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        let signature = signature.iter().map(|&x| MaybeRelocatable::from(x)).collect();
         let signature_segment_start_ptr = self.read_only_segments.allocate(vm, &signature)?;
 
         Ok(signature_segment_start_ptr)
@@ -361,14 +364,14 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
         let TransactionContext { block_context, tx_info } = self.context.tx_context.as_ref();
         let tx_signature_length = tx_info.signature().0.len();
         let tx_info: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(tx_info.signed_version().0).into(),
-            stark_felt_to_felt(*tx_info.sender_address().0.key()).into(),
+            tx_info.signed_version().0.into(),
+            (*tx_info.sender_address().0.key()).into(),
             max_fee_for_execution_info(tx_info).into(),
             tx_signature_length.into(),
             tx_signature_start_ptr.into(),
-            stark_felt_to_felt(tx_info.transaction_hash().0).into(),
-            Felt252::from_bytes_be(block_context.chain_info.chain_id.0.as_bytes()).into(),
-            stark_felt_to_felt(tx_info.nonce().0).into(),
+            tx_info.transaction_hash().0.into(),
+            Felt::from_hex(block_context.chain_info.chain_id.as_hex().as_str())?.into(),
+            tx_info.nonce().0.into(),
         ];
 
         let tx_info_start_ptr = self.read_only_segments.allocate(vm, &tx_info)?;
@@ -389,7 +392,7 @@ impl<'a> DeprecatedSyscallHintProcessor<'a> {
     pub fn set_contract_storage_at(
         &mut self,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) -> DeprecatedSyscallResult<StorageWriteResponse> {
         self.accessed_keys.insert(key);
         self.state.set_storage_at(self.storage_address, key, value)?;
@@ -426,7 +429,7 @@ impl HintProcessorLogic for DeprecatedSyscallHintProcessor<'_> {
         vm: &mut VirtualMachine,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
-        constants: &HashMap<String, Felt252>,
+        constants: &HashMap<String, Felt>,
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<HintProcessorData>().ok_or(HintError::WrongHintData)?;
         if hint_code::SYSCALL_HINTS.contains(hint.code.as_str()) {
@@ -437,10 +440,10 @@ impl HintProcessorLogic for DeprecatedSyscallHintProcessor<'_> {
     }
 }
 
-pub fn felt_to_bool(felt: StarkFelt) -> DeprecatedSyscallResult<bool> {
-    if felt == StarkFelt::from(0_u8) {
+pub fn felt_to_bool(felt: Felt) -> DeprecatedSyscallResult<bool> {
+    if felt == Felt::from(0_u8) {
         Ok(false)
-    } else if felt == StarkFelt::from(1_u8) {
+    } else if felt == Felt::from(1_u8) {
         Ok(true)
     } else {
         Err(DeprecatedSyscallExecutionError::InvalidSyscallInput {
@@ -463,7 +466,7 @@ pub fn read_call_params(
     vm: &VirtualMachine,
     ptr: &mut Relocatable,
 ) -> DeprecatedSyscallResult<(EntryPointSelector, Calldata)> {
-    let function_selector = EntryPointSelector(stark_felt_from_ptr(vm, ptr)?);
+    let function_selector = EntryPointSelector(felt_from_ptr(vm, ptr)?);
     let calldata = read_calldata(vm, ptr)?;
 
     Ok((function_selector, calldata))
@@ -478,7 +481,7 @@ pub fn execute_inner_call(
         call.execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)?;
     let retdata = &call_info.execution.retdata.0;
     let retdata: Vec<MaybeRelocatable> =
-        retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        retdata.iter().map(|&x| MaybeRelocatable::from(x)).collect();
     let retdata_segment_start_ptr = syscall_handler.read_only_segments.allocate(vm, &retdata)?;
 
     syscall_handler.inner_calls.push(call_info);
@@ -518,16 +521,17 @@ pub fn execute_library_call(
     })
 }
 
-pub fn read_felt_array<TErr>(
-    vm: &VirtualMachine,
-    ptr: &mut Relocatable,
-) -> Result<Vec<StarkFelt>, TErr>
+pub fn read_felt_array<TErr>(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Vec<Felt>, TErr>
 where
-    TErr: From<StarknetApiError> + From<VirtualMachineError> + From<MemoryError> + From<MathError>,
+    TErr: From<StarknetApiError>
+        + From<VirtualMachineError>
+        + From<MemoryError>
+        + From<MathError>
+        + From<TryFromBigIntError<BigUint>>,
 {
-    let array_size = stark_felt_from_ptr(vm, ptr)?;
+    let array_size = felt_from_ptr(vm, ptr)?;
     let array_data_start_ptr = vm.get_relocatable(*ptr)?;
     *ptr = (*ptr + 1)?;
 
-    Ok(felt_range_from_ptr(vm, array_data_start_ptr, usize::try_from(array_size)?)?)
+    Ok(felt_range_from_ptr(vm, array_data_start_ptr, usize::try_from(array_size.to_biguint())?)?)
 }

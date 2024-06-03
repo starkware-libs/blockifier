@@ -20,7 +20,7 @@ use pyo3::{FromPyObject, PyAny, Python};
 use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::Felt;
 use starknet_api::transaction::Fee;
 
 use crate::errors::{
@@ -344,7 +344,7 @@ impl PyBlockExecutor {
         let mut block_id_fixed_bytes = [0_u8; 32];
         block_id_fixed_bytes.copy_from_slice(&block_id_bytes);
 
-        Ok(Some(PyFelt(StarkFelt::new(block_id_fixed_bytes)?)))
+        Ok(Some(PyFelt(Felt::new(block_id_fixed_bytes)?)))
     }
 
     #[pyo3(signature = (source_block_number))]

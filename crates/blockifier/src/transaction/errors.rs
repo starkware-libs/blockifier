@@ -1,7 +1,7 @@
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::{Felt, FromStrError};
 use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
@@ -28,11 +28,11 @@ pub enum TransactionFeeError {
     L1GasBoundsExceedBalance {
         max_amount: u64,
         max_price: u128,
-        balance_low: StarkFelt,
-        balance_high: StarkFelt,
+        balance_low: Felt,
+        balance_high: Felt,
     },
     #[error("Max fee ({}) exceeds balance (Uint256({balance_low}, {balance_high})).", max_fee.0)]
-    MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
+    MaxFeeExceedsBalance { max_fee: Fee, balance_low: Felt, balance_high: Felt },
     #[error("Max fee ({}) is too low. Minimum fee: {}.", max_fee.0, min_fee.0)]
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
     #[error(
@@ -77,6 +77,8 @@ pub enum TransactionExecutionError {
     },
     #[error(transparent)]
     FeeCheckError(#[from] FeeCheckError),
+    #[error(transparent)]
+    FromStr(#[from] FromStrError),
     #[error("The `validate` entry point should return `VALID`. Got {actual:?}.")]
     InvalidValidateReturnData { actual: Retdata },
     #[error(

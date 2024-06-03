@@ -1,4 +1,5 @@
 use cairo_vm::types::errors::program_errors::ProgramError;
+use num_bigint::{BigUint, TryFromBigIntError};
 use starknet_api::core::{ClassHash, ContractAddress};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -7,6 +8,8 @@ use crate::abi::constants;
 
 #[derive(Debug, Error)]
 pub enum StateError {
+    #[error(transparent)]
+    FromBigUint(#[from] TryFromBigIntError<BigUint>),
     #[error(
         "A block hash must be provided for block number > {}.",
         constants::STORED_BLOCK_HASH_BUFFER
