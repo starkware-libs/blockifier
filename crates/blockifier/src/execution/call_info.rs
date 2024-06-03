@@ -2,20 +2,22 @@ use std::collections::{HashMap, HashSet};
 use std::iter::Sum;
 use std::ops::Add;
 
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, ContractAddress, EthAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::patricia_key;
+use starknet_api::hash::{FeltConverter, TryIntoFelt};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
+use starknet_api::{felt, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use crate::execution::entry_point::CallEntryPoint;
 use crate::fee::gas_usage::get_message_segment_length;
 use crate::state::cached_state::StorageEntry;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
-pub struct Retdata(pub Vec<StarkFelt>);
+pub struct Retdata(pub Vec<Felt>);
 
 #[macro_export]
 macro_rules! retdata {
@@ -89,7 +91,7 @@ pub struct CallExecution {
 struct ExecutionResourcesDef {
     n_steps: usize,
     n_memory_holes: usize,
-    builtin_instance_counter: HashMap<String, usize>,
+    builtin_instance_counter: HashMap<BuiltinName, usize>,
 }
 
 #[derive(Default)]
@@ -158,7 +160,7 @@ impl TestExecutionSummary {
                         order: i,
                         message: MessageToL1 {
                             to_address: EthAddress::default(),
-                            payload: L2ToL1Payload(vec![StarkFelt::default()]),
+                            payload: L2ToL1Payload(vec![Felt::default()]),
                         },
                     })
                     .collect(),
@@ -180,7 +182,7 @@ pub struct CallInfo {
     pub inner_calls: Vec<CallInfo>,
 
     // Additional information gathered during execution.
-    pub storage_read_values: Vec<StarkFelt>,
+    pub storage_read_values: Vec<Felt>,
     pub accessed_storage_keys: HashSet<StorageKey>,
 }
 

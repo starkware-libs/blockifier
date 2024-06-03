@@ -4,8 +4,8 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde_json::Value;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{contract_address, patricia_key};
+use starknet_api::hash::{FeltConverter, TryIntoFelt};
+use starknet_api::{contract_address, felt, patricia_key};
 
 use super::update_json_value;
 use crate::blockifier::block::{BlockInfo, GasPrices};
@@ -106,7 +106,7 @@ impl GasCosts {
 impl ChainInfo {
     pub fn create_for_testing() -> Self {
         Self {
-            chain_id: ChainId(CHAIN_ID_NAME.to_string()),
+            chain_id: ChainId::Other(CHAIN_ID_NAME.to_string()),
             fee_token_addresses: FeeTokenAddresses {
                 eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
                 strk_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),

@@ -1,11 +1,7 @@
 use std::collections::HashMap;
-use std::panic::catch_unwind;
 
 use assert_matches::assert_matches;
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
-    SIGNATURE_BUILTIN_NAME,
-};
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use rstest::rstest;
 use starknet_api::transaction::{Fee, TransactionVersion};
@@ -29,11 +25,11 @@ fn get_vm_resource_usage() -> ExecutionResources {
         n_steps: 10000,
         n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([
-            (HASH_BUILTIN_NAME.to_string(), 10),
-            (RANGE_CHECK_BUILTIN_NAME.to_string(), 24),
-            (SIGNATURE_BUILTIN_NAME.to_string(), 1),
-            (BITWISE_BUILTIN_NAME.to_string(), 1),
-            (POSEIDON_BUILTIN_NAME.to_string(), 1),
+            (BuiltinName::pedersen, 10),
+            (BuiltinName::range_check, 24),
+            (BuiltinName::ecdsa, 1),
+            (BuiltinName::bitwise, 1),
+            (BuiltinName::poseidon, 1),
         ]),
     }
 }
@@ -60,30 +56,14 @@ fn test_simple_calculate_l1_gas_by_vm_usage() {
     // Another positive flow, this time the heaviest resource is range_check_builtin.
     let n_reverted_steps = 0;
     vm_resource_usage.n_steps =
-        vm_resource_usage.builtin_instance_counter.get(RANGE_CHECK_BUILTIN_NAME).unwrap() - 1;
+        vm_resource_usage.builtin_instance_counter.get(&BuiltinName::range_check).unwrap() - 1;
     let l1_gas_by_vm_usage =
-        vm_resource_usage.builtin_instance_counter.get(RANGE_CHECK_BUILTIN_NAME).unwrap();
+        vm_resource_usage.builtin_instance_counter.get(&BuiltinName::range_check).unwrap();
     assert_eq!(
         GasVector::from_l1_gas(u128_from_usize(*l1_gas_by_vm_usage)),
         calculate_l1_gas_by_vm_usage(&versioned_constants, &vm_resource_usage, n_reverted_steps)
             .unwrap()
     );
-
-    // Negative flow.
-    // Pass dict with extra key.
-    let mut invalid_vm_resource_usage = vm_resource_usage.clone();
-    invalid_vm_resource_usage
-        .builtin_instance_counter
-        .insert(String::from("bad_resource_name"), 17);
-
-    let should_panic = catch_unwind(|| {
-        calculate_l1_gas_by_vm_usage(
-            &versioned_constants,
-            &invalid_vm_resource_usage,
-            n_reverted_steps,
-        )
-    });
-    assert!(should_panic.is_err());
 }
 
 #[test]
@@ -108,9 +88,9 @@ fn test_float_calculate_l1_gas_by_vm_usage() {
     // Another positive flow, this time the heaviest resource is ecdsa_builtin.
     vm_resource_usage.n_steps = 200;
     let l1_gas_by_vm_usage =
-        ((*versioned_constants.vm_resource_fee_cost().get(SIGNATURE_BUILTIN_NAME).unwrap())
+        ((*versioned_constants.vm_resource_fee_cost().get(BuiltinName::ecdsa.to_str()).unwrap())
             * u128_from_usize(
-                *vm_resource_usage.builtin_instance_counter.get(SIGNATURE_BUILTIN_NAME).unwrap(),
+                *vm_resource_usage.builtin_instance_counter.get(&BuiltinName::ecdsa).unwrap(),
             ))
         .ceil()
         .to_integer();

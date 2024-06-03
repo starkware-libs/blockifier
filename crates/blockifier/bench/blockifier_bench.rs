@@ -24,15 +24,15 @@ use blockifier::transaction::transaction_execution::Transaction;
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{Rng, SeedableRng};
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
+use starknet_api::hash::{Felt, FeltConverter, TryIntoFelt};
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 
 const N_ACCOUNTS: u16 = 10000;
 const CHUNK_SIZE: usize = 10;
 const RANDOMIZATION_SEED: u64 = 0;
 const CHARGE_FEE: bool = false;
-const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(StarkFelt::ONE);
+const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(Felt::ONE);
 
 pub fn transfers_benchmark(c: &mut Criterion) {
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
@@ -114,10 +114,10 @@ fn generate_transfer(
     let execute_calldata = calldata![
         contract_address,                   // Contract address.
         entry_point_selector.0,             // EP selector.
-        stark_felt!(3_u8),                  // Calldata length.
+        felt!(3_u8),                        // Calldata length.
         *recipient_account_address.0.key(), // Calldata: recipient.
-        stark_felt!(1_u8),                  // Calldata: lsb amount.
-        stark_felt!(0_u8)                   // Calldata: msb amount.
+        felt!(1_u8),                        // Calldata: lsb amount.
+        felt!(0_u8)                         // Calldata: msb amount.
     ];
 
     let tx = invoke_tx(invoke_tx_args! {

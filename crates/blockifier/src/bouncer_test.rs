@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_vm::serde::deserialize_program::BuiltinName;
+use cairo_vm::types::builtin_name::BuiltinName;
 use rstest::rstest;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{class_hash, contract_address, patricia_key};
+use starknet_api::hash::{FeltConverter, TryIntoFelt};
+use starknet_api::{class_hash, contract_address, felt, patricia_key};
 
 use super::BouncerConfig;
 use crate::blockifier::transaction_executor::{
@@ -241,13 +241,13 @@ fn test_bouncer_try_update(
     // Prepare the resources to be added to the bouncer.
     let execution_summary = ExecutionSummary { ..Default::default() };
     let builtin_counter = HashMap::from([
-        (BuiltinName::bitwise.name().to_string(), 1),
-        (BuiltinName::ecdsa.name().to_string(), added_ecdsa),
-        (BuiltinName::ec_op.name().to_string(), 1),
-        (BuiltinName::keccak.name().to_string(), added_keccak),
-        (BuiltinName::pedersen.name().to_string(), 1),
-        (BuiltinName::poseidon.name().to_string(), 1),
-        (BuiltinName::range_check.name().to_string(), 1),
+        (BuiltinName::bitwise, 1),
+        (BuiltinName::ecdsa, added_ecdsa),
+        (BuiltinName::ec_op, 1),
+        (BuiltinName::keccak, added_keccak),
+        (BuiltinName::pedersen, 1),
+        (BuiltinName::poseidon, 1),
+        (BuiltinName::range_check, 1),
     ]);
     let tx_resources = TransactionResources {
         vm_resources: ExecutionResources {

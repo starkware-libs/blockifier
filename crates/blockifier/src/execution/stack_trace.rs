@@ -1,3 +1,4 @@
+use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
@@ -64,7 +65,7 @@ impl From<&EntryPointErrorFrame> for String {
 }
 
 pub struct VmExceptionFrame {
-    pc: usize,
+    pc: Relocatable,
     traceback: Option<String>,
 }
 
