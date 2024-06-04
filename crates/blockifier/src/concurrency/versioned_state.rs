@@ -8,7 +8,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::cached_state::{ContractClassMapping, StateMaps};
 use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult, UpdatableState};
 
@@ -37,8 +37,8 @@ pub struct VersionedState<S: StateReader> {
     compiled_contract_classes: VersionedStorage<ClassHash, ContractClass>,
 }
 
-impl<S: StateReader> VersionedState<S> {
-    pub fn new(initial_state: S) -> Self {
+impl<U: UpdatableState> VersionedState<U> {
+    pub fn new(initial_state: U) -> Self {
         VersionedState {
             initial_state,
             storage: VersionedStorage::default(),
@@ -50,7 +50,7 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    pub fn consume_block_state(self) -> S {
+    pub fn consume_block_state(self) -> U {
         self.initial_state
     }
 
@@ -75,16 +75,11 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
-    where
-        T: StateReader,
-    {
-        let writes = self.get_writes_up_to_index(from_index);
-
-        parent_state.update_cache(
-            &writes,
-            self.compiled_contract_classes.get_writes_up_to_index(from_index),
-        );
+    pub fn commit(&mut self, index: TxIndex) {
+        let writes = self.get_writes_up_to_index(index);
+        let class_hash_to_class = self.compiled_contract_classes.get_writes_up_to_index(index);
+        // TODO(barak, 01/08/2024): Add visited_pcs argument to `apply_writes`.
+        self.initial_state.apply_writes(&writes, &class_hash_to_class, &HashMap::default());
     }
 
     // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared
@@ -203,19 +198,23 @@ impl<S: StateReader> VersionedState<S> {
     }
 }
 
-pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
+// TODO(barak, 01/07/2024): Re-consider the API (pub functions) of VersionedState,
+// ThreadSafeVersionedState and VersionedStateProxy.
+// TODO(barak, 01/07/2024): Re-consider the necessity ot ThreadSafeVersionedState once the worker
+// logic is completed.
+pub struct ThreadSafeVersionedState<U: UpdatableState>(Arc<Mutex<VersionedState<U>>>);
 pub type LockedVersionedState<'a, S> = MutexGuard<'a, VersionedState<S>>;
 
-impl<S: StateReader> ThreadSafeVersionedState<S> {
-    pub fn new(versioned_state: VersionedState<S>) -> Self {
+impl<U: UpdatableState> ThreadSafeVersionedState<U> {
+    pub fn new(versioned_state: VersionedState<U>) -> Self {
         ThreadSafeVersionedState(Arc::new(Mutex::new(versioned_state)))
     }
 
-    pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
+    pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<U> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
     }
 
-    pub fn consume_versioned_state(self) -> VersionedState<S> {
+    pub fn consume_versioned_state(self) -> VersionedState<U> {
         Arc::try_unwrap(self.0)
             .unwrap_or_else(|_| {
                 panic!(
@@ -229,19 +228,19 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
     }
 }
 
-impl<S: StateReader> Clone for ThreadSafeVersionedState<S> {
+impl<U: UpdatableState> Clone for ThreadSafeVersionedState<U> {
     fn clone(&self) -> Self {
         ThreadSafeVersionedState(Arc::clone(&self.0))
     }
 }
 
-pub struct VersionedStateProxy<S: StateReader> {
+pub struct VersionedStateProxy<U: UpdatableState> {
     pub tx_index: TxIndex,
-    pub state: Arc<Mutex<VersionedState<S>>>,
+    pub state: Arc<Mutex<VersionedState<U>>>,
 }
 
-impl<S: StateReader> VersionedStateProxy<S> {
-    fn state(&self) -> LockedVersionedState<'_, S> {
+impl<U: UpdatableState> VersionedStateProxy<U> {
+    fn state(&self) -> LockedVersionedState<'_, U> {
         self.state.lock().expect("Failed to acquire state lock.")
     }
 
@@ -255,7 +254,7 @@ impl<S: StateReader> VersionedStateProxy<S> {
 }
 
 // TODO(OriF, 15/5/24): Consider using visited_pcs.
-impl<S: StateReader> UpdatableState for VersionedStateProxy<S> {
+impl<U: UpdatableState> UpdatableState for VersionedStateProxy<U> {
     fn apply_writes(
         &mut self,
         writes: &StateMaps,
@@ -266,7 +265,7 @@ impl<S: StateReader> UpdatableState for VersionedStateProxy<S> {
     }
 }
 
-impl<S: StateReader> StateReader for VersionedStateProxy<S> {
+impl<U: UpdatableState> StateReader for VersionedStateProxy<U> {
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,

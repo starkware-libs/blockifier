@@ -38,16 +38,16 @@ pub struct ExecutionTaskOutput {
     pub result: TransactionExecutionResult<TransactionExecutionInfo>,
 }
 
-pub struct WorkerExecutor<'a, S: StateReader> {
+pub struct WorkerExecutor<'a, U: UpdatableState> {
     pub scheduler: Scheduler,
-    pub state: ThreadSafeVersionedState<S>,
+    pub state: ThreadSafeVersionedState<U>,
     pub chunk: &'a [Transaction],
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
 }
-impl<'a, S: StateReader> WorkerExecutor<'a, S> {
+impl<'a, U: UpdatableState> WorkerExecutor<'a, U> {
     pub fn new(
-        state: ThreadSafeVersionedState<S>,
+        state: ThreadSafeVersionedState<U>,
         chunk: &'a [Transaction],
         block_context: BlockContext,
     ) -> Self {
@@ -248,7 +248,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 
 fn add_fee_to_sequencer_balance(
     fee_token_address: ContractAddress,
-    tx_versioned_state: &mut VersionedStateProxy<impl StateReader>,
+    tx_versioned_state: &mut VersionedStateProxy<impl UpdatableState>,
     actual_fee: Fee,
     block_context: &BlockContext,
     sequencer_balance_value_low: StarkFelt,
