@@ -1160,6 +1160,7 @@ fn test_count_actual_storage_changes(
     assert_eq!(state_changes_count_3, expected_state_changes_count_3);
 }
 
+// TODO(Meshi, 01/06/2024): change the triviale call data to a non reverted call data.
 #[rstest]
 fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] fee_type: FeeType) {
     // TODO(Meshi, 01/06/2024): make the test so it will include changes in
