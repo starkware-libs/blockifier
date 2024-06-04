@@ -9,9 +9,10 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
+use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
-use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
+use crate::concurrency::worker_logic::{add_fee_to_sequencer_balance, lock_mutex_in_array};
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::{get_address_balance_keys, get_sequencer_balance_keys};
@@ -33,7 +34,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
 
-fn _trivial_calldata_invoke_tx(
+fn trivial_calldata_invoke_tx(
     account_address: ContractAddress,
     nonce: Nonce,
 ) -> AccountTransaction {
@@ -48,7 +49,7 @@ fn _trivial_calldata_invoke_tx(
 
 /// Checks that the storage values of the account and sequencer balances in the
 /// versioned state of tx_index equals the expected values.
-fn _validate_fee_transfer<S: StateReader>(
+fn validate_fee_transfer<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     account_address: ContractAddress,
     tx_index: usize,
@@ -75,6 +76,99 @@ fn _validate_fee_transfer<S: StateReader>(
             )
             .unwrap();
         assert_eq!(expected_balance, actual_balance);
+    }
+}
+
+#[rstest]
+pub fn test_commit_tx() {
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let mut expected_sequencer_balance_low = 0_u128;
+    let mut expected_account_balance = BALANCE;
+    let mut nonce_manager = NonceManager::default();
+    let account_address = account.get_instance_address(0);
+    let first_nonce = nonce_manager.next(account_address);
+    let second_nonce = nonce_manager.next(account_address);
+
+    // Create transactions.
+    let txs = [
+        trivial_calldata_invoke_tx(account_address, first_nonce),
+        trivial_calldata_invoke_tx(account_address, second_nonce),
+        trivial_calldata_invoke_tx(account_address, second_nonce),
+        // Invalid nonce.
+        trivial_calldata_invoke_tx(account.get_instance_address(0), nonce!(10_u8)),
+    ]
+    .into_iter()
+    .map(Transaction::AccountTransaction)
+    .collect::<Vec<Transaction>>();
+    let cached_state =
+        test_state(&block_context.chain_info, expected_account_balance, &[(account, 1)]);
+    let versioned_state = safe_versioned_state_for_testing(cached_state);
+    let executor = WorkerExecutor::new(versioned_state, &txs, block_context);
+
+    // Imply a concurrent run by executing tx1 before tx0. tx1 have a nonce of 1 and tx0 have a
+    // nonce of 0 therefore executing tx1 before tx0 should fail it. tx2 has the nonce of 1, so
+    // executing it after tx0 should succeed. tx3 has a nonce of 10 where there are only four
+    // transactions, so it should fail regardless of the execution order.
+    for &(conncurent_run_idx, should_fail_execution) in
+        [(1, true), (0, false), (2, false), (3, true)].iter()
+    {
+        executor.execute_tx(conncurent_run_idx);
+        let execution_task_outputs =
+            lock_mutex_in_array(&executor.execution_outputs, conncurent_run_idx);
+        assert_eq!(execution_task_outputs.as_ref().unwrap().result.is_err(), should_fail_execution);
+    }
+
+    // Imply the sequential commit order. tx0 shoul pass revalidation fix the sequencer balance and
+    // the fee transfer callinfo and commit. tx0 executed after tx1, so it changes the nonce
+    // value thus tx1 should fail the re-validetion. now when re-executing in the right order
+    // tx1 should pass re-execute fix the sequencer balance and the fee transfer callinfo and
+    // commit. note that when tx1 re-executed it chenges the nonce value thus tx2 should fail the
+    // re-validation then when re-executing it should fail becuse it has the same nonce as tx1.
+    // tx3 should pass re-validation and commit.
+    for &(sequential_run_idx, should_fail_execution) in
+        [(0, false), (1, false), (2, true), (3, true)].iter()
+    {
+        executor.commit_tx(sequential_run_idx);
+        let execution_task_outputs =
+            lock_mutex_in_array(&executor.execution_outputs, sequential_run_idx);
+        let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+        let expected_sequencer_balance_high = 0_u128;
+        assert_eq!(execution_result.is_err(), should_fail_execution);
+        // Extract the actual fee. If the transaction fails, no fee should be charged.
+        let actual_fee =
+            if should_fail_execution { 0 } else { execution_result.as_ref().unwrap().actual_fee.0 };
+        if !should_fail_execution {
+            // Check that the storage reads of the fee transfer callinfo are the sequencer balance
+            // before adding the actual fee.
+            for (expected_sequencer_storage_read, read_storage_index) in [
+                (expected_sequencer_balance_low, STORAGE_READ_SEQUENCER_BALANCE_INDICES.0),
+                (expected_sequencer_balance_high, STORAGE_READ_SEQUENCER_BALANCE_INDICES.1),
+            ] {
+                let actual_sequencer_storage_read = execution_result
+                    .as_ref()
+                    .unwrap()
+                    .fee_transfer_call_info
+                    .as_ref()
+                    .unwrap()
+                    .storage_read_values[read_storage_index];
+                assert_eq!(
+                    stark_felt!(expected_sequencer_storage_read),
+                    actual_sequencer_storage_read,
+                );
+            }
+        }
+        drop(execution_task_outputs);
+        // Check fee transfer after commit.
+        validate_fee_transfer(
+            &executor,
+            account_address,
+            sequential_run_idx,
+            stark_felt!(expected_account_balance - actual_fee),
+            stark_felt!(expected_sequencer_balance_low + actual_fee),
+        );
+        expected_sequencer_balance_low += actual_fee;
+        expected_account_balance -= actual_fee;
     }
 }
 
