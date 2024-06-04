@@ -8,7 +8,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::Fee;
 
-use super::versioned_state::VersionedStateProxy;
+use super::versioned_state::{VersionedState, VersionedStateProxy};
 use crate::blockifier::transaction_executor::TransactionExecutorError;
 use crate::bouncer::Bouncer;
 use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
@@ -63,6 +63,29 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             std::iter::repeat_with(|| Mutex::new(None)).take(chunk.len()).collect();
 
         WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context, bouncer }
+    }
+
+    // TODO(barak, 01/08/2024): Remove the `new` method or move it to test utils.
+    pub fn create_factory(
+        state: S,
+        chunk: &'a [Transaction],
+        block_context: BlockContext,
+        bouncer: Mutex<&'a mut Bouncer>,
+    ) -> Self {
+        let versioned_state = VersionedState::new(state);
+        let chunk_state = ThreadSafeVersionedState::new(versioned_state);
+        let scheduler = Scheduler::new(chunk.len());
+        let execution_outputs =
+            std::iter::repeat_with(|| Mutex::new(None)).take(chunk.len()).collect();
+
+        WorkerExecutor {
+            scheduler,
+            state: chunk_state,
+            chunk,
+            execution_outputs,
+            block_context,
+            bouncer,
+        }
     }
 
     pub fn run(&self) {
@@ -292,6 +315,12 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         }
 
         true
+    }
+}
+
+impl<'a, U: UpdatableState> WorkerExecutor<'a, U> {
+    pub fn commit_chunk_and_recover_block_state(self, n_committed_txs: usize) -> U {
+        self.state.into_inner_state().commit_chunk_and_recover_block_state(n_committed_txs)
     }
 }
 
