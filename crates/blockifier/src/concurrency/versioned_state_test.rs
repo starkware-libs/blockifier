@@ -325,6 +325,71 @@ fn test_validate_reads(
 }
 
 #[rstest]
+#[case::storage(
+    StateMaps {
+        storage: HashMap::from(
+            [((contract_address!("0x1"), storage_key!("0x1")), stark_felt!(1_u8))]
+        ),
+        ..Default::default()
+    },
+    StateMaps {
+        storage: HashMap::from(
+            [((contract_address!("0x1"), storage_key!("0x1")), stark_felt!(2_u8))]
+        ),
+        ..Default::default()
+    }
+)]
+#[case::nonces(
+    StateMaps {
+        nonces: HashMap::from([(contract_address!("0x1"), nonce!(1_u8))]),
+        ..Default::default()
+    },
+    StateMaps {
+        nonces: HashMap::from([(contract_address!("0x1"), nonce!(2_u8))]),
+        ..Default::default()
+    }
+)]
+#[case::class_hashes(
+    StateMaps {
+        class_hashes: HashMap::from([(contract_address!("0x1"), class_hash!(1_u8))]),
+        ..Default::default()
+    },
+    StateMaps {
+        class_hashes: HashMap::from([(contract_address!("0x1"), class_hash!(2_u8))]),
+        ..Default::default()
+    }
+)]
+#[case::compiled_class_hashes(
+    StateMaps {
+        compiled_class_hashes: HashMap::from([(class_hash!(1_u8), compiled_class_hash!(1_u8))]),
+        ..Default::default()
+    },
+    StateMaps {
+        compiled_class_hashes: HashMap::from([(class_hash!(1_u8), compiled_class_hash!(2_u8))]),
+        ..Default::default()
+    }
+)]
+#[case::declared_contracts(
+    StateMaps {
+        declared_contracts: HashMap::from([(class_hash!(1_u8), true)]),
+        ..Default::default()
+    },
+    StateMaps {
+        declared_contracts: HashMap::from([(class_hash!(1_u8), false)]),
+        ..Default::default()
+    }
+)]
+fn test_false_validate_reads(
+    #[case] state_maps_to_validate: StateMaps,
+    #[case] state_maps_to_apply: StateMaps,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
+) {
+    let version_state_proxy = safe_versioned_state.pin_version(0);
+    version_state_proxy.state().apply_writes(0, &state_maps_to_apply, &HashMap::default());
+    assert!(!safe_versioned_state.pin_version(1).validate_reads(&state_maps_to_validate));
+}
+
+#[rstest]
 fn test_apply_writes(
     contract_address: ContractAddress,
     class_hash: ClassHash,
