@@ -8,7 +8,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::Fee;
 
-use super::versioned_state::VersionedStateProxy;
+use super::versioned_state::{VersionedState, VersionedStateProxy};
 use crate::blockifier::transaction_executor::TransactionExecutorError;
 use crate::bouncer::Bouncer;
 use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
@@ -20,7 +20,7 @@ use crate::context::BlockContext;
 use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{
-    ContractClassMapping, StateChanges, StateMaps, TransactionalState,
+    CachedState, ContractClassMapping, StateChanges, StateMaps, TransactionalState,
 };
 use crate::state::state_api::{StateReader, UpdatableState};
 use crate::transaction::errors::TransactionExecutionError;
@@ -45,7 +45,7 @@ pub struct ExecutionTaskOutput {
 
 pub struct WorkerExecutor<'a, S: StateReader> {
     pub scheduler: Scheduler,
-    pub state: ThreadSafeVersionedState<S>,
+    pub state: ThreadSafeVersionedState<CachedState<S>>,
     pub chunk: &'a [Transaction],
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
     pub block_context: BlockContext,
@@ -53,7 +53,7 @@ pub struct WorkerExecutor<'a, S: StateReader> {
 }
 impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     pub fn new(
-        state: ThreadSafeVersionedState<S>,
+        state: ThreadSafeVersionedState<CachedState<S>>,
         chunk: &'a [Transaction],
         block_context: BlockContext,
         bouncer: Mutex<&'a mut Bouncer>,
@@ -63,6 +63,29 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             std::iter::repeat_with(|| Mutex::new(None)).take(chunk.len()).collect();
 
         WorkerExecutor { scheduler, state, chunk, execution_outputs, block_context, bouncer }
+    }
+
+    // TODO(barak, 01/08/2024): Remove the `new` method or move it to test utils.
+    pub fn create_factory(
+        state: CachedState<S>,
+        chunk: &'a [Transaction],
+        block_context: BlockContext,
+        bouncer: Mutex<&'a mut Bouncer>,
+    ) -> Self {
+        let versioned_state = VersionedState::new(state);
+        let chunk_state = ThreadSafeVersionedState::new(versioned_state);
+        let scheduler = Scheduler::new(chunk.len());
+        let execution_outputs =
+            std::iter::repeat_with(|| Mutex::new(None)).take(chunk.len()).collect();
+
+        WorkerExecutor {
+            scheduler,
+            state: chunk_state,
+            chunk,
+            execution_outputs,
+            block_context,
+            bouncer,
+        }
     }
 
     pub fn run(&self) {
@@ -79,6 +102,10 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 Task::Done => break,
             };
         }
+    }
+
+    pub fn commit_chunk_and_recover_block_state(self, commit_index: TxIndex) -> CachedState<S> {
+        self.state.into_inner_state().commit_chunk_and_recover_block_state(commit_index)
     }
 
     fn commit_while_possible(&self) {
