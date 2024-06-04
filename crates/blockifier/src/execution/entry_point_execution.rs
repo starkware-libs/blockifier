@@ -27,7 +27,6 @@ use crate::state::state_api::State;
 
 pub struct VmExecutionContext<'a> {
     pub runner: CairoRunner,
-    pub vm: VirtualMachine,
     pub syscall_handler: SyscallHintProcessor<'a>,
     pub initial_syscall_ptr: Relocatable,
     pub entry_point: EntryPointV1,
@@ -56,7 +55,6 @@ pub fn execute_entry_point_call(
 
     let VmExecutionContext {
         mut runner,
-        mut vm,
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point,
@@ -65,7 +63,7 @@ pub fn execute_entry_point_call(
 
     let args = prepare_call_arguments(
         &syscall_handler.call,
-        &mut vm,
+        &mut runner,
         initial_syscall_ptr,
         &mut syscall_handler.read_only_segments,
         &entry_point,
@@ -90,7 +88,6 @@ pub fn execute_entry_point_call(
     )?;
 
     let call_info = finalize_execution(
-        vm,
         runner,
         syscall_handler,
         previous_resources,
@@ -157,8 +154,6 @@ pub fn initialize_execution_context<'a>(
         trace_enabled,
     )?;
 
-    let mut vm = VirtualMachine::new(trace_enabled);
-
     // Initialize program with all builtins.
     let program_builtins = [
         BuiltinName::bitwise,
@@ -173,10 +168,10 @@ pub fn initialize_execution_context<'a>(
     runner.initialize_function_runner_cairo_1(&program_builtins)?;
     let mut read_only_segments = ReadOnlySegments::default();
     let program_extra_data_length =
-        prepare_program_extra_data(&mut vm, contract_class, &mut read_only_segments)?;
+        prepare_program_extra_data(&mut runner, contract_class, &mut read_only_segments)?;
 
     // Instantiate syscall handler.
-    let initial_syscall_ptr = vm.add_memory_segment();
+    let initial_syscall_ptr = runner.vm.add_memory_segment();
     let syscall_handler = SyscallHintProcessor::new(
         state,
         resources,
@@ -189,7 +184,6 @@ pub fn initialize_execution_context<'a>(
 
     Ok(VmExecutionContext {
         runner,
-        vm,
         syscall_handler,
         initial_syscall_ptr,
         entry_point,
@@ -198,7 +192,7 @@ pub fn initialize_execution_context<'a>(
 }
 
 fn prepare_program_extra_data(
-    vm: &mut VirtualMachine,
+    runner: &mut CairoRunner,
     contract_class: &ContractClassV1,
     read_only_segments: &mut ReadOnlySegments,
 ) -> Result<usize, PreExecutionError> {
@@ -209,15 +203,15 @@ fn prepare_program_extra_data(
     for _i in 0..20 {
         data.push(MaybeRelocatable::from(0));
     }
-    let builtin_cost_segment_start = read_only_segments.allocate(vm, &data)?;
+    let builtin_cost_segment_start = read_only_segments.allocate(&mut runner.vm, &data)?;
 
     // Put a pointer to the builtin cost segment at the end of the program (after the
     // additional `ret` statement).
-    let mut ptr = (vm.get_pc() + contract_class.bytecode_length())?;
+    let mut ptr = (runner.vm.get_pc() + contract_class.bytecode_length())?;
     // Push a `ret` opcode.
-    write_felt(vm, &mut ptr, felt!(0x208b7fff7fff7ffe_u128))?;
+    write_felt(&mut runner.vm, &mut ptr, felt!(0x208b7fff7fff7ffe_u128))?;
     // Push a pointer to the builtin cost segment.
-    write_maybe_relocatable(vm, &mut ptr, builtin_cost_segment_start)?;
+    write_maybe_relocatable(&mut runner.vm, &mut ptr, builtin_cost_segment_start)?;
 
     let program_extra_data_length = 2;
     Ok(program_extra_data_length)
@@ -225,7 +219,7 @@ fn prepare_program_extra_data(
 
 pub fn prepare_call_arguments(
     call: &CallEntryPoint,
-    vm: &mut VirtualMachine,
+    runner: &mut CairoRunner,
     initial_syscall_ptr: Relocatable,
     read_only_segments: &mut ReadOnlySegments,
     entrypoint: &EntryPointV1,
@@ -234,23 +228,26 @@ pub fn prepare_call_arguments(
 
     // Push builtins.
     for builtin_name in &entrypoint.builtins {
-        if let Some(builtin) =
-            vm.get_builtin_runners().iter().find(|builtin| builtin.name().to_str() == builtin_name)
+        if let Some(builtin) = runner
+            .vm
+            .get_builtin_runners()
+            .iter()
+            .find(|builtin| builtin.name().to_str_with_suffix() == builtin_name)
         {
             args.extend(builtin.initial_stack().into_iter().map(CairoArg::Single));
             continue;
         }
-        if builtin_name == BuiltinName::segment_arena.to_str() {
-            let segment_arena = vm.add_memory_segment();
+        if builtin_name == BuiltinName::segment_arena.to_str_with_suffix() {
+            let segment_arena = runner.vm.add_memory_segment();
 
             // Write into segment_arena.
             let mut ptr = segment_arena;
-            let info_segment = vm.add_memory_segment();
+            let info_segment = runner.vm.add_memory_segment();
             let n_constructed = Felt::default();
             let n_destructed = Felt::default();
-            write_maybe_relocatable(vm, &mut ptr, info_segment)?;
-            write_felt(vm, &mut ptr, n_constructed)?;
-            write_felt(vm, &mut ptr, n_destructed)?;
+            write_maybe_relocatable(&mut runner.vm, &mut ptr, info_segment)?;
+            write_felt(&mut runner.vm, &mut ptr, n_constructed)?;
+            write_felt(&mut runner.vm, &mut ptr, n_destructed)?;
 
             args.push(CairoArg::Single(MaybeRelocatable::from(ptr)));
             continue;
@@ -267,7 +264,7 @@ pub fn prepare_call_arguments(
     let calldata: Vec<MaybeRelocatable> =
         calldata.iter().map(|&arg| MaybeRelocatable::from(arg)).collect();
 
-    let calldata_start_ptr = read_only_segments.allocate(vm, &calldata)?;
+    let calldata_start_ptr = read_only_segments.allocate(&mut runner.vm, &calldata)?;
     let calldata_end_ptr = MaybeRelocatable::from((calldata_start_ptr + calldata.len())?);
     args.push(CairoArg::Single(MaybeRelocatable::from(calldata_start_ptr)));
     args.push(CairoArg::Single(calldata_end_ptr));
@@ -296,8 +293,7 @@ pub fn run_entry_point(
 }
 
 pub fn finalize_execution(
-    mut vm: VirtualMachine,
-    runner: CairoRunner,
+    mut runner: CairoRunner,
     syscall_handler: SyscallHintProcessor<'_>,
     previous_resources: ExecutionResources,
     n_total_args: usize,
@@ -308,17 +304,17 @@ pub fn finalize_execution(
         .program_base
         .expect("The `program_base` field should be initialized after running the entry point.");
     let program_end_ptr = (program_start_ptr + runner.get_program().data_len())?;
-    vm.mark_address_range_as_accessed(program_end_ptr, program_extra_data_length)?;
+    runner.vm.mark_address_range_as_accessed(program_end_ptr, program_extra_data_length)?;
 
     let initial_fp = runner
         .get_initial_fp()
         .expect("The `initial_fp` field should be initialized after running the entry point.");
     // When execution starts the stack holds the EP arguments + [ret_fp, ret_pc].
     let args_ptr = (initial_fp - (n_total_args + 2))?;
-    vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
-    syscall_handler.read_only_segments.mark_as_accessed(&mut vm)?;
+    runner.vm.mark_address_range_as_accessed(args_ptr, n_total_args)?;
+    syscall_handler.read_only_segments.mark_as_accessed(&mut runner.vm)?;
 
-    let call_result = get_call_result(&vm, &syscall_handler)?;
+    let call_result = get_call_result(&runner.vm, &syscall_handler)?;
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
