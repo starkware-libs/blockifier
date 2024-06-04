@@ -19,7 +19,7 @@ use crate::state::cached_state::StateMaps;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
-use crate::test_utils::initial_test_state::test_state_reader;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
     MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
@@ -43,9 +43,8 @@ fn test_worker_execute() {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state_reader =
-        test_state_reader(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
-    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
     let test_contract_address = test_contract.get_instance_address(0);
@@ -216,9 +215,8 @@ fn test_worker_validate() {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state_reader =
-        test_state_reader(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
-    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
     let test_contract_address = test_contract.get_instance_address(0);
@@ -320,11 +318,8 @@ pub fn test_add_fee_to_sequencer_balance(
     let tx_index = 0;
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
     let account = FeatureContract::Empty(CairoVersion::Cairo1);
-    let safe_versioned_state = safe_versioned_state_for_testing(test_state_reader(
-        &block_context.chain_info,
-        0,
-        &[(account, 1)],
-    ));
+    let safe_versioned_state =
+        safe_versioned_state_for_testing(test_state(&block_context.chain_info, 0, &[(account, 1)]));
     let mut tx_versioned_state = safe_versioned_state.pin_version(tx_index);
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(&block_context);
@@ -371,8 +366,8 @@ fn test_deploy_before_declare() {
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
-    let state_reader = test_state_reader(chain_info, BALANCE, &[(account_contract, 2)]);
-    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 2)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
     let account_address_0 = account_contract.get_instance_address(0);
