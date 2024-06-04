@@ -1,4 +1,6 @@
 use std::sync::Arc;
+#[cfg(feature = "concurrency")]
+use std::sync::Mutex;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::FoldWhile::{Continue, Done};
@@ -8,6 +10,8 @@ use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
 use crate::bouncer::{Bouncer, BouncerWeights};
+#[cfg(feature = "concurrency")]
+use crate::concurrency::worker_logic::WorkerExecutor;
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -110,41 +114,6 @@ impl<S: StateReader> TransactionExecutor<S> {
         }
     }
 
-    /// Executes the given transactions on the state maintained by the executor.
-    /// Stops if and when there is no more room in the block, and returns the executed transactions'
-    /// results.
-    pub fn execute_txs(
-        &mut self,
-        txs: &[Transaction],
-        charge_fee: bool,
-    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
-        if !self.config.concurrency_config.enabled {
-            self.execute_txs_sequentially(txs, charge_fee)
-        } else {
-            txs.chunks(self.config.concurrency_config.chunk_size)
-                .fold_while(Vec::new(), |mut results, chunk| {
-                    let chunk_results = self.execute_chunk(chunk, charge_fee);
-                    if chunk_results.len() < chunk.len() {
-                        // Block is full.
-                        results.extend(chunk_results);
-                        Done(results)
-                    } else {
-                        results.extend(chunk_results);
-                        Continue(results)
-                    }
-                })
-                .into_inner()
-        }
-    }
-
-    pub fn execute_chunk(
-        &mut self,
-        _chunk: &[Transaction],
-        _charge_fee: bool,
-    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
-        todo!()
-    }
-
     pub fn execute_txs_sequentially(
         &mut self,
         txs: &[Transaction],
@@ -159,6 +128,15 @@ impl<S: StateReader> TransactionExecutor<S> {
             }
         }
         results
+    }
+
+    #[cfg(not(feature = "concurrency"))]
+    pub fn execute_chunk(
+        &mut self,
+        _chunk: &[Transaction],
+        _charge_fee: bool,
+    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        unimplemented!()
     }
 
     pub fn validate(
@@ -232,5 +210,103 @@ impl<S: StateReader> TransactionExecutor<S> {
             visited_segments,
             *self.bouncer.get_accumulated_weights(),
         ))
+    }
+}
+
+impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
+    /// Executes the given transactions on the state maintained by the executor.
+    /// Stops if and when there is no more room in the block, and returns the executed transactions'
+    /// results.
+    pub fn execute_txs(
+        &mut self,
+        txs: &[Transaction],
+        charge_fee: bool,
+    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        if !self.config.concurrency_config.enabled {
+            self.execute_txs_sequentially(txs, charge_fee)
+        } else {
+            txs.chunks(self.config.concurrency_config.chunk_size)
+                .fold_while(Vec::new(), |mut results, chunk| {
+                    let chunk_results = self.execute_chunk(chunk, charge_fee);
+                    if chunk_results.len() < chunk.len() {
+                        // Block is full.
+                        results.extend(chunk_results);
+                        Done(results)
+                    } else {
+                        results.extend(chunk_results);
+                        Continue(results)
+                    }
+                })
+                .into_inner()
+        }
+    }
+
+    #[cfg(feature = "concurrency")]
+    pub fn execute_chunk(
+        &mut self,
+        chunk: &[Transaction],
+        // TODO(barak, 01/08/2024): Make `charge_fee` a parameter of `WorkerExecutor`.
+        _charge_fee: bool,
+    ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        let block_state = self.block_state.take().expect("The block state should be `Some`.");
+        // TODO(barak, 01/08/2024): Make the transaction executor's block context's concurrency mode
+        // true from the context it was called.
+        let mut concurrent_block_context = self.block_context.clone();
+        concurrent_block_context.concurrency_mode = true;
+
+        let worker_executor_factory = Arc::new(WorkerExecutor::create_factory(
+            block_state,
+            chunk,
+            concurrent_block_context,
+            Mutex::new(&mut self.bouncer),
+        ));
+
+        // No thread pool implementation is needed here since we already have our scheduler. The
+        // initialized threads below will "busy wait" for new tasks using the `run` method until the
+        // chunk execution is completed, and then they will be joined together in a for loop.
+        // TODO(barak, 01/07/2024): Consider using tokio and spawn tasks that will be served by some
+        // upper level tokio thread pool (Runtime in tokio terminology).
+        std::thread::scope(|s| {
+            for _ in 0..self.config.concurrency_config.n_workers {
+                let worker_executor = Arc::clone(&worker_executor_factory);
+                s.spawn(move || {
+                    worker_executor.run();
+                });
+            }
+        });
+
+        let n_committed_txs = worker_executor_factory.scheduler.get_n_committed_txs();
+        let tx_execution_results = worker_executor_factory
+            .execution_outputs
+            .iter()
+            .fold_while(Vec::new(), |mut results, execution_output| {
+                if results.len() >= n_committed_txs {
+                    Done(results)
+                } else {
+                    let locked_execution_output = execution_output
+                        .lock()
+                        .expect("Failed to lock execution output.")
+                        .take()
+                        .expect("Output must be ready.");
+                    results.push(
+                        locked_execution_output.result.map_err(TransactionExecutorError::from),
+                    );
+                    Continue(results)
+                }
+            })
+            .into_inner();
+
+        let block_state_after_commit = Arc::try_unwrap(worker_executor_factory)
+            .unwrap_or_else(|_| {
+                panic!(
+                    "To consume the block state, you must have only one strong reference to the \
+                     worker executor factory. Consider dropping objects that hold a reference to \
+                     it."
+                )
+            })
+            .commit_chunk_and_recover_block_state(n_committed_txs);
+        self.block_state.replace(block_state_after_commit);
+
+        tx_execution_results
     }
 }
