@@ -307,7 +307,7 @@ fn test_builtin_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Inconsistent auto-deduction for builtin pedersen",
+        "Inconsistent auto-deduction for pedersen_builtin",
         "test_bad_pedersen_values",
         calldata![],
     );
@@ -385,9 +385,9 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Requested contract address \
-         ContractAddress(PatriciaKey(Felt(\"\
-         0x0000000000000000000000000000000000000000000000000000000000000017\"))) is not deployed",
+        "Requested contract address ContractAddress(PatriciaKey(Felt(FieldElement { value: \
+         UnsignedInteger { limbs: [576460752303410992, 18446744073709551615, \
+         18446744073709551615, 18446744073709550881] } }))) is not deployed",
         "test_bad_call_address",
         calldata![],
     );
@@ -401,10 +401,9 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Entry point \
-         EntryPointSelector(Felt(\"\
-         0x0000000000000000000000000000000000000000000000000000000000000019\")) not found in \
-         contract",
+        "Entry point EntryPointSelector(Felt(FieldElement { value: UnsignedInteger { limbs: \
+         [576460752303409904, 18446744073709551615, 18446744073709551615, 18446744073709550817] } \
+         })) not found in contract",
         "test_bad_call_selector",
         calldata![],
     );
@@ -426,14 +425,14 @@ fn test_post_run_validation_security_failure() {
     run_security_test(
         state,
         security_contract,
-        "Missing memory cells for builtin range_check",
+        "Missing memory cells for range_check_builtin",
         "test_builtin_hole",
         calldata![],
     );
     run_security_test(
         state,
         security_contract,
-        "Missing memory cells for builtin pedersen",
+        "Missing memory cells for pedersen_builtin",
         "test_missing_pedersen_values",
         calldata![],
     );
