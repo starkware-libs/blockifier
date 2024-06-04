@@ -53,8 +53,13 @@ fn global_contract_cache_update() {
 
     assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 0);
 
-    let queried_contract_class =
-        block_executor.tx_executor().state.get_compiled_contract_class(class_hash).unwrap();
+    let queried_contract_class = block_executor
+        .tx_executor()
+        .block_state
+        .as_ref()
+        .expect("The block state should be `Some`.")
+        .get_compiled_contract_class(class_hash)
+        .unwrap();
 
     assert_eq!(queried_contract_class, contract_class);
     assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 1);

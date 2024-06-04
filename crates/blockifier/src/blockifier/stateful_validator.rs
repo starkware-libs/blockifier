@@ -110,7 +110,7 @@ impl<S: StateReader> StatefulValidator<S> {
         // Run pre-validation in charge fee mode to perform fee and balance related checks.
         let charge_fee = true;
         tx.perform_pre_validation_stage(
-            &mut self.tx_executor.state,
+            self.tx_executor.block_state.as_mut().expect("The block state should be `Some`."),
             tx_context,
             charge_fee,
             strict_nonce_check,
@@ -127,7 +127,12 @@ impl<S: StateReader> StatefulValidator<S> {
         tx_info: &TransactionInfo,
         deploy_account_tx_hash: Option<TransactionHash>,
     ) -> StatefulValidatorResult<bool> {
-        let nonce = self.tx_executor.state.get_nonce_at(tx_info.sender_address())?;
+        let nonce = self
+            .tx_executor
+            .block_state
+            .as_ref()
+            .expect("The block state should be `Some`.")
+            .get_nonce_at(tx_info.sender_address())?;
         let tx_nonce = tx_info.nonce();
 
         let deploy_account_not_processed =
