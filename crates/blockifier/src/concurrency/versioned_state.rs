@@ -24,6 +24,7 @@ const READ_ERR: &str = "Error: read value missing in the versioned storage";
 /// Reader functionality is injected through initial state.
 #[derive(Debug)]
 pub struct VersionedState<S: StateReader> {
+    // TODO(barak, 01/08/2024): Change initial_state to block_state.
     initial_state: S,
     storage: VersionedStorage<(ContractAddress, StorageKey), StarkFelt>,
     nonces: VersionedStorage<ContractAddress, Nonce>,
@@ -47,6 +48,10 @@ impl<S: StateReader> VersionedState<S> {
             compiled_contract_classes: VersionedStorage::default(),
             declared_contracts: VersionedStorage::default(),
         }
+    }
+
+    pub fn consume_block_state(self) -> S {
+        self.initial_state
     }
 
     fn get_writes_up_to_index(&mut self, tx_index: TxIndex) -> StateMaps {
@@ -208,6 +213,19 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
 
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
+    }
+
+    pub fn consume_versioned_state(self) -> VersionedState<S> {
+        Arc::try_unwrap(self.0)
+            .unwrap_or_else(|_| {
+                panic!(
+                    "In order to consume VersionedState you must to have only one strong refernce \
+                     to the ThreadSafeVersionedState. Consider dropping objects that hold a \
+                     refernce to the VersionedState."
+                )
+            })
+            .into_inner()
+            .expect("No other Mutex should hold the VersionedState while calling this method.")
     }
 }
 
