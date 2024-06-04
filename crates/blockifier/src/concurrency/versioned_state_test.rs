@@ -174,10 +174,10 @@ fn test_versioned_state_proxy() {
     assert!(
         versioned_state_proxys[4].state().declared_contracts.read(4, another_class_hash).unwrap()
     );
-    // Ignore the writes in the current transaction.
+    // Includes the writes in the current transaction.
     assert_eq!(
         versioned_state_proxys[10].get_class_hash_at(contract_address).unwrap(),
-        class_hash_v7
+        class_hash_v10
     );
     assert_eq!(
         versioned_state_proxys[2].get_compiled_class_hash(class_hash).unwrap(),

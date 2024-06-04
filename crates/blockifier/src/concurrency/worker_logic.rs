@@ -208,9 +208,8 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 return Ok(true);
             }
 
-            let mut next_tx_versioned_state = self.state.pin_version(tx_index + 1);
-            let (sequencer_balance_value_low, sequencer_balance_value_high) =
-                next_tx_versioned_state.get_fee_token_balance(
+            let (sequencer_balance_value_low, sequencer_balance_value_high) = tx_versioned_state
+                .get_fee_token_balance(
                     tx_context.block_context.block_info.sequencer_address,
                     tx_context.fee_token_address(),
                 )?;
