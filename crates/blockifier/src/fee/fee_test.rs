@@ -87,13 +87,15 @@ fn test_float_calculate_l1_gas_by_vm_usage() {
 
     // Another positive flow, this time the heaviest resource is ecdsa_builtin.
     vm_resource_usage.n_steps = 200;
-    let l1_gas_by_vm_usage =
-        ((*versioned_constants.vm_resource_fee_cost().get(BuiltinName::ecdsa.to_str()).unwrap())
-            * u128_from_usize(
-                *vm_resource_usage.builtin_instance_counter.get(&BuiltinName::ecdsa).unwrap(),
-            ))
-        .ceil()
-        .to_integer();
+    let l1_gas_by_vm_usage = ((*versioned_constants
+        .vm_resource_fee_cost()
+        .get(BuiltinName::ecdsa.to_str_with_suffix())
+        .unwrap())
+        * u128_from_usize(
+            *vm_resource_usage.builtin_instance_counter.get(&BuiltinName::ecdsa).unwrap(),
+        ))
+    .ceil()
+    .to_integer();
 
     assert_eq!(
         GasVector::from_l1_gas(l1_gas_by_vm_usage),
