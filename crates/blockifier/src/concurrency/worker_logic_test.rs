@@ -110,7 +110,7 @@ fn test_worker_execute() {
     // Read a write made by the transaction.
     assert_eq!(
         safe_versioned_state
-            .pin_version(tx_index + 1)
+            .pin_version(tx_index)
             .get_storage_at(test_contract_address, storage_key)
             .unwrap(),
         storage_value
@@ -170,7 +170,7 @@ fn test_worker_execute() {
     worker_executor.execute(tx_index);
     // No write was made by the transaction.
     assert_eq!(
-        safe_versioned_state.pin_version(tx_index + 1).get_nonce_at(account_address).unwrap(),
+        safe_versioned_state.pin_version(tx_index).get_nonce_at(account_address).unwrap(),
         nonce!(1_u8)
     );
     let execution_output = worker_executor.execution_outputs[tx_index].lock().unwrap();
@@ -189,7 +189,7 @@ fn test_worker_execute() {
     worker_executor.execute(tx_index);
     // Read a write made by the transaction.
     assert_eq!(
-        safe_versioned_state.pin_version(tx_index + 1).get_nonce_at(account_address).unwrap(),
+        safe_versioned_state.pin_version(tx_index).get_nonce_at(account_address).unwrap(),
         nonce!(2_u8)
     );
     let execution_output = worker_executor.execution_outputs[tx_index].lock().unwrap();
@@ -279,7 +279,7 @@ fn test_worker_validate() {
     // Verify writes exist in state.
     assert_eq!(
         safe_versioned_state
-            .pin_version(tx_index + 1)
+            .pin_version(tx_index)
             .get_storage_at(test_contract_address, storage_key)
             .unwrap(),
         storage_value0
@@ -294,7 +294,7 @@ fn test_worker_validate() {
     // Verify writes were removed.
     assert_eq!(
         safe_versioned_state
-            .pin_version(tx_index + 1)
+            .pin_version(tx_index)
             .get_storage_at(test_contract_address, storage_key)
             .unwrap(),
         storage_value0
@@ -339,14 +339,11 @@ pub fn test_add_fee_to_sequencer_balance(
         sequencer_balance_low,
         sequencer_balance_high,
     );
-    let next_tx_versioned_state = safe_versioned_state.pin_version(tx_index + 1);
 
-    let new_sequencer_balance_value_low = next_tx_versioned_state
-        .get_storage_at(fee_token_address, sequencer_balance_key_low)
-        .unwrap();
-    let new_sequencer_balance_value_high = next_tx_versioned_state
-        .get_storage_at(fee_token_address, sequencer_balance_key_high)
-        .unwrap();
+    let new_sequencer_balance_value_low =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_low).unwrap();
+    let new_sequencer_balance_value_high =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_high).unwrap();
     let expected_balance =
         (stark_felt_to_felt(sequencer_balance_low) + Felt252::from(actual_fee.0)).to_biguint();
 
