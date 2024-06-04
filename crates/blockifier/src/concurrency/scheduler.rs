@@ -149,6 +149,10 @@ impl Scheduler {
         }
     }
 
+    pub fn get_last_committed_index(&self) -> usize {
+        *self.commit_index.lock().unwrap()
+    }
+
     fn lock_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {
         lock_mutex_in_array(&self.tx_statuses, tx_index)
     }
