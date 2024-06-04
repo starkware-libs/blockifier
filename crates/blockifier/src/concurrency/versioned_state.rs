@@ -119,7 +119,6 @@ impl<S: StateReader> VersionedState<S> {
             }
         }
 
-        // Added for symmetry. We currently do not update this initial mapping.
         for (&class_hash, expected_value) in &reads.compiled_class_hashes {
             let value = self.compiled_class_hashes.read(tx_index, class_hash).expect(READ_ERR);
 
@@ -315,6 +314,11 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
                 }
                 Err(StateError::UndeclaredClassHash(class_hash)) => {
                     state.declared_contracts.set_initial_value(class_hash, false);
+                    // Papyrus storage does not support read action for compiled_class_hashes
+                    // values. We artificially insert StarkFelt::ZERO for undeclared contracts.
+                    state
+                        .compiled_class_hashes
+                        .set_initial_value(class_hash, CompiledClassHash(StarkFelt::ZERO));
                     Err(StateError::UndeclaredClassHash(class_hash))?
                 }
                 Err(error) => Err(error)?,
