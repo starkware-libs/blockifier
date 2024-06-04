@@ -68,6 +68,7 @@ macro_rules! invoke_tx_args {
 }
 
 pub fn invoke_tx(invoke_args: InvokeTxArgs) -> InvokeTransaction {
+    // TODO: Make TransactionVersion an enum and use match here.
     let invoke_tx = if invoke_args.version == TransactionVersion::ZERO {
         starknet_api::transaction::InvokeTransaction::V0(InvokeTransactionV0 {
             max_fee: invoke_args.max_fee,

@@ -75,6 +75,7 @@ pub fn deploy_account_tx(
     )
     .unwrap();
 
+    // TODO: Make TransactionVersion an enum and use match here.
     let tx = if deploy_tx_args.version == TransactionVersion::ONE {
         starknet_api::transaction::DeployAccountTransaction::V1(DeployAccountTransactionV1 {
             max_fee: deploy_tx_args.max_fee,

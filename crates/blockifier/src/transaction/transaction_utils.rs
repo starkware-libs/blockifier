@@ -13,6 +13,7 @@ pub fn verify_contract_class_version(
     declare_version: TransactionVersion,
 ) -> Result<(), TransactionExecutionError> {
     match contract_class {
+        // TODO: Make TransactionVersion an enum and use match here.
         ContractClass::V0(_) => {
             if declare_version == TransactionVersion::ZERO
                 || declare_version == TransactionVersion::ONE

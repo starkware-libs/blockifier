@@ -1035,6 +1035,7 @@ fn declare_validate_callinfo(
 /// Returns the expected used L1 gas and blob gas (according to use_kzg_da flag) due to execution of
 /// a declare transaction.
 fn declare_expected_state_changes_count(version: TransactionVersion) -> StateChangesCount {
+    // TODO: Make TransactionVersion an enum and use match here.
     if version == TransactionVersion::ZERO {
         StateChangesCount {
             n_storage_updates: 1, // Sender balance.
