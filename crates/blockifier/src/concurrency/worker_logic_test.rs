@@ -37,7 +37,7 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
 
-fn _trivial_calldata_invoke_tx(
+fn trivial_calldata_invoke_tx(
     account_address: ContractAddress,
     nonce: Nonce,
 ) -> AccountTransaction {
@@ -50,7 +50,7 @@ fn _trivial_calldata_invoke_tx(
     })
 }
 
-fn _transfer_to_sequencer_tx(
+fn transfer_to_sequencer_tx(
     account_address: ContractAddress,
     block_context: &BlockContext,
     transfer_amount: u128,
@@ -79,7 +79,7 @@ fn _transfer_to_sequencer_tx(
 
 /// Checks that the storage values of the account and sequencer balances in the
 /// versioned state of tx_index equals the expected values.
-fn _validate_fee_transfer<S: StateReader>(
+fn validate_fee_transfer<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     account_address: ContractAddress,
     tx_index: usize,
@@ -114,7 +114,7 @@ fn _validate_fee_transfer<S: StateReader>(
 /// fee transfer call info was filled correctly,
 /// It additionally checks that the actual fee was subtracted from the account balance
 /// and added to the sequencer balance.
-fn _commit_and_validate<S: StateReader>(
+fn commit_and_validate<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     tx_index: usize,
     account_address: ContractAddress,
@@ -149,7 +149,7 @@ fn _commit_and_validate<S: StateReader>(
     }
     drop(execution_task_outputs);
     // Check fee transfer after commit.
-    _validate_fee_transfer(
+    validate_fee_transfer(
         executor,
         account_address,
         tx_index,
@@ -157,6 +157,99 @@ fn _commit_and_validate<S: StateReader>(
         stark_felt!(expected_sequencer_balance_low + actual_fee),
     );
     actual_fee
+}
+
+#[rstest]
+pub fn test_commit_tx() {
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let transfer_amount = 50_u128;
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let mut sequencer_balance_low = 0_u128;
+    let mut account_balance = BALANCE;
+    let mut nonce_manager = NonceManager::default();
+    let main_account_address = account.get_instance_address(0);
+    let first_nonce = nonce_manager.next(main_account_address);
+    let second_nonce = nonce_manager.next(main_account_address);
+
+    // Create transactions.
+    let txs = [
+        trivial_calldata_invoke_tx(main_account_address, first_nonce),
+        transfer_to_sequencer_tx(main_account_address, &block_context, BALANCE / 2, second_nonce),
+        trivial_calldata_invoke_tx(main_account_address, second_nonce),
+        transfer_to_sequencer_tx(
+            account.get_instance_address(1),
+            &block_context,
+            transfer_amount,
+            nonce_manager.next(account.get_instance_address(1)),
+        ),
+        // Invalid nonce.
+        trivial_calldata_invoke_tx(account.get_instance_address(1), nonce!(0_u8)),
+    ]
+    .into_iter()
+    .map(Transaction::AccountTransaction)
+    .collect::<Vec<Transaction>>();
+    let cached_state = test_state(&block_context.chain_info, account_balance, &[(account, 3)]);
+    let versioned_state = safe_versioned_state_for_testing(cached_state);
+    let executor = WorkerExecutor::new(versioned_state, &txs, block_context);
+    for &(conncurent_run_idx, should_fail_execution) in
+        [(1, true), (0, false), (2, false), (3, false), (4, true)].iter()
+    {
+        executor.execute_tx(conncurent_run_idx);
+        let execution_task_outputs =
+            lock_mutex_in_array(&executor.execution_outputs, conncurent_run_idx);
+        assert_eq!(execution_task_outputs.as_ref().unwrap().result.is_err(), should_fail_execution);
+    }
+
+    let actual_fee = commit_and_validate(
+        &executor,
+        0,
+        main_account_address,
+        account_balance,
+        sequencer_balance_low,
+        false,
+    );
+    sequencer_balance_low += actual_fee + BALANCE / 2;
+    account_balance -= actual_fee + BALANCE / 2;
+
+    let actual_fee = commit_and_validate(
+        &executor,
+        1,
+        main_account_address,
+        account_balance,
+        sequencer_balance_low,
+        false,
+    );
+    sequencer_balance_low += actual_fee;
+    account_balance -= actual_fee;
+
+    let actual_fee = commit_and_validate(
+        &executor,
+        2,
+        main_account_address,
+        account_balance,
+        sequencer_balance_low,
+        true,
+    );
+    sequencer_balance_low += actual_fee;
+
+    let actual_fee = commit_and_validate(
+        &executor,
+        3,
+        account.get_instance_address(1),
+        BALANCE - transfer_amount,
+        sequencer_balance_low + transfer_amount,
+        false,
+    );
+    sequencer_balance_low += actual_fee + transfer_amount;
+
+    commit_and_validate(
+        &executor,
+        4,
+        account.get_instance_address(2),
+        BALANCE,
+        sequencer_balance_low,
+        true,
+    );
 }
 
 #[test]
