@@ -8,6 +8,8 @@ use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
 use crate::bouncer::{Bouncer, BouncerConfig, BouncerWeights};
+use crate::concurrency::versioned_state::{ThreadSafeVersionedState, VersionedState};
+use crate::concurrency::worker_logic::WorkerExecutor;
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -51,7 +53,7 @@ pub struct TransactionExecutor<S: StateReader> {
     pub block_state: Option<CachedState<S>>,
 }
 
-impl<S: StateReader> TransactionExecutor<S> {
+impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
     pub fn new(
         block_state: CachedState<S>,
         block_context: BlockContext,
@@ -136,10 +138,65 @@ impl<S: StateReader> TransactionExecutor<S> {
 
     pub fn execute_chunk(
         &mut self,
-        _chunk: &[Transaction],
+        chunk: &[Transaction],
+        // TODO(barak, 01/08/2024): Make `charge_fee` a parameter of `WorkerExecutor`.
         _charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
-        todo!()
+        let block_state = self.block_state.take().expect("The block state should be `Some`.");
+
+        let versioned_state = VersionedState::new(block_state);
+        let chunk_state = ThreadSafeVersionedState::new(versioned_state);
+        // TODO(barak, 01/08/2024): Consider moving `chunk_state` and lock it inside the
+        // WorkerExecutor instead of Arc::clone it.
+        let worker_executor =
+            Arc::new(WorkerExecutor::new(chunk_state.clone(), chunk, self.block_context.clone()));
+
+        // No thread pool implementation is needed here since we already have our scheduler. The
+        // initialized threads below will "busy wait" for new tasks using the `run` method until the
+        // chunk execution is completed, and then they will be joined together in a for loop.
+        // TODO(barak, 01/07/2024): Consider using tokio and spawn tasks that will be served by some
+        // upper level tokio thread pool (Runtime in tokio terminology).
+        std::thread::scope(|s| {
+            for _ in 0..self.config.concurrency_config.n_workers {
+                let worker_executor = Arc::clone(&worker_executor);
+                s.spawn(move || {
+                    worker_executor.run();
+                });
+            }
+        });
+
+        let committed_chunk_size = worker_executor.scheduler.get_last_committed_index();
+        let tx_execution_results = worker_executor
+            .execution_outputs
+            .iter()
+            .fold_while(Vec::new(), |mut results, execution_output| {
+                if results.len() > committed_chunk_size {
+                    Done(results)
+                } else {
+                    let locked_execution_output = execution_output
+                        .lock()
+                        .expect("Failed to lock execution output.")
+                        .take()
+                        .expect("Output must be ready.");
+                    results.push(
+                        locked_execution_output.result.map_err(TransactionExecutorError::from),
+                    );
+                    Continue(results)
+                }
+            })
+            .into_inner();
+
+        // We must verify that we have only one strong reference to the versioned state before
+        // consuming it. Drop the wroker executor that holds a refernce to the versioned state so we
+        // could consume it.
+        drop(worker_executor);
+        let mut versioned_state_after_use = chunk_state.consume_versioned_state();
+        versioned_state_after_use.commit(committed_chunk_size);
+
+        let block_state_after_use = versioned_state_after_use.consume_block_state();
+        self.block_state.replace(block_state_after_use);
+
+        tx_execution_results
     }
 
     pub fn execute_txs_sequentially(

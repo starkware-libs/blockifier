@@ -42,7 +42,7 @@ pub struct StatefulValidator<S: StateReader> {
     max_nonce_for_validation_skip: Nonce,
 }
 
-impl<S: StateReader> StatefulValidator<S> {
+impl<S: StateReader + Send + Sync> StatefulValidator<S> {
     pub fn create(
         state: CachedState<S>,
         block_context: BlockContext,
