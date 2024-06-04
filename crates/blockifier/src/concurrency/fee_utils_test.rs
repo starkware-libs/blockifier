@@ -1,6 +1,6 @@
 use rstest::rstest;
-use starknet_api::hash::Felt;
 use starknet_api::transaction::TransactionVersion;
+use starknet_types_core::felt::Felt;
 
 use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
 use crate::concurrency::test_utils::create_fee_transfer_call_info;

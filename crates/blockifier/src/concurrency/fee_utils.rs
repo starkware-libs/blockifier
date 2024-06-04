@@ -1,4 +1,4 @@
-use starknet_api::hash::Felt;
+use starknet_types_core::felt::Felt;
 
 use crate::execution::call_info::CallInfo;
 #[cfg(test)]

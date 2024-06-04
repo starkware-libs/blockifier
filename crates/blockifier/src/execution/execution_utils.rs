@@ -263,7 +263,7 @@ pub fn max_fee_for_execution_info(tx_info: &TransactionInfo) -> Felt {
 }
 
 pub fn format_panic_data(felts: &[Felt]) -> String {
-    let mut felts = felts.iter().map(|felt| *felt);
+    let mut felts = felts.iter().copied();
     let mut items = Vec::new();
     while let Some(item) = format_next_item(&mut felts) {
         items.push(item.quote_if_string());

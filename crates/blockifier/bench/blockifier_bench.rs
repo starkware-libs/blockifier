@@ -24,9 +24,10 @@ use blockifier::transaction::transaction_execution::Transaction;
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{Rng, SeedableRng};
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::{Felt, FeltConverter, TryIntoFelt};
+use starknet_api::hash::{FeltConverter, TryIntoFelt};
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
 use starknet_api::{calldata, felt};
+use starknet_types_core::felt::Felt;
 
 const N_ACCOUNTS: u16 = 10000;
 const CHUNK_SIZE: usize = 10;
@@ -105,10 +106,13 @@ fn generate_transfer(
     let nonce = nonce_manager.next(sender_address);
 
     let entry_point_selector = selector_from_name(TRANSFER_ENTRY_POINT_NAME);
-    let contract_address = match TRANSACTION_VERSION {
-        TransactionVersion::ONE => *chain_info.fee_token_addresses.eth_fee_token_address.0.key(),
-        TransactionVersion::THREE => *chain_info.fee_token_addresses.strk_fee_token_address.0.key(),
-        _ => panic!("Unsupported transaction version: {TRANSACTION_VERSION:?}"),
+    // TODO: Make TransactionVersion an enum and use match here.
+    let contract_address = if TRANSACTION_VERSION == TransactionVersion::ONE {
+        *chain_info.fee_token_addresses.eth_fee_token_address.0.key()
+    } else if TRANSACTION_VERSION == TransactionVersion::THREE {
+        *chain_info.fee_token_addresses.strk_fee_token_address.0.key()
+    } else {
+        panic!("Unsupported transaction version: {TRANSACTION_VERSION:?}")
     };
 
     let execute_calldata = calldata![

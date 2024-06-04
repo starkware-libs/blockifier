@@ -4,8 +4,10 @@ use std::thread;
 
 use assert_matches::assert_matches;
 use rstest::{fixture, rstest};
-use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::{Felt, FeltConverter, TryIntoFelt};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
+};
+use starknet_api::hash::{FeltConverter, TryIntoFelt};
 use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{calldata, class_hash, contract_address, felt, patricia_key};
 
@@ -51,7 +53,7 @@ fn test_versioned_state_proxy() {
     // Test data
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let contract_address = contract_address!("0x1");
-    let key = storage_key!(16);
+    let key = storage_key!(0x10_u8);
     let stark_felt = felt!(13_u8);
     let nonce = nonce!(2_u8);
     let class_hash = class_hash!(27_u8);
@@ -100,7 +102,7 @@ fn test_versioned_state_proxy() {
     );
 
     // Write to the state.
-    let new_key = storage_key!(17);
+    let new_key = storage_key!(0x11_u8);
     let stark_felt_v3 = felt!(14_u8);
     let nonce_v4 = nonce!(3_u8);
     let class_hash_v7 = class_hash!(28_u8);
@@ -284,7 +286,7 @@ fn test_validate_reads(
     class_hash: ClassHash,
     safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
 ) {
-    let storage_key = storage_key!(16);
+    let storage_key = storage_key!(0x10_u8);
 
     let mut version_state_proxy = safe_versioned_state.pin_version(1);
     let transactional_state = TransactionalState::create_transactional(&mut version_state_proxy);
@@ -474,7 +476,7 @@ fn test_delete_writes_completeness(
             contract_address!("0x1"),
             feature_contract.get_class_hash(),
         )]),
-        storage: HashMap::from([((contract_address!("0x1"), storage_key!(1)), felt!("0x1"))]),
+        storage: HashMap::from([((contract_address!("0x1"), storage_key!(1_u8)), felt!("0x1"))]),
         compiled_class_hashes: HashMap::from([(
             feature_contract.get_class_hash(),
             compiled_class_hash!(0x1_u16),

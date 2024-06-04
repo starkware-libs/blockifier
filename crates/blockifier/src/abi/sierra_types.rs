@@ -41,13 +41,12 @@ pub trait SierraType: Sized {
 
 // Utils.
 pub fn felt_to_u128(felt: &Felt) -> Result<u128, SierraTypeError> {
-    felt.to_u128()
-        .ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: felt.clone(), ty: "u128" })
+    felt.to_u128().ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: *felt, ty: "u128" })
 }
 
 // TODO(barak, 01/10/2023): Move to starknet_api under StorageKey implementation.
 pub fn next_storage_key(key: &StorageKey) -> Result<StorageKey, StarknetApiError> {
-    Ok(StorageKey(PatriciaKey::try_from(Felt::from(*key.0.key() + Felt::ONE))?))
+    Ok(StorageKey(PatriciaKey::try_from(*key.0.key() + Felt::ONE)?))
 }
 
 // Implementations.
@@ -69,7 +68,7 @@ impl SierraType for SierraU128 {
     fn from_memory(vm: &VirtualMachine, ptr: &mut Relocatable) -> SierraTypeResult<Self> {
         let val_as_felt = vm.get_integer(*ptr)?;
         *ptr = (*ptr + 1)?;
-        Ok(Self { val: felt_to_u128(&*val_as_felt)? })
+        Ok(Self { val: felt_to_u128(&val_as_felt)? })
     }
 
     fn from_storage(

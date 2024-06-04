@@ -629,8 +629,8 @@ fn test_invoke_tx_advanced_operations(
     account_tx.execute(state, block_context, true, true).unwrap();
 
     let expected_counters = [
-        (expected_counters[0] + signature_values[0].clone()),
-        (expected_counters[1] + signature_values[1].clone()),
+        (expected_counters[0] + signature_values[0]),
+        (expected_counters[1] + signature_values[1]),
     ];
     let next_nonce = nonce_manager.next(account_address);
     verify_storage_after_invoke_advanced_operations(
