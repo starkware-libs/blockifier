@@ -8,7 +8,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::cached_state::{ContractClassMapping, StateMaps};
 use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult, UpdatableState};
 
@@ -37,7 +37,7 @@ pub struct VersionedState<S: StateReader> {
     compiled_contract_classes: VersionedStorage<ClassHash, ContractClass>,
 }
 
-impl<S: StateReader> VersionedState<S> {
+impl<S: UpdatableState> VersionedState<S> {
     pub fn new(initial_state: S) -> Self {
         VersionedState {
             initial_state,
@@ -75,16 +75,11 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
-    where
-        T: StateReader,
-    {
-        let writes = self.get_writes_up_to_index(from_index);
-
-        parent_state.update_cache(
-            &writes,
-            self.compiled_contract_classes.get_writes_up_to_index(from_index),
-        );
+    pub fn commit(&mut self, index: TxIndex) {
+        let writes = self.get_writes_up_to_index(index);
+        let class_hash_to_class = self.compiled_contract_classes.get_writes_up_to_index(index);
+        // TODO(barak, 01/08/2024): Add visited_pcs argument to `apply_writes`.
+        self.initial_state.apply_writes(&writes, &class_hash_to_class, &HashMap::default());
     }
 
     // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared
@@ -203,10 +198,14 @@ impl<S: StateReader> VersionedState<S> {
     }
 }
 
-pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
+// TODO(barak, 01/07/2024): Re-consider the API (pub functions) of VersionedState,
+// ThreadSafeVersionedState and VersionedStateProxy.
+// TODO(barak, 01/07/2024): Re-consider the necessity ot ThreadSafeVersionedState once the worker
+// logic is completed.
+pub struct ThreadSafeVersionedState<S: UpdatableState>(Arc<Mutex<VersionedState<S>>>);
 pub type LockedVersionedState<'a, S> = MutexGuard<'a, VersionedState<S>>;
 
-impl<S: StateReader> ThreadSafeVersionedState<S> {
+impl<S: UpdatableState> ThreadSafeVersionedState<S> {
     pub fn new(versioned_state: VersionedState<S>) -> Self {
         ThreadSafeVersionedState(Arc::new(Mutex::new(versioned_state)))
     }
@@ -229,18 +228,18 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
     }
 }
 
-impl<S: StateReader> Clone for ThreadSafeVersionedState<S> {
+impl<S: UpdatableState> Clone for ThreadSafeVersionedState<S> {
     fn clone(&self) -> Self {
         ThreadSafeVersionedState(Arc::clone(&self.0))
     }
 }
 
-pub struct VersionedStateProxy<S: StateReader> {
+pub struct VersionedStateProxy<S: UpdatableState> {
     pub tx_index: TxIndex,
     pub state: Arc<Mutex<VersionedState<S>>>,
 }
 
-impl<S: StateReader> VersionedStateProxy<S> {
+impl<S: UpdatableState> VersionedStateProxy<S> {
     fn state(&self) -> LockedVersionedState<'_, S> {
         self.state.lock().expect("Failed to acquire state lock.")
     }
@@ -255,7 +254,7 @@ impl<S: StateReader> VersionedStateProxy<S> {
 }
 
 // TODO(OriF, 15/5/24): Consider using visited_pcs.
-impl<S: StateReader> UpdatableState for VersionedStateProxy<S> {
+impl<S: UpdatableState> UpdatableState for VersionedStateProxy<S> {
     fn apply_writes(
         &mut self,
         writes: &StateMaps,
@@ -266,7 +265,7 @@ impl<S: StateReader> UpdatableState for VersionedStateProxy<S> {
     }
 }
 
-impl<S: StateReader> StateReader for VersionedStateProxy<S> {
+impl<S: UpdatableState> StateReader for VersionedStateProxy<S> {
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
