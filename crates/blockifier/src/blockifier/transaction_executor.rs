@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::FoldWhile::{Continue, Done};
@@ -8,6 +8,7 @@ use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
 use crate::bouncer::{Bouncer, BouncerWeights};
+use crate::concurrency::worker_logic::WorkerExecutor;
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -54,7 +55,7 @@ pub struct TransactionExecutor<S: StateReader> {
     pub block_state: Option<CachedState<S>>,
 }
 
-impl<S: StateReader> TransactionExecutor<S> {
+impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
     pub fn new(
         block_state: CachedState<S>,
         block_context: BlockContext,
@@ -139,10 +140,66 @@ impl<S: StateReader> TransactionExecutor<S> {
 
     pub fn execute_chunk(
         &mut self,
-        _chunk: &[Transaction],
+        chunk: &[Transaction],
+        // TODO(barak, 01/08/2024): Make `charge_fee` a parameter of `WorkerExecutor`.
         _charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
-        todo!()
+        let block_state = self.block_state.take().expect("The block state should be `Some`.");
+
+        let worker_executor_factory = Arc::new(WorkerExecutor::create_factory(
+            block_state,
+            chunk,
+            self.block_context.clone(),
+            Mutex::new(&mut self.bouncer),
+        ));
+
+        // No thread pool implementation is needed here since we already have our scheduler. The
+        // initialized threads below will "busy wait" for new tasks using the `run` method until the
+        // chunk execution is completed, and then they will be joined together in a for loop.
+        // TODO(barak, 01/07/2024): Consider using tokio and spawn tasks that will be served by some
+        // upper level tokio thread pool (Runtime in tokio terminology).
+        std::thread::scope(|s| {
+            for _ in 0..self.config.concurrency_config.n_workers {
+                let worker_executor = Arc::clone(&worker_executor_factory);
+                s.spawn(move || {
+                    worker_executor.run();
+                });
+            }
+        });
+
+        let commit_index = worker_executor_factory.scheduler.get_n_committed_txs() - 1;
+        let tx_execution_results = worker_executor_factory
+            .execution_outputs
+            .iter()
+            .fold_while(Vec::new(), |mut results, execution_output| {
+                if results.len() > commit_index {
+                    Done(results)
+                } else {
+                    let locked_execution_output = execution_output
+                        .lock()
+                        .expect("Failed to lock execution output.")
+                        .take()
+                        .expect("Output must be ready.");
+                    results.push(
+                        locked_execution_output.result.map_err(TransactionExecutorError::from),
+                    );
+                    Continue(results)
+                }
+            })
+            .into_inner();
+
+        let block_state_after_commit = Arc::try_unwrap(worker_executor_factory)
+            .unwrap_or_else(|_| {
+                panic!(
+                    "To consume the block state, you must have only one strong reference to the \
+                     worker executor factory. Consider dropping objects that hold a reference to \
+                     it."
+                )
+            })
+            .commit_chunk_and_recover_block_state(commit_index);
+        self.block_state.replace(block_state_after_commit);
+
+        tx_execution_results
     }
 
     pub fn execute_txs_sequentially(
