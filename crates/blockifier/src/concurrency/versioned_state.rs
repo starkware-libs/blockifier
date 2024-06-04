@@ -119,14 +119,8 @@ impl<S: StateReader> VersionedState<S> {
             }
         }
 
-        // Added for symmetry. We currently do not update this initial mapping.
-        for (&class_hash, expected_value) in &reads.compiled_class_hashes {
-            let value = self.compiled_class_hashes.read(tx_index, class_hash).expect(READ_ERR);
-
-            if &value != expected_value {
-                return false;
-            }
-        }
+        // We do not check the compiled_class_hashes mapping here because papyrus storage soes not
+        // support read action of these values.
 
         for (&class_hash, expected_value) in &reads.declared_contracts {
             let is_declared = self.declared_contracts.read(tx_index, class_hash).expect(READ_ERR);
