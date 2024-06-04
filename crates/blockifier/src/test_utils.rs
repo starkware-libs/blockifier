@@ -120,18 +120,15 @@ pub struct NonceManager {
 
 impl NonceManager {
     pub fn next(&mut self, account_address: ContractAddress) -> Nonce {
-        let zero = Felt::ZERO;
-        let next_felt252 = self.next_nonce.get(&account_address).unwrap_or(&zero);
-        let next = Nonce(*next_felt252);
-        self.next_nonce.insert(account_address, Felt::ONE + next_felt252);
-        next
+        let next = self.next_nonce.remove(&account_address).unwrap_or_default();
+        self.next_nonce.insert(account_address, next + 1);
+        Nonce(next)
     }
 
     /// Decrements the nonce of the account, unless it is zero.
     pub fn rollback(&mut self, account_address: ContractAddress) {
-        let zero = Felt::ZERO;
-        let current = self.next_nonce.get(&account_address).unwrap_or(&zero);
-        if current != &Felt::ZERO {
+        let current = *self.next_nonce.get(&account_address).unwrap_or(&Felt::default());
+        if current != Felt::ZERO {
             self.next_nonce.insert(account_address, current - 1);
         }
     }
