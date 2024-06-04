@@ -20,7 +20,7 @@ use crate::context::BlockContext;
 use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{
-    ContractClassMapping, StateChanges, StateMaps, TransactionalState,
+    ContractClassMapping, StateChanges, StateMaps, TransactionalState
 };
 use crate::state::state_api::{StateReader, UpdatableState};
 use crate::transaction::errors::TransactionExecutionError;

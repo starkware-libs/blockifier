@@ -8,7 +8,7 @@ use starknet_api::state::StorageKey;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::cached_state::{ContractClassMapping, StateMaps};
 use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult, UpdatableState};
 
@@ -69,18 +69,6 @@ impl<S: StateReader> VersionedState<S> {
             compiled_class_hashes: self.compiled_class_hashes.get_writes_of_index(tx_index),
             declared_contracts: self.declared_contracts.get_writes_of_index(tx_index),
         }
-    }
-
-    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
-    where
-        T: StateReader,
-    {
-        let writes = self.get_writes_up_to_index(from_index);
-
-        parent_state.update_cache(
-            &writes,
-            self.compiled_contract_classes.get_writes_up_to_index(from_index),
-        );
     }
 
     // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared
@@ -199,12 +187,15 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    #[allow(dead_code)]
     fn into_initial_state(self) -> S {
         self.initial_state
     }
 }
 
+// TODO(barak, 01/07/2024): Re-consider the API (pub functions) of VersionedState,
+// ThreadSafeVersionedState and VersionedStateProxy.
+// TODO(barak, 01/07/2024): Re-consider the necessity ot ThreadSafeVersionedState once the worker
+// logic is completed.
 pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
 pub type LockedVersionedState<'a, S> = MutexGuard<'a, VersionedState<S>>;
 
@@ -217,7 +208,6 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
     }
 
-    #[allow(dead_code)]
     fn into_inner_state(self) -> VersionedState<S> {
         Arc::try_unwrap(self.0)
             .unwrap_or_else(|_| {
@@ -234,6 +224,17 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
 impl<S: StateReader> Clone for ThreadSafeVersionedState<S> {
     fn clone(&self) -> Self {
         ThreadSafeVersionedState(Arc::clone(&self.0))
+    }
+}
+
+impl<U: UpdatableState> ThreadSafeVersionedState<U> {
+    pub fn commit_chunk_and_recover_block_state(self, index: TxIndex) -> U{
+        let mut versioned_state = self.into_inner_state();
+        let writes = versioned_state.get_writes_up_to_index(index);
+        let class_hash_to_class = versioned_state.compiled_contract_classes.get_writes_up_to_index(index);
+        // TODO(barak, 01/08/2024): Add visited_pcs argument to `apply_writes`.
+        versioned_state.initial_state.apply_writes(&writes, &class_hash_to_class, &HashMap::default());
+        versioned_state.into_initial_state()
     }
 }
 
