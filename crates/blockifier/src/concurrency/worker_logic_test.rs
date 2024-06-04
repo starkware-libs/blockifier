@@ -11,9 +11,10 @@ use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
 use crate::bouncer::Bouncer;
+use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
-use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
+use crate::concurrency::worker_logic::{add_fee_to_sequencer_balance, lock_mutex_in_array};
 use crate::context::BlockContext;
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
@@ -37,8 +38,8 @@ use crate::transaction::test_utils::{
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
 
-// Creates a tx that transfers 0 to self.
-fn _trivial_transfer_tx(
+/// Creates a tx that transfers 0 to self.
+fn trivial_transfer_tx(
     account_address: ContractAddress,
     fee_token_address: ContractAddress,
     nonce: Nonce,
@@ -61,19 +62,20 @@ fn _trivial_transfer_tx(
     })
 }
 
-/// Checks that the storage values of the account and sequencer balances in the
+/// Checks that the storage values of the sequencer balances in the
 /// versioned state of tx_index equals the expected values.
-fn _verify_sequencer_balance_update<S: StateReader>(
+fn verify_sequencer_balance_update<S: StateReader>(
     executor: &WorkerExecutor<'_, S>,
     tx_index: usize,
     // We assume the balance is at most 2^128, so the "low" value is sufficient.
-    expected_sequencer_balance_low: StarkFelt,
+    expected_sequencer_balance_low: u128,
+    actual_fee: u128,
 ) {
     let tx_version_state = executor.state.pin_version(tx_index);
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(executor.block_context);
     for (expected_balance, storage_key) in [
-        (expected_sequencer_balance_low, sequencer_balance_key_low),
+        (stark_felt!(expected_sequencer_balance_low + actual_fee), sequencer_balance_key_low),
         (StarkFelt::ZERO, sequencer_balance_key_high),
     ] {
         let actual_balance = tx_version_state
@@ -83,6 +85,107 @@ fn _verify_sequencer_balance_update<S: StateReader>(
             )
             .unwrap();
         assert_eq!(expected_balance, actual_balance);
+    }
+}
+
+#[rstest]
+pub fn test_commit_tx() {
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let mut expected_sequencer_balance_low = 0_u128;
+    let fee_token_address = block_context.chain_info.fee_token_address(&FeeType::Strk);
+    let mut nonce_manager = NonceManager::default();
+    let account_address = account.get_instance_address(0);
+    let first_nonce = nonce_manager.next(account_address);
+    let second_nonce = nonce_manager.next(account_address);
+
+    // Create transactions.
+    let txs = [
+        trivial_transfer_tx(account_address, fee_token_address, first_nonce),
+        trivial_transfer_tx(account_address, fee_token_address, second_nonce),
+        trivial_transfer_tx(account_address, fee_token_address, second_nonce),
+        // Invalid nonce.
+        trivial_transfer_tx(account_address, fee_token_address, nonce!(10_u8)),
+    ]
+    .into_iter()
+    .map(Transaction::AccountTransaction)
+    .collect::<Vec<Transaction>>();
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    let cached_state = test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
+    let versioned_state = safe_versioned_state_for_testing(cached_state);
+    let executor =
+        WorkerExecutor::new(versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
+
+    // Execute transactions.
+    // Simulate a concurrent run by executing tx1 before tx0.
+    // tx1 should fail execution since its nonce equals 1, and it is being executed before tx0,
+    // whose nonce equals 0.
+    // tx0 should pass execution.
+    // tx2 should pass execution since its nonce equals 1, so executing it after tx0 should
+    // succeed.
+    // tx3 should fail execution regardless of execution order since its nonce
+    // equals 10, where there are only four transactions.
+
+    for &(execute_idx, should_fail_execution) in
+        [(1, true), (0, false), (2, false), (3, true)].iter()
+    {
+        executor.execute_tx(execute_idx);
+        let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, execute_idx);
+        let result = &execution_task_outputs.as_ref().unwrap().result;
+        assert_eq!(result.is_err(), should_fail_execution);
+        if !should_fail_execution {
+            assert!(!result.as_ref().unwrap().is_reverted());
+        }
+    }
+
+    // Commit all transactions in sequential order.
+    // * tx0 should pass revalidation, fix the sequencer balance, fix the call info (fee transfer)
+    //   and commit.
+    // * tx1 should fail revalidation (it read the nonce before tx0 incremented it). It should pass
+    //   re-execution (since tx0 incremented the nonce), fix the sequencer balance, fix the call
+    //   info (fee transfer) and commit.
+    // * tx2 should fail revalidation (it read the nonce before tx1 re-executed and incremented it).
+    //   It should fail re-execution because it has the same nonce as tx1.
+    // * tx3 should pass revalidation and commit.
+    for &(commit_idx, should_fail_execution) in
+        [(0, false), (1, false), (2, true), (3, true)].iter()
+    {
+        executor.commit_tx(commit_idx);
+        let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, commit_idx);
+        let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+        let expected_sequencer_balance_high = 0_u128;
+        assert_eq!(execution_result.is_err(), should_fail_execution);
+        // Extract the actual fee. If the transaction fails, no fee should be charged.
+        let actual_fee =
+            if should_fail_execution { 0 } else { execution_result.as_ref().unwrap().actual_fee.0 };
+        if !should_fail_execution {
+            assert!(!execution_result.as_ref().unwrap().is_reverted());
+            // Check that the call info was fixed.
+            for (expected_sequencer_storage_read, read_storage_index) in [
+                (expected_sequencer_balance_low, STORAGE_READ_SEQUENCER_BALANCE_INDICES.0),
+                (expected_sequencer_balance_high, STORAGE_READ_SEQUENCER_BALANCE_INDICES.1),
+            ] {
+                let actual_sequencer_storage_read = execution_result
+                    .as_ref()
+                    .unwrap()
+                    .fee_transfer_call_info
+                    .as_ref()
+                    .unwrap()
+                    .storage_read_values[read_storage_index];
+                assert_eq!(
+                    stark_felt!(expected_sequencer_storage_read),
+                    actual_sequencer_storage_read,
+                );
+            }
+        }
+        // Check that the sequencer balance was updated correctly in the state.
+        verify_sequencer_balance_update(
+            &executor,
+            commit_idx,
+            expected_sequencer_balance_low,
+            actual_fee,
+        );
+        expected_sequencer_balance_low += actual_fee;
     }
 }
 
