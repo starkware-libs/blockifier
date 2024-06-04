@@ -325,6 +325,61 @@ fn test_validate_reads(
 }
 
 #[rstest]
+#[case::check_declared_contracts(
+    StateMaps {
+        declared_contracts: HashMap::from([(class_hash!(1_u8), false)]),
+        ..Default::default()
+    },
+    StateMaps {
+        declared_contracts: HashMap::from([(class_hash!(1_u8), true)]),
+        ..Default::default()
+    }
+)]
+#[case::check_class_hashes(
+    StateMaps {
+        class_hashes: HashMap::from([(contract_address!("0x1"), class_hash!(1_u8))]),
+        ..Default::default()
+    },
+    StateMaps {
+        class_hashes: HashMap::from([(contract_address!("0x1"), class_hash!(2_u8))]),
+        ..Default::default()
+    }
+)]
+#[case::check_nonces(
+    StateMaps {
+        nonces: HashMap::from([(contract_address!("0x1"), nonce!(1_u8))]),
+        ..Default::default()
+    },
+    StateMaps {
+        nonces: HashMap::from([(contract_address!("0x1"), nonce!(2_u8))]),
+        ..Default::default()
+    }
+)]
+#[case::check_storage(
+    StateMaps {
+        storage: HashMap::from(
+            [((contract_address!("0x1"), storage_key!("0x1")), stark_felt!(1_u8))]
+        ),
+        ..Default::default()
+    },
+    StateMaps {
+        storage: HashMap::from(
+            [((contract_address!("0x1"), storage_key!("0x1")), stark_felt!(2_u8))]
+        ),
+        ..Default::default()
+    }
+)]
+fn test_false_validate_reads(
+    #[case] state_maps_to_apply: StateMaps,
+    #[case] state_maps_to_validate: StateMaps,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
+) {
+    let version_state_proxy = safe_versioned_state.pin_version(0);
+    version_state_proxy.state().apply_writes(0, &state_maps_to_apply, &HashMap::default());
+    assert!(!safe_versioned_state.pin_version(1).validate_reads(&state_maps_to_validate));
+}
+
+#[rstest]
 fn test_apply_writes(
     contract_address: ContractAddress,
     class_hash: ClassHash,
