@@ -325,6 +325,102 @@ fn test_validate_reads(
 }
 
 #[rstest]
+fn test_false_validate_reads(
+    contract_address: ContractAddress,
+    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+) {
+    // Check declared contracts and compiled contract classes validation.
+    let version_state_proxy_6 = safe_versioned_state.pin_version(6);
+    let mut version_state_proxy_7 = safe_versioned_state.pin_version(7);
+    let transactional_state_7 =
+        TransactionalState::create_transactional(&mut version_state_proxy_7);
+
+    let class_hash = class_hash!(2_u8);
+    let contract_class = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
+    assert_matches!(
+        transactional_state_7.get_compiled_contract_class(class_hash).unwrap_err(),
+        StateError::UndeclaredClassHash(class_hash) if
+        class_hash == class_hash
+    );
+    version_state_proxy_6.state().apply_writes(
+        6,
+        &StateMaps {
+            declared_contracts: HashMap::from([(class_hash, true)]),
+            ..Default::default()
+        },
+        &HashMap::from([(class_hash, contract_class)]),
+    );
+    assert!(
+        !safe_versioned_state
+            .pin_version(7)
+            .validate_reads(&transactional_state_7.cache.borrow().initial_reads)
+    );
+
+    // Check class hashes validation.
+    let version_state_proxy_4 = safe_versioned_state.pin_version(4);
+    let mut version_state_proxy_5 = safe_versioned_state.pin_version(5);
+    let transactional_state_5 =
+        TransactionalState::create_transactional(&mut version_state_proxy_5);
+
+    transactional_state_5.get_class_hash_at(contract_address).unwrap();
+    version_state_proxy_4.state().apply_writes(
+        4,
+        &StateMaps {
+            class_hashes: HashMap::from([(contract_address, class_hash)]),
+            ..Default::default()
+        },
+        &HashMap::default(),
+    );
+    assert!(
+        !safe_versioned_state
+            .pin_version(5)
+            .validate_reads(&transactional_state_5.cache.borrow().initial_reads)
+    );
+
+    // Check nonces validation.
+    let version_state_proxy_2 = safe_versioned_state.pin_version(2);
+    let mut version_state_proxy_3 = safe_versioned_state.pin_version(3);
+    let transactional_state_3 =
+        TransactionalState::create_transactional(&mut version_state_proxy_3);
+
+    let nonce = nonce!(136_u8);
+    transactional_state_3.get_nonce_at(contract_address).unwrap();
+    version_state_proxy_2.state().apply_writes(
+        2,
+        &StateMaps { nonces: HashMap::from([(contract_address, nonce)]), ..Default::default() },
+        &HashMap::default(),
+    );
+    assert!(
+        !safe_versioned_state
+            .pin_version(3)
+            .validate_reads(&transactional_state_3.cache.borrow().initial_reads)
+    );
+
+    // Check storage validation.
+    let version_state_proxy_0 = safe_versioned_state.pin_version(0);
+    let mut version_state_proxy_1 = safe_versioned_state.pin_version(1);
+    let transactional_state_1 =
+        TransactionalState::create_transactional(&mut version_state_proxy_1);
+
+    let storage_key = storage_key!("0x10");
+    let storage_value = stark_felt!(136_u8);
+    transactional_state_1.get_storage_at(contract_address, storage_key).unwrap();
+    version_state_proxy_0.state().apply_writes(
+        0,
+        &StateMaps {
+            storage: HashMap::from([((contract_address, storage_key), storage_value)]),
+            ..Default::default()
+        },
+        &HashMap::default(),
+    );
+    assert!(
+        !safe_versioned_state
+            .pin_version(1)
+            .validate_reads(&transactional_state_1.cache.borrow().initial_reads)
+    );
+}
+
+#[rstest]
 fn test_apply_writes(
     contract_address: ContractAddress,
     class_hash: ClassHash,
