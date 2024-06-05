@@ -16,7 +16,6 @@ use crate::execution::call_info::ExecutionSummary;
 use crate::state::cached_state::{StateChangesKeys, TransactionalState};
 use crate::storage_key;
 use crate::test_utils::initial_test_state::test_state;
-use crate::transaction::errors::TransactionExecutionError;
 
 #[test]
 fn test_block_weights_has_room() {
@@ -158,33 +157,9 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
 #[rstest]
 #[case::positive_flow(0, 1, 0, Ok(()))]
 #[case::block_full(0, 11, 0, Err(TransactionExecutorError::BlockFull))]
-#[case::transaction_too_large(
-    0,
-    21,
-    0,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::TransactionTooLarge
-    ))
-)]
 #[case::positive_flow_with_keccak(0, 0, 1, Ok(()))]
 #[case::block_full_with_keccak(1, 0, 1, Err(TransactionExecutorError::BlockFull))]
-#[case::transaction_too_large_with_keccak(
-    0,
-    0,
-    2,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::TransactionTooLarge
-    ))
-)]
 #[case::block_full_with_keccak_ecdsa_exceeds(0, 11, 1, Err(TransactionExecutorError::BlockFull))]
-#[case::transaction_too_large_with_keccak_ecdsa_too_large(
-    0,
-    21,
-    1,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::TransactionTooLarge
-    ))
-)]
 fn test_bouncer_try_update(
     #[case] initial_keccak: usize,
     #[case] added_ecdsa: usize,

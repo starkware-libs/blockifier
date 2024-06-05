@@ -4,6 +4,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
+use crate::bouncer::get_tx_weights;
 use crate::context::BlockContext;
 use crate::execution::contract_class::ClassInfo;
 use crate::execution::entry_point::EntryPointExecutionContext;
@@ -11,7 +12,7 @@ use crate::fee::actual_cost::TransactionReceipt;
 use crate::state::cached_state::TransactionalState;
 use crate::state::state_api::UpdatableState;
 use crate::transaction::account_transaction::AccountTransaction;
-use crate::transaction::errors::TransactionFeeError;
+use crate::transaction::errors::{TransactionExecutionError, TransactionFeeError};
 use crate::transaction::objects::{
     TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo, TransactionInfoCreator,
 };
@@ -158,13 +159,34 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        match self {
+        // TODO(Yoni, 1/8/2024): consider unimplementing the ExecutableTransaction trait for inner
+        // types, since now running Transaction::execute_raw is not identical to
+        // AccountTransaction::execute_raw.
+        let tx_execution_info = match self {
             Self::AccountTransaction(account_tx) => {
-                account_tx.execute_raw(state, block_context, charge_fee, validate)
+                account_tx.execute_raw(state, block_context, charge_fee, validate)?
             }
             Self::L1HandlerTransaction(tx) => {
-                tx.execute_raw(state, block_context, charge_fee, validate)
+                tx.execute_raw(state, block_context, charge_fee, validate)?
             }
+        };
+
+        // Check if the transaction is too large to fit any block.
+        // TODO(Yoni, 1/8/2024): consider caching these two.
+        let tx_execution_summary = tx_execution_info.summarize();
+        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        let tx_weights = get_tx_weights(
+            state,
+            &tx_execution_summary.executed_class_hashes,
+            tx_execution_summary.visited_storage_entries.len(),
+            &tx_execution_info.actual_resources,
+            &tx_state_changes_keys,
+        )?;
+
+        if !block_context.bouncer_config.has_room(tx_weights) {
+            return Err(TransactionExecutionError::TransactionTooLarge);
         }
+
+        Ok(tx_execution_info)
     }
 }
