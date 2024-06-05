@@ -10,7 +10,6 @@
 use blockifier::abi::abi_utils::selector_from_name;
 use blockifier::blockifier::config::TransactionExecutorConfig;
 use blockifier::blockifier::transaction_executor::TransactionExecutor;
-use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo};
 use blockifier::invoke_tx_args;
 use blockifier::test_utils::contracts::FeatureContract;
@@ -61,8 +60,7 @@ impl TransfersGenerator {
         let state = test_state(&chain_info, BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);
         // TODO(Avi, 20/05/2024): Enable concurrency.
         let executor_config = TransactionExecutorConfig::default();
-        let executor =
-            TransactionExecutor::new(state, block_context, BouncerConfig::max(), executor_config);
+        let executor = TransactionExecutor::new(state, block_context, executor_config);
         let account_addresses = (0..N_ACCOUNTS)
             .map(|instance_id| account_contract.get_instance_address(instance_id))
             .collect::<Vec<_>>();

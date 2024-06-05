@@ -173,15 +173,12 @@ impl PyBlockExecutor {
             &self.general_config,
             &next_block_info,
             &self.versioned_constants,
+            self.bouncer_config.clone(),
             self.tx_executor_config.concurrency_config.enabled,
         )?;
 
-        let tx_executor = TransactionExecutor::new(
-            state,
-            block_context,
-            self.bouncer_config.clone(),
-            self.tx_executor_config.clone(),
-        );
+        let tx_executor =
+            TransactionExecutor::new(state, block_context, self.tx_executor_config.clone());
         self.tx_executor = Some(tx_executor);
 
         Ok(())
@@ -540,6 +537,7 @@ fn pre_process_block(
     general_config: &PyGeneralConfig,
     block_info: &PyBlockInfo,
     versioned_constants: &VersionedConstants,
+    bouncer_config: BouncerConfig,
     concurrency_mode: bool,
 ) -> NativeBlockifierResult<BlockContext> {
     let old_block_number_and_hash = old_block_number_and_hash
@@ -563,6 +561,7 @@ fn pre_process_block(
         block_info,
         chain_info,
         versioned_constants.clone(),
+        bouncer_config,
         concurrency_mode,
     )?;
 
