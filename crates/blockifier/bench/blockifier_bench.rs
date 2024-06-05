@@ -41,8 +41,7 @@ pub fn transfers_benchmark(c: &mut Criterion) {
     let state = test_state(chain_info, BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);
     // TODO(Avi, 20/05/2024): Enable concurrency.
     let executor_config = TransactionExecutorConfig::default();
-    let executor =
-        &mut TransactionExecutor::new(state, block_context, BouncerConfig::max(), executor_config);
+    let executor = &mut TransactionExecutor::new(state, block_context, executor_config);
     let accounts = (0..N_ACCOUNTS)
         .map(|instance_id| account_contract.get_instance_address(instance_id))
         .collect::<Vec<_>>();

@@ -9,7 +9,7 @@ use starknet_api::{contract_address, patricia_key};
 
 use super::update_json_value;
 use crate::blockifier::block::{BlockInfo, GasPrices};
-use crate::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
+use crate::bouncer::{BouncerConfig, BouncerWeights};
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
@@ -142,6 +142,7 @@ impl BlockContext {
             block_info: BlockInfo::create_for_testing(),
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_testing(),
+            bouncer_config: BouncerConfig::max(),
             concurrency_mode: false,
         }
     }
@@ -151,6 +152,23 @@ impl BlockContext {
             block_info: BlockInfo::create_for_testing(),
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_account_testing(),
+            bouncer_config: BouncerConfig::max(),
+            concurrency_mode: false,
+        }
+    }
+
+    pub fn create_for_bouncer_testing(max_n_events_in_block: usize) -> Self {
+        Self {
+            block_info: BlockInfo::create_for_testing(),
+            chain_info: ChainInfo::create_for_testing(),
+            versioned_constants: VersionedConstants::create_for_account_testing(),
+            bouncer_config: BouncerConfig {
+                block_max_capacity: BouncerWeights {
+                    n_events: max_n_events_in_block,
+                    ..BouncerWeights::max(false)
+                },
+                ..BouncerConfig::default()
+            },
             concurrency_mode: false,
         }
     }
@@ -186,42 +204,5 @@ impl ContractClassV1 {
     pub fn from_file(contract_path: &str) -> Self {
         let raw_contract_class = get_raw_contract_class(contract_path);
         Self::try_from_json_string(&raw_contract_class).unwrap()
-    }
-}
-
-impl BouncerConfig {
-    pub fn create_for_testing() -> Self {
-        Self {
-            block_max_capacity_with_keccak: BouncerWeights::create_for_testing(true),
-            block_max_capacity: BouncerWeights::create_for_testing(false),
-        }
-    }
-}
-
-impl BouncerWeights {
-    pub fn create_for_testing(with_keccak: bool) -> Self {
-        Self {
-            gas: 2500000,
-            n_steps: 2500000,
-            message_segment_length: 3750,
-            state_diff_size: 20000,
-            n_events: 10000,
-            builtin_count: BuiltinCount::create_for_testing(with_keccak),
-        }
-    }
-}
-
-impl BuiltinCount {
-    pub fn create_for_testing(with_keccak: bool) -> Self {
-        let keccak = if with_keccak { 1220 } else { 0 };
-        Self {
-            bitwise: 39062,
-            ecdsa: 1220,
-            ec_op: 2441,
-            keccak,
-            pedersen: 78125,
-            poseidon: 78125,
-            range_check: 156250,
-        }
     }
 }
