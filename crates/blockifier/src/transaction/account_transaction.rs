@@ -670,6 +670,11 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
         )?;
         let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?;
 
+        let total_gas = final_resources.to_gas_vector(
+            &block_context.versioned_constants,
+            block_context.block_info.use_kzg_da,
+        )?;
+
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
             execute_call_info,
@@ -678,6 +683,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
             da_gas: final_da_gas,
             actual_resources: final_resources,
             revert_error,
+            total_gas,
         };
         Ok(tx_execution_info)
     }
