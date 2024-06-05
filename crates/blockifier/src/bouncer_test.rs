@@ -77,7 +77,7 @@ fn test_block_weights_has_room() {
 }
 
 #[rstest]
-#[case::empty_initial_bouncer(Bouncer::new(BouncerConfig::default()))]
+#[case::empty_initial_bouncer(Bouncer::new(BouncerConfig::empty()))]
 #[case::non_empty_initial_bouncer(Bouncer {
     executed_class_hashes: HashSet::from([class_hash!(0_u128)]),
     visited_storage_entries: HashSet::from([(
@@ -87,7 +87,7 @@ fn test_block_weights_has_room() {
     state_changes_keys: StateChangesKeys::create_for_testing(HashSet::from([
         ContractAddress::from(0_u128),
     ])),
-    bouncer_config: BouncerConfig::default(),
+    bouncer_config: BouncerConfig::empty(),
     accumulated_weights: BouncerWeights {
         builtin_count: BuiltinCount {
             bitwise: 10,

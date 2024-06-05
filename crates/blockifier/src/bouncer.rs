@@ -50,6 +50,10 @@ impl BouncerConfig {
         }
     }
 
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
     pub fn has_room(&self, weights: BouncerWeights) -> bool {
         let max_capacity = if weights.builtin_count.keccak > 0 {
             self.block_max_capacity_with_keccak
