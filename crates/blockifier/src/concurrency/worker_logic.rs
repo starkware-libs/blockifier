@@ -48,14 +48,14 @@ pub struct WorkerExecutor<'a, S: StateReader> {
     pub state: ThreadSafeVersionedState<S>,
     pub chunk: &'a [Transaction],
     pub execution_outputs: Box<[Mutex<Option<ExecutionTaskOutput>>]>,
-    pub block_context: BlockContext,
+    pub block_context: &'a BlockContext,
     pub bouncer: Mutex<&'a mut Bouncer>,
 }
 impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     pub fn new(
         state: ThreadSafeVersionedState<S>,
         chunk: &'a [Transaction],
-        block_context: BlockContext,
+        block_context: &'a BlockContext,
         bouncer: Mutex<&'a mut Bouncer>,
     ) -> Self {
         let scheduler = Scheduler::new(chunk.len());
@@ -106,7 +106,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let charge_fee = true;
 
         let execution_result =
-            tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
+            tx.execute_raw(&mut transactional_state, self.block_context, charge_fee, validate);
 
         if execution_result.is_ok() {
             // TODO(Noa, 15/05/2024): use `tx_versioned_state` when we add support to transactional
@@ -283,7 +283,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 tx_context.fee_token_address(),
                 &mut tx_versioned_state,
                 tx_execution_info.actual_fee,
-                &self.block_context,
+                self.block_context,
                 sequencer_balance_value_low,
                 sequencer_balance_value_high,
             );
