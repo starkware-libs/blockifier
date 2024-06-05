@@ -23,7 +23,6 @@ use crate::state::cached_state::{
     ContractClassMapping, StateChanges, StateMaps, TransactionalState,
 };
 use crate::state::state_api::{StateReader, UpdatableState};
-use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ExecutableTransaction;
@@ -217,33 +216,6 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             if let Err(error) = bouncer_result {
                 match error {
                     TransactionExecutorError::BlockFull => return false,
-                    TransactionExecutorError::TransactionExecutionError(
-                        TransactionExecutionError::TransactionTooLarge,
-                    ) => {
-                        // TransactionTooLarge error - revise the execution result, delete writes
-                        // and commit.
-                        // TODO(Avi, 20/6/2024): Move TransactionTooLarge inside execute_raw.
-                        let old_execution_output =
-                            execution_output.take().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR);
-                        tx_versioned_state.delete_writes(
-                            &old_execution_output.writes,
-                            &old_execution_output.contract_classes,
-                        );
-
-                        *execution_output = Some(ExecutionTaskOutput {
-                            reads: old_execution_output.reads,
-                            writes: StateMaps::default(),
-                            contract_classes: HashMap::default(),
-                            visited_pcs: HashMap::default(),
-                            result: Err(TransactionExecutionError::TransactionTooLarge),
-                        });
-
-                        // Signal to the scheduler that the execution output has been revised, so
-                        // higher transactions should be re-validated.
-                        self.scheduler.finish_execution_during_commit(tx_index);
-
-                        return true;
-                    }
                     _ => {
                         // TODO(Avi, 01/07/2024): Consider propagating the error.
                         panic!("Bouncer update failed. {error:?}: {error}");

@@ -13,8 +13,9 @@ use crate::execution::call_info::ExecutionSummary;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
 use crate::state::cached_state::{StateChangesKeys, StorageEntry};
 use crate::state::state_api::StateReader;
-use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ExecutionResourcesTraits, TransactionResources};
+use crate::transaction::objects::{
+    ExecutionResourcesTraits, TransactionExecutionResult, TransactionResources,
+};
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -227,11 +228,6 @@ impl Bouncer {
             &marginal_state_changes_keys,
         )?;
 
-        // Check if the transaction is too large to fit any block.
-        if !self.bouncer_config.has_room(tx_weights) {
-            Err(TransactionExecutionError::TransactionTooLarge)?
-        }
-
         // Check if the transaction can fit the current block available capacity.
         if !self.bouncer_config.has_room(self.accumulated_weights + tx_weights) {
             log::debug!(
@@ -273,7 +269,7 @@ pub fn get_tx_weights<S: StateReader>(
     n_visited_storage_entries: usize,
     tx_resources: &TransactionResources,
     state_changes_keys: &StateChangesKeys,
-) -> TransactionExecutorResult<BouncerWeights> {
+) -> TransactionExecutionResult<BouncerWeights> {
     let (message_segment_length, gas_usage) =
         tx_resources.starknet_resources.calculate_message_l1_resources();
 
@@ -298,7 +294,7 @@ pub fn get_tx_weights<S: StateReader>(
 pub fn get_casm_hash_calculation_resources<S: StateReader>(
     state_reader: &S,
     executed_class_hashes: &HashSet<ClassHash>,
-) -> TransactionExecutorResult<ExecutionResources> {
+) -> TransactionExecutionResult<ExecutionResources> {
     let mut casm_hash_computation_resources = ExecutionResources::default();
 
     for class_hash in executed_class_hashes {
