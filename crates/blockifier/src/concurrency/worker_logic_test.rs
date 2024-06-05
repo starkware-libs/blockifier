@@ -457,7 +457,7 @@ fn test_deploy_before_declare() {
     assert!(!execution_output.as_ref().unwrap().result.as_ref().unwrap().is_reverted());
     drop(execution_output);
 
-    // Successful validatation for transaction 1.
+    // Successful validation for transaction 1.
     let next_task = worker_executor.validate(1);
     assert_eq!(next_task, Task::NoTask);
 }
@@ -474,9 +474,8 @@ fn test_worker_commit_phase() {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state_reader =
-        test_state_reader(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
-    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
     let test_contract_address = test_contract.get_instance_address(0);
@@ -517,10 +516,12 @@ fn test_worker_commit_phase() {
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let worker_executor = WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context);
+    let mut bouncer = Bouncer::new(BouncerConfig::default());
+    let worker_executor =
+        WorkerExecutor::new(safe_versioned_state, &txs, block_context, Mutex::new(&mut bouncer));
 
     // Try to commit before any transaction is ready.
-    worker_executor.commit_while_possible().unwrap();
+    worker_executor.commit_while_possible();
 
     // Verify no transaction was committed.
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 0);
@@ -537,7 +538,7 @@ fn test_worker_commit_phase() {
     worker_executor.execute(1);
 
     // Commit the first two transactions (only).
-    worker_executor.commit_while_possible().unwrap();
+    worker_executor.commit_while_possible();
 
     // Verify the commit index is now 2.
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 2);
@@ -551,7 +552,7 @@ fn test_worker_commit_phase() {
     worker_executor.execute(2);
 
     // Commit the third (and last) transaction.
-    worker_executor.commit_while_possible().unwrap();
+    worker_executor.commit_while_possible();
 
     // Verify the commit index is now 3, the status of the last transaction is `Committed`, and the
     // next task is `Done`.
@@ -560,7 +561,7 @@ fn test_worker_commit_phase() {
     assert_eq!(worker_executor.scheduler.next_task(), Task::Done);
 
     // Try to commit when all transactions are already committed.
-    worker_executor.commit_while_possible().unwrap();
+    worker_executor.commit_while_possible();
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
 
     // TODO(Avi, 15/06/2024): Check the halt mechanism once the bouncer is supported.
