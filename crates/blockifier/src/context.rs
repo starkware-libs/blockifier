@@ -1,6 +1,7 @@
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::blockifier::block::BlockInfo;
+use crate::bouncer::BouncerConfig;
 use crate::transaction::objects::{
     FeeType, HasRelatedFeeType, TransactionInfo, TransactionInfoCreator,
 };
@@ -24,6 +25,7 @@ pub struct BlockContext {
     pub(crate) block_info: BlockInfo,
     pub(crate) chain_info: ChainInfo,
     pub(crate) versioned_constants: VersionedConstants,
+    pub(crate) bouncer_config: BouncerConfig,
     pub(crate) concurrency_mode: bool,
 }
 
@@ -40,6 +42,7 @@ impl BlockContext {
             block_info: block_info.clone(),
             chain_info: chain_info.clone(),
             versioned_constants: versioned_constants.clone(),
+            bouncer_config: BouncerConfig::max(),
             concurrency_mode: false,
         }
     }

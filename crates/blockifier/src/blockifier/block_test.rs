@@ -5,6 +5,7 @@ use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
 use crate::blockifier::block::{pre_process_block, BlockInfo, BlockNumberHashPair};
+use crate::bouncer::BouncerConfig;
 use crate::context::ChainInfo;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
@@ -29,6 +30,7 @@ fn test_pre_process_block() {
         block_info,
         ChainInfo::default(),
         VersionedConstants::default(),
+        BouncerConfig::create_for_testing(),
         false,
     )
     .unwrap();
@@ -50,6 +52,7 @@ fn test_pre_process_block() {
             block_info,
             ChainInfo::default(),
             VersionedConstants::default(),
+            BouncerConfig::create_for_testing(),
             false,
         )
         .is_ok()
@@ -63,6 +66,7 @@ fn test_pre_process_block() {
         block_info,
         ChainInfo::default(),
         VersionedConstants::default(),
+        BouncerConfig::create_for_testing(),
         false,
     );
     assert_eq!(
