@@ -5,7 +5,6 @@ use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
 use crate::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
-use crate::bouncer::BouncerConfig;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -47,14 +46,9 @@ impl<S: StateReader> StatefulValidator<S> {
         state: CachedState<S>,
         block_context: BlockContext,
         max_nonce_for_validation_skip: Nonce,
-        bouncer_config: BouncerConfig,
     ) -> Self {
-        let tx_executor = TransactionExecutor::new(
-            state,
-            block_context,
-            bouncer_config,
-            TransactionExecutorConfig::default(),
-        );
+        let tx_executor =
+            TransactionExecutor::new(state, block_context, TransactionExecutorConfig::default());
         Self { tx_executor, max_nonce_for_validation_skip }
     }
 
