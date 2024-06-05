@@ -6,6 +6,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
+use crate::bouncer::BouncerConfig;
 use crate::context::{BlockContext, ChainInfo};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateResult};
@@ -62,6 +63,7 @@ pub fn pre_process_block(
     block_info: BlockInfo,
     chain_info: ChainInfo,
     versioned_constants: VersionedConstants,
+    bouncer_config: BouncerConfig,
     concurrency_mode: bool,
 ) -> StateResult<BlockContext> {
     let should_block_hash_be_provided =
@@ -81,7 +83,13 @@ pub fn pre_process_block(
         return Err(StateError::OldBlockHashNotProvided);
     }
 
-    Ok(BlockContext { block_info, chain_info, versioned_constants, concurrency_mode })
+    Ok(BlockContext {
+        block_info,
+        chain_info,
+        versioned_constants,
+        bouncer_config,
+        concurrency_mode,
+    })
 }
 
 pub struct BlockNumberHashPair {
