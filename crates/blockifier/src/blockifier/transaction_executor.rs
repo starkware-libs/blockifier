@@ -7,7 +7,7 @@ use starknet_api::core::ClassHash;
 use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
-use crate::bouncer::{Bouncer, BouncerConfig, BouncerWeights};
+use crate::bouncer::{Bouncer, BouncerWeights};
 use crate::context::BlockContext;
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -52,10 +52,10 @@ impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(
         state: CachedState<S>,
         block_context: BlockContext,
-        bouncer_config: BouncerConfig,
         config: TransactionExecutorConfig,
     ) -> Self {
         log::debug!("Initializing Transaction Executor...");
+        let bouncer_config = block_context.bouncer_config.clone();
         // Note: the state might not be empty even at this point; it is the creator's
         // responsibility to tune the bouncer according to pre and post block process.
         let tx_executor =

@@ -2,7 +2,6 @@ use rstest::rstest;
 use starknet_api::transaction::{Fee, TransactionVersion};
 
 use crate::blockifier::stateful_validator::StatefulValidator;
-use crate::bouncer::BouncerConfig;
 use crate::context::BlockContext;
 use crate::nonce;
 use crate::test_utils::contracts::FeatureContract;
@@ -65,12 +64,7 @@ fn test_transaction_validator(
     }
 
     // Test the stateful validator.
-    let mut stateful_validator = StatefulValidator::create(
-        state,
-        block_context,
-        nonce!(0_u32),
-        BouncerConfig::create_for_testing(),
-    );
+    let mut stateful_validator = StatefulValidator::create(state, block_context, nonce!(0_u32));
 
     let reuslt = stateful_validator.perform_validations(tx, None);
     assert!(reuslt.is_ok(), "Validation failed: {:?}", reuslt.unwrap_err());

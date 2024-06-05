@@ -142,6 +142,7 @@ impl BlockContext {
             block_info: BlockInfo::create_for_testing(),
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_testing(),
+            bouncer_config: BouncerConfig::max(),
             concurrency_mode: false,
         }
     }
@@ -151,6 +152,7 @@ impl BlockContext {
             block_info: BlockInfo::create_for_testing(),
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_account_testing(),
+            bouncer_config: BouncerConfig::max(),
             concurrency_mode: false,
         }
     }
