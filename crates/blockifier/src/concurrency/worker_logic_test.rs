@@ -101,7 +101,7 @@ fn test_worker_execute() {
     let worker_executor = WorkerExecutor::new(
         safe_versioned_state.clone(),
         &txs,
-        block_context,
+        &block_context,
         Mutex::new(&mut bouncer),
     );
 
@@ -266,7 +266,7 @@ fn test_worker_validate() {
     let worker_executor = WorkerExecutor::new(
         safe_versioned_state.clone(),
         &txs,
-        block_context,
+        &block_context,
         Mutex::new(&mut bouncer),
     );
 
@@ -424,7 +424,7 @@ fn test_deploy_before_declare() {
 
     let mut bouncer = Bouncer::new(BouncerConfig::default());
     let worker_executor =
-        WorkerExecutor::new(safe_versioned_state, &txs, block_context, Mutex::new(&mut bouncer));
+        WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
 
     // Creates 2 active tasks.
     worker_executor.scheduler.next_task();
@@ -515,7 +515,7 @@ fn test_worker_commit_phase() {
 
     let mut bouncer = Bouncer::new(BouncerConfig::default());
     let worker_executor =
-        WorkerExecutor::new(safe_versioned_state, &txs, block_context, Mutex::new(&mut bouncer));
+        WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
 
     // Try to commit before any transaction is ready.
     worker_executor.commit_while_possible();
