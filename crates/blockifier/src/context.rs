@@ -1,4 +1,10 @@
+use std::collections::BTreeMap;
+
+use papyrus_config::dumping::{append_sub_config_name, ser_param, SerializeConfig};
+use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
+use serde::{Deserialize, Serialize};
 use starknet_api::core::{ChainId, ContractAddress};
+use validator::Validate;
 
 use crate::blockifier::block::BlockInfo;
 use crate::bouncer::BouncerConfig;
@@ -76,7 +82,8 @@ impl BlockContext {
     }
 }
 
-#[derive(Clone, Debug)]
+// TODO(Arni): Consider moving this struct to starknet_api. It is shared with the mempool.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Validate)]
 pub struct ChainInfo {
     pub chain_id: ChainId,
     pub fee_token_addresses: FeeTokenAddresses,
@@ -100,7 +107,21 @@ impl Default for ChainInfo {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+impl SerializeConfig for ChainInfo {
+    fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
+        let members = BTreeMap::from_iter([ser_param(
+            "chain_id",
+            &self.chain_id,
+            "The chain ID of the StarkNet chain.",
+            ParamPrivacyInput::Public,
+        )]);
+        let sub_configs =
+            append_sub_config_name(self.fee_token_addresses.dump(), "fee_token_addresses");
+        vec![members, sub_configs].into_iter().flatten().collect()
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, Validate)]
 pub struct FeeTokenAddresses {
     pub strk_fee_token_address: ContractAddress,
     pub eth_fee_token_address: ContractAddress,
@@ -112,5 +133,24 @@ impl FeeTokenAddresses {
             FeeType::Strk => self.strk_fee_token_address,
             FeeType::Eth => self.eth_fee_token_address,
         }
+    }
+}
+
+impl SerializeConfig for FeeTokenAddresses {
+    fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
+        BTreeMap::from_iter([
+            ser_param(
+                "strk_fee_token_address",
+                &self.strk_fee_token_address,
+                "Address of the STRK fee token.",
+                ParamPrivacyInput::Public,
+            ),
+            ser_param(
+                "eth_fee_token_address",
+                &self.eth_fee_token_address,
+                "Address of the ETH fee token.",
+                ParamPrivacyInput::Public,
+            ),
+        ])
     }
 }

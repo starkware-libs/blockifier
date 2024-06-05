@@ -28,6 +28,7 @@ cairo-lang-runner.workspace = true
 cairo-lang-starknet-classes.workspace = true
 cairo-lang-utils.workspace = true
 cairo-vm.workspace = true
+clap.workspace = true
 derive_more.workspace = true
 indexmap.workspace = true
 itertools.workspace = true
@@ -39,6 +40,7 @@ num-traits.workspace = true
 num-rational.workspace = true
 once_cell.workspace = true
 phf.workspace = true
+papyrus_config.workspace = true
 rstest = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
@@ -48,6 +50,7 @@ starknet_api = { workspace = true, features = ["testing"] }
 strum.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
+validator.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
