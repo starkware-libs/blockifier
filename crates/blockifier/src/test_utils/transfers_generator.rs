@@ -34,9 +34,10 @@ pub struct TransfersGenerator {
 }
 
 impl TransfersGenerator {
-    pub fn new() -> Self {
+    pub fn new(concurrency_mode: bool) -> Self {
         let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-        let block_context = BlockContext::create_for_account_testing();
+        let block_context =
+            BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
         let chain_info = block_context.chain_info().clone();
         let state = test_state(&chain_info, BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);
         // TODO(Avi, 20/05/2024): Enable concurrency.
@@ -113,11 +114,5 @@ impl TransfersGenerator {
             nonce,
         });
         AccountTransaction::Invoke(tx)
-    }
-}
-
-impl Default for TransfersGenerator {
-    fn default() -> Self {
-        Self::new()
     }
 }
