@@ -34,7 +34,6 @@ use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointEx
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::execution::syscalls::SyscallSelector;
-use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     estimate_minimal_gas_vector, get_da_gas_cost, get_onchain_data_segment_length,
 };
@@ -435,7 +434,7 @@ fn test_invoke_tx(
     // Build expected fee transfer call info.
     let fee_type = &tx_context.tx_info.fee_type();
     let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
+        actual_execution_info.actual_resources.calculate_tx_fee(block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         &tx_context,
         sender_address,
@@ -1146,7 +1145,7 @@ fn test_declare_tx(
 
     // Build expected fee transfer call info.
     let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources, block_context, fee_type).unwrap();
+        actual_execution_info.actual_resources.calculate_tx_fee(block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         tx_context,
         sender_address,
@@ -1284,8 +1283,7 @@ fn test_deploy_account_tx(
 
     // Build expected fee transfer call info.
     let expected_actual_fee =
-        calculate_tx_fee(&actual_execution_info.actual_resources.clone(), block_context, fee_type)
-            .unwrap();
+        actual_execution_info.actual_resources.calculate_tx_fee(block_context, fee_type).unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         tx_context,
         deployed_account_address,
@@ -1855,7 +1853,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
     let expected_actual_fee =
-        calculate_tx_fee(&expected_execution_info.actual_resources, block_context, &FeeType::Eth)
+        (expected_execution_info.actual_resources.calculate_tx_fee(block_context, &FeeType::Eth))
             .unwrap();
     assert_matches!(
         error,

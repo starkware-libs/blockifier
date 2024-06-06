@@ -14,7 +14,6 @@ use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
     ExecutionResourcesTraits, FeeType, GasVector, TransactionFeeResult, TransactionInfo,
-    TransactionResources,
 };
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -73,17 +72,6 @@ pub fn get_fee_by_gas_vector(
         u128::from(block_info.gas_prices.get_gas_price_by_fee_type(fee_type)),
         u128::from(block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type)),
     )
-}
-
-/// Calculates the fee that should be charged, given transaction resources.
-pub fn calculate_tx_fee(
-    tx_resources: &TransactionResources,
-    block_context: &BlockContext,
-    fee_type: &FeeType,
-) -> TransactionFeeResult<Fee> {
-    let gas_vector = tx_resources
-        .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)?;
-    Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.

@@ -10,7 +10,7 @@ use starknet_api::transaction::{Calldata, Fee, TransactionSignature, Transaction
 use crate::context::{BlockContext, ChainInfo};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::SyscallSelector;
-use crate::fee::fee_utils::{calculate_tx_fee, get_fee_by_gas_vector};
+use crate::fee::fee_utils::get_fee_by_gas_vector;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
@@ -119,7 +119,7 @@ fn check_gas_and_fee(
     // Future compatibility: resources other than the L1 gas usage may affect the fee (currently,
     // `calculate_tx_fee` is simply the result of `calculate_tx_gas_usage_vector` times gas price).
     assert_eq!(
-        calculate_tx_fee(&tx_execution_info.actual_resources, block_context, fee_type).unwrap(),
+        tx_execution_info.actual_resources.calculate_tx_fee(block_context, fee_type).unwrap(),
         expected_cost_of_resources
     );
 }
