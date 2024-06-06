@@ -1172,7 +1172,6 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
         sender_address: account.get_instance_address(0),
         calldata: create_trivial_calldata(account.get_instance_address(0)),
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-        version: TransactionVersion::THREE
     });
     let chain_info = &block_context.chain_info;
     let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
@@ -1222,7 +1221,6 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
         sender_address: account.get_instance_address(0),
         calldata: transfer_calldata,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-        version: TransactionVersion::THREE
     });
 
     account_tx.execute_raw(&mut transactional_state, &block_context, true, true).unwrap();
