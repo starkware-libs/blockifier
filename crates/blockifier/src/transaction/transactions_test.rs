@@ -34,7 +34,6 @@ use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointEx
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::execution::syscalls::SyscallSelector;
-use crate::fee::fee_utils::calculate_tx_fee;
 use crate::fee::gas_usage::{
     estimate_minimal_gas_vector, get_da_gas_cost, get_onchain_data_segment_length,
 };
@@ -49,9 +48,9 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::prices::Prices;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, get_syscall_resources, get_tx_resources,
-    test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager, BALANCE,
-    CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
+    calculate_tx_fee, create_calldata, create_trivial_calldata, get_syscall_resources,
+    get_tx_resources, test_erc20_sequencer_balance_key, CairoVersion, NonceManager, SaltManager,
+    BALANCE, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_NUMBER_FOR_VALIDATE,
     CURRENT_BLOCK_TIMESTAMP, CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE, MAX_FEE, MAX_L1_GAS_AMOUNT,
     MAX_L1_GAS_PRICE, TEST_SEQUENCER_ADDRESS,
 };

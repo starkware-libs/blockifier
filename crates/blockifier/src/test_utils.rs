@@ -18,19 +18,23 @@ use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Resource, ResourceBounds, ResourceBoundsMapping,
+    Calldata, ContractAddressSalt, Fee, Resource, ResourceBounds, ResourceBoundsMapping,
     TransactionVersion,
 };
 use starknet_api::{contract_address, patricia_key, stark_felt};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
+use crate::context::BlockContext;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::execution_utils::felt_to_stark_felt;
 use crate::execution::syscalls::SyscallSelector;
+use crate::fee::fee_utils::get_fee_by_gas_vector;
 use crate::state::cached_state::StateChangesCount;
 use crate::test_utils::contracts::FeatureContract;
-use crate::transaction::objects::StarknetResources;
+use crate::transaction::objects::{
+    FeeType, StarknetResources, TransactionFeeResult, TransactionResources,
+};
 use crate::transaction::transaction_types::TransactionType;
 use crate::utils::{const_max, u128_from_usize};
 use crate::versioned_constants::VersionedConstants;
@@ -437,4 +441,15 @@ pub fn update_json_value(base: &mut serde_json::Value, update: serde_json::Value
         }
         _ => panic!("Both base and update should be of type serde_json::Value::Object."),
     }
+}
+
+/// Calculates the fee that should be charged, given transaction resources.
+pub fn calculate_tx_fee(
+    tx_resources: &TransactionResources,
+    block_context: &BlockContext,
+    fee_type: &FeeType,
+) -> TransactionFeeResult<Fee> {
+    let gas_vector = tx_resources
+        .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)?;
+    Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
 }

@@ -10,16 +10,16 @@ use starknet_api::transaction::{Calldata, Fee, TransactionSignature, Transaction
 use crate::context::{BlockContext, ChainInfo};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::SyscallSelector;
-use crate::fee::fee_utils::{calculate_tx_fee, get_fee_by_gas_vector};
+use crate::fee::fee_utils::get_fee_by_gas_vector;
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, get_syscall_resources, get_tx_resources,
-    u64_from_usize, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
-    MAX_L1_GAS_PRICE,
+    calculate_tx_fee, create_calldata, create_trivial_calldata, get_syscall_resources,
+    get_tx_resources, u64_from_usize, CairoVersion, NonceManager, BALANCE, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
 };
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,

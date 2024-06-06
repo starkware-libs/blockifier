@@ -14,11 +14,11 @@ use starknet_api::transaction::{
 use strum_macros::EnumIter;
 
 use crate::abi::constants as abi_constants;
-use crate::context::BlockContext;
+use crate::blockifier::block::BlockInfo;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::eth_gas_constants;
-use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, calculate_tx_fee};
+use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, get_fee_by_gas_vector};
 use crate::fee::gas_usage::{
     get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
     get_log_message_to_l1_emissions_cost, get_onchain_data_segment_length,
@@ -535,12 +535,8 @@ pub trait HasRelatedFeeType {
         }
     }
 
-    fn calculate_tx_fee(
-        &self,
-        tx_resources: &TransactionResources,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<Fee> {
-        Ok(calculate_tx_fee(tx_resources, block_context, &self.fee_type())?)
+    fn get_fee_by_gas_vector(&self, block_info: &BlockInfo, gas_vector: GasVector) -> Fee {
+        get_fee_by_gas_vector(block_info, gas_vector, &self.fee_type())
     }
 }
 
