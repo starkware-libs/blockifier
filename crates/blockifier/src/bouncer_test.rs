@@ -136,7 +136,7 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
         StateChangesKeys::create_for_testing(HashSet::from([ContractAddress::from(1_u128)]));
 
     let mut updated_bouncer = initial_bouncer.clone();
-    updated_bouncer._update(
+    updated_bouncer.update(
         weights_to_update,
         &execution_summary_to_update,
         &state_changes_keys_to_update,

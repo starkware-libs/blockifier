@@ -194,20 +194,6 @@ impl Bouncer {
         &self.accumulated_weights
     }
 
-    fn _update(
-        &mut self,
-        tx_weights: BouncerWeights,
-        tx_execution_summary: &ExecutionSummary,
-        state_changes_keys: &StateChangesKeys,
-    ) {
-        self.accumulated_weights += tx_weights;
-        self.visited_storage_entries.extend(&tx_execution_summary.visited_storage_entries);
-        self.executed_class_hashes.extend(&tx_execution_summary.executed_class_hashes);
-        // Note: cancelling writes (0 -> 1 -> 0) will not be removed, but it's fine since fee was
-        // charged for them.
-        self.state_changes_keys.extend(state_changes_keys);
-    }
-
     /// Updates the bouncer with a new transaction.
     pub fn try_update<S: StateReader>(
         &mut self,
@@ -252,9 +238,23 @@ impl Bouncer {
             Err(TransactionExecutorError::BlockFull)?
         }
 
-        self._update(tx_weights, tx_execution_summary, &marginal_state_changes_keys);
+        self.update(tx_weights, tx_execution_summary, &marginal_state_changes_keys);
 
         Ok(())
+    }
+
+    fn update(
+        &mut self,
+        tx_weights: BouncerWeights,
+        tx_execution_summary: &ExecutionSummary,
+        state_changes_keys: &StateChangesKeys,
+    ) {
+        self.accumulated_weights += tx_weights;
+        self.visited_storage_entries.extend(&tx_execution_summary.visited_storage_entries);
+        self.executed_class_hashes.extend(&tx_execution_summary.executed_class_hashes);
+        // Note: cancelling writes (0 -> 1 -> 0) will not be removed, but it's fine since fee was
+        // charged for them.
+        self.state_changes_keys.extend(state_changes_keys);
     }
 
     #[cfg(test)]
