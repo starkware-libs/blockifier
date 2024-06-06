@@ -21,8 +21,8 @@ use crate::transaction::constants::{
     VALIDATE_DECLARE_ENTRY_POINT_NAME, VALIDATE_DEPLOY_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test_nonce_0, run_invoke_tx,
-    FaultyAccountTxCreatorArgs, INVALID,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test_nonce_0,
+    l1_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::ExecutableTransaction;
@@ -605,10 +605,10 @@ fn test_contract_ctor_frame_stack_trace(
         account_address,
     )
     .unwrap();
-
+    let gas_price = u128::from(block_context.block_info.gas_prices.strk_l1_gas_price);
+    let gas_amount = u64::try_from(BALANCE / gas_price).unwrap();
     // Invoke the deploy_contract function on the dummy account to deploy the faulty contract.
     let invoke_deploy_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(BALANCE),
         sender_address: account_address,
         signature,
         calldata: create_calldata(
@@ -621,7 +621,7 @@ fn test_contract_ctor_frame_stack_trace(
                 validate_constructor,
             ]
         ),
-        version: TransactionVersion::ONE,
+        resource_bounds: l1_resource_bounds(gas_amount, gas_price),
         nonce: Nonce(stark_felt!(0_u8)),
     });
 
