@@ -10,7 +10,7 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
-use crate::bouncer::{Bouncer, BouncerConfig};
+use crate::bouncer::Bouncer;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
 use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
@@ -97,7 +97,7 @@ fn test_worker_execute() {
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let mut bouncer = Bouncer::new(BouncerConfig::default());
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
     let worker_executor = WorkerExecutor::new(
         safe_versioned_state.clone(),
         &txs,
@@ -262,7 +262,7 @@ fn test_worker_validate() {
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let mut bouncer = Bouncer::new(BouncerConfig::default());
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
     let worker_executor = WorkerExecutor::new(
         safe_versioned_state.clone(),
         &txs,
@@ -422,7 +422,7 @@ fn test_deploy_before_declare() {
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let mut bouncer = Bouncer::new(BouncerConfig::default());
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
     let worker_executor =
         WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
 
@@ -487,33 +487,18 @@ fn test_worker_commit_phase() {
     );
     let max_fee = Fee(MAX_FEE);
 
-    let account_tx0 = account_invoke_tx(invoke_tx_args! {
-        sender_address,
-        calldata: calldata.clone(),
-        max_fee,
-        nonce: nonce_manager.next(sender_address)
-    });
-
-    let account_tx1 = account_invoke_tx(invoke_tx_args! {
-        sender_address,
-        calldata: calldata.clone(),
-        max_fee,
-        nonce: nonce_manager.next(sender_address)
-    });
-
-    let account_tx2 = account_invoke_tx(invoke_tx_args! {
-        sender_address,
-        calldata,
-        max_fee,
-        nonce: nonce_manager.next(sender_address)
-    });
-
-    let txs = [account_tx0, account_tx1, account_tx2]
-        .into_iter()
-        .map(Transaction::AccountTransaction)
+    let txs = (0..3)
+        .map(|_| {
+            Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
+                sender_address,
+                calldata: calldata.clone(),
+                max_fee,
+                nonce: nonce_manager.next(sender_address)
+            }))
+        })
         .collect::<Vec<Transaction>>();
 
-    let mut bouncer = Bouncer::new(BouncerConfig::default());
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
     let worker_executor =
         WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
 
@@ -561,5 +546,10 @@ fn test_worker_commit_phase() {
     worker_executor.commit_while_possible();
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
 
+    for execution_output in worker_executor.execution_outputs.iter() {
+        let locked_execution_output = execution_output.lock().unwrap();
+        let result = locked_execution_output.as_ref().unwrap().result.as_ref();
+        assert!(!result.unwrap().is_reverted());
+    }
     // TODO(Avi, 15/06/2024): Check the halt mechanism once the bouncer is supported.
 }

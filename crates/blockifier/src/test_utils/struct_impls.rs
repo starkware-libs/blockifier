@@ -164,7 +164,7 @@ impl BlockContext {
                     n_events: max_n_events_in_block,
                     ..BouncerWeights::max(false)
                 },
-                ..BouncerConfig::default()
+                ..BouncerConfig::empty()
             },
             ..Self::create_for_testing()
         }
