@@ -18,6 +18,8 @@ use crate::transaction::transactions::ExecutableTransaction;
 #[path = "transaction_executor_test.rs"]
 pub mod transaction_executor_test;
 
+pub const BLOCK_STATE_ACCESS_ERR: &str = "Error: The block state should be `Some`.";
+
 #[derive(Debug, Error)]
 pub enum TransactionExecutorError {
     #[error("Transaction cannot be added to the current block, block capacity reached.")]
@@ -39,12 +41,16 @@ pub struct TransactionExecutor<S: StateReader> {
     pub config: TransactionExecutorConfig,
 
     // State-related fields.
-    pub state: CachedState<S>,
+    // The transaction executor operates at the block level. In concurrency mode, it moves the
+    // block state to the worker executor - operating at the chunk level - and gets it back after
+    // committing the chunk. The block state is wrapped with an Option<_> to allow setting it to
+    // `None` while it is moved to the worker executor.
+    pub block_state: Option<CachedState<S>>,
 }
 
 impl<S: StateReader> TransactionExecutor<S> {
     pub fn new(
-        state: CachedState<S>,
+        block_state: CachedState<S>,
         block_context: BlockContext,
         config: TransactionExecutorConfig,
     ) -> Self {
@@ -52,8 +58,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         let bouncer_config = block_context.bouncer_config.clone();
         // Note: the state might not be empty even at this point; it is the creator's
         // responsibility to tune the bouncer according to pre and post block process.
-        let tx_executor =
-            Self { block_context, bouncer: Bouncer::new(bouncer_config), config, state };
+        let tx_executor = Self {
+            block_context,
+            bouncer: Bouncer::new(bouncer_config),
+            config,
+            block_state: Some(block_state),
+        };
         log::debug!("Initialized Transaction Executor.");
 
         tx_executor
@@ -67,7 +77,9 @@ impl<S: StateReader> TransactionExecutor<S> {
         tx: &Transaction,
         charge_fee: bool,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
-        let mut transactional_state = TransactionalState::create_transactional(&mut self.state);
+        let mut transactional_state = TransactionalState::create_transactional(
+            self.block_state.as_mut().expect(BLOCK_STATE_ACCESS_ERR),
+        );
         let validate = true;
 
         let tx_execution_result =
@@ -153,18 +165,24 @@ impl<S: StateReader> TransactionExecutor<S> {
         // This is done by taking all the visited PCs of each contract, and compress them to one
         // representative for each visited segment.
         let visited_segments = self
-            .state
+            .block_state
+            .as_ref()
+            .expect(BLOCK_STATE_ACCESS_ERR)
             .visited_pcs
             .iter()
             .map(|(class_hash, class_visited_pcs)| -> TransactionExecutorResult<_> {
-                let contract_class = self.state.get_compiled_contract_class(*class_hash)?;
+                let contract_class = self
+                    .block_state
+                    .as_ref()
+                    .expect(BLOCK_STATE_ACCESS_ERR)
+                    .get_compiled_contract_class(*class_hash)?;
                 Ok((*class_hash, contract_class.get_visited_segments(class_visited_pcs)?))
             })
             .collect::<TransactionExecutorResult<_>>()?;
 
         log::debug!("Final block weights: {:?}.", self.bouncer.get_accumulated_weights());
         Ok((
-            self.state.to_state_diff()?.into(),
+            self.block_state.as_mut().expect(BLOCK_STATE_ACCESS_ERR).to_state_diff()?.into(),
             visited_segments,
             *self.bouncer.get_accumulated_weights(),
         ))
