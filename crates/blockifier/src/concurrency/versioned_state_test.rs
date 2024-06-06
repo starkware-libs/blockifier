@@ -53,7 +53,7 @@ fn test_versioned_state_proxy() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let contract_address = contract_address!("0x1");
     let key = storage_key!(0x10_u8);
-    let stark_felt = felt!(13_u8);
+    let felt = felt!(13_u8);
     let nonce = nonce!(2_u8);
     let class_hash = class_hash!(27_u8);
     let another_class_hash = class_hash!(28_u8);
@@ -62,7 +62,7 @@ fn test_versioned_state_proxy() {
 
     // Create the versioned state
     let cached_state = CachedState::from(DictStateReader {
-        storage_view: HashMap::from([((contract_address, key), stark_felt)]),
+        storage_view: HashMap::from([((contract_address, key), felt)]),
         address_to_nonce: HashMap::from([(contract_address, nonce)]),
         address_to_class_hash: HashMap::from([(contract_address, class_hash)]),
         class_hash_to_compiled_class_hash: HashMap::from([(class_hash, compiled_class_hash)]),
@@ -78,10 +78,7 @@ fn test_versioned_state_proxy() {
     // Read initial data
     assert_eq!(versioned_state_proxys[5].get_nonce_at(contract_address).unwrap(), nonce);
     assert_eq!(versioned_state_proxys[0].get_nonce_at(contract_address).unwrap(), nonce);
-    assert_eq!(
-        versioned_state_proxys[7].get_storage_at(contract_address, key).unwrap(),
-        stark_felt
-    );
+    assert_eq!(versioned_state_proxys[7].get_storage_at(contract_address, key).unwrap(), felt);
     assert_eq!(versioned_state_proxys[2].get_class_hash_at(contract_address).unwrap(), class_hash);
     assert_eq!(
         versioned_state_proxys[5].get_compiled_class_hash(class_hash).unwrap(),
@@ -102,7 +99,7 @@ fn test_versioned_state_proxy() {
 
     // Write to the state.
     let new_key = storage_key!(0x11_u8);
-    let stark_felt_v3 = felt!(14_u8);
+    let felt_v3 = felt!(14_u8);
     let nonce_v4 = nonce!(3_u8);
     let class_hash_v7 = class_hash!(28_u8);
     let class_hash_v10 = class_hash!(29_u8);
@@ -112,7 +109,7 @@ fn test_versioned_state_proxy() {
     versioned_state_proxys[3].state().apply_writes(
         3,
         &StateMaps {
-            storage: HashMap::from([((contract_address, new_key), stark_felt_v3)]),
+            storage: HashMap::from([((contract_address, new_key), felt_v3)]),
             declared_contracts: HashMap::from([(another_class_hash, true)]),
             ..Default::default()
         },
@@ -156,13 +153,10 @@ fn test_versioned_state_proxy() {
     // Read the data
     assert_eq!(versioned_state_proxys[2].get_nonce_at(contract_address).unwrap(), nonce);
     assert_eq!(versioned_state_proxys[5].get_nonce_at(contract_address).unwrap(), nonce_v4);
-    assert_eq!(
-        versioned_state_proxys[5].get_storage_at(contract_address, key).unwrap(),
-        stark_felt
-    );
+    assert_eq!(versioned_state_proxys[5].get_storage_at(contract_address, key).unwrap(), felt);
     assert_eq!(
         versioned_state_proxys[5].get_storage_at(contract_address, new_key).unwrap(),
-        stark_felt_v3
+        felt_v3
     );
     assert_eq!(versioned_state_proxys[2].get_class_hash_at(contract_address).unwrap(), class_hash);
     assert_eq!(

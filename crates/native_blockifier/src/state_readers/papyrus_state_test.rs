@@ -13,7 +13,7 @@ use starknet_api::block::BlockNumber;
 use starknet_api::hash::Felt;
 use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 
 use crate::state_readers::papyrus_state::PapyrusReader;
 
