@@ -1,6 +1,6 @@
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::TransactionVersion;
+use starknet_api::transaction::{ResourceBoundsMapping, TransactionVersion};
 
 use crate::concurrency::fee_utils::fill_sequencer_balance_reads;
 use crate::concurrency::test_utils::create_fee_transfer_call_info;
@@ -8,21 +8,20 @@ use crate::context::BlockContext;
 use crate::invoke_tx_args;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::{fund_account, test_state_inner};
-use crate::test_utils::{
-    create_trivial_calldata, CairoVersion, BALANCE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
-};
-use crate::transaction::test_utils::{account_invoke_tx, block_context, l1_resource_bounds};
+use crate::test_utils::{create_trivial_calldata, CairoVersion, BALANCE};
+use crate::transaction::test_utils::{account_invoke_tx, block_context, max_resource_bounds};
 
 #[rstest]
 pub fn test_fill_sequencer_balance_reads(
     block_context: BlockContext,
+    max_resource_bounds: ResourceBoundsMapping,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] erc20_version: CairoVersion,
 ) {
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let account_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account.get_instance_address(0),
         calldata: create_trivial_calldata(account.get_instance_address(0)),
-        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        resource_bounds: max_resource_bounds,
         version: TransactionVersion::THREE
     });
     let chain_info = &block_context.chain_info;
