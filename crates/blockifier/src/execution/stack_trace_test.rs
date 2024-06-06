@@ -4,7 +4,8 @@ use rstest::rstest;
 use starknet_api::core::{calculate_contract_address, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    Calldata, ContractAddressSalt, Fee, TransactionSignature, TransactionVersion,
+    Calldata, ContractAddressSalt, Fee, ResourceBoundsMapping, TransactionSignature,
+    TransactionVersion,
 };
 use starknet_api::{calldata, stark_felt};
 
@@ -21,8 +22,8 @@ use crate::transaction::constants::{
     VALIDATE_DECLARE_ENTRY_POINT_NAME, VALIDATE_DEPLOY_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test_nonce_0, run_invoke_tx,
-    FaultyAccountTxCreatorArgs, INVALID,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test_nonce_0,
+    max_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::ExecutableTransaction;
@@ -583,6 +584,7 @@ An ASSERT_EQ instruction failed: 1 != 0.
 /// point selector).
 fn test_contract_ctor_frame_stack_trace(
     block_context: BlockContext,
+    max_resource_bounds: ResourceBoundsMapping,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let chain_info = &block_context.chain_info;
@@ -605,10 +607,8 @@ fn test_contract_ctor_frame_stack_trace(
         account_address,
     )
     .unwrap();
-
     // Invoke the deploy_contract function on the dummy account to deploy the faulty contract.
     let invoke_deploy_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(BALANCE),
         sender_address: account_address,
         signature,
         calldata: create_calldata(
@@ -621,7 +621,7 @@ fn test_contract_ctor_frame_stack_trace(
                 validate_constructor,
             ]
         ),
-        version: TransactionVersion::ONE,
+        resource_bounds: max_resource_bounds,
         nonce: Nonce(stark_felt!(0_u8)),
     });
 
