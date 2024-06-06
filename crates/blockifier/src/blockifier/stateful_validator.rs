@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionHash;
@@ -16,6 +19,7 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
 use crate::transaction::objects::TransactionInfo;
 use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transactions::ValidatableTransaction;
 
 #[cfg(test)]
 #[path = "stateful_validator_test.rs"]
@@ -140,8 +144,29 @@ impl<S: StateReader> StatefulValidator<S> {
     fn validate(
         &mut self,
         tx: &AccountTransaction,
-        remaining_gas: u64,
+        mut remaining_gas: u64,
     ) -> StatefulValidatorResult<(Option<CallInfo>, TransactionReceipt)> {
-        Ok(self.tx_executor.validate(tx, remaining_gas)?)
+        let mut execution_resources = ExecutionResources::default();
+        let tx_context = Arc::new(self.tx_executor.block_context.to_tx_context(tx));
+
+        let limit_steps_by_resources = true;
+        let validate_call_info = tx.validate_tx(
+            &mut self.tx_executor.state,
+            &mut execution_resources,
+            tx_context.clone(),
+            &mut remaining_gas,
+            limit_steps_by_resources,
+        )?;
+
+        let tx_receipt = TransactionReceipt::from_account_tx(
+            tx,
+            &tx_context,
+            &self.tx_executor.state.get_actual_state_changes()?,
+            &execution_resources,
+            validate_call_info.iter(),
+            0,
+        )?;
+
+        Ok((validate_call_info, tx_receipt))
     }
 }

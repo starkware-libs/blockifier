@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::FoldWhile::{Continue, Done};
 use itertools::Itertools;
 use starknet_api::core::ClassHash;
@@ -9,16 +6,13 @@ use thiserror::Error;
 use crate::blockifier::config::TransactionExecutorConfig;
 use crate::bouncer::{Bouncer, BouncerWeights};
 use crate::context::BlockContext;
-use crate::execution::call_info::CallInfo;
-use crate::fee::actual_cost::TransactionReceipt;
 use crate::state::cached_state::{CachedState, CommitmentStateDiff, TransactionalState};
 use crate::state::errors::StateError;
-use crate::state::state_api::{State, StateReader};
-use crate::transaction::account_transaction::AccountTransaction;
+use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionInfo;
 use crate::transaction::transaction_execution::Transaction;
-use crate::transaction::transactions::{ExecutableTransaction, ValidatableTransaction};
+use crate::transaction::transactions::ExecutableTransaction;
 
 #[cfg(test)]
 #[path = "transaction_executor_test.rs"]
@@ -147,43 +141,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             }
         }
         results
-    }
-
-    pub fn validate(
-        &mut self,
-        account_tx: &AccountTransaction,
-        mut remaining_gas: u64,
-    ) -> TransactionExecutorResult<(Option<CallInfo>, TransactionReceipt)> {
-        let mut execution_resources = ExecutionResources::default();
-        let tx_context = Arc::new(self.block_context.to_tx_context(account_tx));
-        let tx_info = &tx_context.tx_info;
-
-        // TODO(Amos, 01/12/2023): Delete this once deprecated txs call
-        // PyValidator.perform_validations().
-        // For fee charging purposes, the nonce-increment cost is taken into consideration when
-        // calculating the fees for validation.
-        // Note: This assumes that the state is reset between calls to validate.
-        self.state.increment_nonce(tx_info.sender_address())?;
-
-        let limit_steps_by_resources = true;
-        let validate_call_info = account_tx.validate_tx(
-            &mut self.state,
-            &mut execution_resources,
-            tx_context.clone(),
-            &mut remaining_gas,
-            limit_steps_by_resources,
-        )?;
-
-        let tx_receipt = TransactionReceipt::from_account_tx(
-            account_tx,
-            &tx_context,
-            &self.state.get_actual_state_changes()?,
-            &execution_resources,
-            validate_call_info.iter(),
-            0,
-        )?;
-
-        Ok((validate_call_info, tx_receipt))
     }
 
     /// Returns the state diff, a list of contract class hash with the corresponding list of
