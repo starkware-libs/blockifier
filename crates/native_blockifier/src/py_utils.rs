@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 
+use blockifier::blockifier::block::BlockNumberHashPair;
 use num_bigint::BigUint;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -97,4 +98,11 @@ where
     T: Clone,
 {
     Ok(obj.getattr(attr)?.extract()?)
+}
+
+pub fn into_block_number_hash_pair(
+    old_block_number_and_hash: Option<(u64, PyFelt)>,
+) -> Option<BlockNumberHashPair> {
+    old_block_number_and_hash
+        .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0))
 }
