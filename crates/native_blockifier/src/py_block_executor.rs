@@ -41,8 +41,6 @@ pub(crate) type PyVisitedSegmentsMapping = Vec<(PyFelt, Vec<usize>)>;
 #[path = "py_block_executor_test.rs"]
 mod py_block_executor_test;
 
-const MAX_STEPS_PER_TX: u32 = 4_000_000;
-const MAX_VALIDATE_STEPS_PER_TX: u32 = 1_000_000;
 const RESULT_SERIALIZE_ERR: &str = "Failed serializing execution info.";
 
 /// Stripped down `TransactionExecutionInfo` for Python serialization, containing only the required
@@ -56,7 +54,6 @@ pub(crate) struct ThinTransactionExecutionInfo {
     pub da_gas: GasVector,
     pub actual_resources: ResourcesMapping,
     pub revert_error: Option<String>,
-    pub total_gas: GasVector,
 }
 
 impl ThinTransactionExecutionInfo {
@@ -76,7 +73,6 @@ impl ThinTransactionExecutionInfo {
                 true,
             ),
             revert_error: tx_execution_info.revert_error,
-            total_gas: tx_execution_info.total_gas,
         }
     }
 }
@@ -542,17 +538,6 @@ fn pre_process_block(
 ) -> NativeBlockifierResult<BlockContext> {
     let old_block_number_and_hash = old_block_number_and_hash
         .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
-
-    // Input validation.
-    if versioned_constants.invoke_tx_max_n_steps > MAX_STEPS_PER_TX {
-        Err(NativeBlockifierInputError::MaxStepsPerTxOutOfRange(
-            versioned_constants.invoke_tx_max_n_steps,
-        ))?;
-    } else if versioned_constants.validate_max_n_steps > MAX_VALIDATE_STEPS_PER_TX {
-        Err(NativeBlockifierInputError::MaxValidateStepsPerTxOutOfRange(
-            versioned_constants.validate_max_n_steps,
-        ))?;
-    }
 
     let (block_info, chain_info) = into_block_context_args(general_config, block_info)?;
     let block_context = pre_process_block_blockifier(
