@@ -3,11 +3,10 @@
 #   https://doc.rust-lang.org/cargo/reference/resolver.html#feature-resolver-version-2
 resolver = "2"
 
-#members = ["crates/blockifier", "crates/native_blockifier"]
-members = ["crates/blockifier"]
+members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.package]
-version = "0.8.0-dev.0"
+version = "0.8.0-dev.1"
 edition = "2021"
 repository = "https://github.com/starkware-libs/blockifier/"
 license = "Apache-2.0"
@@ -38,7 +37,7 @@ num-integer = "0.1.45"
 num-rational = { version = "0.4", features = ["serde"] }
 num-traits = "0.2"
 once_cell = "1.19.0"
-papyrus_storage = "0.4.0-dev.1"
+papyrus_storage = "0.4.0-dev.3"
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 pyo3 = "0.19.1"
