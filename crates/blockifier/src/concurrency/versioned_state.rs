@@ -24,6 +24,7 @@ const READ_ERR: &str = "Error: read value missing in the versioned storage";
 /// Reader functionality is injected through initial state.
 #[derive(Debug)]
 pub struct VersionedState<S: StateReader> {
+    // TODO(barak, 01/08/2024): Change initial_state to state.
     initial_state: S,
     storage: VersionedStorage<(ContractAddress, StorageKey), StarkFelt>,
     nonces: VersionedStorage<ContractAddress, Nonce>,
@@ -197,6 +198,11 @@ impl<S: StateReader> VersionedState<S> {
             self.compiled_contract_classes.delete_write(key, tx_index);
         }
     }
+
+    #[allow(dead_code)]
+    fn into_initial_state(self) -> S {
+        self.initial_state
+    }
 }
 
 pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
@@ -209,6 +215,19 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
 
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
+    }
+
+    #[allow(dead_code)]
+    fn into_inner_state(self) -> VersionedState<S> {
+        Arc::try_unwrap(self.0)
+            .unwrap_or_else(|_| {
+                panic!(
+                    "To consume the versioned state, you must have only one strong reference to \
+                     self. Consider dropping objects that hold a reference to it."
+                )
+            })
+            .into_inner()
+            .expect("No other mutex should hold the versioned state while calling this method.")
     }
 }
 
