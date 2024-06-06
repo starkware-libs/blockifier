@@ -181,7 +181,6 @@ fn test_invoke_tx_from_non_deployed_account(
 fn test_infinite_recursion(
     #[values(true, false)] success: bool,
     #[values(true, false)] normal_recurse: bool,
-    max_fee: Fee,
     mut block_context: BlockContext,
 ) {
     // Limit the number of execution steps (so we quickly hit the limit).
@@ -210,10 +209,9 @@ fn test_infinite_recursion(
         &mut state,
         &block_context,
         invoke_tx_args! {
-            max_fee,
+            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
             sender_address: account_address,
             calldata: execute_calldata,
-            version: TransactionVersion::ONE,
             nonce: nonce_manager.next(account_address),
         },
     )
@@ -695,16 +693,14 @@ fn test_reverted_reach_steps_limit(
 /// In this test reverted transactions are recursive function invocations where the innermost call
 /// asserts false. We test deltas between consecutive depths, and further depths.
 fn test_n_reverted_steps(
-    max_fee: Fee,
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, cairo_version);
     let recursion_base_args = invoke_tx_args! {
-        max_fee,
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         sender_address: account_address,
-        version: TransactionVersion::ONE,
     };
 
     // Invoke the `recursive_fail` function with 0 iterations. This call should fail.
@@ -1176,7 +1172,6 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
         sender_address: account.get_instance_address(0),
         calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-        version: TransactionVersion::THREE
     });
     let chain_info = &block_context.chain_info;
     let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
@@ -1228,7 +1223,6 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
         sender_address: account.get_instance_address(0),
         calldata: transfer_calldata,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-        version: TransactionVersion::THREE
     });
 
     let result =
