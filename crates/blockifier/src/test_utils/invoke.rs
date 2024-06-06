@@ -37,7 +37,7 @@ impl Default for InvokeTxArgs {
             sender_address: ContractAddress::default(),
             calldata: calldata![],
             // TODO(Dori, 10/10/2023): Change to THREE when supported.
-            version: TransactionVersion::ONE,
+            version: TransactionVersion::THREE,
             resource_bounds: default_testing_resource_bounds(),
             tip: Tip::default(),
             nonce_data_availability_mode: DataAvailabilityMode::L1,
