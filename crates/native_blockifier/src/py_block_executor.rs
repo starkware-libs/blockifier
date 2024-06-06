@@ -109,7 +109,7 @@ impl TypedTransactionExecutionInfo {
 pub struct PyBlockExecutor {
     pub bouncer_config: BouncerConfig,
     pub tx_executor_config: TransactionExecutorConfig,
-    pub general_config: PyGeneralConfig,
+    pub chain_info: ChainInfo,
     pub versioned_constants: VersionedConstants,
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
     /// `Send` trait is required for `pyclass` compatibility as Python objects must be threadsafe.
@@ -132,7 +132,7 @@ impl PyBlockExecutor {
     ) -> Self {
         log::debug!("Initializing Block Executor...");
         let storage =
-            PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
+            PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage.");
         let versioned_constants = VersionedConstants::latest_constants_with_overrides(
             validate_max_n_steps,
             max_recursion_depth,
@@ -144,7 +144,11 @@ impl PyBlockExecutor {
             tx_executor_config: TransactionExecutorConfig {
                 concurrency_config: concurrency_config.into(),
             },
-            general_config,
+            chain_info: general_config
+                .starknet_os_config
+                .clone()
+                .try_into()
+                .expect("Failed to read chain info."),
             versioned_constants,
             tx_executor: None,
             storage: Box::new(storage),
