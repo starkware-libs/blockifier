@@ -14,15 +14,17 @@ use crate::context::{BlockContext, ChainInfo};
 use crate::invoke_tx_args;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
-use crate::test_utils::{create_calldata, CairoVersion, BALANCE};
+use crate::test_utils::{
+    create_calldata, CairoVersion, BALANCE, MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE,
+};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::{
     DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME, EXECUTE_ENTRY_POINT_NAME, FELT_TRUE,
     VALIDATE_DECLARE_ENTRY_POINT_NAME, VALIDATE_DEPLOY_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test_nonce_0, run_invoke_tx,
-    FaultyAccountTxCreatorArgs, INVALID,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test_nonce_0,
+    l1_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::ExecutableTransaction;
@@ -605,10 +607,8 @@ fn test_contract_ctor_frame_stack_trace(
         account_address,
     )
     .unwrap();
-
     // Invoke the deploy_contract function on the dummy account to deploy the faulty contract.
     let invoke_deploy_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(BALANCE),
         sender_address: account_address,
         signature,
         calldata: create_calldata(
@@ -621,7 +621,7 @@ fn test_contract_ctor_frame_stack_trace(
                 validate_constructor,
             ]
         ),
-        version: TransactionVersion::ONE,
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         nonce: Nonce(stark_felt!(0_u8)),
     });
 
