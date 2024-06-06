@@ -295,7 +295,6 @@ pub fn emit_n_events_tx(
     account_invoke_tx(invoke_tx_args! {
         sender_address: account_contract,
         calldata,
-        version: TransactionVersion::THREE,
         nonce
     })
 }
