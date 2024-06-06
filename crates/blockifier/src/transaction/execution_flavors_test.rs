@@ -5,7 +5,9 @@ use rstest::rstest;
 use starknet_api::core::ContractAddress;
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
-use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
+use starknet_api::transaction::{
+    Calldata, Fee, ResourceBoundsMapping, TransactionSignature, TransactionVersion,
+};
 
 use crate::context::{BlockContext, ChainInfo};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
@@ -25,7 +27,9 @@ use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
 };
 use crate::transaction::objects::{FeeType, GasVector, TransactionExecutionInfo};
-use crate::transaction::test_utils::{account_invoke_tx, l1_resource_bounds, INVALID};
+use crate::transaction::test_utils::{
+    account_invoke_tx, l1_resource_bounds, max_resource_bounds, INVALID,
+};
 use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::{invoke_tx_args, nonce};
@@ -153,6 +157,9 @@ fn test_simulate_validate_charge_fee_pre_validate(
 ) {
     let block_context = BlockContext::create_for_account_testing();
     let max_fee = Fee(MAX_FEE);
+    // The max resource bounds fixture is not used here because this function already has the
+    // maximum number of arguments.
+    let resource_bounds = l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE);
     let gas_price = block_context.block_info.gas_prices.get_gas_price_by_fee_type(&fee_type);
     let FlavorTestInitialState {
         mut state,
@@ -170,7 +177,7 @@ fn test_simulate_validate_charge_fee_pre_validate(
     // In all scenarios, no need for balance check - balance shouldn't change regardless of flags.
     let pre_validation_base_args = invoke_tx_args! {
         max_fee,
-        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        resource_bounds,
         sender_address: account_address,
         calldata: create_trivial_calldata(test_contract_address),
         version,
@@ -331,6 +338,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
     #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
+    max_resource_bounds: ResourceBoundsMapping,
 ) {
     let block_context = BlockContext::create_for_account_testing();
     let max_fee = Fee(MAX_FEE);
@@ -351,7 +359,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
     );
     let result = account_invoke_tx(invoke_tx_args! {
         max_fee,
-        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        resource_bounds: max_resource_bounds,
         signature: TransactionSignature(vec![
             StarkFelt::from(INVALID),
             StarkFelt::ZERO
@@ -392,6 +400,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     #[values(CairoVersion::Cairo0)] cairo_version: CairoVersion,
     #[case] version: TransactionVersion,
     #[case] fee_type: FeeType,
+    max_resource_bounds: ResourceBoundsMapping,
 ) {
     let block_context = BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
@@ -415,7 +424,7 @@ fn test_simulate_validate_charge_fee_mid_execution(
     // 3. Execution fails due to out-of-resources error, due to max block bounds, mid-run.
     let execution_base_args = invoke_tx_args! {
         max_fee: Fee(MAX_FEE),
-        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        resource_bounds: max_resource_bounds,
         sender_address: account_address,
         version,
         only_query,
