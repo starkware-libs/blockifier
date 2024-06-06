@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use blockifier::blockifier::block::{
-    pre_process_block as pre_process_block_blockifier, BlockInfo, BlockNumberHashPair, GasPrices,
-};
+use blockifier::blockifier::block::pre_process_block;
 use blockifier::blockifier::config::TransactionExecutorConfig;
 use blockifier::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
 use blockifier::bouncer::BouncerConfig;
@@ -10,7 +8,6 @@ use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::global_cache::GlobalContractCache;
-use blockifier::state::state_api::State;
 use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionInfo};
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
@@ -18,19 +15,16 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 use pyo3::{FromPyObject, PyAny, Python};
 use serde::Serialize;
-use starknet_api::block::{BlockNumber, BlockTimestamp};
+use starknet_api::block::BlockNumber;
 use starknet_api::core::{ChainId, ContractAddress};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
-use crate::errors::{
-    InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
-    NativeBlockifierResult,
-};
+use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_objects::{PyBouncerConfig, PyConcurrencyConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::{get_py_tx_type, py_tx, PyClassInfo, PY_TX_PARSING_ERR};
-use crate::py_utils::{int_to_chain_id, PyFelt};
+use crate::py_utils::{int_to_chain_id, into_block_number_hash_pair, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
 
@@ -109,7 +103,7 @@ impl TypedTransactionExecutionInfo {
 pub struct PyBlockExecutor {
     pub bouncer_config: BouncerConfig,
     pub tx_executor_config: TransactionExecutorConfig,
-    pub general_config: PyGeneralConfig,
+    pub chain_info: ChainInfo,
     pub versioned_constants: VersionedConstants,
     pub tx_executor: Option<TransactionExecutor<PapyrusReader>>,
     /// `Send` trait is required for `pyclass` compatibility as Python objects must be threadsafe.
@@ -124,6 +118,7 @@ impl PyBlockExecutor {
     pub fn create(
         bouncer_config: PyBouncerConfig,
         concurrency_config: PyConcurrencyConfig,
+        // TODO(Yoni, 1/7/2024): pass chain_info instead.
         general_config: PyGeneralConfig,
         validate_max_n_steps: u32,
         max_recursion_depth: usize,
@@ -132,7 +127,7 @@ impl PyBlockExecutor {
     ) -> Self {
         log::debug!("Initializing Block Executor...");
         let storage =
-            PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
+            PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage.");
         let versioned_constants = VersionedConstants::latest_constants_with_overrides(
             validate_max_n_steps,
             max_recursion_depth,
@@ -144,7 +139,7 @@ impl PyBlockExecutor {
             tx_executor_config: TransactionExecutorConfig {
                 concurrency_config: concurrency_config.into(),
             },
-            general_config,
+            chain_info: general_config.starknet_os_config.into_chain_info(),
             versioned_constants,
             tx_executor: None,
             storage: Box::new(storage),
@@ -161,16 +156,24 @@ impl PyBlockExecutor {
         next_block_info: PyBlockInfo,
         old_block_number_and_hash: Option<(u64, PyFelt)>,
     ) -> NativeBlockifierResult<()> {
-        let papyrus_reader = self.get_aligned_reader(next_block_info.block_number);
-        let mut state = CachedState::new(papyrus_reader);
-        let block_context = pre_process_block(
-            &mut state,
-            old_block_number_and_hash,
-            &self.general_config,
-            &next_block_info,
-            &self.versioned_constants,
+        // Create block context.
+        let block_context = BlockContext::new(
+            next_block_info.try_into()?,
+            self.chain_info.clone(),
+            self.versioned_constants.clone(),
             self.bouncer_config.clone(),
             self.tx_executor_config.concurrency_config.enabled,
+        );
+        let next_block_number = block_context.block_info().block_number;
+
+        // Create state reader.
+        let papyrus_reader = self.get_aligned_reader(next_block_number);
+        let mut state = CachedState::new(papyrus_reader);
+
+        pre_process_block(
+            &mut state,
+            into_block_number_hash_pair(old_block_number_and_hash),
+            next_block_number,
         )?;
 
         let tx_executor =
@@ -395,7 +398,7 @@ impl PyBlockExecutor {
                 path,
                 &general_config.starknet_os_config.chain_id,
             )),
-            general_config,
+            chain_info: general_config.starknet_os_config.into_chain_info(),
             versioned_constants: VersionedConstants::latest_constants().clone(),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
@@ -408,12 +411,12 @@ impl PyBlockExecutor {
         self.tx_executor.as_mut().expect("Transaction executor should be initialized")
     }
 
-    fn get_aligned_reader(&self, next_block_number: u64) -> PapyrusReader {
+    fn get_aligned_reader(&self, next_block_number: BlockNumber) -> PapyrusReader {
         // Full-node storage must be aligned to the Python storage before initializing a reader.
-        self.storage.validate_aligned(next_block_number);
+        self.storage.validate_aligned(next_block_number.0);
         PapyrusReader::new(
             self.storage.reader().clone(),
-            BlockNumber(next_block_number),
+            next_block_number,
             self.global_contract_cache.clone(),
         )
     }
@@ -425,7 +428,7 @@ impl PyBlockExecutor {
             bouncer_config: BouncerConfig::max(),
             tx_executor_config: TransactionExecutorConfig::default(),
             storage: Box::new(storage),
-            general_config: PyGeneralConfig::default(),
+            chain_info: ChainInfo::default(),
             versioned_constants: VersionedConstants::latest_constants().clone(),
             tx_executor: None,
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
@@ -446,6 +449,12 @@ pub struct PyOsConfig {
     pub chain_id: ChainId,
     pub deprecated_fee_token_address: PyFelt,
     pub fee_token_address: PyFelt,
+}
+
+impl PyOsConfig {
+    pub fn into_chain_info(self) -> ChainInfo {
+        ChainInfo::try_from(self).expect("Failed to convert chain info.")
+    }
 }
 
 impl TryFrom<PyOsConfig> for ChainInfo {
@@ -474,83 +483,6 @@ impl Default for PyOsConfig {
             fee_token_address: Default::default(),
         }
     }
-}
-
-pub fn into_block_context_args(
-    general_config: &PyGeneralConfig,
-    block_info: &PyBlockInfo,
-) -> NativeBlockifierResult<(BlockInfo, ChainInfo)> {
-    let chain_info: ChainInfo = general_config.starknet_os_config.clone().try_into()?;
-    let block_info = BlockInfo {
-        block_number: BlockNumber(block_info.block_number),
-        block_timestamp: BlockTimestamp(block_info.block_timestamp),
-        sequencer_address: ContractAddress::try_from(block_info.sequencer_address.0)?,
-        gas_prices: GasPrices {
-            eth_l1_gas_price: block_info.l1_gas_price.price_in_wei.try_into().map_err(|_| {
-                NativeBlockifierInputError::InvalidNativeBlockifierInputError(
-                    InvalidNativeBlockifierInputError::InvalidGasPriceWei(
-                        block_info.l1_gas_price.price_in_wei,
-                    ),
-                )
-            })?,
-            strk_l1_gas_price: block_info.l1_gas_price.price_in_fri.try_into().map_err(|_| {
-                NativeBlockifierInputError::InvalidNativeBlockifierInputError(
-                    InvalidNativeBlockifierInputError::InvalidGasPriceFri(
-                        block_info.l1_gas_price.price_in_fri,
-                    ),
-                )
-            })?,
-            eth_l1_data_gas_price: block_info.l1_data_gas_price.price_in_wei.try_into().map_err(
-                |_| {
-                    NativeBlockifierInputError::InvalidNativeBlockifierInputError(
-                        InvalidNativeBlockifierInputError::InvalidDataGasPriceWei(
-                            block_info.l1_data_gas_price.price_in_wei,
-                        ),
-                    )
-                },
-            )?,
-            strk_l1_data_gas_price: block_info.l1_data_gas_price.price_in_fri.try_into().map_err(
-                |_| {
-                    NativeBlockifierInputError::InvalidNativeBlockifierInputError(
-                        InvalidNativeBlockifierInputError::InvalidDataGasPriceFri(
-                            block_info.l1_data_gas_price.price_in_fri,
-                        ),
-                    )
-                },
-            )?,
-        },
-        use_kzg_da: block_info.use_kzg_da,
-    };
-
-    Ok((block_info, chain_info))
-}
-
-// Executes block pre-processing; see `blockifier::blockifier::block::pre_process_block`
-// documentation.
-fn pre_process_block(
-    state: &mut dyn State,
-    old_block_number_and_hash: Option<(u64, PyFelt)>,
-    general_config: &PyGeneralConfig,
-    block_info: &PyBlockInfo,
-    versioned_constants: &VersionedConstants,
-    bouncer_config: BouncerConfig,
-    concurrency_mode: bool,
-) -> NativeBlockifierResult<BlockContext> {
-    let old_block_number_and_hash = old_block_number_and_hash
-        .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
-
-    let (block_info, chain_info) = into_block_context_args(general_config, block_info)?;
-    let block_context = pre_process_block_blockifier(
-        state,
-        old_block_number_and_hash,
-        block_info,
-        chain_info,
-        versioned_constants.clone(),
-        bouncer_config,
-        concurrency_mode,
-    )?;
-
-    Ok(block_context)
 }
 
 fn serialize_failure_reason(error: TransactionExecutorError) -> RawTransactionExecutionResult {

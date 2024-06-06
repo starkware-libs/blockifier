@@ -1,4 +1,5 @@
 use blockifier::blockifier::stateful_validator::StatefulValidator;
+use blockifier::bouncer::BouncerConfig;
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
 use blockifier::versioned_constants::VersionedConstants;
@@ -7,7 +8,7 @@ use starknet_api::core::Nonce;
 use starknet_api::transaction::TransactionHash;
 
 use crate::errors::NativeBlockifierResult;
-use crate::py_block_executor::{into_block_context_args, PyGeneralConfig};
+use crate::py_block_executor::PyGeneralConfig;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, PyClassInfo, PY_TX_PARSING_ERR};
 use crate::py_utils::PyFelt;
@@ -35,13 +36,17 @@ impl PyValidator {
         let state = CachedState::new(state_reader);
 
         // Create the block context.
-        let (block_info, chain_info) = into_block_context_args(&general_config, &next_block_info)?;
         let versioned_constants = VersionedConstants::latest_constants_with_overrides(
             validate_max_n_steps,
             max_recursion_depth,
         );
-        let block_context =
-            BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
+        let block_context = BlockContext::new(
+            next_block_info.try_into().expect("Failed to convert block info."),
+            general_config.starknet_os_config.into_chain_info(),
+            versioned_constants,
+            BouncerConfig::max(),
+            false,
+        );
 
         // Create the stateful validator.
         let max_nonce_for_validation_skip = Nonce(max_nonce_for_validation_skip.0);
