@@ -8,7 +8,7 @@ use cairo_vm::vm::runners::builtin_runner::{
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use rstest::rstest;
-use starknet_api::transaction::{Fee, TransactionVersion};
+use starknet_api::transaction::Fee;
 
 use crate::abi::constants::N_STEPS_RESOURCE;
 use crate::context::BlockContext;
@@ -148,7 +148,6 @@ fn test_discounted_gas_overdraft(
     let tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account.get_instance_address(0),
         resource_bounds: l1_resource_bounds(gas_bound, gas_price * 10),
-        version: TransactionVersion::THREE
     });
 
     let tx_receipt = TransactionReceipt {
