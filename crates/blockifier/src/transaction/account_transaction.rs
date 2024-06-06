@@ -303,9 +303,9 @@ impl AccountTransaction {
         Ok(())
     }
 
-    fn handle_fee<U: UpdatableState>(
+    fn handle_fee<S: StateReader>(
         &self,
-        state: &mut TransactionalState<'_, U>,
+        state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
         charge_fee: bool,
@@ -372,8 +372,8 @@ impl AccountTransaction {
     /// manipulates the state to avoid that part.
     /// Note: the returned transfer call info is partial, and should be completed at the commit
     /// stage, as well as the actual sequencer balance.
-    fn concurrency_execute_fee_transfer<U: UpdatableState>(
-        state: &mut TransactionalState<'_, U>,
+    fn concurrency_execute_fee_transfer<S: StateReader>(
+        state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
@@ -413,9 +413,9 @@ impl AccountTransaction {
         }
     }
 
-    fn run_non_revertible<U: UpdatableState>(
+    fn run_non_revertible<S: StateReader>(
         &self,
-        state: &mut TransactionalState<'_, U>,
+        state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         remaining_gas: &mut u64,
         validate: bool,
@@ -476,9 +476,9 @@ impl AccountTransaction {
         }
     }
 
-    fn run_revertible<U: UpdatableState>(
+    fn run_revertible<S: StateReader>(
         &self,
-        state: &mut TransactionalState<'_, U>,
+        state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         remaining_gas: &mut u64,
         validate: bool,
@@ -617,9 +617,9 @@ impl AccountTransaction {
     }
 
     /// Runs validation and execution.
-    fn run_or_revert<U: UpdatableState>(
+    fn run_or_revert<S: StateReader>(
         &self,
-        state: &mut TransactionalState<'_, U>,
+        state: &mut TransactionalState<'_, S>,
         remaining_gas: &mut u64,
         tx_context: Arc<TransactionContext>,
         validate: bool,
