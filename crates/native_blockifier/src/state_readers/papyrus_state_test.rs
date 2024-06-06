@@ -10,7 +10,6 @@ use blockifier::test_utils::{trivial_external_entry_point_new, CairoVersion};
 use indexmap::IndexMap;
 use papyrus_storage::state::StateStorageWriter;
 use starknet_api::block::BlockNumber;
-use starknet_api::hash::Felt;
 use starknet_api::state::{StateDiff, StorageKey};
 use starknet_api::transaction::Calldata;
 use starknet_api::{calldata, felt};
@@ -28,11 +27,9 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
         IndexMap::from([(test_contract.get_instance_address(0), test_class_hash)]);
     let state_diff = StateDiff { deployed_contracts, ..Default::default() };
 
-    let deprecated_declared_classes =
-        IndexMap::from([(test_class_hash, test_contract.get_deprecated_contract_class())]);
     storage_writer
         .begin_rw_txn()?
-        .append_state_diff(BlockNumber::default(), state_diff, deprecated_declared_classes)?
+        .append_state_diff(BlockNumber::default(), state_diff.into())?
         .commit()?;
 
     // BlockNumber is 1 due to the initialization step above.

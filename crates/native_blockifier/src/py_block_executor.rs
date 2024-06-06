@@ -20,8 +20,8 @@ use pyo3::{FromPyObject, PyAny, Python};
 use serde::Serialize;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress};
-use starknet_api::hash::Felt;
 use starknet_api::transaction::Fee;
+use starknet_types_core::felt::Felt;
 
 use crate::errors::{
     InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
@@ -142,7 +142,7 @@ impl PyBlockExecutor {
         log::debug!("Initialized Block Executor.");
 
         Self {
-            bouncer_config: bouncer_config.into(),
+            bouncer_config: bouncer_config.try_into().expect("Failed to parse bouncer config."),
             tx_executor_config: TransactionExecutorConfig {
                 concurrency_config: concurrency_config.into(),
             },
@@ -344,7 +344,7 @@ impl PyBlockExecutor {
         let mut block_id_fixed_bytes = [0_u8; 32];
         block_id_fixed_bytes.copy_from_slice(&block_id_bytes);
 
-        Ok(Some(PyFelt(Felt::new(block_id_fixed_bytes)?)))
+        Ok(Some(PyFelt(Felt::from_bytes_be(&block_id_fixed_bytes))))
     }
 
     #[pyo3(signature = (source_block_number))]
@@ -474,7 +474,7 @@ impl TryFrom<PyOsConfig> for ChainInfo {
 impl Default for PyOsConfig {
     fn default() -> Self {
         Self {
-            chain_id: ChainId("".to_string()),
+            chain_id: ChainId::Other("".to_string()),
             deprecated_fee_token_address: Default::default(),
             fee_token_address: Default::default(),
         }
