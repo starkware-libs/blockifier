@@ -1171,23 +1171,24 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     const STORAGE_READ_LOW: u128 = 50;
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let chain_info = &block_context.chain_info;
+    let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
+    let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(&block_context);
     let account_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account.get_instance_address(0),
         calldata: create_trivial_calldata(account.get_instance_address(0)),
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         version: TransactionVersion::THREE
     });
-    let chain_info = &block_context.chain_info;
-    let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
-    let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
-
-    let (sequencer_balance_key_low, sequencer_balance_key_high) =
-        get_sequencer_balance_keys(&block_context);
 
     // Case 1: The transaction did not read form/ write to the sequenser balance before executing
     // fee transfer.
     let mut transactional_state = TransactionalState::create_transactional(state);
-    account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
+    let charge_fee = true;
+    let validate = true;
+    account_tx.execute_raw(&mut transactional_state, &block_context, charge_fee, validate).unwrap();
     let transactional_cache = transactional_state.cache.borrow();
     for storage in [
         transactional_cache.initial_reads.storage.clone(),
@@ -1251,5 +1252,57 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
         ),
     ] {
         assert_eq!(*seq_write_val.unwrap(), expexted_write_val);
+    }
+}
+
+// Check that when the sequencer is the sender, we run the sequential fee transfer.
+#[rstest]
+#[case::tx_version_1(TransactionVersion::ONE, FeeType::Eth)]
+#[case::tx_version_3(TransactionVersion::THREE, FeeType::Strk)]
+fn test_concurrent_fee_transfer_when_sender_is_sequencer(
+    max_fee: Fee,
+    #[case] version: TransactionVersion,
+    #[case] fee_type: FeeType,
+) {
+    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let account_address = account.get_instance_address(0_u16);
+    block_context.block_info.sequencer_address = account_address;
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let sender_balance = BALANCE;
+    let chain_info = &block_context.chain_info;
+    let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
+    let state = &mut test_state(chain_info, sender_balance, &[(account, 1), (test_contract, 1)]);
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(&block_context);
+    // Create the account transaction according to the fee type.
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: account_address,
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        version
+    });
+
+    let mut transactional_state = TransactionalState::create_transactional(state);
+    let charge_fee = true;
+    let validate = true;
+    let result =
+        account_tx.execute(&mut transactional_state, &block_context, charge_fee, validate).unwrap();
+    assert!(!result.is_reverted());
+    let transactional_cache = transactional_state.cache.borrow();
+    // Check that the sequencer balance was not changed.
+    for storage in [
+        transactional_cache.initial_reads.storage.clone(),
+        transactional_cache.writes.storage.clone(),
+    ] {
+        for (seq_key, seq_value) in
+            [(sequencer_balance_key_low, sender_balance), (sequencer_balance_key_high, 0_u128)]
+        {
+            assert_eq!(
+                *storage.get(&(fee_token_address, seq_key)).unwrap(),
+                stark_felt!(seq_value)
+            );
+        }
     }
 }
