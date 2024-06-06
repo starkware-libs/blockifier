@@ -293,6 +293,7 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let account_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account_contract_address,
         calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        version: TransactionVersion::ONE,
         max_fee: Fee(MAX_FEE),
     });
     let calldata_length = account_tx.calldata_length();

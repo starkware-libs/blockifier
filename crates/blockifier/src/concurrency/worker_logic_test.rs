@@ -26,7 +26,7 @@ use crate::test_utils::declare::declare_tx;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
     create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS2,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
@@ -46,7 +46,6 @@ fn trivial_calldata_invoke_tx(
         sender_address: account_address,
         calldata: create_trivial_calldata(test_contract_address),
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-        version: TransactionVersion::THREE,
         nonce: nonce,
     })
 }
@@ -211,7 +210,7 @@ fn test_worker_execute() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         nonce: nonce_manager.next(account_address)
     });
 
@@ -224,6 +223,7 @@ fn test_worker_execute() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
         ),
+        version: TransactionVersion::ONE,
         max_fee: Fee(MAX_FEE),
         nonce: nonce_manager.next(account_address)
 
@@ -236,6 +236,7 @@ fn test_worker_execute() {
             "write_and_revert",
             &[stark_felt!(1991_u16),storage_value ], // Calldata:  address, value.
         ),
+        version: TransactionVersion::ONE,
         max_fee: Fee(MAX_FEE),
         nonce: nonce_manager.next(account_address)
 
@@ -278,7 +279,7 @@ fn test_worker_execute() {
     assert!(!result.is_reverted());
 
     let erc20 = FeatureContract::ERC20;
-    let erc_contract_address = contract_address!(TEST_ERC20_CONTRACT_ADDRESS);
+    let erc_contract_address = contract_address!(TEST_ERC20_CONTRACT_ADDRESS2);
     let account_balance_key_low = get_fee_token_var_address(account_address);
     let account_balance_key_high = next_storage_key(&account_balance_key_low).unwrap();
     // Both in write and read sets, only the account balance appear, and not the sequencer balance.
@@ -390,7 +391,7 @@ fn test_worker_validate() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value0 ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         nonce: nonce_manager.next(account_address)
     });
 
@@ -401,7 +402,7 @@ fn test_worker_validate() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value1 ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         nonce: nonce_manager.next(account_address)
 
     });
@@ -562,7 +563,7 @@ fn test_deploy_before_declare() {
                 stark_felt!(1_u8),                  // Constructor calldata arg2.
             ]
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         nonce: nonce!(0_u8)
     });
 
@@ -634,14 +635,13 @@ fn test_worker_commit_phase() {
         "test_storage_read_write",
         &[*storage_key.0.key(), storage_value], // Calldata:  address, value.
     );
-    let max_fee = Fee(MAX_FEE);
 
     let txs = (0..3)
         .map(|_| {
             Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
                 sender_address,
                 calldata: calldata.clone(),
-                max_fee,
+                resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
                 nonce: nonce_manager.next(sender_address)
             }))
         })
