@@ -359,7 +359,7 @@ fn test_invoke_tx(
     let invoke_tx = invoke_tx(invoke_tx_args! {
         sender_address: account_contract_address,
         calldata: create_trivial_calldata(test_contract_address),
-        max_fee: Fee(MAX_FEE)
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
     });
 
     // Extract invoke transaction fields for testing, as it is consumed when creating an account
@@ -550,7 +550,7 @@ fn test_invoke_tx_advanced_operations(
     let contract_address = test_contract.get_instance_address(0);
     let index = stark_felt!(123_u32);
     let base_tx_args = invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         sender_address: account_address,
     };
 
@@ -884,7 +884,7 @@ fn test_insufficient_resource_bounds(
     // Max fee too low (lower than minimal estimated fee).
     let invalid_max_fee = Fee(minimal_fee.0 - 1);
     let invalid_v1_tx = account_invoke_tx(
-        invoke_tx_args! { max_fee: invalid_max_fee, ..valid_invoke_tx_args.clone() },
+        invoke_tx_args! { max_fee: invalid_max_fee, version: TransactionVersion::ONE,  ..valid_invoke_tx_args.clone() },
     );
     let execution_error = invalid_v1_tx.execute(state, block_context, true, true).unwrap_err();
 
@@ -906,7 +906,6 @@ fn test_insufficient_resource_bounds(
         (minimal_l1_gas - 1).try_into().expect("Failed to convert u128 to u64.");
     let invalid_v3_tx = account_invoke_tx(invoke_tx_args! {
         resource_bounds: l1_resource_bounds(insufficient_max_l1_gas_amount, actual_strk_l1_gas_price.into()),
-        version: TransactionVersion::THREE,
         ..valid_invoke_tx_args.clone()
     });
     let execution_error = invalid_v3_tx.execute(state, block_context, true, true).unwrap_err();
@@ -929,7 +928,6 @@ fn test_insufficient_resource_bounds(
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
         resource_bounds: l1_resource_bounds(minimal_l1_gas.try_into().expect("Failed to convert u128 to u64."), insufficient_max_l1_gas_price),
-        version: TransactionVersion::THREE,
         ..valid_invoke_tx_args
     });
     let execution_error = invalid_v3_tx.execute(state, block_context, true, true).unwrap_err();
@@ -960,6 +958,7 @@ fn test_actual_fee_gt_resource_bounds(
     let invoke_tx_args = invoke_tx_args! {
         sender_address: account_contract.get_instance_address(0),
         calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        version: TransactionVersion::ONE,
         max_fee: Fee(MAX_FEE)
     };
     let tx = &account_invoke_tx(invoke_tx_args.clone());
@@ -992,7 +991,7 @@ fn test_invalid_nonce(
     let valid_invoke_tx_args = invoke_tx_args! {
         sender_address: account_contract.get_instance_address(0),
         calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
-        max_fee: Fee(MAX_FEE)
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
     };
     let mut transactional_state = TransactionalState::create_transactional(state);
 
@@ -1639,7 +1638,7 @@ fn test_valid_flag(
     let account_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account_contract.get_instance_address(0),
         calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
-        max_fee: Fee(MAX_FEE)
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
     });
 
     let actual_execution_info = account_tx.execute(state, block_context, true, false).unwrap();
@@ -1712,9 +1711,13 @@ fn test_only_query_flag(block_context: BlockContext, #[values(true, false)] only
         .concat()
         .into(),
     );
-    let invoke_tx = crate::test_utils::invoke::invoke_tx(
-        invoke_tx_args! { calldata: execute_calldata, max_fee, sender_address, only_query },
-    );
+    let invoke_tx = crate::test_utils::invoke::invoke_tx(invoke_tx_args! {
+        calldata: execute_calldata,
+        max_fee,
+        sender_address,
+        only_query,
+        version: TransactionVersion::ONE
+    });
     let account_tx = AccountTransaction::Invoke(invoke_tx);
 
     let tx_execution_info = account_tx.execute(state, block_context, true, true).unwrap();
@@ -1893,6 +1896,7 @@ fn test_execute_tx_with_invalid_transaction_version(block_context: BlockContext)
         &[stark_felt!(invalid_version)],
     );
     let account_tx = account_invoke_tx(invoke_tx_args! {
+        version: TransactionVersion::ONE,
         max_fee: Fee(MAX_FEE),
         sender_address: account.get_instance_address(0),
         calldata,
