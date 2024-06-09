@@ -125,7 +125,7 @@ fn test_worker_execute() {
     let execution_output = worker_executor.execution_outputs[tx_index].lock().unwrap();
     let execution_output = execution_output.as_ref().unwrap();
     let result = execution_output.result.as_ref().unwrap();
-    let account_balance = BALANCE - result.actual_fee.0;
+    let account_balance = BALANCE - result.transaction_receipt.fee.0;
     assert!(!result.is_reverted());
 
     let erc20 = FeatureContract::ERC20;

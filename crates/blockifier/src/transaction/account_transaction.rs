@@ -674,11 +674,13 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
             validate_call_info,
             execute_call_info,
             fee_transfer_call_info,
-            actual_fee: final_fee,
-            da_gas: final_da_gas,
-            actual_resources: final_resources,
+            transaction_receipt: TransactionReceipt {
+                fee: final_fee,
+                da_gas: final_da_gas,
+                resources: final_resources,
+                gas: total_gas,
+            },
             revert_error,
-            total_gas,
         };
         Ok(tx_execution_info)
     }

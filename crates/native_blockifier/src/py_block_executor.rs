@@ -66,15 +66,15 @@ impl ThinTransactionExecutionInfo {
             validate_call_info: tx_execution_info.validate_call_info,
             execute_call_info: tx_execution_info.execute_call_info,
             fee_transfer_call_info: tx_execution_info.fee_transfer_call_info,
-            actual_fee: tx_execution_info.actual_fee,
-            da_gas: tx_execution_info.da_gas,
-            actual_resources: tx_execution_info.actual_resources.to_resources_mapping(
+            actual_fee: tx_execution_info.transaction_receipt.fee,
+            da_gas: tx_execution_info.transaction_receipt.da_gas,
+            actual_resources: tx_execution_info.transaction_receipt.resources.to_resources_mapping(
                 block_context.versioned_constants(),
                 block_context.block_info().use_kzg_da,
                 true,
             ),
             revert_error: tx_execution_info.revert_error,
-            total_gas: tx_execution_info.total_gas,
+            total_gas: tx_execution_info.transaction_receipt.gas,
         }
     }
 }
