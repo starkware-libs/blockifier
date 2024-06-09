@@ -34,7 +34,6 @@ fn tx_executor_test_body<S: StateReader>(
     state: CachedState<S>,
     block_context: BlockContext,
     tx: Transaction,
-    charge_fee: bool,
     expected_bouncer_weights: BouncerWeights,
 ) {
     let mut tx_executor =
@@ -42,7 +41,7 @@ fn tx_executor_test_body<S: StateReader>(
     // TODO(Arni, 30/03/2024): Consider adding a test for the transaction execution info. If A test
     // should not be added, rename the test to `test_bouncer_info`.
     // TODO(Arni, 30/03/2024): Test all bouncer weights.
-    let _tx_execution_info = tx_executor.execute(&tx, charge_fee).unwrap();
+    let _tx_execution_info = tx_executor.execute(&tx).unwrap();
     let bouncer_weights = tx_executor.bouncer.get_accumulated_weights();
     assert_eq!(bouncer_weights.state_diff_size, expected_bouncer_weights.state_diff_size);
     assert_eq!(
@@ -95,7 +94,6 @@ fn tx_executor_test_body<S: StateReader>(
 )]
 fn test_declare(
     block_context: BlockContext,
-    #[values(true, false)] charge_fee: bool,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] account_cairo_version: CairoVersion,
     #[case] transaction_version: TransactionVersion,
     #[case] cairo_version: CairoVersion,
@@ -115,7 +113,7 @@ fn test_declare(
         },
         calculate_class_info_for_testing(declared_contract.get_class()),
     ));
-    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
+    tx_executor_test_body(state, block_context, tx, expected_bouncer_weights);
 }
 
 #[rstest]
@@ -123,7 +121,6 @@ fn test_deploy_account(
     block_context: BlockContext,
     #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
-    #[values(true, false)] charge_fee: bool,
 ) {
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let state = test_state(&block_context.chain_info, BALANCE, &[(account_contract, 0)]);
@@ -142,7 +139,7 @@ fn test_deploy_account(
         n_events: 0,
         ..Default::default()
     };
-    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
+    tx_executor_test_body(state, block_context, tx, expected_bouncer_weights);
 }
 
 #[rstest]
@@ -185,7 +182,6 @@ fn test_deploy_account(
 )]
 fn test_invoke(
     block_context: BlockContext,
-    #[values(true, false)] charge_fee: bool,
     #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
     #[case] entry_point_name: &str,
@@ -207,11 +203,11 @@ fn test_invoke(
         calldata,
         version,
     }));
-    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
+    tx_executor_test_body(state, block_context, tx, expected_bouncer_weights);
 }
 
 #[rstest]
-fn test_l1_handler(block_context: BlockContext, #[values(true, false)] charge_fee: bool) {
+fn test_l1_handler(block_context: BlockContext) {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let state = test_state(&block_context.chain_info, BALANCE, &[(test_contract, 1)]);
 
@@ -225,7 +221,7 @@ fn test_l1_handler(block_context: BlockContext, #[values(true, false)] charge_fe
         n_events: 0,
         ..Default::default()
     };
-    tx_executor_test_body(state, block_context, tx, charge_fee, expected_bouncer_weights);
+    tx_executor_test_body(state, block_context, tx, expected_bouncer_weights);
 }
 
 #[rstest]
@@ -257,15 +253,12 @@ fn test_bouncing(#[case] initial_bouncer_weights: BouncerWeights, #[case] n_even
     tx_executor.bouncer.set_accumulated_weights(initial_bouncer_weights);
 
     tx_executor
-        .execute(
-            &Transaction::AccountTransaction(emit_n_events_tx(
-                n_events,
-                account_address,
-                contract_address,
-                nonce_manager.next(account_address),
-            )),
-            true,
-        )
+        .execute(&Transaction::AccountTransaction(emit_n_events_tx(
+            n_events,
+            account_address,
+            contract_address,
+            nonce_manager.next(account_address),
+        )))
         .map_err(|error| panic!("{error:?}: {error}"))
         .unwrap();
 }
@@ -301,7 +294,7 @@ fn test_execute_txs_bouncing() {
     .collect();
 
     // Run.
-    let results = tx_executor.execute_txs(&txs, true);
+    let results = tx_executor.execute_txs(&txs);
 
     // Check execution results.
     let expected_offset = 3;
@@ -329,12 +322,12 @@ fn test_execute_txs_bouncing() {
 
     // Check idempotency: excess transactions should not be added.
     let remaining_txs = &txs[expected_offset..];
-    let remaining_tx_results = tx_executor.execute_txs(remaining_txs, true);
+    let remaining_tx_results = tx_executor.execute_txs(remaining_txs);
     assert_eq!(remaining_tx_results.len(), 0);
 
     // Reset the bouncer and add the remaining transactions.
     tx_executor.bouncer = Bouncer::new(tx_executor.block_context.bouncer_config.clone());
-    let remaining_tx_results = tx_executor.execute_txs(remaining_txs, true);
+    let remaining_tx_results = tx_executor.execute_txs(remaining_txs);
 
     assert_eq!(remaining_tx_results.len(), 2);
     assert!(remaining_tx_results[0].is_ok());
