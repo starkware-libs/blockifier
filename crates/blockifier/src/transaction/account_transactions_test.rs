@@ -41,7 +41,7 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
-    create_account_tx_for_validate_test, create_test_init_data, deploy_and_fund_account,
+    create_account_tx_for_validate_test_nonce_0, create_test_init_data, deploy_and_fund_account,
     l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs,
     TestInitData, INVALID,
 };
@@ -485,17 +485,15 @@ fn test_fail_deploy_account(
     let state = &mut test_state(chain_info, BALANCE, &[(faulty_account_feature_contract, 0)]);
 
     // Create and execute (failing) deploy account transaction.
-    let deploy_account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
+    let deploy_account_tx =
+        create_account_tx_for_validate_test_nonce_0(FaultyAccountTxCreatorArgs {
             tx_type: TransactionType::DeployAccount,
             tx_version,
             scenario: INVALID,
             class_hash: faulty_account_feature_contract.get_class_hash(),
             max_fee: Fee(BALANCE),
             ..Default::default()
-        },
-    );
+        });
     let fee_token_address = chain_info.fee_token_address(&deploy_account_tx.fee_type());
 
     let deploy_address = match &deploy_account_tx {
