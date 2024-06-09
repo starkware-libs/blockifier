@@ -194,10 +194,9 @@ impl PyBlockExecutor {
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
     ) -> NativeBlockifierResult<Py<PyBytes>> {
-        let charge_fee = true;
         let tx_type: String = get_py_tx_type(tx).expect(PY_TX_PARSING_ERR).to_string();
         let tx: Transaction = py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
-        let tx_execution_info = self.tx_executor().execute(&tx, charge_fee)?;
+        let tx_execution_info = self.tx_executor().execute(&tx)?;
         let typed_tx_execution_info = TypedTransactionExecutionInfo::from_tx_execution_info(
             &self.tx_executor().block_context,
             tx_execution_info,
