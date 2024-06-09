@@ -141,11 +141,13 @@ impl<U: UpdatableState> ExecutableTransaction<U> for L1HandlerTransaction {
             validate_call_info: None,
             execute_call_info,
             fee_transfer_call_info: None,
-            actual_fee: Fee::default(),
-            da_gas,
+            transaction_receipt: TransactionReceipt {
+                fee: Fee::default(),
+                da_gas,
+                resources: actual_resources,
+                gas: total_gas,
+            },
             revert_error: None,
-            actual_resources,
-            total_gas,
         })
     }
 }

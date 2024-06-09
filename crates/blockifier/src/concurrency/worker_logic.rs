@@ -211,7 +211,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 &tx_versioned_state,
                 &tx_state_changes_keys,
                 &tx_execution_info.summarize(),
-                &tx_execution_info.actual_resources,
+                &tx_execution_info.transaction_receipt.resources,
             );
             if let Err(error) = bouncer_result {
                 match error {
@@ -254,7 +254,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             add_fee_to_sequencer_balance(
                 tx_context.fee_token_address(),
                 &mut tx_versioned_state,
-                tx_execution_info.actual_fee,
+                tx_execution_info.transaction_receipt.fee,
                 self.block_context,
                 sequencer_balance_value_low,
                 sequencer_balance_value_high,

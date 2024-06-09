@@ -17,6 +17,7 @@ use crate::abi::constants as abi_constants;
 use crate::blockifier::block::BlockInfo;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, get_fee_by_gas_vector};
 use crate::fee::gas_usage::{
@@ -203,19 +204,14 @@ pub struct TransactionExecutionInfo {
     pub execute_call_info: Option<CallInfo>,
     /// Fee transfer call info; [None] for `L1Handler`.
     pub fee_transfer_call_info: Option<CallInfo>,
-    /// The actual fee that was charged (in Wei).
-    pub actual_fee: Fee,
-    /// Actual gas consumption the transaction is charged for data availability.
-    pub da_gas: GasVector,
-    /// Actual execution resources the transaction is charged for,
-    /// including L1 gas and additional OS resources estimation.
-    pub actual_resources: TransactionResources,
-    /// Error string for reverted transactions; [None] if transaction execution was successful.
-    // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
-    //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
     pub revert_error: Option<String>,
-
-    pub total_gas: GasVector,
+    /// The receipt of the transaction.
+    /// Including the actual fee that was charged (in units of the relevant fee token),
+    /// actual gas consumption the transaction is charged for data availability,
+    /// actual execution resources the transaction is charged for
+    /// (including L1 gas and additional OS resources estimation),
+    /// and total gas consumed.
+    pub transaction_receipt: TransactionReceipt,
 }
 
 impl TransactionExecutionInfo {
