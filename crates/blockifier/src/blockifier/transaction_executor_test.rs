@@ -250,6 +250,7 @@ fn test_bouncing(#[case] initial_bouncer_weights: BouncerWeights, #[case] n_even
     let TestInitData { state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);
 
+    // TODO(Yoni, 15/6/2024): turn on concurrency mode.
     let mut tx_executor =
         TransactionExecutor::new(state, block_context, TransactionExecutorConfig::default());
 

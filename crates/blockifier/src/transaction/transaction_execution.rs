@@ -4,6 +4,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
+use crate::bouncer::verify_tx_weights_in_bounds;
 use crate::context::BlockContext;
 use crate::execution::contract_class::ClassInfo;
 use crate::execution::entry_point::EntryPointExecutionContext;
@@ -157,13 +158,30 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-        match self {
+        // TODO(Yoni, 1/8/2024): consider unimplementing the ExecutableTransaction trait for inner
+        // types, since now running Transaction::execute_raw is not identical to
+        // AccountTransaction::execute_raw.
+        let tx_execution_info = match self {
             Self::AccountTransaction(account_tx) => {
-                account_tx.execute_raw(state, block_context, charge_fee, validate)
+                account_tx.execute_raw(state, block_context, charge_fee, validate)?
             }
             Self::L1HandlerTransaction(tx) => {
-                tx.execute_raw(state, block_context, charge_fee, validate)
+                tx.execute_raw(state, block_context, charge_fee, validate)?
             }
-        }
+        };
+
+        // Check if the transaction is too large to fit any block.
+        // TODO(Yoni, 1/8/2024): consider caching these two.
+        let tx_execution_summary = tx_execution_info.summarize();
+        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        verify_tx_weights_in_bounds(
+            state,
+            &tx_execution_summary,
+            &tx_execution_info.actual_resources,
+            &tx_state_changes_keys,
+            &block_context.bouncer_config,
+        )?;
+
+        Ok(tx_execution_info)
     }
 }
