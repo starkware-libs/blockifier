@@ -179,7 +179,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         verify_tx_weights_in_bounds(
             state,
             &tx_execution_summary,
-            &tx_execution_info.actual_resources,
+            &tx_execution_info.transaction_receipt.resources,
             &tx_state_changes_keys,
             &block_context.bouncer_config,
         )?;
