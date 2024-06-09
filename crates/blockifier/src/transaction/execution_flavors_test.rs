@@ -108,18 +108,23 @@ fn check_gas_and_fee(
 ) {
     assert_eq!(
         tx_execution_info
-            .actual_resources
+            .transaction_receipt
+            .resources
             .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
             .unwrap()
             .l1_gas,
         expected_actual_gas.into()
     );
 
-    assert_eq!(tx_execution_info.actual_fee, expected_actual_fee);
+    assert_eq!(tx_execution_info.transaction_receipt.fee, expected_actual_fee);
     // Future compatibility: resources other than the L1 gas usage may affect the fee (currently,
     // `calculate_tx_fee` is simply the result of `calculate_tx_gas_usage_vector` times gas price).
     assert_eq!(
-        tx_execution_info.actual_resources.calculate_tx_fee(block_context, fee_type).unwrap(),
+        tx_execution_info
+            .transaction_receipt
+            .resources
+            .calculate_tx_fee(block_context, fee_type)
+            .unwrap(),
         expected_cost_of_resources
     );
 }
@@ -485,8 +490,8 @@ fn test_simulate_validate_charge_fee_mid_execution(
         // availability), hence the actual resources may exceed the senders bounds after all.
         if charge_fee { limited_gas_used } else { unlimited_gas_used },
         if charge_fee { fee_bound } else { unlimited_fee },
-        // Complete resources used are reported as actual_resources; but only the charged final fee
-        // is shown in actual_fee.
+        // Complete resources used are reported as.transaction_receipt.resources; but only the
+        // charged final fee is shown in actual_fee.
         if charge_fee { limited_fee } else { unlimited_fee },
     );
     let current_balance = check_balance(
@@ -524,9 +529,9 @@ fn test_simulate_validate_charge_fee_mid_execution(
     .execute(&mut state, &low_step_block_context, charge_fee, validate)
     .unwrap();
     assert!(tx_execution_info.revert_error.clone().unwrap().contains("no remaining steps"));
-    // Complete resources used are reported as actual_resources; but only the charged final fee is
-    // shown in actual_fee. As a sanity check, verify that the fee derived directly from the
-    // consumed resources is also equal to the expected fee.
+    // Complete resources used are reported as.transaction_receipt.resources; but only the charged
+    // final fee is shown in actual_fee. As a sanity check, verify that the fee derived directly
+    // from the consumed resources is also equal to the expected fee.
     check_gas_and_fee(
         &block_context,
         &tx_execution_info,

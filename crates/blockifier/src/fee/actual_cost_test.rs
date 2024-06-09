@@ -320,7 +320,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     assert_eq!(
         starknet_resources.to_gas_vector(versioned_constants, use_kzg_da),
         tx_execution_info
-            .actual_resources
+            .transaction_receipt
+            .resources
             .starknet_resources
             .to_gas_vector(versioned_constants, use_kzg_da)
     );
@@ -371,7 +372,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     assert_eq!(
         starknet_resources.to_gas_vector(versioned_constants, use_kzg_da),
         tx_execution_info
-            .actual_resources
+            .transaction_receipt
+            .resources
             .starknet_resources
             .to_gas_vector(versioned_constants, use_kzg_da)
     );

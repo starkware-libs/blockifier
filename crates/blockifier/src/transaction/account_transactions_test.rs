@@ -97,7 +97,7 @@ fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: Tr
     )
     .unwrap();
     assert!(!tx_execution_info.is_reverted());
-    assert_eq!(tx_execution_info.actual_fee, Fee(0));
+    assert_eq!(tx_execution_info.transaction_receipt.fee, Fee(0));
 }
 
 // TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
@@ -457,12 +457,12 @@ fn test_revert_invoke(
         state
             .get_fee_token_balance(account_address, chain_info.fee_token_address(&fee_type))
             .unwrap(),
-        (stark_felt!(BALANCE - tx_execution_info.actual_fee.0), stark_felt!(0_u8))
+        (stark_felt!(BALANCE - tx_execution_info.transaction_receipt.fee.0), stark_felt!(0_u8))
     );
     assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
 
     // Check that reverted steps are taken into account.
-    assert!(tx_execution_info.actual_resources.n_reverted_steps > 0);
+    assert!(tx_execution_info.transaction_receipt.resources.n_reverted_steps > 0);
 
     // Check that execution state changes were reverted.
     assert_eq!(
@@ -618,8 +618,8 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_0 = result.actual_resources.total_charged_steps();
-    let actual_fee_0 = result.actual_fee.0;
+    let n_steps_0 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_0 = result.transaction_receipt.fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
 
@@ -634,8 +634,8 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_1 = result.actual_resources.total_charged_steps();
-    let actual_fee_1 = result.actual_fee.0;
+    let n_steps_1 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_1 = result.transaction_receipt.fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
 
@@ -661,8 +661,8 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_fail = result.actual_resources.total_charged_steps();
-    let actual_fee_fail: u128 = result.actual_fee.0;
+    let n_steps_fail = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_fail: u128 = result.transaction_receipt.fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
 
@@ -682,8 +682,8 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_fail_next = result.actual_resources.total_charged_steps();
-    let actual_fee_fail_next: u128 = result.actual_fee.0;
+    let n_steps_fail_next = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_fail_next: u128 = result.transaction_receipt.fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
 
@@ -722,9 +722,9 @@ fn test_n_reverted_steps(
     .unwrap();
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
-    let mut actual_resources_0 = result.actual_resources.clone();
-    let n_steps_0 = result.actual_resources.total_charged_steps();
-    let actual_fee_0 = result.actual_fee.0;
+    let mut actual_resources_0 = result.transaction_receipt.resources.clone();
+    let n_steps_0 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_0 = result.transaction_receipt.fee.0;
 
     // Invoke the `recursive_fail` function with 1 iterations. This call should fail.
     let result = run_invoke_tx(
@@ -739,9 +739,9 @@ fn test_n_reverted_steps(
     .unwrap();
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
-    let actual_resources_1 = result.actual_resources;
+    let actual_resources_1 = result.transaction_receipt.resources;
     let n_steps_1 = actual_resources_1.total_charged_steps();
-    let actual_fee_1 = result.actual_fee.0;
+    let actual_fee_1 = result.transaction_receipt.fee.0;
 
     // Invoke the `recursive_fail` function with 2 iterations. This call should fail.
     let result = run_invoke_tx(
@@ -754,8 +754,8 @@ fn test_n_reverted_steps(
         },
     )
     .unwrap();
-    let n_steps_2 = result.actual_resources.total_charged_steps();
-    let actual_fee_2 = result.actual_fee.0;
+    let n_steps_2 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_2 = result.transaction_receipt.fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
 
@@ -786,8 +786,8 @@ fn test_n_reverted_steps(
         },
     )
     .unwrap();
-    let n_steps_100 = result.actual_resources.total_charged_steps();
-    let actual_fee_100 = result.actual_fee.0;
+    let n_steps_100 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_100 = result.transaction_receipt.fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
 
@@ -834,9 +834,10 @@ fn test_max_fee_to_max_steps_conversion(
     let execution_context1 = EntryPointExecutionContext::new_invoke(tx_context1, true).unwrap();
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
-    let n_steps1 = tx_execution_info1.actual_resources.vm_resources.n_steps;
+    let n_steps1 = tx_execution_info1.transaction_receipt.resources.vm_resources.n_steps;
     let gas_used_vector1 = tx_execution_info1
-        .actual_resources
+        .transaction_receipt
+        .resources
         .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
         .unwrap();
 
@@ -853,22 +854,26 @@ fn test_max_fee_to_max_steps_conversion(
     let execution_context2 = EntryPointExecutionContext::new_invoke(tx_context2, true).unwrap();
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
-    let n_steps2 = tx_execution_info2.actual_resources.vm_resources.n_steps;
+    let n_steps2 = tx_execution_info2.transaction_receipt.resources.vm_resources.n_steps;
     let gas_used_vector2 = tx_execution_info2
-        .actual_resources
+        .transaction_receipt
+        .resources
         .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
         .unwrap();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
     assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());
-    assert_eq!(tx_execution_info1.actual_fee.0, tx_execution_info2.actual_fee.0);
+    assert_eq!(
+        tx_execution_info1.transaction_receipt.fee.0,
+        tx_execution_info2.transaction_receipt.fee.0
+    );
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
     // TODO(Aner, 21/01/24): verify test compliant with 4844 (or modify accordingly).
     assert_eq!(
         actual_gas_used,
         u64::try_from(gas_used_vector2.l1_gas).expect("Failed to convert u128 to u64.")
     );
-    assert_eq!(actual_fee, tx_execution_info2.actual_fee.0);
+    assert_eq!(actual_fee, tx_execution_info2.transaction_receipt.fee.0);
     assert_eq!(n_steps1, n_steps2);
     assert_eq!(gas_used_vector1, gas_used_vector2);
 }
@@ -900,7 +905,7 @@ fn test_insufficient_max_fee_reverts(
     )
     .unwrap();
     assert!(!tx_execution_info1.is_reverted());
-    let actual_fee_depth1 = tx_execution_info1.actual_fee;
+    let actual_fee_depth1 = tx_execution_info1.transaction_receipt.fee;
 
     // Invoke the `recurse` function with depth of 2 and the actual fee of depth 1 as max_fee.
     // This call should fail due to insufficient max fee (steps bound based on max_fee is not so
@@ -917,7 +922,7 @@ fn test_insufficient_max_fee_reverts(
     )
     .unwrap();
     assert!(tx_execution_info2.is_reverted());
-    assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
+    assert!(tx_execution_info2.transaction_receipt.fee == actual_fee_depth1);
     assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
 
     // Invoke the `recurse` function with depth of 824 and the actual fee of depth 1 as max_fee.
@@ -935,7 +940,7 @@ fn test_insufficient_max_fee_reverts(
     )
     .unwrap();
     assert!(tx_execution_info3.is_reverted());
-    assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
+    assert!(tx_execution_info3.transaction_receipt.fee == actual_fee_depth1);
     assert!(
         tx_execution_info3.revert_error.unwrap().contains("RunResources has no remaining steps.")
     );
@@ -1039,7 +1044,7 @@ fn test_count_actual_storage_changes(
     let account_tx = account_invoke_tx(invoke_args.clone());
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
-    let fee_1 = execution_info.actual_fee;
+    let fee_1 = execution_info.transaction_receipt.fee;
     let state_changes_1 = state.get_actual_state_changes().unwrap();
 
     let cell_write_storage_change = ((contract_address, storage_key!(15_u8)), stark_felt!(1_u8));
@@ -1083,7 +1088,7 @@ fn test_count_actual_storage_changes(
     });
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
-    let fee_2 = execution_info.actual_fee;
+    let fee_2 = execution_info.transaction_receipt.fee;
     let state_changes_2 = state.get_actual_state_changes().unwrap();
 
     expected_sequencer_total_fee += Felt252::from(fee_2.0);
@@ -1120,7 +1125,7 @@ fn test_count_actual_storage_changes(
     });
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
-    let fee_transfer = execution_info.actual_fee;
+    let fee_transfer = execution_info.transaction_receipt.fee;
     let state_changes_transfer = state.get_actual_state_changes().unwrap();
     let transfer_receipient_storage_change = (
         (fee_token_address, get_fee_token_var_address(contract_address!(recipient))),
