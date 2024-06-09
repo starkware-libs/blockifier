@@ -33,7 +33,7 @@ struct TransactionReceiptParameters<'a, T: Iterator<Item = &'a CallInfo> + Clone
 
 // TODO(Gilad): Use everywhere instead of passing the `actual_{fee,resources}` tuple, which often
 // get passed around together.
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq)]
 pub struct TransactionReceipt {
     pub fee: Fee,
     pub gas: GasVector,

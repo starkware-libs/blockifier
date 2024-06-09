@@ -136,7 +136,7 @@ fn test_revert_on_overdraft(
     .unwrap();
 
     assert!(!execution_info.is_reverted());
-    let transfer_tx_fee = execution_info.actual_fee;
+    let transfer_tx_fee = execution_info.transaction_receipt.fee;
 
     // Check the current balance, before next transaction.
     let (balance, _) = state
@@ -251,10 +251,11 @@ fn test_revert_on_resource_overuse(
     )
     .unwrap();
     assert_eq!(execution_info_measure.revert_error, None);
-    let actual_fee = execution_info_measure.actual_fee;
+    let actual_fee = execution_info_measure.transaction_receipt.fee;
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
     let actual_gas_usage: u64 = execution_info_measure
-        .actual_resources
+        .transaction_receipt
+        .resources
         .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
         .unwrap()
         .l1_gas
@@ -276,12 +277,15 @@ fn test_revert_on_resource_overuse(
     )
     .unwrap();
     assert_eq!(execution_info_tight.revert_error, None);
-    assert_eq!(execution_info_tight.actual_fee, actual_fee);
-    assert_eq!(execution_info_tight.actual_resources, execution_info_measure.actual_resources);
+    assert_eq!(execution_info_tight.transaction_receipt.fee, actual_fee);
+    assert_eq!(
+        execution_info_tight.transaction_receipt.resources,
+        execution_info_measure.transaction_receipt.resources
+    );
 
     // Re-run the same function with max bounds slightly below the actual usage, and verify it's
     // reverted.
-    let low_max_fee = Fee(execution_info_measure.actual_fee.0 - 1);
+    let low_max_fee = Fee(execution_info_measure.transaction_receipt.fee.0 - 1);
     let execution_info_result = run_invoke_tx(
         &mut state,
         &block_context,

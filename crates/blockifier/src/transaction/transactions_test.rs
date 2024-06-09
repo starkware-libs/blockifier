@@ -34,6 +34,7 @@ use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointEx
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::execution::syscalls::SyscallSelector;
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::gas_usage::{
     estimate_minimal_gas_vector, get_da_gas_cost, get_onchain_data_segment_length,
 };
@@ -433,8 +434,11 @@ fn test_invoke_tx(
 
     // Build expected fee transfer call info.
     let fee_type = &tx_context.tx_info.fee_type();
-    let expected_actual_fee =
-        actual_execution_info.actual_resources.calculate_tx_fee(block_context, fee_type).unwrap();
+    let expected_actual_fee = actual_execution_info
+        .transaction_receipt
+        .resources
+        .calculate_tx_fee(block_context, fee_type)
+        .unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         &tx_context,
         sender_address,
@@ -472,11 +476,13 @@ fn test_invoke_tx(
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
-        actual_fee: expected_actual_fee,
-        da_gas,
-        actual_resources: expected_actual_resources,
+        transaction_receipt: TransactionReceipt {
+            fee: expected_actual_fee,
+            da_gas,
+            resources: expected_actual_resources,
+            gas: total_gas,
+        },
         revert_error: None,
-        total_gas,
     };
 
     // Test execution info result.
@@ -967,7 +973,7 @@ fn test_actual_fee_gt_resource_bounds(
     // Test error.
     assert!(execution_error.starts_with("Insufficient max fee:"));
     // Test that fee was charged.
-    assert_eq!(execution_result.actual_fee, minimal_fee);
+    assert_eq!(execution_result.transaction_receipt.fee, minimal_fee);
 }
 
 #[rstest]
@@ -1144,8 +1150,11 @@ fn test_declare_tx(
     );
 
     // Build expected fee transfer call info.
-    let expected_actual_fee =
-        actual_execution_info.actual_resources.calculate_tx_fee(block_context, fee_type).unwrap();
+    let expected_actual_fee = actual_execution_info
+        .transaction_receipt
+        .resources
+        .calculate_tx_fee(block_context, fee_type)
+        .unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         tx_context,
         sender_address,
@@ -1181,11 +1190,13 @@ fn test_declare_tx(
         validate_call_info: expected_validate_call_info,
         execute_call_info: None,
         fee_transfer_call_info: expected_fee_transfer_call_info,
-        actual_fee: expected_actual_fee,
-        da_gas,
+        transaction_receipt: TransactionReceipt {
+            fee: expected_actual_fee,
+            da_gas,
+            resources: expected_actual_resources,
+            gas: expected_total_gas,
+        },
         revert_error: None,
-        actual_resources: expected_actual_resources,
-        total_gas: expected_total_gas,
     };
 
     // Test execution info result.
@@ -1282,15 +1293,19 @@ fn test_deploy_account_tx(
     });
 
     // Build expected fee transfer call info.
-    let expected_actual_fee =
-        actual_execution_info.actual_resources.calculate_tx_fee(block_context, fee_type).unwrap();
+    let expected_actual_fee = actual_execution_info
+        .transaction_receipt
+        .resources
+        .calculate_tx_fee(block_context, fee_type)
+        .unwrap();
     let expected_fee_transfer_call_info = expected_fee_transfer_call_info(
         tx_context,
         deployed_account_address,
         expected_actual_fee,
         FeatureContract::ERC20.get_class_hash(),
     );
-    let starknet_resources = actual_execution_info.actual_resources.starknet_resources.clone();
+    let starknet_resources =
+        actual_execution_info.transaction_receipt.resources.starknet_resources.clone();
 
     let state_changes_count = StateChangesCount {
         n_storage_updates: 1,
@@ -1327,11 +1342,13 @@ fn test_deploy_account_tx(
         validate_call_info: expected_validate_call_info,
         execute_call_info: expected_execute_call_info,
         fee_transfer_call_info: expected_fee_transfer_call_info,
-        actual_fee: expected_actual_fee,
-        da_gas,
+        transaction_receipt: TransactionReceipt {
+            fee: expected_actual_fee,
+            da_gas,
+            resources: actual_resources,
+            gas: expected_total_gas,
+        },
         revert_error: None,
-        actual_resources,
-        total_gas: expected_total_gas,
     };
 
     // Test execution info result.
@@ -1801,14 +1818,19 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     // Copy StarknetResources from actual resources and assert gas usage calculation is correct.
     let expected_tx_resources = TransactionResources {
-        starknet_resources: actual_execution_info.actual_resources.starknet_resources.clone(),
+        starknet_resources: actual_execution_info
+            .transaction_receipt
+            .resources
+            .starknet_resources
+            .clone(),
         vm_resources: expected_execution_resources,
         ..Default::default()
     };
     assert_eq!(
         expected_gas,
         actual_execution_info
-            .actual_resources
+            .transaction_receipt
+            .resources
             .starknet_resources
             .to_gas_vector(versioned_constants, use_kzg_da)
     );
@@ -1822,11 +1844,13 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         validate_call_info: None,
         execute_call_info: Some(expected_call_info),
         fee_transfer_call_info: None,
-        actual_fee: Fee(0),
-        da_gas: expected_da_gas,
-        actual_resources: expected_tx_resources,
+        transaction_receipt: TransactionReceipt {
+            fee: Fee(0),
+            da_gas: expected_da_gas,
+            resources: expected_tx_resources,
+            gas: total_gas,
+        },
         revert_error: None,
-        total_gas,
     };
 
     // Check the actual returned execution info.
@@ -1852,9 +1876,11 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     let tx_no_fee = L1HandlerTransaction::create_for_testing(Fee(0), contract_address);
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
-    let expected_actual_fee =
-        (expected_execution_info.actual_resources.calculate_tx_fee(block_context, &FeeType::Eth))
-            .unwrap();
+    let expected_actual_fee = (expected_execution_info
+        .transaction_receipt
+        .resources
+        .calculate_tx_fee(block_context, &FeeType::Eth))
+    .unwrap();
     assert_matches!(
         error,
         TransactionExecutionError::TransactionFeeError(
