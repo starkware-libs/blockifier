@@ -5,6 +5,7 @@ use serde_json::Value;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
+use starknet_api::transaction::Fee;
 use starknet_api::{contract_address, patricia_key};
 
 use super::update_json_value;
@@ -16,6 +17,7 @@ use crate::execution::contract_class::{ContractClassV0, ContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult,
 };
+use crate::fee::fee_utils::get_fee_by_gas_vector;
 use crate::state::state_api::State;
 use crate::test_utils::{
     get_raw_contract_class, CHAIN_ID_NAME, CURRENT_BLOCK_NUMBER, CURRENT_BLOCK_TIMESTAMP,
@@ -23,7 +25,9 @@ use crate::test_utils::{
     DEFAULT_STRK_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS, TEST_ERC20_CONTRACT_ADDRESS2,
     TEST_SEQUENCER_ADDRESS,
 };
-use crate::transaction::objects::{DeprecatedTransactionInfo, TransactionInfo};
+use crate::transaction::objects::{
+    DeprecatedTransactionInfo, FeeType, TransactionFeeResult, TransactionInfo, TransactionResources,
+};
 use crate::versioned_constants::{
     GasCosts, OsConstants, VersionedConstants, DEFAULT_CONSTANTS_JSON,
 };
@@ -86,6 +90,20 @@ impl CallEntryPoint {
 impl VersionedConstants {
     pub fn create_for_testing() -> Self {
         Self::latest_constants().clone()
+    }
+}
+
+impl TransactionResources {
+    pub fn calculate_tx_fee(
+        &self,
+        block_context: &BlockContext,
+        fee_type: &FeeType,
+    ) -> TransactionFeeResult<Fee> {
+        let gas_vector = self.to_gas_vector(
+            &block_context.versioned_constants,
+            block_context.block_info.use_kzg_da,
+        )?;
+        Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
     }
 }
 
