@@ -116,14 +116,18 @@ impl<U: UpdatableState> ExecutableTransaction<U> for L1HandlerTransaction {
             self.run_execute(state, &mut execution_resources, &mut context, &mut remaining_gas)?;
         let l1_handler_payload_size = self.payload_size();
 
-        let TransactionReceipt { fee: actual_fee, da_gas, resources: actual_resources, .. } =
-            TransactionReceipt::from_l1_handler(
-                &tx_context,
-                l1_handler_payload_size,
-                execute_call_info.iter(),
-                &state.get_actual_state_changes()?,
-                &execution_resources,
-            )?;
+        let TransactionReceipt {
+            fee: actual_fee,
+            da_gas,
+            resources: actual_resources,
+            gas: total_gas,
+        } = TransactionReceipt::from_l1_handler(
+            &tx_context,
+            l1_handler_payload_size,
+            execute_call_info.iter(),
+            &state.get_actual_state_changes()?,
+            &execution_resources,
+        )?;
 
         let paid_fee = self.paid_fee_on_l1;
         // For now, assert only that any amount of fee was paid.
@@ -131,11 +135,6 @@ impl<U: UpdatableState> ExecutableTransaction<U> for L1HandlerTransaction {
         if paid_fee == Fee(0) {
             return Err(TransactionFeeError::InsufficientL1Fee { paid_fee, actual_fee })?;
         }
-
-        let total_gas = actual_resources.to_gas_vector(
-            &block_context.versioned_constants,
-            block_context.block_info.use_kzg_da,
-        )?;
 
         Ok(TransactionExecutionInfo {
             validate_call_info: None,

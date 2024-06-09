@@ -659,7 +659,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
                     fee: final_fee,
                     da_gas: final_da_gas,
                     resources: final_resources,
-                    ..
+                    gas: total_gas,
                 },
         } = self.run_or_revert(
             state,
@@ -669,11 +669,6 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
             charge_fee,
         )?;
         let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?;
-
-        let total_gas = final_resources.to_gas_vector(
-            &block_context.versioned_constants,
-            block_context.block_info.use_kzg_da,
-        )?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
