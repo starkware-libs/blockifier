@@ -21,7 +21,6 @@ use crate::transaction::transaction_execution::Transaction;
 const N_ACCOUNTS: u16 = 10000;
 const CHUNK_SIZE: usize = 10;
 const RANDOMIZATION_SEED: u64 = 0;
-const CHARGE_FEE: bool = false;
 const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(StarkFelt::ONE);
 
 pub struct TransfersGenerator {
@@ -70,7 +69,7 @@ impl TransfersGenerator {
             let account_tx = self.generate_transfer(sender_address, recipient_address);
             chunk.push(Transaction::AccountTransaction(account_tx));
         }
-        let results = self.executor.execute_txs(&chunk, CHARGE_FEE);
+        let results = self.executor.execute_txs(&chunk);
         assert_eq!(results.len(), CHUNK_SIZE);
         for result in results {
             assert!(!result.unwrap().is_reverted());

@@ -82,12 +82,12 @@ impl<S: StateReader> TransactionExecutor<S> {
     pub fn execute(
         &mut self,
         tx: &Transaction,
-        charge_fee: bool,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
         let mut transactional_state = TransactionalState::create_transactional(
             self.block_state.as_mut().expect(BLOCK_STATE_ACCESS_ERR),
         );
         let validate = true;
+        let charge_fee = true;
 
         let tx_execution_result =
             tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
@@ -114,11 +114,10 @@ impl<S: StateReader> TransactionExecutor<S> {
     pub fn execute_txs_sequentially(
         &mut self,
         txs: &[Transaction],
-        charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         let mut results = Vec::new();
         for tx in txs {
-            match self.execute(tx, charge_fee) {
+            match self.execute(tx) {
                 Ok(tx_execution_info) => results.push(Ok(tx_execution_info)),
                 Err(TransactionExecutorError::BlockFull) => break,
                 Err(error) => results.push(Err(error)),
@@ -131,7 +130,6 @@ impl<S: StateReader> TransactionExecutor<S> {
     pub fn execute_chunk(
         &mut self,
         _chunk: &[Transaction],
-        _charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         unimplemented!()
     }
@@ -177,11 +175,10 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
     pub fn execute_txs(
         &mut self,
         txs: &[Transaction],
-        charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         if !self.config.concurrency_config.enabled {
             log::debug!("Executing transactions sequentially.");
-            self.execute_txs_sequentially(txs, charge_fee)
+            self.execute_txs_sequentially(txs)
         } else {
             log::debug!("Executing transactions concurrently.");
             let chunk_size = self.config.concurrency_config.chunk_size;
@@ -200,7 +197,7 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
             );
             txs.chunks(chunk_size)
                 .fold_while(Vec::new(), |mut results, chunk| {
-                    let chunk_results = self.execute_chunk(chunk, charge_fee);
+                    let chunk_results = self.execute_chunk(chunk);
                     if chunk_results.len() < chunk.len() {
                         // Block is full.
                         results.extend(chunk_results);
@@ -218,8 +215,6 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
     pub fn execute_chunk(
         &mut self,
         chunk: &[Transaction],
-        // TODO(barak, 01/08/2024): Make `charge_fee` a parameter of `WorkerExecutor`.
-        _charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         let block_state = self.block_state.take().expect("The block state should be `Some`.");
 
