@@ -1,11 +1,11 @@
 use crate::test_utils::transfers_generator::{
-    RecipientIteratorType, TransfersGenerator, TransfersGeneratorConfig,
+    IndexIteratorType, TransfersGenerator, TransfersGeneratorConfig,
 };
 
 #[test]
 pub fn transfers_flow_test() {
     let transfers_generator_config = TransfersGeneratorConfig {
-        recipient_iterator_type: RecipientIteratorType::DisjointFromSenders,
+        recipient_iterator_type: IndexIteratorType::Random(1),
         ..Default::default()
     };
     let mut transfers_generator = TransfersGenerator::new(transfers_generator_config);
