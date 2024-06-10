@@ -8,13 +8,13 @@
 //! Run the benchmarks using `cargo bench --bench blockifier_bench`.
 
 use blockifier::test_utils::transfers_generator::{
-    RecipientIteratorType, TransfersGenerator, TransfersGeneratorConfig,
+    IndexIteratorType, TransfersGenerator, TransfersGeneratorConfig,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
 
 pub fn transfers_benchmark(c: &mut Criterion) {
     let transfers_generator_config = TransfersGeneratorConfig {
-        recipient_iterator_type: RecipientIteratorType::Random,
+        recipient_iterator_type: IndexIteratorType::Random,
         ..Default::default()
     };
     let mut transfers_generator = TransfersGenerator::new(transfers_generator_config);
