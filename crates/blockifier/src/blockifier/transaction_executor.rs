@@ -180,9 +180,25 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
         charge_fee: bool,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         if !self.config.concurrency_config.enabled {
+            log::debug!("Executing transactions sequentially.");
             self.execute_txs_sequentially(txs, charge_fee)
         } else {
-            txs.chunks(self.config.concurrency_config.chunk_size)
+            log::debug!("Executing transactions concurrently.");
+            let chunk_size = self.config.concurrency_config.chunk_size;
+            let n_workers = self.config.concurrency_config.n_workers;
+            assert!(
+                chunk_size > 0,
+                "When running transactions concurrently the chunk size must be greater than 0. It \
+                 equals {:?} ",
+                chunk_size
+            );
+            assert!(
+                n_workers > 0,
+                "When running transactions concurrently the number of workers must be greater \
+                 than 0. It equals {:?} ",
+                n_workers
+            );
+            txs.chunks(chunk_size)
                 .fold_while(Vec::new(), |mut results, chunk| {
                     let chunk_results = self.execute_chunk(chunk, charge_fee);
                     if chunk_results.len() < chunk.len() {
