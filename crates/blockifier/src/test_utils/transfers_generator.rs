@@ -1,3 +1,6 @@
+use std::iter::Cycle;
+use std::ops::Range;
+
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use starknet_api::core::ContractAddress;
@@ -21,7 +24,6 @@ use crate::transaction::transaction_execution::Transaction;
 
 const N_ACCOUNTS: u16 = 10000;
 const N_TXS: usize = 1000;
-const RANDOMIZATION_SEED: u64 = 0;
 const CHARGE_FEE: bool = true;
 const CAIRO_VERSION: CairoVersion = CairoVersion::Cairo0;
 const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(Felt::THREE);
@@ -38,11 +40,10 @@ pub struct TransfersGeneratorConfig {
     pub balance: u128,
     pub max_fee: u128,
     pub n_txs: usize,
-    pub randomization_seed: u64,
     pub charge_fee: bool,
     pub cairo_version: CairoVersion,
     pub transaction_version: TransactionVersion,
-    pub recipient_iterator_type: RecipientIteratorType,
+    pub recipient_iterator_type: IndexIteratorType,
     pub concurrency_config: ConcurrencyConfig,
 }
 
@@ -53,7 +54,6 @@ impl Default for TransfersGeneratorConfig {
             balance: BALANCE * 1000,
             max_fee: MAX_FEE,
             n_txs: N_TXS,
-            randomization_seed: RANDOMIZATION_SEED,
             charge_fee: CHARGE_FEE,
             cairo_version: CAIRO_VERSION,
             transaction_version: TRANSACTION_VERSION,
@@ -67,55 +67,83 @@ impl Default for TransfersGeneratorConfig {
     }
 }
 
-pub enum RecipientIteratorType {
-    Random,
+#[derive(Clone, Copy)]
+pub enum IndexIteratorType {
+    Random(u64),
     RoundRobin,
     DisjointFromSenders,
 }
 
-pub struct RandomRecipientIterator {
-    account_addresses: Vec<ContractAddress>,
+pub enum IndexIterator {
+    Random(Box<RandomIndexIterator>),
+    Consecutive(Cycle<Range<usize>>),
+}
+
+impl IndexIterator {
+    fn new_recipient(n_indices: usize, iterator_type: IndexIteratorType) -> Self {
+        match iterator_type {
+            IndexIteratorType::Random(seed) => {
+                Self::Random(Box::new(RandomIndexIterator::new(n_indices, seed)))
+            }
+            IndexIteratorType::RoundRobin => {
+                let mut iterator = (0..n_indices).cycle();
+                // Skip the first element to make the first sender different from the first
+                // recipient.
+                iterator.next();
+                Self::Consecutive(iterator)
+            }
+            IndexIteratorType::DisjointFromSenders => {
+                let iterator = (0..n_indices).cycle();
+                Self::Consecutive(iterator)
+            }
+        }
+    }
+
+    fn new_sender(n_indices: usize) -> Self {
+        Self::Consecutive((0..n_indices).cycle())
+    }
+}
+
+impl Iterator for IndexIterator {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Random(random_iterator) => random_iterator.next(),
+            Self::Consecutive(iterator) => iterator.next(),
+        }
+    }
+}
+
+pub struct RandomIndexIterator {
+    n_indices: usize,
     random_generator: StdRng,
 }
 
-impl RandomRecipientIterator {
-    pub fn new(account_addresses: Vec<ContractAddress>, seed: u64) -> Self {
+impl RandomIndexIterator {
+    pub fn new(n_indices: usize, seed: u64) -> Self {
         let random_generator = StdRng::seed_from_u64(seed);
-        Self { account_addresses, random_generator }
+        Self { n_indices, random_generator }
     }
 }
 
-impl Iterator for RandomRecipientIterator {
-    type Item = ContractAddress;
+impl Iterator for RandomIndexIterator {
+    type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let index = self.random_generator.gen::<usize>() % self.account_addresses.len();
-        Some(self.account_addresses[index])
-    }
-}
-
-pub struct RoundRobinRecipientIterator {
-    account_addresses: Vec<ContractAddress>,
-    index: usize,
-}
-
-impl Iterator for RoundRobinRecipientIterator {
-    type Item = ContractAddress;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current_index = self.index;
-        self.index = (self.index + 1) % self.account_addresses.len();
-        Some(self.account_addresses[current_index])
+        let index = self.random_generator.gen_range(0..self.n_indices);
+        Some(index)
     }
 }
 
 pub struct TransfersGenerator {
-    account_addresses: Vec<ContractAddress>,
+    sender_addresses: Vec<ContractAddress>,
+    recipient_addresses: Option<Vec<ContractAddress>>,
+    sender_iterator: IndexIterator,
+    recipient_iterator: IndexIterator,
     chain_info: ChainInfo,
     executor: TransactionExecutor<DictStateReader>,
     nonce_manager: NonceManager,
-    recipient_iterator: Box<dyn Iterator<Item = ContractAddress>>,
-    sender_index: usize,
     config: TransfersGeneratorConfig,
 }
 
@@ -130,45 +158,33 @@ impl TransfersGenerator {
         let executor_config =
             TransactionExecutorConfig { concurrency_config: config.concurrency_config.clone() };
         let executor = TransactionExecutor::new(state, block_context, executor_config);
-        let account_addresses = (0..config.n_accounts)
+        let sender_addresses = (0..config.n_accounts)
             .map(|instance_id| account_contract.get_instance_address(instance_id))
             .collect::<Vec<_>>();
+
+        // Generate the recipient addresses, if they are not the same as the sender addresses.
+        let recipient_addresses = match config.recipient_iterator_type {
+            IndexIteratorType::DisjointFromSenders => Some(
+                (config.n_accounts..2 * config.n_accounts)
+                    .map(|instance_id| account_contract.get_instance_address(instance_id))
+                    .collect::<Vec<_>>(),
+            ),
+            _ => None,
+        };
+
         let nonce_manager = NonceManager::default();
-        let first_sender_index = 0;
-        let recipient_iterator: Box<dyn Iterator<Item = ContractAddress>> =
-            match config.recipient_iterator_type {
-                RecipientIteratorType::Random => Box::new(RandomRecipientIterator::new(
-                    account_addresses.clone(),
-                    config.randomization_seed,
-                )),
-                RecipientIteratorType::RoundRobin => {
-                    // Each sender `i` sends to recipient `i+1`.
-                    let first_recipient_index = first_sender_index + 1;
-                    Box::new(RoundRobinRecipientIterator {
-                        account_addresses: account_addresses.clone(),
-                        index: first_recipient_index,
-                    })
-                }
-                RecipientIteratorType::DisjointFromSenders => {
-                    // Create a set of recipient addresses disjoint from the senders. Each sender
-                    // `i` sends to recipient `i`.
-                    let first_recipient_index = 0;
-                    let account_addresses = (config.n_accounts..2 * config.n_accounts)
-                        .map(|instance_id| account_contract.get_instance_address(instance_id))
-                        .collect::<Vec<_>>();
-                    Box::new(RoundRobinRecipientIterator {
-                        account_addresses,
-                        index: first_recipient_index,
-                    })
-                }
-            };
+        let n_indices = usize::from(config.n_accounts);
+        let sender_iterator = IndexIterator::new_sender(n_indices);
+        let recipient_iterator =
+            IndexIterator::new_recipient(n_indices, config.recipient_iterator_type);
         Self {
-            account_addresses,
+            sender_addresses,
+            recipient_addresses,
+            sender_iterator,
+            recipient_iterator,
             chain_info,
             executor,
             nonce_manager,
-            recipient_iterator,
-            sender_index: first_sender_index,
             config,
         }
     }
@@ -176,10 +192,10 @@ impl TransfersGenerator {
     pub fn execute_transfers(&mut self) {
         let mut txs: Vec<Transaction> = Vec::with_capacity(self.config.n_txs);
         for _ in 0..self.config.n_txs {
-            let sender_address = self.account_addresses[self.sender_index];
-            self.sender_index = (self.sender_index + 1) % self.account_addresses.len();
-            let recipient_address = self.recipient_iterator.next().unwrap();
-
+            let sender_address = self.sender_addresses[self.sender_iterator.next().unwrap()];
+            let recipient_address =
+                self.recipient_addresses.as_ref().unwrap_or(&self.sender_addresses)
+                    [self.recipient_iterator.next().unwrap()];
             let account_tx = self.generate_transfer(sender_address, recipient_address);
             txs.push(Transaction::AccountTransaction(account_tx));
         }
