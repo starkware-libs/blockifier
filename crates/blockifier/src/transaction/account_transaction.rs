@@ -627,9 +627,11 @@ impl AccountTransaction {
         charge_fee: bool,
     ) -> TransactionExecutionResult<ValidateExecuteCallInfo> {
         if self.is_non_revertible(&tx_context.tx_info) {
+            println!("Running non-revertible");
             return self.run_non_revertible(state, tx_context, remaining_gas, validate, charge_fee);
         }
 
+        println!("Running revertible");
         self.run_revertible(state, tx_context, remaining_gas, validate, charge_fee)
     }
 }
@@ -642,6 +644,16 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
         charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        let address = match self {
+            AccountTransaction::Declare(_) => "TODO declare".to_owned(),
+            AccountTransaction::DeployAccount(_) => "TODO deploy account".to_owned(),
+            AccountTransaction::Invoke(tx) => match &tx.tx {
+                starknet_api::transaction::InvokeTransaction::V0(_) => "TODO V0 invoke".to_owned(),
+                starknet_api::transaction::InvokeTransaction::V1(tx) => tx.sender_address.to_string(),
+                starknet_api::transaction::InvokeTransaction::V3(tx) => tx.sender_address.to_string(),
+            },
+        };
+        println!("Account transaction execute raw with address: {address}");
         let tx_context = Arc::new(block_context.to_tx_context(self));
         self.verify_tx_version(tx_context.tx_info.version())?;
 

@@ -107,6 +107,7 @@ impl<S: StateReader> ExecutableTransaction<S> for L1HandlerTransaction {
         _charge_fee: bool,
         _validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        println!("L1 handler transaction execute raw");
         let tx_context = Arc::new(block_context.to_tx_context(self));
 
         let mut execution_resources = ExecutionResources::default();
@@ -152,6 +153,7 @@ impl<S: StateReader> ExecutableTransaction<S> for Transaction {
         charge_fee: bool,
         validate: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
+        println!("Executable transaction execute raw");
         match self {
             Self::AccountTransaction(account_tx) => {
                 account_tx.execute_raw(state, block_context, charge_fee, validate)

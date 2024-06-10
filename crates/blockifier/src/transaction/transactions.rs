@@ -384,6 +384,7 @@ impl<S: State> Executable<S> for InvokeTransaction {
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
+        println!("Run_execute for InvokeTransaction with caller address: {}", self.tx.sender_address().to_string());
         let entry_point_selector = match &self.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => tx.entry_point_selector,
             starknet_api::transaction::InvokeTransaction::V1(_)
