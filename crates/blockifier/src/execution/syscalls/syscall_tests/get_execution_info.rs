@@ -34,57 +34,94 @@ use crate::transaction::objects::{
     CommonAccountFields, CurrentTransactionInfo, DeprecatedTransactionInfo, TransactionInfo,
 };
 
+
+// TODO even more thorough testing with native
+#[test_case(
+    FeatureContract::SierraTestContract,
+    ExecutionMode::Validate,
+    TransactionVersion::ONE,
+    false,
+    false;
+    "Native: Validate execution mode: block info fields should be zeroed. Transaction V1.")]
+#[test_case(
+    FeatureContract::SierraTestContract,
+    ExecutionMode::Execute,
+    TransactionVersion::ONE,
+    false,
+    false;
+    "Native: Execute execution mode: block info should be as usual. Transaction V1.")]
+#[test_case(
+    FeatureContract::SierraTestContract,
+    ExecutionMode::Validate,
+    TransactionVersion::THREE,
+    false,
+    false;
+    "Native: Validate execution mode: block info fields should be zeroed. Transaction V3.")]
+#[test_case(
+    FeatureContract::SierraTestContract,
+    ExecutionMode::Execute,
+    TransactionVersion::THREE,
+    false,
+    false;
+    "Native: Execute execution mode: block info should be as usual. Transaction V3.")]
 // TODO Native
 #[test_case(
+    FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Validate,
     TransactionVersion::ONE,
     false,
     false;
     "Validate execution mode: block info fields should be zeroed. Transaction V1.")]
 #[test_case(
+    FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Execute,
     TransactionVersion::ONE,
     false,
     false;
     "Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
+    FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Validate,
     TransactionVersion::THREE,
     false,
     false;
     "Validate execution mode: block info fields should be zeroed. Transaction V3.")]
 #[test_case(
+    FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Execute,
     TransactionVersion::THREE,
     false,
     false;
     "Execute execution mode: block info should be as usual. Transaction V3.")]
 #[test_case(
+    FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Execute,
     TransactionVersion::ONE,
     true,
     false;
     "Legacy contract. Execute execution mode: block info should be as usual. Transaction V1.")]
 #[test_case(
+    FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Execute,
     TransactionVersion::THREE,
     true,
     false;
     "Legacy contract. Execute execution mode: block info should be as usual. Transaction V3.")]
 #[test_case(
+    FeatureContract::TestContract(CairoVersion::Cairo1),
     ExecutionMode::Execute,
     TransactionVersion::THREE,
     false,
     true;
     "Execute execution mode: block info should be as usual. Transaction V3. Query.")]
 fn test_get_execution_info(
+    test_contract: FeatureContract,
     execution_mode: ExecutionMode,
     mut version: TransactionVersion,
     is_legacy: bool,
     only_query: bool,
 ) {
     let legacy_contract = FeatureContract::LegacyTestContract;
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let state = &mut test_state(
         &ChainInfo::create_for_testing(),
         BALANCE,

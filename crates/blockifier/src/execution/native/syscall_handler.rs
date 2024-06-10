@@ -451,7 +451,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
             ))),
             calldata: wrapper_calldata,
             storage_address: contract_address,
-            caller_address: self.caller_address,
+            caller_address: self.contract_address,
             call_type: CallType::Call,
             initial_gas: u64::try_from(*remaining_gas).unwrap(),
         };
