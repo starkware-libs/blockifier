@@ -121,7 +121,9 @@ impl<S: StateReader> VersionedState<S> {
             let is_declared = self.declared_contracts.read(tx_index, class_hash).expect(READ_ERR);
             assert_eq!(
                 is_declared,
-                self.compiled_contract_classes.read(tx_index, class_hash).is_some()
+                self.compiled_contract_classes.read(tx_index, class_hash).is_some(),
+                "The declared contracts mapping should match the compiled contract classes \
+                 mapping."
             );
 
             if &is_declared != expected_value {
@@ -156,7 +158,12 @@ impl<S: StateReader> VersionedState<S> {
         }
         for (&key, &value) in &writes.declared_contracts {
             self.declared_contracts.write(tx_index, key, value);
-            assert_eq!(value, self.compiled_contract_classes.read(tx_index, key).is_some());
+            assert_eq!(
+                value,
+                self.compiled_contract_classes.read(tx_index, key).is_some(),
+                "The declared contracts mapping should match the compiled contract classes \
+                 mapping."
+            );
         }
     }
 
