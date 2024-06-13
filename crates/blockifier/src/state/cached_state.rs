@@ -576,7 +576,7 @@ impl From<StateMaps> for CommitmentStateDiff {
 pub struct StateChangesKeys {
     nonce_keys: HashSet<ContractAddress>,
     class_hash_keys: HashSet<ContractAddress>,
-    storage_keys: HashSet<StorageEntry>,
+    pub(crate) storage_keys: HashSet<StorageEntry>,
     compiled_class_hash_keys: HashSet<ClassHash>,
     // Note: this field may not be consistent with the above keys; specifically, it may be
     // strictlly contained in them. For example, as a result of a `difference` operation.

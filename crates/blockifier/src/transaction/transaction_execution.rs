@@ -4,6 +4,7 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{calculate_contract_address, ContractAddress};
 use starknet_api::transaction::{Fee, Transaction as StarknetApiTransaction, TransactionHash};
 
+use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::bouncer::verify_tx_weights_in_bounds;
 use crate::context::BlockContext;
 use crate::execution::contract_class::ClassInfo;
@@ -163,6 +164,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         // TODO(Yoni, 1/8/2024): consider unimplementing the ExecutableTransaction trait for inner
         // types, since now running Transaction::execute_raw is not identical to
         // AccountTransaction::execute_raw.
+        let tx_context = block_context.to_tx_context(self);
         let tx_execution_info = match self {
             Self::AccountTransaction(account_tx) => {
                 account_tx.execute_raw(state, block_context, charge_fee, validate)?
@@ -175,7 +177,19 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         // Check if the transaction is too large to fit any block.
         // TODO(Yoni, 1/8/2024): consider caching these two.
         let tx_execution_summary = tx_execution_info.summarize();
-        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        let mut tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+
+        // Check if we had run in concurrency mode.
+        if block_context.concurrency_mode
+            && block_context.block_info.sequencer_address != tx_context.tx_info.sender_address()
+        {
+            // Add the deleted sequencer balance key to the storage keys.
+            let sequencer_balance_low =
+                get_fee_token_var_address(block_context.block_info.sequencer_address);
+            tx_state_changes_keys
+                .storage_keys
+                .insert((tx_context.fee_token_address(), sequencer_balance_low));
+        }
         verify_tx_weights_in_bounds(
             state,
             &tx_execution_summary,

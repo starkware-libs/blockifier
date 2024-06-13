@@ -223,9 +223,15 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let mut execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
         let writes = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).writes;
         let reads = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
-        let tx_state_changes_keys = StateChanges::from(writes.diff(reads)).into_keys();
+        let mut tx_state_changes_keys = StateChanges::from(writes.diff(reads)).into_keys();
+        let tx_context = self.block_context.to_tx_context(tx);
         let tx_result =
             &mut execution_output.as_mut().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).result;
+        // Add the deleted sequencer balance key to the storage keys.
+        let (sequencer_balance_key_low, _) = get_sequencer_balance_keys(self.block_context);
+        tx_state_changes_keys
+            .storage_keys
+            .insert((tx_context.fee_token_address(), sequencer_balance_key_low));
 
         let tx_context = Arc::new(self.block_context.to_tx_context(tx));
         if let Ok(tx_execution_info) = tx_result.as_mut() {
