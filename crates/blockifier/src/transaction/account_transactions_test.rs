@@ -52,6 +52,39 @@ use crate::{
 };
 
 #[rstest]
+fn test_circuit(block_context: BlockContext, max_fee: Fee) {
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[(test_contract, 1), (account, 1)]);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let account_address = account.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
+
+    // Invoke a function that changes the state and reverts.
+
+    let tx_execution_info = run_invoke_tx(
+        state,
+        &block_context,
+        invoke_tx_args! {
+            max_fee,
+            sender_address: account_address,
+            calldata: create_calldata(
+                test_contract_address,
+                "test_circuit",
+                &[]
+            ),
+            version: TransactionVersion::THREE,
+            nonce: nonce_manager.next(account_address),
+        },
+    )
+    .unwrap();
+    eprintln!("tx_execution_info: {:?}", tx_execution_info.revert_error);
+
+    assert!(tx_execution_info.revert_error.is_none());
+}
+
+#[rstest]
 fn test_fee_enforcement(
     block_context: BlockContext,
     #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,

@@ -21,6 +21,11 @@ mod TestContract {
         info::{BlockInfo, SyscallResultTrait}, info::v2::{ExecutionInfo, TxInfo, ResourceBounds,},
         syscalls
     };
+    use core::circuit::{
+        RangeCheck96, AddMod, MulMod, u96, CircuitElement, CircuitInput, circuit_add, circuit_sub,
+        circuit_mul, circuit_inverse, EvalCircuitResult, EvalCircuitTrait, u384, CircuitOutputsTrait,
+        CircuitModulus, FillInputResultTrait, CircuitInputs,
+    };
 
     #[storage]
     struct Storage {
@@ -531,5 +536,22 @@ mod TestContract {
         payload.append(12);
         payload.append(34);
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
+    }
+
+    #[external(v0)]
+    fn test_circuit(ref self: ContractState) {
+        let in1 = CircuitElement::<CircuitInput<0>> {};
+        let in2 = CircuitElement::<CircuitInput<1>> {};
+        let add = circuit_add(in1, in2);
+        let inv = circuit_inverse(add);
+        let sub = circuit_sub(inv, in2);
+        let mul = circuit_mul(inv, sub);
+
+        let modulus = TryInto::<_, CircuitModulus>::try_into([7, 0, 0, 0]).unwrap();
+        let _outputs =
+            match (mul,).new_inputs().next([3, 0, 0, 0]).next([6, 0, 0, 0]).done().eval(modulus) {
+            EvalCircuitResult::Success(outputs) => { outputs },
+            EvalCircuitResult::Failure((_, _)) => { panic!("Expected success") }
+        };
     }
 }
