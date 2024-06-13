@@ -325,6 +325,20 @@ fn test_validate_reads(
 }
 
 #[rstest]
+#[should_panic(expected = "assertion failed: `(left == right)`")]
+fn test_validate_reads_panic(
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
+) {
+    let state_maps_to_validate = StateMaps {
+        declared_contracts: HashMap::from([(class_hash!(1_u8), false)]),
+        ..Default::default()
+    };
+    let version_state_proxy = safe_versioned_state.pin_version(0);
+    version_state_proxy.state().declared_contracts.write(0, class_hash!(1_u8), true);
+    assert!(!safe_versioned_state.pin_version(1).validate_reads(&state_maps_to_validate));
+}
+
+#[rstest]
 fn test_apply_writes(
     contract_address: ContractAddress,
     class_hash: ClassHash,
