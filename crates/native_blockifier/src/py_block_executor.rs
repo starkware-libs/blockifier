@@ -23,7 +23,7 @@ use starknet_api::transaction::Fee;
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_objects::{PyBouncerConfig, PyConcurrencyConfig};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
-use crate::py_transaction::{get_py_tx_type, py_tx, PyClassInfo, PY_TX_PARSING_ERR};
+use crate::py_transaction::{py_tx, PyClassInfo, PY_TX_PARSING_ERR};
 use crate::py_utils::{int_to_chain_id, into_block_number_hash_pair, PyFelt};
 use crate::state_readers::papyrus_state::PapyrusReader;
 use crate::storage::{PapyrusStorage, Storage, StorageConfig};
@@ -71,31 +71,6 @@ impl ThinTransactionExecutionInfo {
             total_gas: tx_execution_info.transaction_receipt.gas,
         }
     }
-}
-
-#[pyclass]
-#[derive(Debug, Serialize)]
-pub(crate) struct TypedTransactionExecutionInfo {
-    #[serde(flatten)]
-    pub info: ThinTransactionExecutionInfo,
-    pub tx_type: String,
-}
-
-impl TypedTransactionExecutionInfo {
-    pub fn from_tx_execution_info(
-        block_context: &BlockContext,
-        tx_execution_info: TransactionExecutionInfo,
-        tx_type: String,
-    ) -> Self {
-        TypedTransactionExecutionInfo {
-            info: ThinTransactionExecutionInfo::from_tx_execution_info(
-                block_context,
-                tx_execution_info,
-            ),
-            tx_type,
-        }
-    }
-
     pub fn serialize(self) -> RawTransactionExecutionResult {
         serde_json::to_vec(&self).expect(RESULT_SERIALIZE_ERR)
     }
@@ -194,13 +169,11 @@ impl PyBlockExecutor {
         tx: &PyAny,
         optional_py_class_info: Option<PyClassInfo>,
     ) -> NativeBlockifierResult<Py<PyBytes>> {
-        let tx_type: String = get_py_tx_type(tx).expect(PY_TX_PARSING_ERR).to_string();
         let tx: Transaction = py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
         let tx_execution_info = self.tx_executor().execute(&tx)?;
-        let typed_tx_execution_info = TypedTransactionExecutionInfo::from_tx_execution_info(
+        let typed_tx_execution_info = ThinTransactionExecutionInfo::from_tx_execution_info(
             &self.tx_executor().block_context,
             tx_execution_info,
-            tx_type,
         );
 
         // Serialize and convert to PyBytes.
@@ -217,15 +190,12 @@ impl PyBlockExecutor {
         txs_with_class_infos: Vec<(&PyAny, Option<PyClassInfo>)>,
     ) -> Py<PyList> {
         // Parse Py transactions.
-        let (tx_types, txs): (Vec<String>, Vec<Transaction>) = txs_with_class_infos
+        let txs: Vec<Transaction> = txs_with_class_infos
             .into_iter()
             .map(|(tx, optional_py_class_info)| {
-                (
-                    get_py_tx_type(tx).expect(PY_TX_PARSING_ERR).to_string(),
-                    py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR),
-                )
+                py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR)
             })
-            .unzip();
+            .collect();
 
         // Run.
         let results = self.tx_executor().execute_txs(&txs);
@@ -236,14 +206,12 @@ impl PyBlockExecutor {
         let serialized_results: Vec<(bool, RawTransactionExecutionResult)> = results
             .into_iter()
             // Note: there might be less results than txs (if there is no room for all of them).
-            .zip(tx_types)
-            .map(|(result, tx_type)| match result {
+            .map(|result| match result {
                 Ok(tx_execution_info) => (
                     true,
-                    TypedTransactionExecutionInfo::from_tx_execution_info(
+                    ThinTransactionExecutionInfo::from_tx_execution_info(
                         block_context,
                         tx_execution_info,
-                        tx_type,
                     )
                     .serialize(),
                 ),
