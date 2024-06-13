@@ -18,6 +18,9 @@ impl TransactionContext {
     pub fn fee_token_address(&self) -> ContractAddress {
         self.block_context.chain_info.fee_token_address(&self.tx_info.fee_type())
     }
+    pub fn sequencer_is_the_sender(&self) -> bool {
+        self.tx_info.sender_address() == self.block_context.block_info.sequencer_address
+    }
 }
 
 #[derive(Clone, Debug)]

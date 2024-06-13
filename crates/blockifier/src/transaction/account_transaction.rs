@@ -318,14 +318,12 @@ impl AccountTransaction {
         // TODO(Amos, 8/04/2024): Add test for this assert.
         Self::assert_actual_fee_in_bounds(&tx_context, actual_fee)?;
 
-        let fee_transfer_call_info = if tx_context.block_context.concurrency_mode
-            && tx_context.block_context.block_info.sequencer_address
-                != tx_context.tx_info.sender_address()
-        {
-            Self::concurrency_execute_fee_transfer(state, tx_context, actual_fee)?
-        } else {
-            Self::execute_fee_transfer(state, tx_context, actual_fee)?
-        };
+        let fee_transfer_call_info =
+            if tx_context.block_context.concurrency_mode && !tx_context.sequencer_is_the_sender() {
+                Self::concurrency_execute_fee_transfer(state, tx_context, actual_fee)?
+            } else {
+                Self::execute_fee_transfer(state, tx_context, actual_fee)?
+            };
 
         Ok(Some(fee_transfer_call_info))
     }
