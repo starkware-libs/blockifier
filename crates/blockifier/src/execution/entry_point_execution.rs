@@ -162,6 +162,9 @@ pub fn initialize_execution_context<'a>(
         BuiltinName::poseidon,
         BuiltinName::range_check,
         BuiltinName::segment_arena,
+        BuiltinName::range_check96,
+        BuiltinName::add_mod,
+        BuiltinName::mul_mod,
     ];
     runner.initialize_function_runner_cairo_1(&program_builtins)?;
     let mut read_only_segments = ReadOnlySegments::default();
