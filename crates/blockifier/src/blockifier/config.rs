@@ -4,7 +4,9 @@ pub struct TransactionExecutorConfig {
 }
 impl TransactionExecutorConfig {
     pub fn create_for_testing() -> Self {
-        Self { concurrency_config: ConcurrencyConfig::create_for_testing() }
+        Self {
+            concurrency_config: ConcurrencyConfig { enabled: false, n_workers: 0, chunk_size: 0 },
+        }
     }
 }
 
