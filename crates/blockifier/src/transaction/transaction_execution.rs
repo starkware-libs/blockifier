@@ -163,6 +163,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         // TODO(Yoni, 1/8/2024): consider unimplementing the ExecutableTransaction trait for inner
         // types, since now running Transaction::execute_raw is not identical to
         // AccountTransaction::execute_raw.
+        let tx_context = block_context.to_tx_context(self);
         let tx_execution_info = match self {
             Self::AccountTransaction(account_tx) => {
                 account_tx.execute_raw(state, block_context, charge_fee, validate)?
@@ -175,7 +176,8 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         // Check if the transaction is too large to fit any block.
         // TODO(Yoni, 1/8/2024): consider caching these two.
         let tx_execution_summary = tx_execution_info.summarize();
-        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        let mut tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
+        tx_state_changes_keys.update_sequencer_key_in_storage(&tx_context);
         verify_tx_weights_in_bounds(
             state,
             &tx_execution_summary,
