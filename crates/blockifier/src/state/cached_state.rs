@@ -8,6 +8,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
+use crate::context::TransactionContext;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult, UpdatableState};
@@ -615,6 +616,17 @@ impl StateChangesKeys {
         self.storage_keys.extend(&other.storage_keys);
         self.compiled_class_hash_keys.extend(&other.compiled_class_hash_keys);
         self.modified_contracts.extend(&other.modified_contracts);
+    }
+
+    pub fn update_sequencer_key_in_storage(&mut self, tx_context: &TransactionContext) {
+        let seqencer_address = tx_context.block_context.block_info.sequencer_address;
+        let seqencer_is_sender = seqencer_address == tx_context.tx_info.sender_address();
+        // Checks if we run in concurrency mode.
+        if tx_context.block_context.concurrency_mode && !seqencer_is_sender {
+            // Add the deleted sequencer balance key to the storage keys.
+            let sequencer_balance_low = get_fee_token_var_address(seqencer_address);
+            self.storage_keys.insert((tx_context.fee_token_address(), sequencer_balance_low));
+        }
     }
 
     pub fn count(&self) -> StateChangesCount {
