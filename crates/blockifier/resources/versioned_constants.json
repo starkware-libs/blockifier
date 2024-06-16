@@ -84,9 +84,16 @@
         "library_call_gas_cost": {
             "call_contract_gas_cost": 1
         },
+        "sha256_process_block_gas_cost": {
+            "step_gas_cost": 1852,
+            "range_check_gas_cost": 65,
+            "bitwise_builtin_gas_cost": 1115,
+            "syscall_base_gas_cost": 1
+        },
         "memory_hole_gas_cost": 10,
         "nop_entry_point_offset": -1,
         "range_check_gas_cost": 70,
+        "bitwise_builtin_gas_cost": 594,
         "replace_class_gas_cost": {
             "step_gas_cost": 50,
             "syscall_base_gas_cost": 1
@@ -273,6 +280,14 @@
                     "range_check_builtin": 56
                 },
                 "n_memory_holes": 0
+            },
+            "Sha256ProcessBlock": {
+                "builtin_instance_counter": {
+                    "range_check_builtin": 65,
+                    "bitwise_builtin": 1115
+                },
+                "n_memory_holes": 0,
+                "n_steps": 1852
             },
             "LibraryCall": {
                 "n_steps": 681,
