@@ -1249,8 +1249,6 @@ fn test_concurrency_execute_fee_transfer(max_fee: Fee, #[case] version: Transact
         ),
         (storage_writes.get(&(fee_token_address, sequencer_balance_key_high)), Felt::ZERO),
         (storage_initial_reads.get(&(fee_token_address, sequencer_balance_key_high)), Felt::ZERO),
-        (storage_writes.get(&(fee_token_address, sequencer_balance_key_high)), Felt::ZERO),
-        (storage_initial_reads.get(&(fee_token_address, sequencer_balance_key_high)), Felt::ZERO),
     ] {
         assert_eq!(*seq_write_val.unwrap(), expexted_write_val);
     }
