@@ -70,7 +70,7 @@ fn int_to_stark_felt(int: &PyAny) -> PyResult<Felt> {
 // TODO: Convert to a `TryFrom` cast and put in starknet-api (In Felt).
 pub fn biguint_to_felt(biguint: BigUint) -> NativeBlockifierResult<Felt> {
     let biguint_hex = format!("{biguint:#x}");
-    Ok(Felt::from_hex(&*biguint_hex).map_err(NativeBlockifierInputError::from)?)
+    Ok(Felt::from_hex(&biguint_hex).map_err(NativeBlockifierInputError::from)?)
 }
 
 pub fn to_py_vec<T, PyT, F>(values: Vec<T>, converter: F) -> Vec<PyT>
