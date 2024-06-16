@@ -39,12 +39,12 @@ use crate::{compiled_class_hash, deploy_account_tx_args, nonce, storage_key};
 pub fn safe_versioned_state(
     contract_address: ContractAddress,
     class_hash: ClassHash,
-) -> ThreadSafeVersionedState<DictStateReader> {
+) -> ThreadSafeVersionedState<CachedState<DictStateReader>> {
     let init_state = DictStateReader {
         address_to_class_hash: HashMap::from([(contract_address, class_hash)]),
         ..Default::default()
     };
-    safe_versioned_state_for_testing(init_state)
+    safe_versioned_state_for_testing(CachedState::new(init_state))
 }
 
 #[test]
@@ -169,10 +169,10 @@ fn test_versioned_state_proxy() {
     assert!(
         versioned_state_proxys[4].state().declared_contracts.read(4, another_class_hash).unwrap()
     );
-    // Ignore the writes in the current transaction.
+    // Include the writes in the current transaction.
     assert_eq!(
         versioned_state_proxys[10].get_class_hash_at(contract_address).unwrap(),
-        class_hash_v7
+        class_hash_v10
     );
     assert_eq!(
         versioned_state_proxys[2].get_compiled_class_hash(class_hash).unwrap(),
@@ -277,7 +277,7 @@ fn test_run_parallel_txs() {
 fn test_validate_reads(
     contract_address: ContractAddress,
     class_hash: ClassHash,
-    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
 ) {
     let storage_key = storage_key!(0x10_u8);
 
@@ -320,15 +320,89 @@ fn test_validate_reads(
 }
 
 #[rstest]
+#[case::storage(
+    StateMaps {
+        storage: HashMap::from(
+            [((contract_address!("0x1"), storage_key!("0x1")), felt!(1_u8))]
+        ),
+        ..Default::default()
+    },
+    StateMaps {
+        storage: HashMap::from(
+            [((contract_address!("0x1"), storage_key!("0x1")), felt!(2_u8))]
+        ),
+        ..Default::default()
+    }
+)]
+#[case::nonces(
+    StateMaps {
+        nonces: HashMap::from([(contract_address!("0x1"), nonce!(1_u8))]),
+        ..Default::default()
+    },
+    StateMaps {
+        nonces: HashMap::from([(contract_address!("0x1"), nonce!(2_u8))]),
+        ..Default::default()
+    }
+)]
+#[case::class_hashes(
+    StateMaps {
+        class_hashes: HashMap::from([(contract_address!("0x1"), class_hash!(1_u8))]),
+        ..Default::default()
+    },
+    StateMaps {
+        class_hashes: HashMap::from([(contract_address!("0x1"), class_hash!(2_u8))]),
+        ..Default::default()
+    }
+)]
+#[case::compiled_class_hashes(
+    StateMaps {
+        compiled_class_hashes: HashMap::from([(class_hash!(1_u8), compiled_class_hash!(1_u8))]),
+        ..Default::default()
+    },
+    StateMaps {
+        compiled_class_hashes: HashMap::from([(class_hash!(1_u8), compiled_class_hash!(2_u8))]),
+        ..Default::default()
+    }
+)]
+fn test_false_validate_reads(
+    #[case] tx_1_reads: StateMaps,
+    #[case] tx_0_writes: StateMaps,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
+) {
+    let version_state_proxy = safe_versioned_state.pin_version(0);
+    version_state_proxy.state().apply_writes(0, &tx_0_writes, &HashMap::default());
+    assert!(!safe_versioned_state.pin_version(1).validate_reads(&tx_1_reads));
+}
+
+#[rstest]
+fn test_false_validate_reads_declared_contracts(
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
+) {
+    let tx_1_reads = StateMaps {
+        declared_contracts: HashMap::from([(class_hash!(1_u8), false)]),
+        ..Default::default()
+    };
+    let tx_0_writes = StateMaps {
+        declared_contracts: HashMap::from([(class_hash!(1_u8), true)]),
+        ..Default::default()
+    };
+    let version_state_proxy = safe_versioned_state.pin_version(0);
+    let compiled_contract_calss = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
+    let class_hash_to_class = HashMap::from([(class_hash!(1_u8), compiled_contract_calss)]);
+    version_state_proxy.state().apply_writes(0, &tx_0_writes, &class_hash_to_class);
+    assert!(!safe_versioned_state.pin_version(1).validate_reads(&tx_1_reads));
+}
+
+#[rstest]
 fn test_apply_writes(
     contract_address: ContractAddress,
     class_hash: ClassHash,
-    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
 ) {
-    let mut versioned_proxy_states: Vec<VersionedStateProxy<DictStateReader>> =
+    let mut versioned_proxy_states: Vec<VersionedStateProxy<CachedState<DictStateReader>>> =
         (0..2).map(|i| safe_versioned_state.pin_version(i)).collect();
     let mut transactional_states: Vec<
-        TransactionalState<'_, VersionedStateProxy<DictStateReader>>,
+        TransactionalState<'_, VersionedStateProxy<CachedState<DictStateReader>>>,
     > = versioned_proxy_states.iter_mut().map(TransactionalState::create_transactional).collect();
 
     // Transaction 0 class hash.
@@ -359,12 +433,12 @@ fn test_apply_writes(
 fn test_apply_writes_reexecute_scenario(
     contract_address: ContractAddress,
     class_hash: ClassHash,
-    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
 ) {
-    let mut versioned_proxy_states: Vec<VersionedStateProxy<DictStateReader>> =
+    let mut versioned_proxy_states: Vec<VersionedStateProxy<CachedState<DictStateReader>>> =
         (0..2).map(|i| safe_versioned_state.pin_version(i)).collect();
     let mut transactional_states: Vec<
-        TransactionalState<'_, VersionedStateProxy<DictStateReader>>,
+        TransactionalState<'_, VersionedStateProxy<CachedState<DictStateReader>>>,
     > = versioned_proxy_states.iter_mut().map(TransactionalState::create_transactional).collect();
 
     // Transaction 0 class hash.
@@ -395,13 +469,13 @@ fn test_apply_writes_reexecute_scenario(
 #[rstest]
 fn test_delete_writes(
     #[values(0, 1, 2)] tx_index_to_delete_writes: TxIndex,
-    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
 ) {
     let num_of_txs = 3;
-    let mut versioned_proxy_states: Vec<VersionedStateProxy<DictStateReader>> =
+    let mut versioned_proxy_states: Vec<VersionedStateProxy<CachedState<DictStateReader>>> =
         (0..num_of_txs).map(|i| safe_versioned_state.pin_version(i)).collect();
     let mut transactional_states: Vec<
-        TransactionalState<'_, VersionedStateProxy<DictStateReader>>,
+        TransactionalState<'_, VersionedStateProxy<CachedState<DictStateReader>>>,
     > = versioned_proxy_states.iter_mut().map(TransactionalState::create_transactional).collect();
 
     // Setting 2 instances of the contract to ensure `delete_writes` removes information from
@@ -460,7 +534,7 @@ fn test_delete_writes(
 
 #[rstest]
 fn test_delete_writes_completeness(
-    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
 ) {
     let feature_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let state_maps_writes = StateMaps {
@@ -519,13 +593,12 @@ fn test_delete_writes_completeness(
 
 #[rstest]
 fn test_versioned_proxy_state_flow(
-    safe_versioned_state: ThreadSafeVersionedState<DictStateReader>,
+    safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
 ) {
     let contract_address = contract_address!("0x1");
     let class_hash = ClassHash(felt!(27_u8));
 
-    let mut block_state = CachedState::from(DictStateReader::default());
-    let mut versioned_proxy_states: Vec<VersionedStateProxy<DictStateReader>> =
+    let mut versioned_proxy_states: Vec<VersionedStateProxy<CachedState<DictStateReader>>> =
         (0..4).map(|i| safe_versioned_state.pin_version(i)).collect();
 
     let mut transactional_states = Vec::with_capacity(4);
@@ -558,8 +631,14 @@ fn test_versioned_proxy_state_flow(
     }
 
     // Check the final state.
-    safe_versioned_state.0.lock().unwrap().commit(4, &mut block_state);
+    for proxy in versioned_proxy_states {
+        drop(proxy);
+    }
+    let modified_block_state =
+        safe_versioned_state.into_inner_state().commit_chunk_and_recover_block_state(4);
 
-    assert!(block_state.get_class_hash_at(contract_address).unwrap() == class_hash_3);
-    assert!(block_state.get_compiled_contract_class(class_hash).unwrap() == contract_class_2);
+    assert!(modified_block_state.get_class_hash_at(contract_address).unwrap() == class_hash_3);
+    assert!(
+        modified_block_state.get_compiled_contract_class(class_hash).unwrap() == contract_class_2
+    );
 }

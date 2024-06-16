@@ -40,7 +40,7 @@ use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
 use crate::transaction::objects::{FeeType, HasRelatedFeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing,
-    create_account_tx_for_validate_test, create_test_init_data, deploy_and_fund_account,
+    create_account_tx_for_validate_test_nonce_0, create_test_init_data, deploy_and_fund_account,
     l1_resource_bounds, max_fee, max_resource_bounds, run_invoke_tx, FaultyAccountTxCreatorArgs,
     TestInitData, INVALID,
 };
@@ -96,7 +96,7 @@ fn test_enforce_fee_false_works(block_context: BlockContext, #[case] version: Tr
     )
     .unwrap();
     assert!(!tx_execution_info.is_reverted());
-    assert_eq!(tx_execution_info.actual_fee, Fee(0));
+    assert_eq!(tx_execution_info.transaction_receipt.fee, Fee(0));
 }
 
 // TODO(Dori, 15/9/2023): Convert version variance to attribute macro.
@@ -456,12 +456,12 @@ fn test_revert_invoke(
         state
             .get_fee_token_balance(account_address, chain_info.fee_token_address(&fee_type))
             .unwrap(),
-        (felt!(BALANCE - tx_execution_info.actual_fee.0), felt!(0_u8))
+        (felt!(BALANCE - tx_execution_info.transaction_receipt.fee.0), felt!(0_u8))
     );
     assert_eq!(state.get_nonce_at(account_address).unwrap(), nonce_manager.next(account_address));
 
     // Check that reverted steps are taken into account.
-    assert!(tx_execution_info.actual_resources.n_reverted_steps > 0);
+    assert!(tx_execution_info.transaction_receipt.resources.n_reverted_steps > 0);
 
     // Check that execution state changes were reverted.
     assert_eq!(
@@ -484,17 +484,15 @@ fn test_fail_deploy_account(
     let state = &mut test_state(chain_info, BALANCE, &[(faulty_account_feature_contract, 0)]);
 
     // Create and execute (failing) deploy account transaction.
-    let deploy_account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
+    let deploy_account_tx =
+        create_account_tx_for_validate_test_nonce_0(FaultyAccountTxCreatorArgs {
             tx_type: TransactionType::DeployAccount,
             tx_version,
             scenario: INVALID,
             class_hash: faulty_account_feature_contract.get_class_hash(),
             max_fee: Fee(BALANCE),
             ..Default::default()
-        },
-    );
+        });
     let fee_token_address = chain_info.fee_token_address(&deploy_account_tx.fee_type());
 
     let deploy_address = match &deploy_account_tx {
@@ -617,8 +615,8 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_0 = result.actual_resources.total_charged_steps();
-    let actual_fee_0 = result.actual_fee.0;
+    let n_steps_0 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_0 = result.transaction_receipt.fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
 
@@ -633,8 +631,8 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_1 = result.actual_resources.total_charged_steps();
-    let actual_fee_1 = result.actual_fee.0;
+    let n_steps_1 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_1 = result.transaction_receipt.fee.0;
     // Ensure the transaction was not reverted.
     assert!(!result.is_reverted());
 
@@ -660,8 +658,8 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_fail = result.actual_resources.total_charged_steps();
-    let actual_fee_fail: u128 = result.actual_fee.0;
+    let n_steps_fail = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_fail: u128 = result.transaction_receipt.fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
 
@@ -681,8 +679,8 @@ fn test_reverted_reach_steps_limit(
         },
     )
     .unwrap();
-    let n_steps_fail_next = result.actual_resources.total_charged_steps();
-    let actual_fee_fail_next: u128 = result.actual_fee.0;
+    let n_steps_fail_next = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_fail_next: u128 = result.transaction_receipt.fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
 
@@ -721,9 +719,9 @@ fn test_n_reverted_steps(
     .unwrap();
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
-    let mut actual_resources_0 = result.actual_resources.clone();
-    let n_steps_0 = result.actual_resources.total_charged_steps();
-    let actual_fee_0 = result.actual_fee.0;
+    let mut actual_resources_0 = result.transaction_receipt.resources.clone();
+    let n_steps_0 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_0 = result.transaction_receipt.fee.0;
 
     // Invoke the `recursive_fail` function with 1 iterations. This call should fail.
     let result = run_invoke_tx(
@@ -738,9 +736,9 @@ fn test_n_reverted_steps(
     .unwrap();
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
-    let actual_resources_1 = result.actual_resources;
+    let actual_resources_1 = result.transaction_receipt.resources;
     let n_steps_1 = actual_resources_1.total_charged_steps();
-    let actual_fee_1 = result.actual_fee.0;
+    let actual_fee_1 = result.transaction_receipt.fee.0;
 
     // Invoke the `recursive_fail` function with 2 iterations. This call should fail.
     let result = run_invoke_tx(
@@ -753,8 +751,8 @@ fn test_n_reverted_steps(
         },
     )
     .unwrap();
-    let n_steps_2 = result.actual_resources.total_charged_steps();
-    let actual_fee_2 = result.actual_fee.0;
+    let n_steps_2 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_2 = result.transaction_receipt.fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
 
@@ -785,8 +783,8 @@ fn test_n_reverted_steps(
         },
     )
     .unwrap();
-    let n_steps_100 = result.actual_resources.total_charged_steps();
-    let actual_fee_100 = result.actual_fee.0;
+    let n_steps_100 = result.transaction_receipt.resources.total_charged_steps();
+    let actual_fee_100 = result.transaction_receipt.fee.0;
     // Ensure the transaction was reverted.
     assert!(result.is_reverted());
 
@@ -833,9 +831,10 @@ fn test_max_fee_to_max_steps_conversion(
     let execution_context1 = EntryPointExecutionContext::new_invoke(tx_context1, true).unwrap();
     let max_steps_limit1 = execution_context1.vm_run_resources.get_n_steps();
     let tx_execution_info1 = account_tx1.execute(&mut state, &block_context, true, true).unwrap();
-    let n_steps1 = tx_execution_info1.actual_resources.vm_resources.n_steps;
+    let n_steps1 = tx_execution_info1.transaction_receipt.resources.vm_resources.n_steps;
     let gas_used_vector1 = tx_execution_info1
-        .actual_resources
+        .transaction_receipt
+        .resources
         .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
         .unwrap();
 
@@ -852,22 +851,26 @@ fn test_max_fee_to_max_steps_conversion(
     let execution_context2 = EntryPointExecutionContext::new_invoke(tx_context2, true).unwrap();
     let max_steps_limit2 = execution_context2.vm_run_resources.get_n_steps();
     let tx_execution_info2 = account_tx2.execute(&mut state, &block_context, true, true).unwrap();
-    let n_steps2 = tx_execution_info2.actual_resources.vm_resources.n_steps;
+    let n_steps2 = tx_execution_info2.transaction_receipt.resources.vm_resources.n_steps;
     let gas_used_vector2 = tx_execution_info2
-        .actual_resources
+        .transaction_receipt
+        .resources
         .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)
         .unwrap();
 
     // Test that steps limit doubles as max_fee doubles, but actual consumed steps and fee remains.
     assert_eq!(max_steps_limit2.unwrap(), 2 * max_steps_limit1.unwrap());
-    assert_eq!(tx_execution_info1.actual_fee.0, tx_execution_info2.actual_fee.0);
+    assert_eq!(
+        tx_execution_info1.transaction_receipt.fee.0,
+        tx_execution_info2.transaction_receipt.fee.0
+    );
     // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion works.
     // TODO(Aner, 21/01/24): verify test compliant with 4844 (or modify accordingly).
     assert_eq!(
         actual_gas_used,
         u64::try_from(gas_used_vector2.l1_gas).expect("Failed to convert u128 to u64.")
     );
-    assert_eq!(actual_fee, tx_execution_info2.actual_fee.0);
+    assert_eq!(actual_fee, tx_execution_info2.transaction_receipt.fee.0);
     assert_eq!(n_steps1, n_steps2);
     assert_eq!(gas_used_vector1, gas_used_vector2);
 }
@@ -899,7 +902,7 @@ fn test_insufficient_max_fee_reverts(
     )
     .unwrap();
     assert!(!tx_execution_info1.is_reverted());
-    let actual_fee_depth1 = tx_execution_info1.actual_fee;
+    let actual_fee_depth1 = tx_execution_info1.transaction_receipt.fee;
 
     // Invoke the `recurse` function with depth of 2 and the actual fee of depth 1 as max_fee.
     // This call should fail due to insufficient max fee (steps bound based on max_fee is not so
@@ -916,7 +919,7 @@ fn test_insufficient_max_fee_reverts(
     )
     .unwrap();
     assert!(tx_execution_info2.is_reverted());
-    assert!(tx_execution_info2.actual_fee == actual_fee_depth1);
+    assert!(tx_execution_info2.transaction_receipt.fee == actual_fee_depth1);
     assert!(tx_execution_info2.revert_error.unwrap().starts_with("Insufficient max fee"));
 
     // Invoke the `recurse` function with depth of 824 and the actual fee of depth 1 as max_fee.
@@ -934,7 +937,7 @@ fn test_insufficient_max_fee_reverts(
     )
     .unwrap();
     assert!(tx_execution_info3.is_reverted());
-    assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
+    assert!(tx_execution_info3.transaction_receipt.fee == actual_fee_depth1);
     assert!(
         tx_execution_info3.revert_error.unwrap().contains("RunResources has no remaining steps.")
     );
@@ -1037,7 +1040,7 @@ fn test_count_actual_storage_changes(
     let account_tx = account_invoke_tx(invoke_args.clone());
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
-    let fee_1 = execution_info.actual_fee;
+    let fee_1 = execution_info.transaction_receipt.fee;
     let state_changes_1 = state.get_actual_state_changes().unwrap();
 
     let cell_write_storage_change = ((contract_address, storage_key!(15_u8)), felt!(1_u8));
@@ -1079,7 +1082,7 @@ fn test_count_actual_storage_changes(
     });
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
-    let fee_2 = execution_info.actual_fee;
+    let fee_2 = execution_info.transaction_receipt.fee;
     let state_changes_2 = state.get_actual_state_changes().unwrap();
 
     expected_sequencer_total_fee += Felt::from(fee_2.0);
@@ -1116,7 +1119,7 @@ fn test_count_actual_storage_changes(
     });
     let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
 
-    let fee_transfer = execution_info.actual_fee;
+    let fee_transfer = execution_info.transaction_receipt.fee;
     let state_changes_transfer = state.get_actual_state_changes().unwrap();
     let transfer_receipient_storage_change = (
         (fee_token_address, get_fee_token_var_address(contract_address!(recipient))),
@@ -1157,30 +1160,39 @@ fn test_count_actual_storage_changes(
 }
 
 #[rstest]
-fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] fee_type: FeeType) {
+#[case::tx_version_1(TransactionVersion::ONE)]
+#[case::tx_version_3(TransactionVersion::THREE)]
+fn test_concurrency_execute_fee_transfer(max_fee: Fee, #[case] version: TransactionVersion) {
     // TODO(Meshi, 01/06/2024): make the test so it will include changes in
     // sequencer_balance_key_high.
-    const STORAGE_WRITE_LOW: u128 = 100;
-    const STORAGE_READ_LOW: u128 = 50;
+    const TRANSFER_AMOUNT: u128 = 100;
+    const SEQUENCER_BALANCE_LOW_INITIAL: u128 = 50;
+
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
-    let account_tx = account_invoke_tx(invoke_tx_args! {
-        sender_address: account.get_instance_address(0),
-        calldata: create_trivial_calldata(account.get_instance_address(0)),
-        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-        version: TransactionVersion::THREE
-    });
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
-    let fee_token_address = block_context.chain_info.fee_token_address(&fee_type);
-    let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
-
+    let state = &mut test_state(chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(&block_context);
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+    sender_address: account.get_instance_address(0),
+    max_fee,
+    calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+    resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+    version
+    });
+    let fee_type = &account_tx.fee_type();
+    let fee_token_address = block_context.chain_info.fee_token_address(fee_type);
 
     // Case 1: The transaction did not read form/ write to the sequenser balance before executing
     // fee transfer.
     let mut transactional_state = TransactionalState::create_transactional(state);
-    account_tx.execute_raw(&mut transactional_state, &block_context, true, false).unwrap();
+    let charge_fee = true;
+    let validate = true;
+    let result =
+        account_tx.execute(&mut transactional_state, &block_context, charge_fee, validate).unwrap();
+    assert!(!result.is_reverted());
     let transactional_cache = transactional_state.cache.borrow();
     for storage in [
         transactional_cache.initial_reads.storage.clone(),
@@ -1197,18 +1209,14 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     let transfer_calldata = create_calldata(
         fee_token_address,
         TRANSFER_ENTRY_POINT_NAME,
-        &[
-            *block_context.block_info.sequencer_address.0.key(),
-            felt!(STORAGE_WRITE_LOW),
-            felt!(0_u8),
-        ],
+        &[*block_context.block_info.sequencer_address.0.key(), felt!(TRANSFER_AMOUNT), felt!(0_u8)],
     );
 
     // Set the sequencer balance to a constant value to check that the read set did not changed.
     fund_account(
         chain_info,
         block_context.block_info.sequencer_address,
-        STORAGE_READ_LOW,
+        SEQUENCER_BALANCE_LOW_INITIAL,
         &mut state.state,
     );
     let mut transactional_state = TransactionalState::create_transactional(state);
@@ -1217,13 +1225,15 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
     let account_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account.get_instance_address(0),
         calldata: transfer_calldata,
+        max_fee,
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         version: TransactionVersion::THREE
     });
 
-    account_tx.execute_raw(&mut transactional_state, &block_context, true, true).unwrap();
-
-    // Check that the sequencer balance was not changed.
+    let result =
+        account_tx.execute(&mut transactional_state, &block_context, charge_fee, validate).unwrap();
+    assert!(!result.is_reverted());
+    // Check that the sequencer balance was not updated.
     let storage_writes = transactional_state.cache.borrow().writes.storage.clone();
     let storage_initial_reads = transactional_state.cache.borrow().initial_reads.storage.clone();
 
@@ -1231,15 +1241,59 @@ fn test_concurrency_execute_fee_transfer(#[values(FeeType::Eth, FeeType::Strk)] 
         (
             storage_writes.get(&(fee_token_address, sequencer_balance_key_low)),
             // Balance after `execute` and without the fee transfer.
-            felt!(STORAGE_WRITE_LOW + STORAGE_READ_LOW),
+            felt!(SEQUENCER_BALANCE_LOW_INITIAL + TRANSFER_AMOUNT),
         ),
         (
             storage_initial_reads.get(&(fee_token_address, sequencer_balance_key_low)),
-            felt!(STORAGE_READ_LOW),
+            felt!(SEQUENCER_BALANCE_LOW_INITIAL),
         ),
+        (storage_writes.get(&(fee_token_address, sequencer_balance_key_high)), Felt::ZERO),
+        (storage_initial_reads.get(&(fee_token_address, sequencer_balance_key_high)), Felt::ZERO),
         (storage_writes.get(&(fee_token_address, sequencer_balance_key_high)), Felt::ZERO),
         (storage_initial_reads.get(&(fee_token_address, sequencer_balance_key_high)), Felt::ZERO),
     ] {
         assert_eq!(*seq_write_val.unwrap(), expexted_write_val);
+    }
+}
+
+// Check that when the sequencer is the sender, we run the sequential fee transfer.
+#[rstest]
+#[case::tx_version_1(TransactionVersion::ONE)]
+#[case::tx_version_3(TransactionVersion::THREE)]
+fn test_concurrent_fee_transfer_when_sender_is_sequencer(
+    max_fee: Fee,
+    #[case] version: TransactionVersion,
+) {
+    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let account_address = account.get_instance_address(0_u16);
+    block_context.block_info.sequencer_address = account_address;
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let sender_balance = BALANCE;
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, sender_balance, &[(account, 1), (test_contract, 1)]);
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(&block_context);
+    let account_tx = account_invoke_tx(invoke_tx_args! {
+        max_fee,
+        sender_address: account_address,
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        version
+    });
+    let fee_type = &account_tx.fee_type();
+    let fee_token_address = block_context.chain_info.fee_token_address(fee_type);
+
+    let mut transactional_state = TransactionalState::create_transactional(state);
+    let charge_fee = true;
+    let validate = true;
+    let result =
+        account_tx.execute(&mut transactional_state, &block_context, charge_fee, validate).unwrap();
+    assert!(!result.is_reverted());
+    // Check that the sequencer balance was updated (in this case, was not changed).
+    for (seq_key, seq_value) in
+        [(sequencer_balance_key_low, sender_balance), (sequencer_balance_key_high, 0_u128)]
+    {
+        assert_eq!(state.get_storage_at(fee_token_address, seq_key).unwrap(), felt!(seq_value));
     }
 }

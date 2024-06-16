@@ -40,7 +40,10 @@ impl PapyrusReader {
 
     /// Returns a V1 contract if found, or a V0 contract if a V1 contract is not
     /// found, or an `Error` otherwise.
-    fn _get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class_inner(
+        &self,
+        class_hash: ClassHash,
+    ) -> StateResult<ContractClass> {
         let state_number = StateNumber(self.latest_block);
         let class_declaration_block_number = self
             .reader()?
@@ -125,7 +128,7 @@ impl StateReader for PapyrusReader {
         match contract_class {
             Some(contract_class) => Ok(contract_class),
             None => {
-                let contract_class_from_db = self._get_compiled_contract_class(class_hash)?;
+                let contract_class_from_db = self.get_compiled_contract_class_inner(class_hash)?;
                 // The class was declared in a previous (finalized) state; update the global cache.
                 self.global_class_hash_to_class.set(class_hash, contract_class_from_db.clone());
                 Ok(contract_class_from_db)

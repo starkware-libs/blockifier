@@ -1,6 +1,7 @@
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::blockifier::block::BlockInfo;
+use crate::bouncer::BouncerConfig;
 use crate::transaction::objects::{
     FeeType, HasRelatedFeeType, TransactionInfo, TransactionInfoCreator,
 };
@@ -21,26 +22,28 @@ impl TransactionContext {
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
+    // TODO(Yoni, 1/10/2024): consider making these fields public.
     pub(crate) block_info: BlockInfo,
     pub(crate) chain_info: ChainInfo,
     pub(crate) versioned_constants: VersionedConstants,
+    pub(crate) bouncer_config: BouncerConfig,
     pub(crate) concurrency_mode: bool,
 }
 
 impl BlockContext {
-    /// Note: Prefer using the recommended constructor methods as detailed in the struct
-    /// documentation. This method is intended for internal use and will be deprecated in future
-    /// versions.
-    pub fn new_unchecked(
-        block_info: &BlockInfo,
-        chain_info: &ChainInfo,
-        versioned_constants: &VersionedConstants,
+    pub fn new(
+        block_info: BlockInfo,
+        chain_info: ChainInfo,
+        versioned_constants: VersionedConstants,
+        bouncer_config: BouncerConfig,
+        concurrency_mode: bool,
     ) -> Self {
         BlockContext {
-            block_info: block_info.clone(),
-            chain_info: chain_info.clone(),
-            versioned_constants: versioned_constants.clone(),
-            concurrency_mode: false,
+            block_info,
+            chain_info,
+            versioned_constants,
+            bouncer_config,
+            concurrency_mode,
         }
     }
 
@@ -56,12 +59,6 @@ impl BlockContext {
         &self.versioned_constants
     }
 
-    pub fn concurrency_mode(&self) -> bool {
-        self.concurrency_mode
-    }
-}
-
-impl BlockContext {
     pub fn to_tx_context(
         &self,
         tx_info_creator: &impl TransactionInfoCreator,

@@ -9,7 +9,7 @@ use super::BouncerConfig;
 use crate::blockifier::transaction_executor::{
     TransactionExecutorError, TransactionExecutorResult,
 };
-use crate::bouncer::{Bouncer, BouncerWeights, BuiltinCount};
+use crate::bouncer::{verify_tx_weights_in_bounds, Bouncer, BouncerWeights, BuiltinCount};
 use crate::context::BlockContext;
 use crate::execution::call_info::ExecutionSummary;
 use crate::state::cached_state::{StateChangesKeys, TransactionalState};
@@ -76,7 +76,7 @@ fn test_block_weights_has_room() {
 }
 
 #[rstest]
-#[case::empty_initial_bouncer(Bouncer::new(BouncerConfig::default()))]
+#[case::empty_initial_bouncer(Bouncer::new(BouncerConfig::empty()))]
 #[case::non_empty_initial_bouncer(Bouncer {
     executed_class_hashes: HashSet::from([class_hash!(0_u128)]),
     visited_storage_entries: HashSet::from([(
@@ -86,7 +86,7 @@ fn test_block_weights_has_room() {
     state_changes_keys: StateChangesKeys::create_for_testing(HashSet::from([
         ContractAddress::from(0_u128),
     ])),
-    bouncer_config: BouncerConfig::default(),
+    bouncer_config: BouncerConfig::empty(),
     accumulated_weights: BouncerWeights {
         builtin_count: BuiltinCount {
             bitwise: 10,
@@ -135,7 +135,7 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
         StateChangesKeys::create_for_testing(HashSet::from([ContractAddress::from(1_u128)]));
 
     let mut updated_bouncer = initial_bouncer.clone();
-    updated_bouncer._update(
+    updated_bouncer.update(
         weights_to_update,
         &execution_summary_to_update,
         &state_changes_keys_to_update,
@@ -257,13 +257,27 @@ fn test_bouncer_try_update(
     };
     let tx_state_changes_keys = transactional_state.get_actual_state_changes().unwrap().into_keys();
 
-    // Try to update the bouncer.
-    let result = bouncer.try_update(
+    // TODO(Yoni, 1/10/2024): simplify this test and move tx-too-large cases out.
+
+    // Check that the transaction is not too large.
+    let mut result = verify_tx_weights_in_bounds(
         &transactional_state,
-        &tx_state_changes_keys,
         &execution_summary,
         &tx_resources,
-    );
+        &tx_state_changes_keys,
+        &bouncer.bouncer_config,
+    )
+    .map_err(TransactionExecutorError::TransactionExecutionError);
+
+    if result.is_ok() {
+        // Try to update the bouncer.
+        result = bouncer.try_update(
+            &transactional_state,
+            &tx_state_changes_keys,
+            &execution_summary,
+            &tx_resources,
+        );
+    }
 
     // TODO(yael 27/3/24): compare the results without using string comparison.
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));

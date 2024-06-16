@@ -34,11 +34,11 @@ pub fn fund_account(
 /// * "Declares" the input list of contracts.
 /// * "Deploys" the requested number of instances of each input contract.
 /// * Makes each input account contract privileged.
-pub fn test_state_reader(
+pub fn test_state(
     chain_info: &ChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u16)],
-) -> DictStateReader {
+) -> CachedState<DictStateReader> {
     let mut class_hash_to_class = HashMap::new();
     let mut address_to_class_hash = HashMap::new();
 
@@ -78,14 +78,5 @@ pub fn test_state_reader(
         }
     }
 
-    state_reader
-}
-
-/// Initializes a state for testing, with the output of test_state_reader as the initial state.
-pub fn test_state(
-    chain_info: &ChainInfo,
-    initial_balances: u128,
-    contract_instances: &[(FeatureContract, u16)],
-) -> CachedState<DictStateReader> {
-    CachedState::from(test_state_reader(chain_info, initial_balances, contract_instances))
+    CachedState::from(state_reader)
 }

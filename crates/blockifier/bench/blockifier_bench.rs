@@ -7,130 +7,19 @@
 //!
 //! Run the benchmarks using `cargo bench --bench blockifier_bench`.
 
-use blockifier::abi::abi_utils::selector_from_name;
-use blockifier::blockifier::config::TransactionExecutorConfig;
-use blockifier::blockifier::transaction_executor::TransactionExecutor;
-use blockifier::bouncer::BouncerConfig;
-use blockifier::context::{BlockContext, ChainInfo};
-use blockifier::invoke_tx_args;
-use blockifier::test_utils::contracts::FeatureContract;
-use blockifier::test_utils::dict_state_reader::DictStateReader;
-use blockifier::test_utils::initial_test_state::test_state;
-use blockifier::test_utils::invoke::invoke_tx;
-use blockifier::test_utils::{CairoVersion, NonceManager, BALANCE, MAX_FEE};
-use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
-use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::test_utils::transfers_generator::TransfersGenerator;
 use criterion::{criterion_group, criterion_main, Criterion};
-use rand::{Rng, SeedableRng};
-use starknet_api::core::ContractAddress;
-use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
-use starknet_api::{calldata, felt};
-use starknet_types_core::felt::Felt;
-
-const N_ACCOUNTS: u16 = 10000;
-const CHUNK_SIZE: usize = 10;
-const RANDOMIZATION_SEED: u64 = 0;
-const CHARGE_FEE: bool = false;
-const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(Felt::ONE);
 
 pub fn transfers_benchmark(c: &mut Criterion) {
-    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-    let block_context = BlockContext::create_for_account_testing();
-    let chain_info = &block_context.chain_info().clone();
-    let state = test_state(chain_info, BALANCE * 1000, &[(account_contract, N_ACCOUNTS)]);
-    // TODO(Avi, 20/05/2024): Enable concurrency.
-    let executor_config = TransactionExecutorConfig::default();
-    let executor =
-        &mut TransactionExecutor::new(state, block_context, BouncerConfig::max(), executor_config);
-    let accounts = (0..N_ACCOUNTS)
-        .map(|instance_id| account_contract.get_instance_address(instance_id))
-        .collect::<Vec<_>>();
-    let nonce_manager = &mut NonceManager::default();
-
-    let mut first_sender_index = 0;
-    let mut random_generator = rand::rngs::StdRng::seed_from_u64(RANDOMIZATION_SEED);
+    let concurrency_mode = false;
+    let mut transfers_generator = TransfersGenerator::new(concurrency_mode);
     // Create a benchmark group called "transfers", which iterates over the accounts round-robin
     // and performs transfers.
     c.bench_function("transfers", |benchmark| {
         benchmark.iter(|| {
-            execute_chunk_of_transfers(
-                first_sender_index,
-                &mut random_generator,
-                &accounts,
-                nonce_manager,
-                chain_info,
-                executor,
-            );
-            first_sender_index = (first_sender_index + CHUNK_SIZE) % accounts.len();
+            transfers_generator.execute_chunk_of_transfers();
         })
     });
-}
-
-fn execute_chunk_of_transfers(
-    first_sender_index: usize,
-    random_generator: &mut rand::rngs::StdRng,
-    accounts: &[ContractAddress],
-    nonce_manager: &mut NonceManager,
-    chain_info: &ChainInfo,
-    executor: &mut TransactionExecutor<DictStateReader>,
-) {
-    let mut chunk: Vec<Transaction> = Vec::with_capacity(CHUNK_SIZE);
-    let mut sender_index = first_sender_index;
-    for _ in 0..CHUNK_SIZE {
-        let recipient_index = random_generator.gen::<usize>() % accounts.len();
-        let account_tx =
-            generate_transfer(accounts, sender_index, recipient_index, nonce_manager, chain_info);
-        chunk.push(Transaction::AccountTransaction(account_tx));
-        sender_index = (sender_index + 1) % accounts.len();
-    }
-    let results = executor.execute_txs(&chunk, CHARGE_FEE);
-    assert_eq!(results.len(), CHUNK_SIZE);
-    for result in results {
-        assert!(!result.unwrap().is_reverted());
-    }
-    // TODO(Avi, 01/06/2024): Run the same transactions concurrently on a new state and compare the
-    // state diffs.
-}
-
-fn generate_transfer(
-    accounts: &[ContractAddress],
-    sender_index: usize,
-    recipient_index: usize,
-    nonce_manager: &mut NonceManager,
-    chain_info: &ChainInfo,
-) -> AccountTransaction {
-    let sender_address = accounts[sender_index];
-    let recipient_account_address = accounts[recipient_index];
-    let nonce = nonce_manager.next(sender_address);
-
-    let entry_point_selector = selector_from_name(TRANSFER_ENTRY_POINT_NAME);
-    // TODO: Make TransactionVersion an enum and use match here.
-    let contract_address = if TRANSACTION_VERSION == TransactionVersion::ONE {
-        *chain_info.fee_token_addresses.eth_fee_token_address.0.key()
-    } else if TRANSACTION_VERSION == TransactionVersion::THREE {
-        *chain_info.fee_token_addresses.strk_fee_token_address.0.key()
-    } else {
-        panic!("Unsupported transaction version: {TRANSACTION_VERSION:?}")
-    };
-
-    let execute_calldata = calldata![
-        contract_address,                   // Contract address.
-        entry_point_selector.0,             // EP selector.
-        felt!(3_u8),                        // Calldata length.
-        *recipient_account_address.0.key(), // Calldata: recipient.
-        felt!(1_u8),                        // Calldata: lsb amount.
-        felt!(0_u8)                         // Calldata: msb amount.
-    ];
-
-    let tx = invoke_tx(invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
-        sender_address,
-        calldata: execute_calldata,
-        version: TRANSACTION_VERSION,
-        nonce,
-    });
-    AccountTransaction::Invoke(tx)
 }
 
 criterion_group!(benches, transfers_benchmark);

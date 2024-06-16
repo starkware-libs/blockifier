@@ -6,6 +6,7 @@ pub mod initial_test_state;
 pub mod invoke;
 pub mod prices;
 pub mod struct_impls;
+pub mod transfers_generator;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;

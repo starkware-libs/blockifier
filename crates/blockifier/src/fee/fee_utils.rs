@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Fee;
 use starknet_types_core::felt::Felt;
@@ -14,7 +15,6 @@ use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
     ExecutionResourcesTraits, FeeType, GasVector, TransactionFeeResult, TransactionInfo,
-    TransactionResources,
 };
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -73,17 +73,6 @@ pub fn get_fee_by_gas_vector(
         u128::from(block_info.gas_prices.get_gas_price_by_fee_type(fee_type)),
         u128::from(block_info.gas_prices.get_data_gas_price_by_fee_type(fee_type)),
     )
-}
-
-/// Calculates the fee that should be charged, given transaction resources.
-pub fn calculate_tx_fee(
-    tx_resources: &TransactionResources,
-    block_context: &BlockContext,
-    fee_type: &FeeType,
-) -> TransactionFeeResult<Fee> {
-    let gas_vector = tx_resources
-        .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)?;
-    Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
 }
 
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
@@ -147,8 +136,13 @@ pub fn verify_can_pay_committed_bounds(
 
 pub fn get_sequencer_balance_keys(block_context: &BlockContext) -> (StorageKey, StorageKey) {
     let sequencer_address = block_context.block_info.sequencer_address;
-    let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
-    let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
-        .expect("Cannot get sequencer balance high key.");
-    (sequencer_balance_key_low, sequencer_balance_key_high)
+    get_address_balance_keys(sequencer_address)
+}
+
+pub fn get_address_balance_keys(address: ContractAddress) -> (StorageKey, StorageKey) {
+    let balance_key_low = get_fee_token_var_address(address);
+    let balance_key_high = next_storage_key(&balance_key_low).unwrap_or_else(|_| {
+        panic!("Failed to get balance_key_high for address: {:?}", address.0);
+    });
+    (balance_key_low, balance_key_high)
 }

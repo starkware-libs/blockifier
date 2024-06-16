@@ -8,7 +8,7 @@ use starknet_types_core::felt::Felt;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{CachedState, ContractClassMapping, StateMaps};
+use crate::state::cached_state::{ContractClassMapping, StateMaps};
 use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult, UpdatableState};
 
@@ -24,6 +24,7 @@ const READ_ERR: &str = "Error: read value missing in the versioned storage";
 /// Reader functionality is injected through initial state.
 #[derive(Debug)]
 pub struct VersionedState<S: StateReader> {
+    // TODO(barak, 01/08/2024): Change initial_state to state.
     initial_state: S,
     storage: VersionedStorage<(ContractAddress, StorageKey), Felt>,
     nonces: VersionedStorage<ContractAddress, Nonce>,
@@ -70,18 +71,6 @@ impl<S: StateReader> VersionedState<S> {
         }
     }
 
-    pub fn commit<T>(&mut self, from_index: TxIndex, parent_state: &mut CachedState<T>)
-    where
-        T: StateReader,
-    {
-        let writes = self.get_writes_up_to_index(from_index);
-
-        parent_state.update_cache(
-            &writes,
-            self.compiled_contract_classes.get_writes_up_to_index(from_index),
-        );
-    }
-
     // TODO(Mohammad, 01/04/2024): Store the read set (and write set) within a shared
     // object (probabily `VersionedState`). As RefCell operations are not thread-safe. Therefore,
     // accessing this function should be protected by a mutex to ensure thread safety.
@@ -93,7 +82,8 @@ impl<S: StateReader> VersionedState<S> {
         if tx_index == 0 {
             return true;
         }
-
+        // Ignore values written by the current transaction.
+        let tx_index = tx_index - 1;
         for (&(contract_address, storage_key), expected_value) in &reads.storage {
             let value =
                 self.storage.read(tx_index, (contract_address, storage_key)).expect(READ_ERR);
@@ -119,7 +109,6 @@ impl<S: StateReader> VersionedState<S> {
             }
         }
 
-        // Added for symmetry. We currently do not update this initial mapping.
         for (&class_hash, expected_value) in &reads.compiled_class_hashes {
             let value = self.compiled_class_hashes.read(tx_index, class_hash).expect(READ_ERR);
 
@@ -132,7 +121,7 @@ impl<S: StateReader> VersionedState<S> {
             let is_declared = self.declared_contracts.read(tx_index, class_hash).expect(READ_ERR);
             assert_eq!(
                 is_declared,
-                self.compiled_contract_classes.read(tx_index + 1, class_hash).is_some()
+                self.compiled_contract_classes.read(tx_index, class_hash).is_some()
             );
 
             if &is_declared != expected_value {
@@ -167,7 +156,7 @@ impl<S: StateReader> VersionedState<S> {
         }
         for (&key, &value) in &writes.declared_contracts {
             self.declared_contracts.write(tx_index, key, value);
-            assert_eq!(value, self.compiled_contract_classes.read(tx_index + 1, key).is_some());
+            assert_eq!(value, self.compiled_contract_classes.read(tx_index, key).is_some());
         }
     }
 
@@ -196,8 +185,32 @@ impl<S: StateReader> VersionedState<S> {
             self.compiled_contract_classes.delete_write(key, tx_index);
         }
     }
+
+    fn into_initial_state(self) -> S {
+        self.initial_state
+    }
 }
 
+impl<U: UpdatableState> VersionedState<U> {
+    pub fn commit_chunk_and_recover_block_state(mut self, n_committed_txs: usize) -> U {
+        if n_committed_txs == 0 {
+            return self.into_initial_state();
+        }
+        let commit_index = n_committed_txs - 1;
+        let writes = self.get_writes_up_to_index(commit_index);
+        let class_hash_to_class =
+            self.compiled_contract_classes.get_writes_up_to_index(commit_index);
+        let mut state = self.into_initial_state();
+        // TODO(barak, 01/08/2024): Add visited_pcs argument to `apply_writes`.
+        state.apply_writes(&writes, &class_hash_to_class, &HashMap::default());
+        state
+    }
+}
+
+// TODO(barak, 01/07/2024): Re-consider the API (pub functions) of VersionedState,
+// ThreadSafeVersionedState and VersionedStateProxy.
+// TODO(barak, 01/07/2024): Re-consider the necessity ot ThreadSafeVersionedState once the worker
+// logic is completed.
 pub struct ThreadSafeVersionedState<S: StateReader>(Arc<Mutex<VersionedState<S>>>);
 pub type LockedVersionedState<'a, S> = MutexGuard<'a, VersionedState<S>>;
 
@@ -208,6 +221,18 @@ impl<S: StateReader> ThreadSafeVersionedState<S> {
 
     pub fn pin_version(&self, tx_index: TxIndex) -> VersionedStateProxy<S> {
         VersionedStateProxy { tx_index, state: self.0.clone() }
+    }
+
+    pub fn into_inner_state(self) -> VersionedState<S> {
+        Arc::try_unwrap(self.0)
+            .unwrap_or_else(|_| {
+                panic!(
+                    "To consume the versioned state, you must have only one strong reference to \
+                     self. Consider dropping objects that hold a reference to it."
+                )
+            })
+            .into_inner()
+            .expect("No other mutex should hold the versioned state while calling this method.")
     }
 }
 
@@ -315,6 +340,11 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
                 }
                 Err(StateError::UndeclaredClassHash(class_hash)) => {
                     state.declared_contracts.set_initial_value(class_hash, false);
+                    // Papyrus storage does not support read action for compiled class hashes
+                    // values. We artificially insert zero for undeclared contracts.
+                    state
+                        .compiled_class_hashes
+                        .set_initial_value(class_hash, CompiledClassHash(Felt::ZERO));
                     Err(StateError::UndeclaredClassHash(class_hash))?
                 }
                 Err(error) => Err(error)?,

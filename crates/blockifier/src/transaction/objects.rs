@@ -14,10 +14,11 @@ use starknet_types_core::felt::Felt;
 use strum_macros::EnumIter;
 
 use crate::abi::constants as abi_constants;
-use crate::context::BlockContext;
+use crate::blockifier::block::BlockInfo;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::eth_gas_constants;
-use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, calculate_tx_fee};
+use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, get_fee_by_gas_vector};
 use crate::fee::gas_usage::{
     get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
     get_log_message_to_l1_emissions_cost, get_onchain_data_segment_length,
@@ -202,17 +203,14 @@ pub struct TransactionExecutionInfo {
     pub execute_call_info: Option<CallInfo>,
     /// Fee transfer call info; [None] for `L1Handler`.
     pub fee_transfer_call_info: Option<CallInfo>,
-    /// The actual fee that was charged (in Wei).
-    pub actual_fee: Fee,
-    /// Actual gas consumption the transaction is charged for data availability.
-    pub da_gas: GasVector,
-    /// Actual execution resources the transaction is charged for,
-    /// including L1 gas and additional OS resources estimation.
-    pub actual_resources: TransactionResources,
-    /// Error string for reverted transactions; [None] if transaction execution was successful.
-    // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
-    //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
     pub revert_error: Option<String>,
+    /// The receipt of the transaction.
+    /// Including the actual fee that was charged (in units of the relevant fee token),
+    /// actual gas consumption the transaction is charged for data availability,
+    /// actual execution resources the transaction is charged for
+    /// (including L1 gas and additional OS resources estimation),
+    /// and total gas consumed.
+    pub transaction_receipt: TransactionReceipt,
 }
 
 impl TransactionExecutionInfo {
@@ -540,12 +538,8 @@ pub trait HasRelatedFeeType {
         }
     }
 
-    fn calculate_tx_fee(
-        &self,
-        tx_resources: &TransactionResources,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<Fee> {
-        Ok(calculate_tx_fee(tx_resources, block_context, &self.fee_type())?)
+    fn get_fee_by_gas_vector(&self, block_info: &BlockInfo, gas_vector: GasVector) -> Fee {
+        get_fee_by_gas_vector(block_info, gas_vector, &self.fee_type())
     }
 }
 

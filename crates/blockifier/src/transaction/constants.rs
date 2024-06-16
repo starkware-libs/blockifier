@@ -15,5 +15,5 @@ pub const FELT_TRUE: u64 = 1;
 pub const VALIDATE_RETDATA: &str = "0x56414c4944";
 
 // TODO(Noa, 14/11/2023): Replace QUERY_VERSION_BASE_BIT with a lazy calculation.
-//      pub static QUERY_VERSION_BASE: Lazy<Felt252> = ...
+//      pub static QUERY_VERSION_BASE: Lazy<Felt> = ...
 pub const QUERY_VERSION_BASE_BIT: u32 = 128;

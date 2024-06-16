@@ -80,10 +80,6 @@ native_blockifier_errors!(
 
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
-    #[error("Max steps per tx out of range: {0}")]
-    MaxStepsPerTxOutOfRange(u32),
-    #[error("Max validate steps per tx out of range: {0}")]
-    MaxValidateStepsPerTxOutOfRange(u32),
     #[error(transparent)]
     InvalidNativeBlockifierInputError(#[from] InvalidNativeBlockifierInputError),
     #[error(transparent)]

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use blockifier::blockifier::transaction_executor::BLOCK_STATE_ACCESS_ERR;
 use blockifier::execution::contract_class::{ContractClass, ContractClassV1};
 use blockifier::state::state_api::StateReader;
 use cached::Cached;
@@ -53,8 +54,13 @@ fn global_contract_cache_update() {
 
     assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 0);
 
-    let queried_contract_class =
-        block_executor.tx_executor().state.get_compiled_contract_class(class_hash).unwrap();
+    let queried_contract_class = block_executor
+        .tx_executor()
+        .block_state
+        .as_ref()
+        .expect(BLOCK_STATE_ACCESS_ERR)
+        .get_compiled_contract_class(class_hash)
+        .unwrap();
 
     assert_eq!(queried_contract_class, contract_class);
     assert_eq!(block_executor.global_contract_cache.lock().cache_size(), 1);

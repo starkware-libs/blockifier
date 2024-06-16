@@ -32,8 +32,8 @@ fn test_versioned_storage() {
     // Read from the past.
     storage.write(2, 10, 78);
     assert_eq!(storage.read(1, 10).unwrap(), 31);
-    // Ignore the value written by the current transaction.
-    assert_eq!(storage.read(2, 10).unwrap(), 31);
+    // Include the value written by the current transaction.
+    assert_eq!(storage.read(2, 10).unwrap(), 78);
 
     // Read uninitialized cell.
     assert!(storage.read(1, 100).is_none());

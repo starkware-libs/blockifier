@@ -13,14 +13,14 @@ use crate::context::{BlockContext, ChainInfo};
 use crate::invoke_tx_args;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::{fund_account, test_state};
-use crate::test_utils::{create_calldata, CairoVersion, NonceManager, BALANCE};
+use crate::test_utils::{create_calldata, CairoVersion, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::{
     DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME, EXECUTE_ENTRY_POINT_NAME, FELT_TRUE,
     VALIDATE_DECLARE_ENTRY_POINT_NAME, VALIDATE_DEPLOY_ENTRY_POINT_NAME, VALIDATE_ENTRY_POINT_NAME,
 };
 use crate::transaction::test_utils::{
-    account_invoke_tx, block_context, create_account_tx_for_validate_test, run_invoke_tx,
+    account_invoke_tx, block_context, create_account_tx_for_validate_test_nonce_0, run_invoke_tx,
     FaultyAccountTxCreatorArgs, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
@@ -238,7 +238,7 @@ Unknown location (pc=0:{expected_pc1})
 Error at pc=0:767:
 1: Error in the called contract (contract address: {contract_address_felt}, class hash: \
                  {test_contract_hash}, selector: {invoke_call_chain_selector_felt}):
-Error at pc=0:9228:
+Error at pc=0:9381:
 Cairo traceback (most recent call last):
 Unknown location (pc=0:{pc_location})
 
@@ -258,10 +258,10 @@ Execution failed. Failure reason: {expected_error}.
 #[case(CairoVersion::Cairo0, "invoke_call_chain", "Couldn't compute operand op0. Unknown value for memory cell 1:23", 1_u8, 1_u8, (49_u16, 1111_u16, 1081_u16, 1166_u16))]
 #[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 0_u8, (37_u16, 1093_u16, 1184_u16, 1188_u16))]
 #[case(CairoVersion::Cairo0, "fail", "An ASSERT_EQ instruction failed: 1 != 0.", 0_u8, 1_u8, (49_u16, 1111_u16, 1184_u16, 1188_u16))]
-#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x4469766973696f6e2062792030 ('Division by 0')", 1_u8, 0_u8, (9228_u16, 9228_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x4469766973696f6e2062792030 ('Division by 0')", 1_u8, 1_u8, (9228_u16, 9297_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 0_u8, (9228_u16, 9228_u16, 0_u16, 0_u16))]
-#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 1_u8, (9228_u16, 9297_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x4469766973696f6e2062792030 ('Division by 0')", 1_u8, 0_u8, (9381_u16, 9381_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "invoke_call_chain", "0x4469766973696f6e2062792030 ('Division by 0')", 1_u8, 1_u8, (9381_u16, 9450_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 0_u8, (9381_u16, 9381_u16, 0_u16, 0_u16))]
+#[case(CairoVersion::Cairo1, "fail", "0x6661696c ('fail')", 0_u8, 1_u8, (9381_u16, 9450_u16, 0_u16, 0_u16))]
 fn test_trace_call_chain_with_syscalls(
     block_context: BlockContext,
     #[case] cairo_version: CairoVersion,
@@ -464,17 +464,14 @@ fn test_validate_trace(
     let selector = selector_from_name(entry_point_name).0;
 
     // Logic failure.
-    let account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
-            scenario: INVALID,
-            tx_type,
-            tx_version,
-            sender_address,
-            class_hash,
-            ..Default::default()
-        },
-    );
+    let account_tx = create_account_tx_for_validate_test_nonce_0(FaultyAccountTxCreatorArgs {
+        scenario: INVALID,
+        tx_type,
+        tx_version,
+        sender_address,
+        class_hash,
+        ..Default::default()
+    });
 
     if let TransactionType::DeployAccount = tx_type {
         // Deploy account uses the actual address as the sender address.
@@ -533,17 +530,15 @@ fn test_account_ctor_frame_stack_trace(
     let class_hash = faulty_account.get_class_hash();
 
     // Create and execute deploy account transaction that passes validation and fails in the ctor.
-    let deploy_account_tx = create_account_tx_for_validate_test(
-        &mut NonceManager::default(),
-        FaultyAccountTxCreatorArgs {
+    let deploy_account_tx =
+        create_account_tx_for_validate_test_nonce_0(FaultyAccountTxCreatorArgs {
             tx_type: TransactionType::DeployAccount,
             scenario: INVALID,
             class_hash,
             max_fee: Fee(BALANCE),
             validate_constructor: true,
             ..Default::default()
-        },
-    );
+        });
 
     // Fund the account so it can afford the deployment.
     let deploy_address = match &deploy_account_tx {

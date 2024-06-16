@@ -1,11 +1,15 @@
+use std::sync::Arc;
+
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::Nonce;
 use starknet_api::transaction::TransactionHash;
 use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
 use crate::blockifier::config::TransactionExecutorConfig;
-use crate::blockifier::transaction_executor::{TransactionExecutor, TransactionExecutorError};
-use crate::bouncer::BouncerConfig;
+use crate::blockifier::transaction_executor::{
+    TransactionExecutor, TransactionExecutorError, BLOCK_STATE_ACCESS_ERR,
+};
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -17,6 +21,7 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
 use crate::transaction::objects::TransactionInfo;
 use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transactions::ValidatableTransaction;
 
 #[cfg(test)]
 #[path = "stateful_validator_test.rs"]
@@ -47,14 +52,9 @@ impl<S: StateReader> StatefulValidator<S> {
         state: CachedState<S>,
         block_context: BlockContext,
         max_nonce_for_validation_skip: Nonce,
-        bouncer_config: BouncerConfig,
     ) -> Self {
-        let tx_executor = TransactionExecutor::new(
-            state,
-            block_context,
-            bouncer_config,
-            TransactionExecutorConfig::default(),
-        );
+        let tx_executor =
+            TransactionExecutor::new(state, block_context, TransactionExecutorConfig::default());
         Self { tx_executor, max_nonce_for_validation_skip }
     }
 
@@ -97,7 +97,7 @@ impl<S: StateReader> StatefulValidator<S> {
     }
 
     fn execute(&mut self, tx: AccountTransaction) -> StatefulValidatorResult<()> {
-        self.tx_executor.execute(&Transaction::AccountTransaction(tx), true)?;
+        self.tx_executor.execute(&Transaction::AccountTransaction(tx))?;
         Ok(())
     }
 
@@ -110,7 +110,7 @@ impl<S: StateReader> StatefulValidator<S> {
         // Run pre-validation in charge fee mode to perform fee and balance related checks.
         let charge_fee = true;
         tx.perform_pre_validation_stage(
-            &mut self.tx_executor.state,
+            self.tx_executor.block_state.as_mut().expect(BLOCK_STATE_ACCESS_ERR),
             tx_context,
             charge_fee,
             strict_nonce_check,
@@ -127,7 +127,12 @@ impl<S: StateReader> StatefulValidator<S> {
         tx_info: &TransactionInfo,
         deploy_account_tx_hash: Option<TransactionHash>,
     ) -> StatefulValidatorResult<bool> {
-        let nonce = self.tx_executor.state.get_nonce_at(tx_info.sender_address())?;
+        let nonce = self
+            .tx_executor
+            .block_state
+            .as_ref()
+            .expect(BLOCK_STATE_ACCESS_ERR)
+            .get_nonce_at(tx_info.sender_address())?;
         let tx_nonce = tx_info.nonce();
 
         let deploy_account_not_processed =
@@ -146,8 +151,34 @@ impl<S: StateReader> StatefulValidator<S> {
     fn validate(
         &mut self,
         tx: &AccountTransaction,
-        remaining_gas: u64,
+        mut remaining_gas: u64,
     ) -> StatefulValidatorResult<(Option<CallInfo>, TransactionReceipt)> {
-        Ok(self.tx_executor.validate(tx, remaining_gas)?)
+        let mut execution_resources = ExecutionResources::default();
+        let tx_context = Arc::new(self.tx_executor.block_context.to_tx_context(tx));
+
+        let limit_steps_by_resources = true;
+        let validate_call_info = tx.validate_tx(
+            self.tx_executor.block_state.as_mut().expect(BLOCK_STATE_ACCESS_ERR),
+            &mut execution_resources,
+            tx_context.clone(),
+            &mut remaining_gas,
+            limit_steps_by_resources,
+        )?;
+
+        let tx_receipt = TransactionReceipt::from_account_tx(
+            tx,
+            &tx_context,
+            &self
+                .tx_executor
+                .block_state
+                .as_mut()
+                .expect(BLOCK_STATE_ACCESS_ERR)
+                .get_actual_state_changes()?,
+            &execution_resources,
+            validate_call_info.iter(),
+            0,
+        )?;
+
+        Ok((validate_call_info, tx_receipt))
     }
 }

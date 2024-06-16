@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use num_bigint::BigUint;
 use rstest::rstest;
-use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
 use starknet_api::transaction::{ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{contract_address, felt, patricia_key};
 use starknet_types_core::felt::Felt;
@@ -10,27 +11,243 @@ use starknet_types_core::felt::Felt;
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
+use crate::bouncer::Bouncer;
+use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
-use crate::concurrency::worker_logic::add_fee_to_sequencer_balance;
-use crate::context::BlockContext;
+use crate::concurrency::versioned_state::ThreadSafeVersionedState;
+use crate::concurrency::worker_logic::{add_fee_to_sequencer_balance, lock_mutex_in_array};
+use crate::context::{BlockContext, TransactionContext};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::StateMaps;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
-use crate::test_utils::initial_test_state::test_state_reader;
+use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
-    MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
+    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE,
+    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
 };
+use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
-use crate::transaction::objects::FeeType;
+use crate::transaction::objects::{FeeType, HasRelatedFeeType};
 use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, l1_resource_bounds,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
+
+fn trivial_calldata_invoke_tx(
+    account_address: ContractAddress,
+    test_contract_address: ContractAddress,
+    nonce: Nonce,
+) -> AccountTransaction {
+    account_invoke_tx(invoke_tx_args! {
+        sender_address: account_address,
+        calldata: create_trivial_calldata(test_contract_address),
+        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+        version: TransactionVersion::THREE,
+        nonce: nonce,
+    })
+}
+
+/// Checks that the sequencer balance was updated as expected in the state.
+fn verify_sequencer_balance_update<S: StateReader>(
+    state: &ThreadSafeVersionedState<S>,
+    tx_context: &TransactionContext,
+    tx_index: usize,
+    // We assume the balance is at most 2^128, so the "low" value is sufficient.
+    expected_sequencer_balance_low: u128,
+) {
+    let TransactionContext { block_context, tx_info } = tx_context;
+    let tx_version_state = state.pin_version(tx_index);
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(block_context);
+    for (expected_balance, storage_key) in [
+        (felt!(expected_sequencer_balance_low), sequencer_balance_key_low),
+        (Felt::ZERO, sequencer_balance_key_high),
+    ] {
+        let actual_balance = tx_version_state
+            .get_storage_at(
+                block_context.chain_info.fee_token_address(&tx_info.fee_type()),
+                storage_key,
+            )
+            .unwrap();
+        assert_eq!(expected_balance, actual_balance);
+    }
+}
+
+#[rstest]
+pub fn test_commit_tx() {
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let mut expected_sequencer_balance_low = 0_u128;
+    let mut nonce_manager = NonceManager::default();
+    let account_address = account.get_instance_address(0);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let first_nonce = nonce_manager.next(account_address);
+    let second_nonce = nonce_manager.next(account_address);
+
+    // Create transactions.
+    let txs = [
+        trivial_calldata_invoke_tx(account_address, test_contract_address, first_nonce),
+        trivial_calldata_invoke_tx(account_address, test_contract_address, second_nonce),
+        trivial_calldata_invoke_tx(account_address, test_contract_address, second_nonce),
+        // Invalid nonce.
+        trivial_calldata_invoke_tx(account_address, test_contract_address, nonce!(10_u8)),
+    ]
+    .into_iter()
+    .map(Transaction::AccountTransaction)
+    .collect::<Vec<Transaction>>();
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    let cached_state =
+        test_state(&block_context.chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let versioned_state = safe_versioned_state_for_testing(cached_state);
+    let executor =
+        WorkerExecutor::new(versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
+
+    // Execute transactions.
+    // Simulate a concurrent run by executing tx1 before tx0.
+    // tx1 should fail execution since its nonce equals 1, and it is being executed before tx0,
+    // whose nonce equals 0.
+    // tx0 should pass execution.
+    // tx2 should pass execution since its nonce equals 1, so executing it after tx0 should
+    // succeed.
+    // tx3 should fail execution regardless of execution order since its nonce
+    // equals 10, where there are only four transactions.
+    for &(execute_idx, should_fail_execution) in
+        [(1, true), (0, false), (2, false), (3, true)].iter()
+    {
+        executor.execute_tx(execute_idx);
+        let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, execute_idx);
+        let result = &execution_task_outputs.as_ref().unwrap().result;
+        assert_eq!(result.is_err(), should_fail_execution);
+        if !should_fail_execution {
+            assert!(!result.as_ref().unwrap().is_reverted());
+        }
+    }
+
+    // Commit all transactions in sequential order.
+    // * tx0 should pass revalidation, fix the sequencer balance, fix the call info (fee transfer)
+    //   and commit.
+    // * tx1 should fail revalidation (it read the nonce before tx0 incremented it). It should pass
+    //   re-execution (since tx0 incremented the nonce), fix the sequencer balance, fix the call
+    //   info (fee transfer) and commit.
+    // * tx2 should fail revalidation (it read the nonce before tx1 re-executed and incremented it).
+    //   It should fail re-execution because it has the same nonce as tx1.
+    // * tx3 should pass revalidation and commit.
+    for &(commit_idx, should_fail_execution) in
+        [(0, false), (1, false), (2, true), (3, true)].iter()
+    {
+        executor.commit_tx(commit_idx);
+        let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, commit_idx);
+        let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+        let expected_sequencer_balance_high = 0_u128;
+        assert_eq!(execution_result.is_err(), should_fail_execution);
+        // Extract the actual fee. If the transaction fails, no fee should be charged.
+        let actual_fee = if should_fail_execution {
+            0
+        } else {
+            execution_result.as_ref().unwrap().transaction_receipt.fee.0
+        };
+        if !should_fail_execution {
+            assert!(!execution_result.as_ref().unwrap().is_reverted());
+            // Check that the call info was fixed.
+            for (expected_sequencer_storage_read, read_storage_index) in [
+                (expected_sequencer_balance_low, STORAGE_READ_SEQUENCER_BALANCE_INDICES.0),
+                (expected_sequencer_balance_high, STORAGE_READ_SEQUENCER_BALANCE_INDICES.1),
+            ] {
+                let actual_sequencer_storage_read = execution_result
+                    .as_ref()
+                    .unwrap()
+                    .fee_transfer_call_info
+                    .as_ref()
+                    .unwrap()
+                    .storage_read_values[read_storage_index];
+                assert_eq!(felt!(expected_sequencer_storage_read), actual_sequencer_storage_read,);
+            }
+        }
+        let tx_context = executor.block_context.to_tx_context(&txs[commit_idx]);
+        expected_sequencer_balance_low += actual_fee;
+        // Check that the sequencer balance was updated correctly in the state.
+        verify_sequencer_balance_update(
+            &executor.state,
+            &tx_context,
+            commit_idx,
+            expected_sequencer_balance_low,
+        );
+    }
+}
+
+#[test]
+// When the sequencer is the sender, we use the sequential (full) fee transfer.
+// Thus, we skip the last step of commit tx, meaning the execution result before and after
+// commit tx should be the same (except for re-execution changes).
+fn test_commit_tx_when_sender_is_sequencer() {
+    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let account_address = account.get_instance_address(0_u16);
+    let test_contract_address = test_contract.get_instance_address(0_u16);
+    block_context.block_info.sequencer_address = account_address;
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(&block_context);
+
+    let sequencer_tx = [Transaction::AccountTransaction(trivial_calldata_invoke_tx(
+        account_address,
+        test_contract_address,
+        nonce!(0_u8),
+    ))];
+
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+
+    let state = test_state(&block_context.chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let versioned_state = safe_versioned_state_for_testing(state);
+    let executor = WorkerExecutor::new(
+        versioned_state,
+        &sequencer_tx,
+        &block_context,
+        Mutex::new(&mut bouncer),
+    );
+    let tx_index = 0;
+    let tx_versioned_state = executor.state.pin_version(tx_index);
+
+    // Execute and save the execution result.
+    executor.execute_tx(tx_index);
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let execution_result = &execution_task_outputs.as_ref().unwrap().result;
+    let fee_transfer_call_info =
+        execution_result.as_ref().unwrap().fee_transfer_call_info.as_ref().unwrap();
+    let read_values_before_commit = fee_transfer_call_info.storage_read_values.clone();
+    drop(execution_task_outputs);
+
+    let tx_context = &executor.block_context.to_tx_context(&sequencer_tx[0]);
+    let fee_token_address =
+        executor.block_context.chain_info.fee_token_address(&tx_context.tx_info.fee_type());
+    let sequencer_balance_high_before =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_high).unwrap();
+    let sequencer_balance_low_before =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_low).unwrap();
+
+    // Commit tx and check that the commit made no changes in the execution result or the state.
+    executor.commit_tx(tx_index);
+    let execution_task_outputs = lock_mutex_in_array(&executor.execution_outputs, tx_index);
+    let commit_result = &execution_task_outputs.as_ref().unwrap().result;
+    let fee_transfer_call_info =
+        commit_result.as_ref().unwrap().fee_transfer_call_info.as_ref().unwrap();
+    // Check that the result call info is the same as before the commit.
+    assert_eq!(read_values_before_commit, fee_transfer_call_info.storage_read_values);
+
+    let sequencer_balance_low_after =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_low).unwrap();
+    let sequencer_balance_high_after =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_high).unwrap();
+
+    // Check that the sequencer balance is the same as before the commit.
+    assert_eq!(sequencer_balance_low_before, sequencer_balance_low_after);
+    assert_eq!(sequencer_balance_high_before, sequencer_balance_high_after);
+}
 
 #[test]
 fn test_worker_execute() {
@@ -43,9 +260,8 @@ fn test_worker_execute() {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state_reader =
-        test_state_reader(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
-    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
     let test_contract_address = test_contract.get_instance_address(0);
@@ -91,13 +307,18 @@ fn test_worker_execute() {
 
     });
 
-    // Concurrency settings.
     let txs = [tx_success, tx_failure, tx_revert]
         .into_iter()
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let worker_executor = WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context);
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    let worker_executor = WorkerExecutor::new(
+        safe_versioned_state.clone(),
+        &txs,
+        &block_context,
+        Mutex::new(&mut bouncer),
+    );
 
     // Creates 3 execution active tasks.
     worker_executor.scheduler.next_task();
@@ -110,7 +331,7 @@ fn test_worker_execute() {
     // Read a write made by the transaction.
     assert_eq!(
         safe_versioned_state
-            .pin_version(tx_index + 1)
+            .pin_version(tx_index)
             .get_storage_at(test_contract_address, storage_key)
             .unwrap(),
         storage_value
@@ -119,7 +340,7 @@ fn test_worker_execute() {
     let execution_output = worker_executor.execution_outputs[tx_index].lock().unwrap();
     let execution_output = execution_output.as_ref().unwrap();
     let result = execution_output.result.as_ref().unwrap();
-    let account_balance = BALANCE - result.actual_fee.0;
+    let account_balance = BALANCE - result.transaction_receipt.fee.0;
     assert!(!result.is_reverted());
 
     let erc20 = FeatureContract::ERC20;
@@ -170,7 +391,7 @@ fn test_worker_execute() {
     worker_executor.execute(tx_index);
     // No write was made by the transaction.
     assert_eq!(
-        safe_versioned_state.pin_version(tx_index + 1).get_nonce_at(account_address).unwrap(),
+        safe_versioned_state.pin_version(tx_index).get_nonce_at(account_address).unwrap(),
         nonce!(1_u8)
     );
     let execution_output = worker_executor.execution_outputs[tx_index].lock().unwrap();
@@ -189,7 +410,7 @@ fn test_worker_execute() {
     worker_executor.execute(tx_index);
     // Read a write made by the transaction.
     assert_eq!(
-        safe_versioned_state.pin_version(tx_index + 1).get_nonce_at(account_address).unwrap(),
+        safe_versioned_state.pin_version(tx_index).get_nonce_at(account_address).unwrap(),
         nonce!(2_u8)
     );
     let execution_output = worker_executor.execution_outputs[tx_index].lock().unwrap();
@@ -216,9 +437,8 @@ fn test_worker_validate() {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state_reader =
-        test_state_reader(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
-    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
     let test_contract_address = test_contract.get_instance_address(0);
@@ -252,13 +472,18 @@ fn test_worker_validate() {
 
     });
 
-    // Concurrency settings.
     let txs = [account_tx0, account_tx1]
         .into_iter()
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let worker_executor = WorkerExecutor::new(safe_versioned_state.clone(), &txs, block_context);
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    let worker_executor = WorkerExecutor::new(
+        safe_versioned_state.clone(),
+        &txs,
+        &block_context,
+        Mutex::new(&mut bouncer),
+    );
 
     // Creates 2 active tasks.
     worker_executor.scheduler.next_task();
@@ -279,7 +504,7 @@ fn test_worker_validate() {
     // Verify writes exist in state.
     assert_eq!(
         safe_versioned_state
-            .pin_version(tx_index + 1)
+            .pin_version(tx_index)
             .get_storage_at(test_contract_address, storage_key)
             .unwrap(),
         storage_value0
@@ -294,7 +519,7 @@ fn test_worker_validate() {
     // Verify writes were removed.
     assert_eq!(
         safe_versioned_state
-            .pin_version(tx_index + 1)
+            .pin_version(tx_index)
             .get_storage_at(test_contract_address, storage_key)
             .unwrap(),
         storage_value0
@@ -308,8 +533,8 @@ fn test_worker_validate() {
 
 #[rstest]
 #[case::no_overflow(Fee(50_u128), felt!(100_u128), Felt::ZERO)]
-#[case::overflow(Fee(150_u128), felt!(u128::max_value()), felt!(5_u128))]
-#[case::overflow_edge_case(Fee(500_u128), felt!(u128::max_value()), felt!(u128::max_value()-1))]
+#[case::overflow(Fee(150_u128), felt!(u128::MAX), felt!(5_u128))]
+#[case::overflow_edge_case(Fee(500_u128), felt!(u128::MAX), felt!(u128::MAX-1))]
 pub fn test_add_fee_to_sequencer_balance(
     #[case] actual_fee: Fee,
     #[case] sequencer_balance_low: Felt,
@@ -318,11 +543,8 @@ pub fn test_add_fee_to_sequencer_balance(
     let tx_index = 0;
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
     let account = FeatureContract::Empty(CairoVersion::Cairo1);
-    let safe_versioned_state = safe_versioned_state_for_testing(test_state_reader(
-        &block_context.chain_info,
-        0,
-        &[(account, 1)],
-    ));
+    let safe_versioned_state =
+        safe_versioned_state_for_testing(test_state(&block_context.chain_info, 0, &[(account, 1)]));
     let mut tx_versioned_state = safe_versioned_state.pin_version(tx_index);
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(&block_context);
@@ -337,14 +559,11 @@ pub fn test_add_fee_to_sequencer_balance(
         sequencer_balance_low,
         sequencer_balance_high,
     );
-    let next_tx_versioned_state = safe_versioned_state.pin_version(tx_index + 1);
 
-    let new_sequencer_balance_value_low = next_tx_versioned_state
-        .get_storage_at(fee_token_address, sequencer_balance_key_low)
-        .unwrap();
-    let new_sequencer_balance_value_high = next_tx_versioned_state
-        .get_storage_at(fee_token_address, sequencer_balance_key_high)
-        .unwrap();
+    let new_sequencer_balance_value_low =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_low).unwrap();
+    let new_sequencer_balance_value_high =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_high).unwrap();
     let expected_balance = (sequencer_balance_low + Felt::from(actual_fee.0)).to_biguint();
 
     let mask_128_bit = (BigUint::from(1_u8) << 128) - 1_u8;
@@ -362,8 +581,8 @@ fn test_deploy_before_declare() {
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
-    let state_reader = test_state_reader(chain_info, BALANCE, &[(account_contract, 2)]);
-    let safe_versioned_state = safe_versioned_state_for_testing(state_reader);
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 2)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
     let account_address_0 = account_contract.get_instance_address(0);
@@ -409,7 +628,9 @@ fn test_deploy_before_declare() {
         .map(Transaction::AccountTransaction)
         .collect::<Vec<Transaction>>();
 
-    let worker_executor = WorkerExecutor::new(safe_versioned_state, &txs, block_context);
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    let worker_executor =
+        WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
 
     // Creates 2 active tasks.
     worker_executor.scheduler.next_task();
@@ -439,7 +660,102 @@ fn test_deploy_before_declare() {
     assert!(!execution_output.as_ref().unwrap().result.as_ref().unwrap().is_reverted());
     drop(execution_output);
 
-    // Successful validatation for transaction 1.
+    // Successful validation for transaction 1.
     let next_task = worker_executor.validate(1);
     assert_eq!(next_task, Task::NoTask);
+}
+
+#[test]
+fn test_worker_commit_phase() {
+    // Settings.
+    let concurrency_mode = true;
+    let block_context =
+        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let chain_info = &block_context.chain_info;
+
+    // Create the state.
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
+
+    // Create transactions.
+    let test_contract_address = test_contract.get_instance_address(0);
+    let sender_address = account_contract.get_instance_address(0);
+    let nonce_manager = &mut NonceManager::default();
+    let storage_value = felt!(93_u8);
+    let storage_key = storage_key!(1993_u16);
+    let calldata = create_calldata(
+        test_contract_address,
+        "test_storage_read_write",
+        &[*storage_key.0.key(), storage_value], // Calldata:  address, value.
+    );
+    let max_fee = Fee(MAX_FEE);
+
+    let txs = (0..3)
+        .map(|_| {
+            Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
+                sender_address,
+                calldata: calldata.clone(),
+                max_fee,
+                nonce: nonce_manager.next(sender_address)
+            }))
+        })
+        .collect::<Vec<Transaction>>();
+
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    let worker_executor =
+        WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
+
+    // Try to commit before any transaction is ready.
+    worker_executor.commit_while_possible();
+
+    // Verify no transaction was committed.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 0);
+
+    // Creates 2 active tasks.
+    // Creating these tasks changes the status of the first two transactions to `Executing`. If we
+    // skip this step, executing them will panic when reaching `finish_execution` (as their status
+    // will be `ReadyToExecute` and not `Executing` as expected).
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(0));
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(1));
+
+    // Execute the first two transactions.
+    worker_executor.execute(0);
+    worker_executor.execute(1);
+
+    // Commit the first two transactions (only).
+    worker_executor.commit_while_possible();
+
+    // Verify the commit index is now 2.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 2);
+
+    // Verify the status of the first two transactions is `Committed`.
+    assert_eq!(*worker_executor.scheduler.get_tx_status(0), TransactionStatus::Committed);
+    assert_eq!(*worker_executor.scheduler.get_tx_status(1), TransactionStatus::Committed);
+
+    // Create the final execution task and execute it.
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(2));
+    worker_executor.execute(2);
+
+    // Commit the third (and last) transaction.
+    worker_executor.commit_while_possible();
+
+    // Verify the commit index is now 3, the status of the last transaction is `Committed`, and the
+    // next task is `Done`.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
+    assert_eq!(*worker_executor.scheduler.get_tx_status(2), TransactionStatus::Committed);
+    assert_eq!(worker_executor.scheduler.next_task(), Task::Done);
+
+    // Try to commit when all transactions are already committed.
+    worker_executor.commit_while_possible();
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
+
+    for execution_output in worker_executor.execution_outputs.iter() {
+        let locked_execution_output = execution_output.lock().unwrap();
+        let result = locked_execution_output.as_ref().unwrap().result.as_ref();
+        assert!(!result.unwrap().is_reverted());
+    }
+    // TODO(Avi, 15/06/2024): Check the halt mechanism once the bouncer is supported.
 }

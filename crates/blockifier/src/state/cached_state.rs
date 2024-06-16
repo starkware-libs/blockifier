@@ -467,16 +467,16 @@ impl StateCache {
 
 /// Wraps a mutable reference to a `State` object, exposing its API.
 /// Used to pass ownership to a `CachedState`.
-pub struct MutRefState<'a, U: UpdatableState + ?Sized>(&'a mut U);
+pub struct MutRefState<'a, S: StateReader + ?Sized>(&'a mut S);
 
-impl<'a, U: UpdatableState + ?Sized> MutRefState<'a, U> {
-    pub fn new(state: &'a mut U) -> Self {
+impl<'a, S: StateReader + ?Sized> MutRefState<'a, S> {
+    pub fn new(state: &'a mut S) -> Self {
         Self(state)
     }
 }
 
 /// Proxies inner object to expose `State` functionality.
-impl<'a, U: UpdatableState + ?Sized> StateReader for MutRefState<'a, U> {
+impl<'a, S: StateReader + ?Sized> StateReader for MutRefState<'a, S> {
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -504,16 +504,21 @@ impl<'a, U: UpdatableState + ?Sized> StateReader for MutRefState<'a, U> {
 
 pub type TransactionalState<'a, U> = CachedState<MutRefState<'a, U>>;
 
-/// Adds the ability to perform a transactional execution.
-impl<'a, U: UpdatableState> TransactionalState<'a, U> {
+impl<'a, S: StateReader> TransactionalState<'a, S> {
     /// Creates a transactional instance from the given updatable state.
     /// It allows performing buffered modifying actions on the given state, which
     /// will either all happen (will be updated in the state and committed)
     /// or none of them (will be discarded).
-    pub fn create_transactional(state: &mut U) -> TransactionalState<'_, U> {
+    pub fn create_transactional(state: &mut S) -> TransactionalState<'_, S> {
         CachedState::new(MutRefState::new(state))
     }
 
+    /// Drops `self`.
+    pub fn abort(self) {}
+}
+
+/// Adds the ability to perform a transactional execution.
+impl<'a, U: UpdatableState> TransactionalState<'a, U> {
     /// Commits changes in the child (wrapping) state to its parent.
     pub fn commit(self) {
         let state = self.state.0;
@@ -524,9 +529,6 @@ impl<'a, U: UpdatableState> TransactionalState<'a, U> {
             &self.visited_pcs,
         )
     }
-
-    /// Drops `self`.
-    pub fn abort(self) {}
 }
 
 type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>;

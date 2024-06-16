@@ -55,8 +55,8 @@ macro_rules! default_scheduler {
 
 // TODO(meshi, 01/06/2024): Consider making this a macro.
 pub fn safe_versioned_state_for_testing(
-    block_state: DictStateReader,
-) -> ThreadSafeVersionedState<DictStateReader> {
+    block_state: CachedState<DictStateReader>,
+) -> ThreadSafeVersionedState<CachedState<DictStateReader>> {
     ThreadSafeVersionedState::new(VersionedState::new(block_state))
 }
 
