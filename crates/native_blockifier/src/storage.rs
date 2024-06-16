@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use indexmap::IndexMap;
+use papyrus_storage::class::ClassStorageWriter;
 use papyrus_storage::compiled_class::CasmStorageWriter;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
@@ -192,11 +193,24 @@ impl Storage for PapyrusStorage {
 
         // Construct state diff; manually add declared classes.
         let mut state_diff = StateDiff::try_from(py_state_diff)?;
-        state_diff.deprecated_declared_classes = deprecated_declared_classes;
-        state_diff.declared_classes = declared_classes;
+        state_diff.deprecated_declared_classes.clone_from(&deprecated_declared_classes);
+        state_diff.declared_classes.clone_from(&declared_classes);
         state_diff.replaced_classes = replaced_classes;
 
-        append_txn = append_txn.append_state_diff(block_number, state_diff.into())?;
+        append_txn =
+            append_txn.append_state_diff(block_number, state_diff.into())?.append_classes(
+                block_number,
+                &declared_classes
+                    .iter()
+                    .map(|(class_hash, (_compiled_class_hash, contract_class))| {
+                        (*class_hash, contract_class)
+                    })
+                    .collect::<Vec<_>>(),
+                &deprecated_declared_classes
+                    .iter()
+                    .map(|(class_hash, contract_class)| (*class_hash, contract_class))
+                    .collect::<Vec<_>>(),
+            )?;
 
         let previous_block_id = previous_block_id.unwrap_or_else(|| PyFelt::from(GENESIS_BLOCK_ID));
         let block_header = BlockHeader {
