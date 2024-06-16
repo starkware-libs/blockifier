@@ -82,10 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        name: "Rust Toolchain Setup"
-        with:
-          toolchain: nightly-2024-01-12
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         id: "cache-cargo"
       - if: ${{ steps.cache-cargo.outputs.cache-hit != 'true' }}
@@ -93,5 +90,3 @@ jobs:
         run: |
           wget -O - -c https://github.com/est31/cargo-udeps/releases/download/v0.1.45/cargo-udeps-v0.1.45-x86_64-unknown-linux-gnu.tar.gz | tar -xz
           cargo-udeps-*/cargo-udeps udeps
-        env:
-          RUSTUP_TOOLCHAIN: nightly-2024-01-12
