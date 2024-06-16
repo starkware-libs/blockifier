@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Fee, TransactionVersion};
@@ -22,8 +23,8 @@ pub enum TransactionFeeError {
     #[error("Actual fee ({}) exceeded paid fee on L1 ({}).", actual_fee.0, paid_fee.0)]
     InsufficientL1Fee { paid_fee: Fee, actual_fee: Fee },
     #[error(
-        "L1 gas bounds (max amount: {max_amount}, max price: {max_price}) exceed balance \
-         (Uint256({balance_low}, {balance_high}))."
+        "L1 gas bounds (max amount: {max_amount}, max price: {max_price}) exceed balance ({}).",
+        balance_to_big_uint(balance_low, balance_high)
     )]
     L1GasBoundsExceedBalance {
         max_amount: u64,
@@ -31,7 +32,7 @@ pub enum TransactionFeeError {
         balance_low: StarkFelt,
         balance_high: StarkFelt,
     },
-    #[error("Max fee ({}) exceeds balance (Uint256({balance_low}, {balance_high})).", max_fee.0)]
+    #[error("Max fee ({}) exceeds balance ({}).", max_fee.0, balance_to_big_uint(balance_low, balance_high))]
     MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
     #[error("Max fee ({}) is too low. Minimum fee: {}.", max_fee.0, min_fee.0)]
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
@@ -136,4 +137,10 @@ pub enum ParseError {
 pub enum NumericConversionError {
     #[error("Conversion of {0} to u128 unsuccessful.")]
     U128ToUsizeError(u128),
+}
+
+pub(crate) fn balance_to_big_uint(balance_low: &StarkFelt, balance_high: &StarkFelt) -> BigUint {
+    let low = BigUint::from_bytes_be(balance_low.bytes());
+    let high = BigUint::from_bytes_be(balance_high.bytes());
+    (high << 128) + low
 }

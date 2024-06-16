@@ -58,7 +58,8 @@ use crate::test_utils::{
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
 use crate::transaction::errors::{
-    TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
+    balance_to_big_uint, TransactionExecutionError, TransactionFeeError,
+    TransactionPreValidationError,
 };
 use crate::transaction::objects::{
     FeeType, GasVector, HasRelatedFeeType, StarknetResources, TransactionExecutionInfo,
@@ -2011,4 +2012,11 @@ fn test_emit_event_exceeds_limit(
             assert!(!execution_info.is_reverted());
         }
     }
+}
+
+#[test]
+fn test_balance_print() {
+    let int = balance_to_big_uint(&StarkFelt::from(16_u64), &StarkFelt::from(1_u64));
+    // 340282366920938463463374607431768211472 = 1 << 128 + 16
+    assert!(format!("{}", int) == "340282366920938463463374607431768211472");
 }
