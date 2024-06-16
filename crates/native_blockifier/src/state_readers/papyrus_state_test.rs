@@ -8,6 +8,7 @@ use blockifier::state::state_api::StateReader;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{trivial_external_entry_point_new, CairoVersion};
 use indexmap::IndexMap;
+use papyrus_storage::class::ClassStorageWriter;
 use papyrus_storage::state::StateStorageWriter;
 use starknet_api::block::BlockNumber;
 use starknet_api::state::{StateDiff, StorageKey};
@@ -22,14 +23,21 @@ fn test_entry_point_with_papyrus_state() -> papyrus_storage::StorageResult<()> {
 
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let test_class_hash = test_contract.get_class_hash();
+    let test_class = test_contract.get_deprecated_contract_class();
     // Initialize Storage: add test contract and class.
     let deployed_contracts =
         IndexMap::from([(test_contract.get_instance_address(0), test_class_hash)]);
-    let state_diff = StateDiff { deployed_contracts, ..Default::default() };
+    let state_diff = StateDiff {
+        deployed_contracts,
+        deprecated_declared_classes: IndexMap::from([(test_class_hash, test_class.clone())]),
+        ..Default::default()
+    };
 
+    let block_number = BlockNumber::default();
     storage_writer
         .begin_rw_txn()?
-        .append_state_diff(BlockNumber::default(), state_diff.into())?
+        .append_state_diff(block_number, state_diff.into())?
+        .append_classes(block_number, Default::default(), &[(test_class_hash, &test_class)])?
         .commit()?;
 
     // BlockNumber is 1 due to the initialization step above.
