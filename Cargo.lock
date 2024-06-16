@@ -439,7 +439,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "sha3",
- "starknet-crypto 0.5.2",
  "starknet-types-core",
  "starknet_api",
  "strum",
