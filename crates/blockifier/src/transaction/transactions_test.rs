@@ -5,6 +5,7 @@ use assert_matches::assert_matches;
 use cairo_felt::Felt252;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use num_bigint::BigUint;
 use num_traits::Pow;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
@@ -35,6 +36,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::EmitEventError;
 use crate::execution::syscalls::SyscallSelector;
 use crate::fee::actual_cost::TransactionReceipt;
+use crate::fee::fee_utils::balance_to_big_uint;
 use crate::fee::gas_usage::{
     estimate_minimal_gas_vector, get_da_gas_cost, get_onchain_data_segment_length,
 };
@@ -2011,4 +2013,12 @@ fn test_emit_event_exceeds_limit(
             assert!(!execution_info.is_reverted());
         }
     }
+}
+
+#[test]
+fn test_balance_print() {
+    let int = balance_to_big_uint(&StarkFelt::from(16_u64), &StarkFelt::from(1_u64));
+    assert!(
+        format!("{}", int) == format!("{}", (BigUint::from(u128::MAX) + BigUint::from(17_u128)))
+    );
 }
