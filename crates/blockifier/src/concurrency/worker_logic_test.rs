@@ -538,8 +538,8 @@ use rstest::rstest;
 
 #[rstest]
 #[case::no_overflow(Fee(50_u128), stark_felt!(100_u128), StarkFelt::ZERO)]
-#[case::overflow(Fee(150_u128), stark_felt!(u128::max_value()), stark_felt!(5_u128))]
-#[case::overflow_edge_case(Fee(500_u128), stark_felt!(u128::max_value()), stark_felt!(u128::max_value()-1))]
+#[case::overflow(Fee(150_u128), stark_felt!(u128::MAX), stark_felt!(5_u128))]
+#[case::overflow_edge_case(Fee(500_u128), stark_felt!(u128::MAX), stark_felt!(u128::MAX-1))]
 pub fn test_add_fee_to_sequencer_balance(
     #[case] actual_fee: Fee,
     #[case] sequencer_balance_low: StarkFelt,
