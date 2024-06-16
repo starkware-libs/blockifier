@@ -47,7 +47,7 @@ fn trivial_calldata_invoke_tx(
         calldata: create_trivial_calldata(test_contract_address),
         resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
         version: TransactionVersion::THREE,
-        nonce: nonce,
+        nonce,
     })
 }
 
