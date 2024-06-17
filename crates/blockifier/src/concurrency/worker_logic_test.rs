@@ -503,7 +503,7 @@ fn test_worker_validate() {
     // Validate succeeds.
     let tx_index = 0;
     let next_task = worker_executor.validate(tx_index);
-    assert_eq!(next_task, Task::NoTask);
+    assert_eq!(next_task, Task::AskForTask);
     // Verify writes exist in state.
     assert_eq!(
         safe_versioned_state
@@ -531,7 +531,7 @@ fn test_worker_validate() {
     assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executing);
 
     let next_task2 = worker_executor.validate(tx_index);
-    assert_eq!(next_task2, Task::NoTask);
+    assert_eq!(next_task2, Task::AskForTask);
 }
 use cairo_felt::Felt252;
 use rstest::rstest;
@@ -674,7 +674,7 @@ fn test_deploy_before_declare() {
 
     // Successful validation for transaction 1.
     let next_task = worker_executor.validate(1);
-    assert_eq!(next_task, Task::NoTask);
+    assert_eq!(next_task, Task::AskForTask);
 }
 
 #[test]
