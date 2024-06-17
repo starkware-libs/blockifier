@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
 
 use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress};
@@ -88,16 +90,22 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     }
 
     pub fn run(&self) {
-        let mut task = Task::NoTask;
+        let mut task = Task::AskForTask;
         loop {
             self.commit_while_possible();
             task = match task {
                 Task::ExecutionTask(tx_index) => {
                     self.execute(tx_index);
-                    Task::NoTask
+                    Task::AskForTask
                 }
                 Task::ValidationTask(tx_index) => self.validate(tx_index),
-                Task::NoTask => self.scheduler.next_task(),
+                Task::NoTaskAvailable => {
+                    // There's no available task at the moment; sleep for a bit to save CPU power.
+                    // (since busy-looping might damage performance when using hyper-threads).
+                    thread::sleep(Duration::from_micros(10));
+                    Task::AskForTask
+                }
+                Task::AskForTask => self.scheduler.next_task(),
                 Task::Done => break,
             };
         }
@@ -171,7 +179,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 .delete_writes(&execution_output.writes, &execution_output.contract_classes);
             self.scheduler.finish_abort(tx_index)
         } else {
-            Task::NoTask
+            Task::AskForTask
         }
     }
 
