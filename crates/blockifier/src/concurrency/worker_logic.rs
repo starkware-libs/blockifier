@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress};
@@ -223,12 +223,14 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let mut execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
         let writes = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).writes;
         let reads = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
-        let tx_state_changes_keys = StateChanges::from(writes.diff(reads)).into_keys();
+        let mut tx_state_changes_keys = StateChanges::from(writes.diff(reads)).into_keys();
+        let tx_context = self.block_context.to_tx_context(tx);
         let tx_result =
             &mut execution_output.as_mut().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).result;
 
-        let tx_context = Arc::new(self.block_context.to_tx_context(tx));
         if let Ok(tx_execution_info) = tx_result.as_mut() {
+            // Add the deleted sequencer balance key to the storage keys.
+            tx_state_changes_keys.update_sequencer_key_in_storage(&tx_context, tx_execution_info);
             // Ask the bouncer if there is room for the transaction in the block.
             let bouncer_result = self.bouncer.lock().expect("Bouncer lock failed.").try_update(
                 &tx_versioned_state,
@@ -246,9 +248,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 }
             }
             // Update the sequencer balance (in state + call info).
-            if tx_context.tx_info.sender_address()
-                == self.block_context.block_info.sequencer_address
-            {
+            if tx_context.is_sequencer_the_sender() {
                 // When the sequencer is the sender, we use the sequential (full) fee transfer.
                 return true;
             }
