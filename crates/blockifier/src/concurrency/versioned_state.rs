@@ -192,7 +192,11 @@ impl<S: StateReader> VersionedState<S> {
 }
 
 impl<U: UpdatableState> VersionedState<U> {
-    pub fn commit_chunk_and_recover_block_state(mut self, n_committed_txs: usize) -> U {
+    pub fn commit_chunk_and_recover_block_state(
+        mut self,
+        n_committed_txs: usize,
+        visited_pcs: HashMap<ClassHash, HashSet<usize>>,
+    ) -> U {
         if n_committed_txs == 0 {
             return self.into_initial_state();
         }
@@ -201,8 +205,7 @@ impl<U: UpdatableState> VersionedState<U> {
         let class_hash_to_class =
             self.compiled_contract_classes.get_writes_up_to_index(commit_index);
         let mut state = self.into_initial_state();
-        // TODO(barak, 01/08/2024): Add visited_pcs argument to `apply_writes`.
-        state.apply_writes(&writes, &class_hash_to_class, &HashMap::default());
+        state.apply_writes(&writes, &class_hash_to_class, &visited_pcs);
         state
     }
 }

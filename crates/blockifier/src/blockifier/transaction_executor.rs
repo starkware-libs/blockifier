@@ -216,6 +216,8 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
         &mut self,
         chunk: &[Transaction],
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        use std::collections::HashMap;
+
         let block_state = self.block_state.take().expect("The block state should be `Some`.");
 
         let worker_executor = Arc::new(WorkerExecutor::initialize(
@@ -240,25 +242,21 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
         });
 
         let n_committed_txs = worker_executor.scheduler.get_n_committed_txs();
-        let tx_execution_results = worker_executor
-            .execution_outputs
-            .iter()
-            .fold_while(Vec::new(), |mut results, execution_output| {
-                if results.len() >= n_committed_txs {
-                    Done(results)
-                } else {
-                    let locked_execution_output = execution_output
-                        .lock()
-                        .expect("Failed to lock execution output.")
-                        .take()
-                        .expect("Output must be ready.");
-                    results.push(
-                        locked_execution_output.result.map_err(TransactionExecutorError::from),
-                    );
-                    Continue(results)
-                }
-            })
-            .into_inner();
+        let mut tx_execution_results = Vec::new();
+        let mut visited_pcs = HashMap::new();
+        for execution_output in worker_executor.execution_outputs.iter() {
+            if tx_execution_results.len() >= n_committed_txs {
+                break;
+            }
+            let locked_execution_output = execution_output
+                .lock()
+                .expect("Failed to lock execution output.")
+                .take()
+                .expect("Output must be ready.");
+            tx_execution_results
+                .push(locked_execution_output.result.map_err(TransactionExecutorError::from));
+            visited_pcs.extend(locked_execution_output.visited_pcs);
+        }
 
         let block_state_after_commit = Arc::try_unwrap(worker_executor)
             .unwrap_or_else(|_| {
@@ -268,7 +266,7 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
                      it."
                 )
             })
-            .commit_chunk_and_recover_block_state(n_committed_txs);
+            .commit_chunk_and_recover_block_state(n_committed_txs, visited_pcs);
         self.block_state.replace(block_state_after_commit);
 
         tx_execution_results
