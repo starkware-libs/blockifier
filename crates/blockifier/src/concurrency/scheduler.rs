@@ -22,9 +22,13 @@ impl<'a> TransactionCommitter<'a> {
     /// Tries to commit the next uncommitted transaction in the chunk. Returns the index of the
     /// transaction to commit if successful, or None if the transaction is not yet executed.
     pub fn try_commit(&mut self) -> Option<usize> {
-        if *self.commit_index_guard >= self.scheduler.chunk_size {
+        if self.scheduler.done() {
             return None;
         };
+        assert!(
+            *self.commit_index_guard < self.scheduler.chunk_size,
+            "The commit index must be less than the chunk size, since the scheduler is not done."
+        );
 
         let mut status = self.scheduler.lock_tx_status(*self.commit_index_guard);
         if *status != TransactionStatus::Executed {
