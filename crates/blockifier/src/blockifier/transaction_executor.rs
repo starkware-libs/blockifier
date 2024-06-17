@@ -62,6 +62,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         config: TransactionExecutorConfig,
     ) -> Self {
         log::debug!("Initializing Transaction Executor...");
+        assert_eq!(
+            block_context.concurrency_mode, config.concurrency_config.enabled,
+            "The concurrency mode must be identical in the block context and in the config."
+        );
         let bouncer_config = block_context.bouncer_config.clone();
         // Note: the state might not be empty even at this point; it is the creator's
         // responsibility to tune the bouncer according to pre and post block process.
@@ -83,6 +87,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: &Transaction,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
+        assert!(
+            !self.block_context.concurrency_mode,
+            "Executing a single transaction cannot be done in a concurrent mode."
+        );
         let mut transactional_state = TransactionalState::create_transactional(
             self.block_state.as_mut().expect(BLOCK_STATE_ACCESS_ERR),
         );
@@ -115,6 +123,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         txs: &[Transaction],
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        assert!(
+            !self.block_context.concurrency_mode,
+            "Executing transactions sequentially cannot be done in a concurrent mode."
+        );
         let mut results = Vec::new();
         for tx in txs {
             match self.execute(tx) {
