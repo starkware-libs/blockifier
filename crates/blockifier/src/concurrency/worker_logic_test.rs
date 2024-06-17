@@ -503,7 +503,7 @@ fn test_worker_validate() {
     // Validate succeeds.
     let tx_index = 0;
     let next_task = worker_executor.validate(tx_index);
-    assert_eq!(next_task, Task::NoTask);
+    assert!(next_task.is_none());
     // Verify writes exist in state.
     assert_eq!(
         safe_versioned_state
@@ -518,7 +518,7 @@ fn test_worker_validate() {
     // Validate failed. Invoke 2 failed validations; only the first leads to a re-execution.
     let tx_index = 1;
     let next_task1 = worker_executor.validate(tx_index);
-    assert_eq!(next_task1, Task::ExecutionTask(tx_index));
+    assert_eq!(next_task1, Some(Task::ExecutionTask(tx_index)));
     // Verify writes were removed.
     assert_eq!(
         safe_versioned_state
@@ -531,7 +531,7 @@ fn test_worker_validate() {
     assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executing);
 
     let next_task2 = worker_executor.validate(tx_index);
-    assert_eq!(next_task2, Task::NoTask);
+    assert!(next_task2.is_none());
 }
 use cairo_felt::Felt252;
 use rstest::rstest;
@@ -663,7 +663,7 @@ fn test_deploy_before_declare() {
     worker_executor.scheduler.next_task();
 
     // Verify validation failed.
-    assert_eq!(worker_executor.validate(1), Task::ExecutionTask(1));
+    assert_eq!(worker_executor.validate(1), Some(Task::ExecutionTask(1)));
 
     // Execute transaction 1 again.
     worker_executor.execute(1);
@@ -674,7 +674,7 @@ fn test_deploy_before_declare() {
 
     // Successful validation for transaction 1.
     let next_task = worker_executor.validate(1);
-    assert_eq!(next_task, Task::NoTask);
+    assert!(next_task.is_none());
 }
 
 #[test]
