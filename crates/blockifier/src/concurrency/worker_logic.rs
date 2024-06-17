@@ -291,8 +291,14 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 }
 
 impl<'a, U: UpdatableState> WorkerExecutor<'a, U> {
-    pub fn commit_chunk_and_recover_block_state(self, n_committed_txs: usize) -> U {
-        self.state.into_inner_state().commit_chunk_and_recover_block_state(n_committed_txs)
+    pub fn commit_chunk_and_recover_block_state(
+        self,
+        n_committed_txs: usize,
+        visited_pcs: HashMap<ClassHash, HashSet<usize>>,
+    ) -> U {
+        self.state
+            .into_inner_state()
+            .commit_chunk_and_recover_block_state(n_committed_txs, visited_pcs)
     }
 }
 
