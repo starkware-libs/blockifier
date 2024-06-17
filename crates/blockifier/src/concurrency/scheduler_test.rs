@@ -164,10 +164,8 @@ fn test_set_executed_status(#[case] tx_status: TransactionStatus) {
 #[case::reduces_validation_index(0, 10)]
 #[case::does_not_reduce_validation_index(10, 0)]
 fn test_finish_execution(#[case] tx_index: TxIndex, #[case] validation_index: TxIndex) {
-    let scheduler = default_scheduler!(
-        chunk_size: DEFAULT_CHUNK_SIZE,
-        validation_index: validation_index,
-    );
+    let scheduler =
+        default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, validation_index: validation_index);
     scheduler.set_tx_status(tx_index, TransactionStatus::Executing);
     scheduler.finish_execution(tx_index);
     assert_eq!(*scheduler.lock_tx_status(tx_index), TransactionStatus::Executed);
@@ -218,18 +216,16 @@ fn test_try_validation_abort(#[case] tx_status: TransactionStatus) {
 #[case::returns_execution_task(0, 10)]
 #[case::does_not_return_execution_task(10, 0)]
 fn test_finish_abort(#[case] tx_index: TxIndex, #[case] execution_index: TxIndex) {
-    let scheduler = default_scheduler!(
-        chunk_size: DEFAULT_CHUNK_SIZE,
-        execution_index: execution_index,
-    );
+    let scheduler =
+        default_scheduler!(chunk_size: DEFAULT_CHUNK_SIZE, execution_index: execution_index,);
     scheduler.set_tx_status(tx_index, TransactionStatus::Aborting);
     let result = scheduler.finish_abort(tx_index);
     let new_status = scheduler.lock_tx_status(tx_index);
     if execution_index > tx_index {
-        assert_eq!(result, Task::ExecutionTask(tx_index));
+        assert_eq!(result, Some(Task::ExecutionTask(tx_index)));
         assert_eq!(*new_status, TransactionStatus::Executing);
     } else {
-        assert_eq!(result, Task::NoTask);
+        assert!(result.is_none());
         assert_eq!(*new_status, TransactionStatus::ReadyToExecute);
     }
 }

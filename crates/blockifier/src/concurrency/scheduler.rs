@@ -125,12 +125,12 @@ impl Scheduler {
     /// Updates the Scheduler that a validation task has aborted and triggers the creation of new
     /// tasks: schedules validation for higher transactions + re-executes the current transaction
     /// (if ready).
-    pub fn finish_abort(&self, tx_index: TxIndex) -> Task {
+    pub fn finish_abort(&self, tx_index: TxIndex) -> Option<Task> {
         self.set_ready_status(tx_index);
         if self.execution_index.load(Ordering::Acquire) > tx_index && self.try_incarnate(tx_index) {
-            Task::ExecutionTask(tx_index)
+            Some(Task::ExecutionTask(tx_index))
         } else {
-            Task::NoTask
+            None
         }
     }
 
