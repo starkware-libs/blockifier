@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard, TryLockError};
 
@@ -91,6 +92,10 @@ impl Scheduler {
         let index_to_validate = self.validation_index.load(Ordering::Acquire);
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
 
+        if min(index_to_validate, index_to_execute) >= self.chunk_size {
+            return Task::NoTaskAvailable;
+        }
+
         if index_to_validate < index_to_execute {
             if let Some(tx_index) = self.next_version_to_validate() {
                 return Task::ValidationTask(tx_index);
@@ -101,7 +106,7 @@ impl Scheduler {
             return Task::ExecutionTask(tx_index);
         }
 
-        Task::NoTask
+        Task::AskForTask
     }
 
     /// Updates the Scheduler that an execution task has been finished and triggers the creation of
@@ -129,7 +134,7 @@ impl Scheduler {
         if self.execution_index.load(Ordering::Acquire) > tx_index && self.try_incarnate(tx_index) {
             Task::ExecutionTask(tx_index)
         } else {
-            Task::NoTask
+            Task::AskForTask
         }
     }
 
@@ -248,7 +253,8 @@ impl Scheduler {
 pub enum Task {
     ExecutionTask(TxIndex),
     ValidationTask(TxIndex),
-    NoTask,
+    AskForTask,
+    NoTaskAvailable,
     Done,
 }
 

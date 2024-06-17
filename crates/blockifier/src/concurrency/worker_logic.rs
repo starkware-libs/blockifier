@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
 
 use num_traits::ToPrimitive;
 use starknet_api::core::{ClassHash, ContractAddress};
@@ -88,16 +90,22 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     }
 
     pub fn run(&self) {
-        let mut task = Task::NoTask;
+        let mut task = Task::AskForTask;
         loop {
             self.commit_while_possible();
             task = match task {
                 Task::ExecutionTask(tx_index) => {
                     self.execute(tx_index);
-                    Task::NoTask
+                    Task::AskForTask
                 }
                 Task::ValidationTask(tx_index) => self.validate(tx_index),
-                Task::NoTask => self.scheduler.next_task(),
+                Task::NoTaskAvailable => {
+                    // There's no available task at the moment; sleep for a bit to save CPU power.
+                    // (since busy-looping might damage performance when using hyper-threads).
+                    thread::sleep(Duration::from_micros(1));
+                    Task::AskForTask
+                }
+                Task::AskForTask => self.scheduler.next_task(),
                 Task::Done => break,
             };
         }
@@ -171,7 +179,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                 .delete_writes(&execution_output.writes, &execution_output.contract_classes);
             self.scheduler.finish_abort(tx_index)
         } else {
-            Task::NoTask
+            Task::AskForTask
         }
     }
 
@@ -190,11 +198,9 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     fn commit_tx(&self, tx_index: TxIndex) -> bool {
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
         let execution_output_ref = execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR);
-
-        let tx = &self.chunk[tx_index];
-        let mut tx_versioned_state = self.state.pin_version(tx_index);
-
         let reads = &execution_output_ref.reads;
+
+        let mut tx_versioned_state = self.state.pin_version(tx_index);
         let reads_valid = tx_versioned_state.validate_reads(reads);
 
         // First, re-validate the transaction.
@@ -224,11 +230,11 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let writes = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).writes;
         let reads = &execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).reads;
         let mut tx_state_changes_keys = StateChanges::from(writes.diff(reads)).into_keys();
-        let tx_context = self.block_context.to_tx_context(tx);
         let tx_result =
             &mut execution_output.as_mut().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR).result;
 
         if let Ok(tx_execution_info) = tx_result.as_mut() {
+            let tx_context = self.block_context.to_tx_context(&self.chunk[tx_index]);
             // Add the deleted sequencer balance key to the storage keys.
             tx_state_changes_keys.update_sequencer_key_in_storage(&tx_context, tx_execution_info);
             // Ask the bouncer if there is room for the transaction in the block.
