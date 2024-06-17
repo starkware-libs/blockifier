@@ -11,8 +11,7 @@ use blockifier::test_utils::transfers_generator::TransfersGenerator;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 pub fn transfers_benchmark(c: &mut Criterion) {
-    let concurrency_mode = false;
-    let mut transfers_generator = TransfersGenerator::new(concurrency_mode);
+    let mut transfers_generator = TransfersGenerator::new();
     // Create a benchmark group called "transfers", which iterates over the accounts round-robin
     // and performs transfers.
     c.bench_function("transfers", |benchmark| {
