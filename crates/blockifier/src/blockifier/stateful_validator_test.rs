@@ -5,7 +5,7 @@ use crate::blockifier::stateful_validator::StatefulValidator;
 use crate::context::BlockContext;
 use crate::nonce;
 use crate::test_utils::contracts::FeatureContract;
-use crate::test_utils::initial_test_state::{fund_account, test_state};
+use crate::test_utils::initial_test_state::{fund_account, test_state_with_cairo0_erc20};
 use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::test_utils::{
@@ -38,7 +38,8 @@ fn test_transaction_validator(
     let sender_address = faulty_account.get_instance_address(0);
     let class_hash = faulty_account.get_class_hash();
 
-    let mut state = test_state(chain_info, account_balance, &[(faulty_account, 1)]);
+    let mut state =
+        test_state_with_cairo0_erc20(chain_info, account_balance, &[(faulty_account, 1)]);
 
     // TODO(Arni, 1/5/2024): Cover resource bounds in version 3 txs. Test the validator validate
     // enough "fee" in version 3 txs.

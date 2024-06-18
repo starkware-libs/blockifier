@@ -11,7 +11,7 @@ use crate::fee::gas_usage::{
 };
 use crate::state::cached_state::StateChangesCount;
 use crate::test_utils::contracts::FeatureContract;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::{create_calldata, create_trivial_calldata, CairoVersion, BALANCE};
 use crate::transaction::constants;
 use crate::transaction::objects::{GasVector, HasRelatedFeeType, StarknetResources};
@@ -292,7 +292,11 @@ fn test_calculate_tx_gas_usage(
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let test_contract = FeatureContract::TestContract(test_contract_cairo_version);
     let account_contract_address = account_contract.get_instance_address(0);
-    let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let state = &mut test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
             sender_address: account_contract_address,

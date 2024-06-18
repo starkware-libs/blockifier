@@ -11,7 +11,7 @@ use crate::retdata;
 use crate::state::cached_state::CachedState;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::{CairoVersion, BALANCE};
 use crate::versioned_constants::VersionedConstants;
 
@@ -19,7 +19,7 @@ use crate::versioned_constants::VersionedConstants;
 fn test_calculate_contract_address() {
     let chain_info = &ChainInfo::create_for_testing();
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
+    let mut state = test_state_with_cairo0_erc20(chain_info, BALANCE, &[(test_contract, 1)]);
 
     fn run_test(
         salt: ContractAddressSalt,

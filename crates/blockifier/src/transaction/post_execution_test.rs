@@ -11,7 +11,7 @@ use crate::fee::fee_checks::FeeCheckError;
 use crate::invoke_tx_args;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::{create_calldata, CairoVersion, BALANCE, MAX_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::TransactionExecutionError;
@@ -25,7 +25,11 @@ use crate::transaction::transactions::ExecutableTransaction;
 fn init_data_by_version(chain_info: &ChainInfo, cairo_version: CairoVersion) -> TestInitData {
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let state = test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
     TestInitData {
         state,
         account_address: account_contract.get_instance_address(0),

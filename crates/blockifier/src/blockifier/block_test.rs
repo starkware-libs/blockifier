@@ -8,13 +8,17 @@ use crate::blockifier::block::{pre_process_block, BlockNumberHashPair};
 use crate::context::ChainInfo;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::{CairoVersion, BALANCE};
 
 #[test]
 fn test_pre_process_block() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
-    let mut state = test_state(&ChainInfo::create_for_testing(), BALANCE, &[(test_contract, 1)]);
+    let mut state = test_state_with_cairo0_erc20(
+        &ChainInfo::create_for_testing(),
+        BALANCE,
+        &[(test_contract, 1)],
+    );
 
     // Test the positive flow of pre_process_block inside the allowed block number interval
     let block_number = BlockNumber(constants::STORED_BLOCK_HASH_BUFFER);

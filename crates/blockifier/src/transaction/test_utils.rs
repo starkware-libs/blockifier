@@ -18,7 +18,7 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::{deploy_account_tx, DeployAccountTxArgs};
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::invoke::{invoke_tx, InvokeTxArgs};
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
@@ -117,7 +117,11 @@ pub fn create_test_init_data(chain_info: &ChainInfo, cairo_version: CairoVersion
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
     let erc20 = FeatureContract::ERC20(CairoVersion::Cairo0);
-    let state = test_state(chain_info, BALANCE, &[(account, 1), (erc20, 1), (test_contract, 1)]);
+    let state = test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(account, 1), (erc20, 1), (test_contract, 1)],
+    );
     TestInitData {
         state,
         account_address: account.get_instance_address(0),

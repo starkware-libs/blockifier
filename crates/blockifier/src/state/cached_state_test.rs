@@ -11,7 +11,7 @@ use crate::context::{BlockContext, ChainInfo};
 use crate::state::cached_state::*;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::CairoVersion;
 use crate::{compiled_class_hash, nonce, storage_key};
 const CONTRACT_ADDRESS: &str = "0x100";
@@ -165,7 +165,8 @@ fn get_and_increment_nonce() {
 fn get_contract_class() {
     // Positive flow.
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
-    let state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 0)]);
+    let state =
+        test_state_with_cairo0_erc20(&ChainInfo::create_for_testing(), 0, &[(test_contract, 0)]);
     assert_eq!(
         state.get_compiled_contract_class(test_contract.get_class_hash()).unwrap(),
         test_contract.get_class()

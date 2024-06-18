@@ -16,7 +16,7 @@ use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::{
     create_calldata, CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE,
 };
@@ -101,7 +101,8 @@ fn test_declare(
 ) {
     let account_contract = FeatureContract::AccountWithoutValidations(account_cairo_version);
     let declared_contract = FeatureContract::Empty(cairo_version);
-    let state = test_state(&block_context.chain_info, BALANCE, &[(account_contract, 1)]);
+    let state =
+        test_state_with_cairo0_erc20(&block_context.chain_info, BALANCE, &[(account_contract, 1)]);
 
     let tx = Transaction::AccountTransaction(declare_tx(
         declare_tx_args! {
@@ -123,7 +124,8 @@ fn test_deploy_account(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let state = test_state(&block_context.chain_info, BALANCE, &[(account_contract, 0)]);
+    let state =
+        test_state_with_cairo0_erc20(&block_context.chain_info, BALANCE, &[(account_contract, 0)]);
 
     let tx = Transaction::AccountTransaction(AccountTransaction::DeployAccount(deploy_account_tx(
         deploy_account_tx_args! {
@@ -190,7 +192,7 @@ fn test_invoke(
 ) {
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let state = test_state(
+    let state = test_state_with_cairo0_erc20(
         &block_context.chain_info,
         BALANCE,
         &[(test_contract, 1), (account_contract, 1)],
@@ -209,7 +211,8 @@ fn test_invoke(
 #[rstest]
 fn test_l1_handler(block_context: BlockContext) {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
-    let state = test_state(&block_context.chain_info, BALANCE, &[(test_contract, 1)]);
+    let state =
+        test_state_with_cairo0_erc20(&block_context.chain_info, BALANCE, &[(test_contract, 1)]);
 
     let tx = Transaction::L1HandlerTransaction(L1HandlerTransaction::create_for_testing(
         Fee(1908000000000000),

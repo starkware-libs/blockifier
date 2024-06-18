@@ -22,7 +22,7 @@ use crate::state::cached_state::StateMaps;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::{
     create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE,
     TEST_ERC20_CONTRACT_ADDRESS2,
@@ -99,8 +99,11 @@ pub fn test_commit_tx() {
     .map(Transaction::AccountTransaction)
     .collect::<Vec<Transaction>>();
     let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
-    let cached_state =
-        test_state(&block_context.chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let cached_state = test_state_with_cairo0_erc20(
+        &block_context.chain_info,
+        BALANCE,
+        &[(account, 1), (test_contract, 1)],
+    );
     let versioned_state = safe_versioned_state_for_testing(cached_state);
     let executor =
         WorkerExecutor::new(versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
@@ -200,7 +203,11 @@ fn test_commit_tx_when_sender_is_sequencer() {
 
     let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
 
-    let state = test_state(&block_context.chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let state = test_state_with_cairo0_erc20(
+        &block_context.chain_info,
+        BALANCE,
+        &[(account, 1), (test_contract, 1)],
+    );
     let versioned_state = safe_versioned_state_for_testing(state);
     let executor = WorkerExecutor::new(
         versioned_state,
@@ -256,7 +263,11 @@ fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let state = test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
     let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
@@ -430,7 +441,11 @@ fn test_worker_validate(max_resource_bounds: ResourceBoundsMapping) {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let state = test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
     let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
@@ -530,7 +545,7 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
     let block_context = BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
-    let state = test_state(chain_info, BALANCE, &[(account_contract, 2)]);
+    let state = test_state_with_cairo0_erc20(chain_info, BALANCE, &[(account_contract, 2)]);
     let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
@@ -620,7 +635,11 @@ fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let state = test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
     let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
@@ -713,7 +732,11 @@ fn test_worker_commit_phase_with_halt() {
     let chain_info = &block_context.chain_info;
 
     // Create the state.
-    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let state = test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
     let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.

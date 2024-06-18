@@ -14,7 +14,7 @@ use crate::context::BlockContext;
 use crate::execution::call_info::ExecutionSummary;
 use crate::state::cached_state::{StateChangesKeys, TransactionalState};
 use crate::storage_key;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::transaction::errors::TransactionExecutionError;
 
 #[test]
@@ -186,7 +186,11 @@ fn test_bouncer_try_update(
 
     use crate::transaction::objects::TransactionResources;
 
-    let state = &mut test_state(&BlockContext::create_for_account_testing().chain_info, 0, &[]);
+    let state = &mut test_state_with_cairo0_erc20(
+        &BlockContext::create_for_account_testing().chain_info,
+        0,
+        &[],
+    );
     let mut transactional_state = TransactionalState::create_transactional(state);
 
     // Setup the bouncer.

@@ -86,10 +86,14 @@ impl TransfersGenerator {
         let account_contract = FeatureContract::AccountWithoutValidations(config.cairo_version);
         let block_context = BlockContext::create_for_account_testing();
         let chain_info = block_context.chain_info().clone();
-        let state =
-            test_state(&chain_info, config.balance, &[(account_contract, config.n_accounts)]);
-        let executor_config =
-            TransactionExecutorConfig { concurrency_config: config.concurrency_config.clone() };
+        let state = test_state(
+            &chain_info,
+            BALANCE * 1000,
+            &[(account_contract, N_ACCOUNTS)],
+            CairoVersion::Cairo1,
+        );
+        // TODO(Avi, 20/05/2024): Enable concurrency.
+        let executor_config = TransactionExecutorConfig::default();
         let executor = TransactionExecutor::new(state, block_context, executor_config);
         let account_addresses = (0..config.n_accounts)
             .map(|instance_id| account_contract.get_instance_address(instance_id))

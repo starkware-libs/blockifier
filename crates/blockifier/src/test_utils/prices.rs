@@ -11,7 +11,7 @@ use crate::context::BlockContext;
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::{CallEntryPoint, EntryPointExecutionContext};
 use crate::state::state_api::State;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::BALANCE;
 use crate::transaction::constants;
@@ -43,7 +43,7 @@ fn fee_transfer_resources(
 ) -> ExecutionResources {
     let block_context = &BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
-    let state = &mut test_state(chain_info, BALANCE, &[]);
+    let state = &mut test_state_with_cairo0_erc20(chain_info, BALANCE, &[]);
     let token_address = chain_info.fee_token_address(&fee_type);
 
     // Fund the account so we don't hit an error.

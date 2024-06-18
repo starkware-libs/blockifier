@@ -15,7 +15,7 @@ use crate::state::cached_state::CachedState;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::{
     create_calldata, create_trivial_calldata, get_syscall_resources, get_tx_resources,
     u64_from_usize, CairoVersion, NonceManager, BALANCE, MAX_FEE, MAX_L1_GAS_AMOUNT,
@@ -48,7 +48,7 @@ fn create_flavors_test_state(
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let faulty_account_contract = FeatureContract::FaultyAccount(cairo_version);
-    let state = test_state(
+    let state = test_state_with_cairo0_erc20(
         chain_info,
         BALANCE,
         &[(account_contract, 1), (faulty_account_contract, 1), (test_contract, 1)],

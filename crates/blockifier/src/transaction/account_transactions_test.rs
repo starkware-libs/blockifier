@@ -28,7 +28,7 @@ use crate::state::state_api::{State, StateReader};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::deploy_account::deploy_account_tx;
-use crate::test_utils::initial_test_state::{fund_account, test_state};
+use crate::test_utils::initial_test_state::{fund_account, test_state_with_cairo0_erc20};
 use crate::test_utils::invoke::InvokeTxArgs;
 use crate::test_utils::{
     create_calldata, create_trivial_calldata, get_syscall_resources, get_tx_resources,
@@ -55,7 +55,8 @@ fn test_circuit(block_context: BlockContext, max_resource_bounds: ResourceBounds
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let chain_info = &block_context.chain_info;
-    let state = &mut test_state(chain_info, BALANCE, &[(test_contract, 1), (account, 1)]);
+    let state =
+        &mut test_state_with_cairo0_erc20(chain_info, BALANCE, &[(test_contract, 1), (account, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();
@@ -91,7 +92,8 @@ fn test_fee_enforcement(
     #[values(true, false)] zero_bounds: bool,
 ) {
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
-    let state = &mut test_state(&block_context.chain_info, BALANCE, &[(account, 1)]);
+    let state =
+        &mut test_state_with_cairo0_erc20(&block_context.chain_info, BALANCE, &[(account, 1)]);
     let deploy_account_tx = deploy_account_tx(
         deploy_account_tx_args! {
             class_hash: account.get_class_hash(),
@@ -455,7 +457,8 @@ fn test_revert_invoke(
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
-    let state = &mut test_state(chain_info, BALANCE, &[(test_contract, 1), (account, 1)]);
+    let state =
+        &mut test_state_with_cairo0_erc20(chain_info, BALANCE, &[(test_contract, 1), (account, 1)]);
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();
@@ -516,7 +519,11 @@ fn test_fail_deploy_account(
 ) {
     let chain_info = &block_context.chain_info;
     let faulty_account_feature_contract = FeatureContract::FaultyAccount(cairo_version);
-    let state = &mut test_state(chain_info, BALANCE, &[(faulty_account_feature_contract, 0)]);
+    let state = &mut test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(faulty_account_feature_contract, 0)],
+    );
 
     // Create and execute (failing) deploy account transaction.
     let deploy_account_tx =
@@ -988,7 +995,7 @@ fn test_deploy_account_constructor_storage_write(
     let grindy_account = FeatureContract::AccountWithLongValidate(cairo_version);
     let class_hash = grindy_account.get_class_hash();
     let chain_info = &block_context.chain_info;
-    let state = &mut test_state(chain_info, BALANCE, &[(grindy_account, 1)]);
+    let state = &mut test_state_with_cairo0_erc20(chain_info, BALANCE, &[(grindy_account, 1)]);
 
     let ctor_storage_arg = felt!(1_u8);
     let ctor_grind_arg = felt!(0_u8); // Do not grind in deploy phase.
@@ -1038,7 +1045,11 @@ fn test_count_actual_storage_changes(
     // Create initial state
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let mut state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let mut state = test_state_with_cairo0_erc20(
+        chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
     let account_address = account_contract.get_instance_address(0);
     let contract_address = test_contract.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();
@@ -1218,7 +1229,8 @@ fn test_concurrency_execute_fee_transfer(
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
-    let state = &mut test_state(chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
+    let state =
+        &mut test_state_with_cairo0_erc20(chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(&block_context);
     let account_tx = account_invoke_tx(invoke_tx_args! {
@@ -1316,7 +1328,11 @@ fn test_concurrent_fee_transfer_when_sender_is_sequencer(
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let sender_balance = BALANCE;
     let chain_info = &block_context.chain_info;
-    let state = &mut test_state(chain_info, sender_balance, &[(account, 1), (test_contract, 1)]);
+    let state = &mut test_state_with_cairo0_erc20(
+        chain_info,
+        sender_balance,
+        &[(account, 1), (test_contract, 1)],
+    );
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(&block_context);
     let account_tx = account_invoke_tx(invoke_tx_args! {

@@ -13,7 +13,7 @@ use crate::abi::constants::CONSTRUCTOR_ENTRY_POINT_NAME;
 use crate::context::{BlockContext, ChainInfo};
 use crate::invoke_tx_args;
 use crate::test_utils::contracts::FeatureContract;
-use crate::test_utils::initial_test_state::{fund_account, test_state};
+use crate::test_utils::initial_test_state::{fund_account, test_state_with_cairo0_erc20};
 use crate::test_utils::{create_calldata, CairoVersion, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::{
@@ -37,7 +37,8 @@ fn test_stack_trace(
     let chain_info = ChainInfo::create_for_testing();
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
-    let mut state = test_state(&chain_info, BALANCE, &[(account, 1), (test_contract, 2)]);
+    let mut state =
+        test_state_with_cairo0_erc20(&chain_info, BALANCE, &[(account, 1), (test_contract, 2)]);
     let account_address = account.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
     let test_contract_address_2 = test_contract.get_instance_address(1);
@@ -150,7 +151,11 @@ fn test_trace_callchain_ends_with_regular_call(
     let chain_info = ChainInfo::create_for_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
-    let mut state = test_state(&chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let mut state = test_state_with_cairo0_erc20(
+        &chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
 
     let account_address = account_contract.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
@@ -275,7 +280,11 @@ fn test_trace_call_chain_with_syscalls(
     let chain_info = ChainInfo::create_for_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
-    let mut state = test_state(&chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let mut state = test_state_with_cairo0_erc20(
+        &chain_info,
+        BALANCE,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
 
     let account_address = account_contract.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
@@ -461,7 +470,8 @@ fn test_validate_trace(
     let faulty_account = FeatureContract::FaultyAccount(cairo_version);
     let mut sender_address = faulty_account.get_instance_address(0);
     let class_hash = faulty_account.get_class_hash();
-    let state = &mut test_state(&block_context.chain_info, 0, &[(faulty_account, 1)]);
+    let state =
+        &mut test_state_with_cairo0_erc20(&block_context.chain_info, 0, &[(faulty_account, 1)]);
     let selector = selector_from_name(entry_point_name).0;
 
     // Logic failure.
@@ -529,7 +539,7 @@ fn test_account_ctor_frame_stack_trace(
 ) {
     let chain_info = &block_context.chain_info;
     let faulty_account = FeatureContract::FaultyAccount(cairo_version);
-    let state = &mut test_state(chain_info, BALANCE, &[(faulty_account, 0)]);
+    let state = &mut test_state_with_cairo0_erc20(chain_info, BALANCE, &[(faulty_account, 0)]);
     let class_hash = faulty_account.get_class_hash();
 
     // Create and execute deploy account transaction that passes validation and fails in the ctor.
@@ -593,7 +603,8 @@ fn test_contract_ctor_frame_stack_trace(
     let account = FeatureContract::AccountWithoutValidations(cairo_version);
     let faulty_ctor = FeatureContract::FaultyAccount(cairo_version);
     // Declare both classes, but only "deploy" the dummy account.
-    let state = &mut test_state(chain_info, BALANCE, &[(account, 1), (faulty_ctor, 0)]);
+    let state =
+        &mut test_state_with_cairo0_erc20(chain_info, BALANCE, &[(account, 1), (faulty_ctor, 0)]);
     let account_address = account.get_instance_address(0);
     let account_class_hash = account.get_class_hash();
     let faulty_class_hash = faulty_ctor.get_class_hash();

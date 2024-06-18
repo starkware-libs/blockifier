@@ -27,7 +27,7 @@ use crate::state::state_api::{State, StateReader, UpdatableState};
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
-use crate::test_utils::initial_test_state::test_state;
+use crate::test_utils::initial_test_state::test_state_with_cairo0_erc20;
 use crate::test_utils::{CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{HasRelatedFeeType, TransactionInfoCreator};
@@ -201,7 +201,7 @@ fn test_run_parallel_txs(max_resource_bounds: ResourceBoundsMapping) {
         FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0);
 
     // Initiate States
-    let versioned_state = Arc::new(Mutex::new(VersionedState::new(test_state(
+    let versioned_state = Arc::new(Mutex::new(VersionedState::new(test_state_with_cairo0_erc20(
         chain_info,
         BALANCE,
         &[(account_without_validation, 1), (grindy_account, 1)],

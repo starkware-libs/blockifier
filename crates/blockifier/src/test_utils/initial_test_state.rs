@@ -35,7 +35,7 @@ pub fn fund_account(
 /// * "Declares" the input list of contracts.
 /// * "Deploys" the requested number of instances of each input contract.
 /// * Makes each input account contract privileged.
-pub fn test_state_inner(
+pub fn test_state(
     chain_info: &ChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u16)],
@@ -83,10 +83,10 @@ pub fn test_state_inner(
     CachedState::from(state_reader)
 }
 
-pub fn test_state(
+pub fn test_state_with_cairo0_erc20(
     chain_info: &ChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u16)],
 ) -> CachedState<DictStateReader> {
-    test_state_inner(chain_info, initial_balances, contract_instances, CairoVersion::Cairo0)
+    test_state(chain_info, initial_balances, contract_instances, CairoVersion::Cairo0)
 }
