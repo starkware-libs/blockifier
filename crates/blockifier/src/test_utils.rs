@@ -523,7 +523,10 @@ pub fn deploy_contract(
         wrapper_calldata,
         u64::MAX,
     )
-    .map_err(|_| vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()])?;
+    .map_err(|err| {
+        println!("Real error: {:?}", err);
+        vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()]
+    })?;
 
     let return_data =
         call_info.execution.retdata.0.into_iter().map(stark_felt_to_native_felt).collect();
@@ -545,6 +548,7 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
             contract_address_to_native_felt(Signers::Alice.into()), // Owner
         ],
     )
+    .map_err(|e| e.iter().map(|felt| felt.to_hex_string()).collect::<Vec<String>>().join(", "))
     .unwrap();
 
     let contract_address = ContractAddress(
