@@ -56,13 +56,3 @@ strum_macros = "0.24.3"
 tempfile = "3.7.0"
 test-case = "2.2.2"
 thiserror = "1.0.37"
-
-[workspace.lints.rust]
-future-incompatible = "deny"
-nonstandard-style = "deny"
-rust-2018-idioms = "deny"
-unused = "deny"
-warnings = "deny"
-
-[workspace.lints.clippy]
-as_conversions = "deny"

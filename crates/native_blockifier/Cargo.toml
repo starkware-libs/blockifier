@@ -13,8 +13,20 @@ description = "A Bridge between the Rust blockifier crate and Python."
 extension-module = ["pyo3/extension-module"]
 testing = []
 
-[lints]
-workspace = true
+# Move to workspace and inherit from [workspace.lints] once we start using rust_rules >= 0.41.0.
+# (bug: https://github.com/bazelbuild/rules_rust/issues/2536, fixed in: https://github.com/bazelbuild/rules_rust/pull/2551 which was included in 0.41.0).
+[lints.rust]
+future-incompatible = "deny"
+nonstandard-style = "deny"
+rust-2018-idioms = "deny"
+unused = "deny"
+warnings = "deny"
+
+# Move to workspace and inherit from [workspace.lints] once we start using rust_rules >= 0.41.0.
+# (bug: https://github.com/bazelbuild/rules_rust/issues/2536, fixed in: https://github.com/bazelbuild/rules_rust/pull/2551 which was included in 0.41.0).
+[lints.clippy]
+as_conversions = "deny"
+
 
 [lib]
 name = "native_blockifier"
