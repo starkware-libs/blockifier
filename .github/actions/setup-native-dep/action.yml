@@ -17,8 +17,8 @@ runs:
     - name: Install LLVM and gmplib
       shell: bash
       run: |
-        sudo apt-get install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
-        sudo apt install -y libgmp3-dev
+        sudo brew install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
+        sudo brew install -y libgmp3-dev
 
     - name: Fetch Cairo Native Repository
       uses: actions/checkout@v3
