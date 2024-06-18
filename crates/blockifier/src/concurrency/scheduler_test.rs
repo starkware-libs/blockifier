@@ -215,39 +215,22 @@ fn test_try_validation_abort(#[case] tx_status: TransactionStatus) {
 }
 
 #[rstest]
-#[case::not_aborted(0, 10, false)]
-#[case::returns_execution_task(0, 10, true)]
-#[case::does_not_return_execution_task(10, 0, true)]
-fn test_finish_validation(
-    #[case] tx_index: TxIndex,
-    #[case] execution_index: TxIndex,
-    #[case] aborted: bool,
-) {
+#[case::returns_execution_task(0, 10)]
+#[case::does_not_return_execution_task(10, 0)]
+fn test_finish_abort(#[case] tx_index: TxIndex, #[case] execution_index: TxIndex) {
     let scheduler = default_scheduler!(
         chunk_size: DEFAULT_CHUNK_SIZE,
         execution_index: execution_index,
     );
-    let tx_status = if aborted { TransactionStatus::Aborting } else { TransactionStatus::Executed };
-    scheduler.set_tx_status(tx_index, tx_status);
-    let mut result = Task::NoTask;
-    if aborted {
-        result = scheduler.finish_abort(tx_index);
-    }
+    scheduler.set_tx_status(tx_index, TransactionStatus::Aborting);
+    let result = scheduler.finish_abort(tx_index);
     let new_status = scheduler.lock_tx_status(tx_index);
-    match aborted {
-        true => {
-            if execution_index > tx_index {
-                assert_eq!(result, Task::ExecutionTask(tx_index));
-                assert_eq!(*new_status, TransactionStatus::Executing);
-            } else {
-                assert_eq!(result, Task::NoTask);
-                assert_eq!(*new_status, TransactionStatus::ReadyToExecute);
-            }
-        }
-        false => {
-            assert_eq!(result, Task::NoTask);
-            assert_eq!(*new_status, TransactionStatus::Executed);
-        }
+    if execution_index > tx_index {
+        assert_eq!(result, Task::ExecutionTask(tx_index));
+        assert_eq!(*new_status, TransactionStatus::Executing);
+    } else {
+        assert_eq!(result, Task::NoTask);
+        assert_eq!(*new_status, TransactionStatus::ReadyToExecute);
     }
 }
 
