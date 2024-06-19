@@ -202,6 +202,34 @@ impl VersionedConstants {
     ) -> Self {
         Self { validate_max_n_steps, max_recursion_depth, ..Self::latest_constants().clone() }
     }
+
+    /// Private versioned constants are used if they are provided, otherwise the latest versioned
+    /// constants are used. `validate_max_n_steps` & `max_recursion_depth` override both.
+    pub fn get_versioned_constants(
+        private_versioned_constants: Option<String>,
+        validate_max_n_steps: u32,
+        max_recursion_depth: usize,
+    ) -> Self {
+        match private_versioned_constants {
+            Some(private_versioned_constants) => {
+                log::debug!(
+                    "Using provided private versioned constants (with additional overrides)."
+                );
+                let private_versioned_constants: VersionedConstants =
+                    serde_json::from_str(&private_versioned_constants)
+                        .expect("Versioned constants JSON file is malformed.");
+                Self { validate_max_n_steps, max_recursion_depth, ..private_versioned_constants }
+            }
+            None => {
+                log::debug!("Using latest versioned constants (with additional overrides).");
+                Self {
+                    validate_max_n_steps,
+                    max_recursion_depth,
+                    ..Self::latest_constants().clone()
+                }
+            }
+        }
+    }
 }
 
 impl TryFrom<&Path> for VersionedConstants {

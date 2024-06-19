@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use blockifier::abi::constants;
 use blockifier::blockifier::config::ConcurrencyConfig;
 use blockifier::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
+use blockifier::versioned_constants::VersionedConstants;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 // From Rust to Python.
@@ -30,6 +32,38 @@ impl From<ExecutionResources> for PyExecutionResources {
 }
 
 // From Python to Rust.
+
+#[pyclass]
+#[derive(Clone)]
+pub struct PyVersionedConstantsOverrides {
+    pub validate_max_n_steps: u32,
+    pub max_recursion_depth: usize,
+    pub private_versioned_constants: Option<String>,
+}
+
+#[pymethods]
+impl PyVersionedConstantsOverrides {
+    #[new]
+    #[pyo3(signature = (validate_max_n_steps, max_recursion_depth, private_versioned_constants))]
+    pub fn create(
+        validate_max_n_steps: u32,
+        max_recursion_depth: usize,
+        private_versioned_constants: Option<String>,
+    ) -> Self {
+        Self { validate_max_n_steps, max_recursion_depth, private_versioned_constants }
+    }
+
+    #[staticmethod]
+    pub fn validate_private_versioned_constants_str(
+        private_versioned_constants: &str,
+    ) -> PyResult<()> {
+        if serde_json::from_str::<VersionedConstants>(private_versioned_constants).is_ok() {
+            Ok(())
+        } else {
+            Err(PyValueError::new_err("Failed to parse private_versioned_constants."))
+        }
+    }
+}
 
 #[derive(Clone, Debug, FromPyObject)]
 pub struct PyBouncerConfig {

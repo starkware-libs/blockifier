@@ -86,6 +86,38 @@ fn get_json_value_without_defaults() -> serde_json::Value {
     json_value_without_defaults
 }
 
+/// Assert private versioned constants are used when provided.
+#[test]
+fn test_private_versioned_constants() {
+    // Create a versioned constants copy with a modified value for `invoke_tx_max_n_steps`.
+    let mut private_versioned_constants_value: Value =
+        serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON).unwrap();
+    let private_versioned_constants_map =
+        private_versioned_constants_value.as_object_mut().unwrap();
+    let key_to_change = "invoke_tx_max_n_steps";
+    let old_value: u32 = private_versioned_constants_map[key_to_change]
+        .clone()
+        .as_u64()
+        .unwrap()
+        .try_into()
+        .unwrap();
+    let new_value = old_value + 1;
+    private_versioned_constants_map[key_to_change] = new_value.into();
+    let private_versioned_constants: VersionedConstants =
+        serde_json::from_value(private_versioned_constants_value.clone()).unwrap();
+
+    // Assert the new value is used.
+    assert_eq!(
+        VersionedConstants::get_versioned_constants(
+            Some(private_versioned_constants_value.to_string()),
+            private_versioned_constants.validate_max_n_steps,
+            private_versioned_constants.max_recursion_depth
+        )
+        .invoke_tx_max_n_steps,
+        new_value
+    );
+}
+
 #[test]
 fn test_default_values() {
     let json_value_without_defaults = get_json_value_without_defaults();

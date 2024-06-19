@@ -9,6 +9,7 @@ use starknet_api::transaction::TransactionHash;
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_block_executor::PyGeneralConfig;
+use crate::py_objects::PyVersionedConstantsOverrides;
 use crate::py_state_diff::PyBlockInfo;
 use crate::py_transaction::{py_account_tx, PyClassInfo, PY_TX_PARSING_ERR};
 use crate::py_utils::PyFelt;
@@ -22,21 +23,26 @@ pub struct PyValidator {
 #[pymethods]
 impl PyValidator {
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, max_recursion_depth, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, max_nonce_for_validation_skip, versioned_constants_overrides))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
-        validate_max_n_steps: u32,
-        max_recursion_depth: usize,
         max_nonce_for_validation_skip: PyFelt,
+        versioned_constants_overrides: PyVersionedConstantsOverrides,
     ) -> NativeBlockifierResult<Self> {
         // Create the state.
         let state_reader = PyStateReader::new(state_reader_proxy);
         let state = CachedState::new(state_reader);
 
         // Create the block context.
-        let versioned_constants = VersionedConstants::latest_constants_with_overrides(
+        let PyVersionedConstantsOverrides {
+            validate_max_n_steps,
+            max_recursion_depth,
+            private_versioned_constants,
+        } = versioned_constants_overrides;
+        let versioned_constants = VersionedConstants::get_versioned_constants(
+            private_versioned_constants,
             validate_max_n_steps,
             max_recursion_depth,
         );
