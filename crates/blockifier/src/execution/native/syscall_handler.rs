@@ -203,6 +203,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> SyscallResult<ExecutionInfoV2> {
         // Get Block Info
+        dbg!("Executing v2");
         let block_info = &self.execution_context.tx_context.block_context.block_info;
         let native_block_info: BlockInfo = if self.execution_context.execution_mode
             == ExecutionMode::Validate
@@ -411,6 +412,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
 
         self.inner_calls.push(call_info);
 
+        dbg!(&retdata);
         Ok(retdata)
     }
 
@@ -432,6 +434,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
                 execution_mode: ExecutionMode::Validate,
             };
 
+            dbg!(&err);
             return Err(encode_str_as_felts(&err.to_string()));
         }
 
@@ -823,55 +826,55 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
         Ok((p.x, p.y))
     }
 
-    fn pop_log(&mut self) {
-        todo!("Native syscall handler - pop_log") // unimplemented in cairo native
-    }
+    // fn pop_log(&mut self) {
+    //     todo!("Native syscall handler - pop_log") // unimplemented in cairo native
+    // }
 
-    fn set_account_contract_address(&mut self, _contract_address: Felt) {
-        todo!("Native syscall handler - set_account_contract_address") // unimplemented in cairo native
-    }
+    // fn set_account_contract_address(&mut self, _contract_address: Felt) {
+    //     todo!("Native syscall handler - set_account_contract_address") // unimplemented in cairo native
+    // }
 
-    fn set_block_number(&mut self, _block_number: u64) {
-        todo!("Native syscall handler - set_block_number") // unimplemented in cairo native
-    }
+    // fn set_block_number(&mut self, _block_number: u64) {
+    //     todo!("Native syscall handler - set_block_number") // unimplemented in cairo native
+    // }
 
-    fn set_block_timestamp(&mut self, _block_timestamp: u64) {
-        todo!("Native syscall handler - set_block_timestamp") // unimplemented in cairo native
-    }
+    // fn set_block_timestamp(&mut self, _block_timestamp: u64) {
+    //     todo!("Native syscall handler - set_block_timestamp") // unimplemented in cairo native
+    // }
 
-    fn set_caller_address(&mut self, _address: Felt) {
-        todo!("Native syscall handler - set_caller_address") // unimplemented in cairo native
-    }
+    // fn set_caller_address(&mut self, _address: Felt) {
+    //     todo!("Native syscall handler - set_caller_address") // unimplemented in cairo native
+    // }
 
-    fn set_chain_id(&mut self, _chain_id: Felt) {
-        todo!("Native syscall handler - set_chain_id") // unimplemented in cairo native
-    }
+    // fn set_chain_id(&mut self, _chain_id: Felt) {
+    //     todo!("Native syscall handler - set_chain_id") // unimplemented in cairo native
+    // }
 
-    fn set_contract_address(&mut self, _address: Felt) {
-        todo!("Native syscall handler - set_contract_address") // unimplemented in cairo native
-    }
+    // fn set_contract_address(&mut self, _address: Felt) {
+    //     todo!("Native syscall handler - set_contract_address") // unimplemented in cairo native
+    // }
 
-    fn set_max_fee(&mut self, _max_fee: u128) {
-        todo!("Native syscall handler - set_max_fee") // unimplemented in cairo native
-    }
+    // fn set_max_fee(&mut self, _max_fee: u128) {
+    //     todo!("Native syscall handler - set_max_fee") // unimplemented in cairo native
+    // }
 
-    fn set_nonce(&mut self, _nonce: Felt) {
-        todo!("Native syscall handler - set_nonce") // unimplemented in cairo native
-    }
+    // fn set_nonce(&mut self, _nonce: Felt) {
+    //     todo!("Native syscall handler - set_nonce") // unimplemented in cairo native
+    // }
 
-    fn set_sequencer_address(&mut self, _address: Felt) {
-        todo!("Native syscall handler - set_sequencer_address") // unimplemented in cairo native
-    }
+    // fn set_sequencer_address(&mut self, _address: Felt) {
+    //     todo!("Native syscall handler - set_sequencer_address") // unimplemented in cairo native
+    // }
 
-    fn set_signature(&mut self, _signature: &[Felt]) {
-        todo!("Native syscall handler - set_signature") // unimplemented in cairo native
-    }
+    // fn set_signature(&mut self, _signature: &[Felt]) {
+    //     todo!("Native syscall handler - set_signature") // unimplemented in cairo native
+    // }
 
-    fn set_transaction_hash(&mut self, _transaction_hash: Felt) {
-        todo!("Native syscall handler - set_transaction_hash") // unimplemented in cairo native
-    }
+    // fn set_transaction_hash(&mut self, _transaction_hash: Felt) {
+    //     todo!("Native syscall handler - set_transaction_hash") // unimplemented in cairo native
+    // }
 
-    fn set_version(&mut self, _version: Felt) {
-        todo!("Native syscall handler - set_version") // unimplemented in cairo native
-    }
+    // fn set_version(&mut self, _version: Felt) {
+    //     todo!("Native syscall handler - set_version") // unimplemented in cairo native
+    // }
 }

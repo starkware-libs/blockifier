@@ -155,12 +155,19 @@ pub fn run_native_executor(
     };
 
     let execution_result = match native_executor {
-        NativeExecutor::Aot(executor) => executor.invoke_contract_dynamic(
-            sierra_entry_function_id,
-            &stark_felts_to_native_felts(&call.calldata.0),
-            Some(call.initial_gas.into()),
-            &mut syscall_handler,
-        ),
+        NativeExecutor::Aot(executor) => {
+            dbg!("Executing AOT");
+            dbg!(&call.calldata.0);
+            let calldata = stark_felts_to_native_felts(&call.calldata.0);
+            let calldata_converted: Vec<String> = calldata.iter().map(|x| x.to_hex_string()).collect();
+            dbg!(&calldata_converted);
+            executor.invoke_contract_dynamic(
+                sierra_entry_function_id,
+                &calldata,
+                Some(call.initial_gas.into()),
+                &mut syscall_handler,
+            )
+        }
         NativeExecutor::Jit(executor) => executor.invoke_contract_dynamic(
             sierra_entry_function_id,
             &stark_felts_to_native_felts(&call.calldata.0),
