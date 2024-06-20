@@ -642,8 +642,9 @@ fn test_versioned_proxy_state_flow(
     for proxy in versioned_proxy_states {
         drop(proxy);
     }
-    let modified_block_state =
-        safe_versioned_state.into_inner_state().commit_chunk_and_recover_block_state(4);
+    let modified_block_state = safe_versioned_state
+        .into_inner_state()
+        .commit_chunk_and_recover_block_state(4, HashMap::new());
 
     assert!(modified_block_state.get_class_hash_at(contract_address).unwrap() == class_hash_3);
     assert!(
