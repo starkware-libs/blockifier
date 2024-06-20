@@ -446,7 +446,7 @@ fn test_invoke_tx(
         &tx_context,
         sender_address,
         expected_actual_fee,
-        FeatureContract::ERC20.get_class_hash(),
+        FeatureContract::ERC20(CairoVersion::Cairo0).get_class_hash(),
     );
 
     let da_gas = starknet_resources.get_state_changes_cost(use_kzg_da);
@@ -1162,7 +1162,7 @@ fn test_declare_tx(
         tx_context,
         sender_address,
         expected_actual_fee,
-        FeatureContract::ERC20.get_class_hash(),
+        FeatureContract::ERC20(CairoVersion::Cairo0).get_class_hash(),
     );
 
     let da_gas = starknet_resources.get_state_changes_cost(use_kzg_da);
@@ -1305,7 +1305,7 @@ fn test_deploy_account_tx(
         tx_context,
         deployed_account_address,
         expected_actual_fee,
-        FeatureContract::ERC20.get_class_hash(),
+        FeatureContract::ERC20(CairoVersion::Cairo0).get_class_hash(),
     );
     let starknet_resources =
         actual_execution_info.transaction_receipt.resources.starknet_resources.clone();

@@ -421,8 +421,8 @@
         "attributes": [
             {
                 "accessible_scopes": [
-                    "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable",
-                    "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized"
+                    "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable",
+                    "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized"
                 ],
                 "end_pc": 1187,
                 "flow_tracking_data": {
@@ -2460,8 +2460,8 @@
             "615": [
                 {
                     "accessible_scopes": [
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
                         "__wrappers__",
                         "__wrappers__.name_encode_return"
                     ],
@@ -2478,8 +2478,8 @@
             "645": [
                 {
                     "accessible_scopes": [
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
                         "__wrappers__",
                         "__wrappers__.symbol_encode_return"
                     ],
@@ -2496,8 +2496,8 @@
             "675": [
                 {
                     "accessible_scopes": [
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
                         "__wrappers__",
                         "__wrappers__.totalSupply_encode_return"
                     ],
@@ -2514,8 +2514,8 @@
             "706": [
                 {
                     "accessible_scopes": [
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
                         "__wrappers__",
                         "__wrappers__.decimals_encode_return"
                     ],
@@ -2532,8 +2532,8 @@
             "737": [
                 {
                     "accessible_scopes": [
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
                         "__wrappers__",
                         "__wrappers__.balanceOf_encode_return"
                     ],
@@ -2550,8 +2550,8 @@
             "773": [
                 {
                     "accessible_scopes": [
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
-                        "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.erc20_contract_without_some_syscalls_compiled.json",
                         "__wrappers__",
                         "__wrappers__.allowance_encode_return"
                     ],
@@ -2568,8 +2568,8 @@
             "1081": [
                 {
                     "accessible_scopes": [
-                        "blockifier.ERC20_without_some_syscalls.ERC20.permitted",
-                        "blockifier.ERC20_without_some_syscalls.ERC20.permitted",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo",
                         "__wrappers__",
                         "__wrappers__.permittedMinter_encode_return"
                     ],
@@ -2586,8 +2586,8 @@
             "1156": [
                 {
                     "accessible_scopes": [
-                        "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable",
-                        "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable",
+                        "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable",
                         "__wrappers__",
                         "__wrappers__.initialized_encode_return"
                     ],
@@ -2792,27 +2792,27 @@
                 "value": 1
             },
             "__main__.ERC20_allowances": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances",
                 "type": "alias"
             },
             "__main__.ERC20_approve": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve",
                 "type": "alias"
             },
             "__main__.ERC20_burn": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn",
                 "type": "alias"
             },
             "__main__.ERC20_initializer": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer",
                 "type": "alias"
             },
             "__main__.ERC20_mint": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint",
                 "type": "alias"
             },
             "__main__.ERC20_transfer": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer",
                 "type": "alias"
             },
             "__main__.HashBuiltin": {
@@ -2828,7 +2828,7 @@
                 "type": "alias"
             },
             "__main__.allowance": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance",
                 "type": "alias"
             },
             "__main__.approve": {
@@ -2885,11 +2885,11 @@
                 "type": "alias"
             },
             "__main__.balanceOf": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf",
                 "type": "alias"
             },
             "__main__.decimals": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals",
                 "type": "alias"
             },
             "__main__.decreaseAllowance": {
@@ -3098,11 +3098,11 @@
                 "value": 0
             },
             "__main__.initialized": {
-                "destination": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized",
                 "type": "alias"
             },
             "__main__.name": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name",
                 "type": "alias"
             },
             "__main__.permissionedBurn": {
@@ -3204,31 +3204,31 @@
                 "value": 1
             },
             "__main__.permittedMinter": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter",
                 "type": "alias"
             },
             "__main__.permitted_initializer": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_initializer",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_initializer",
                 "type": "alias"
             },
             "__main__.permitted_minter": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter",
                 "type": "alias"
             },
             "__main__.permitted_minter_only": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter_only",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter_only",
                 "type": "alias"
             },
             "__main__.set_initialized": {
-                "destination": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized",
                 "type": "alias"
             },
             "__main__.symbol": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol",
                 "type": "alias"
             },
             "__main__.totalSupply": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply",
                 "type": "alias"
             },
             "__main__.transfer": {
@@ -3377,7 +3377,7 @@
                 "value": 0
             },
             "__wrappers__.allowance.__wrapped_func": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance",
                 "type": "alias"
             },
             "__wrappers__.allowance_encode_return": {
@@ -3515,7 +3515,7 @@
                 "value": 0
             },
             "__wrappers__.balanceOf.__wrapped_func": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf",
                 "type": "alias"
             },
             "__wrappers__.balanceOf_encode_return": {
@@ -3584,7 +3584,7 @@
                 "value": 0
             },
             "__wrappers__.decimals.__wrapped_func": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals",
                 "type": "alias"
             },
             "__wrappers__.decimals_encode_return": {
@@ -3964,7 +3964,7 @@
                 "value": 0
             },
             "__wrappers__.initialized.__wrapped_func": {
-                "destination": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized",
                 "type": "alias"
             },
             "__wrappers__.initialized_encode_return": {
@@ -4033,7 +4033,7 @@
                 "value": 0
             },
             "__wrappers__.name.__wrapped_func": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name",
                 "type": "alias"
             },
             "__wrappers__.name_encode_return": {
@@ -4172,7 +4172,7 @@
                 "value": 0
             },
             "__wrappers__.permittedMinter.__wrapped_func": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter",
                 "type": "alias"
             },
             "__wrappers__.permittedMinter_encode_return": {
@@ -4241,7 +4241,7 @@
                 "value": 0
             },
             "__wrappers__.symbol.__wrapped_func": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol",
                 "type": "alias"
             },
             "__wrappers__.symbol_encode_return": {
@@ -4310,7 +4310,7 @@
                 "value": 0
             },
             "__wrappers__.totalSupply.__wrapped_func": {
-                "destination": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply",
+                "destination": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply",
                 "type": "alias"
             },
             "__wrappers__.totalSupply_encode_return": {
@@ -4489,44 +4489,44 @@
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.SELECTOR": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.SELECTOR": {
                 "type": "const",
                 "value": 544914742286571513055574265148471203182105283038408585630116262969508767999
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.alloc": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.alloc": {
                 "destination": "starkware.cairo.common.alloc.alloc",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit": {
                 "decorators": [],
                 "pc": 323,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.Args",
                 "members": {
                     "owner": {
                         "cairo_type": "felt",
@@ -4544,8 +4544,8 @@
                 "size": 4,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.ImplicitArgs",
                 "members": {
                     "range_check_ptr": {
                         "cairo_type": "felt",
@@ -4559,56 +4559,56 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 2
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit_event": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.emit_event": {
                 "destination": "starkware.starknet.common.syscalls.emit_event",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.memcpy": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Approval.memcpy": {
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr": {
                 "decorators": [],
                 "pc": 533,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.Args",
                 "members": {
                     "owner": {
                         "cairo_type": "felt",
@@ -4622,8 +4622,8 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -4637,29 +4637,29 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.addr.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.hash2": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.hash2": {
                 "destination": "starkware.cairo.common.hash.hash2",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.normalize_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.normalize_address": {
                 "destination": "starkware.starknet.common.storage.normalize_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read": {
                 "decorators": [],
                 "pc": 550,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.Args",
                 "members": {
                     "owner": {
                         "cairo_type": "felt",
@@ -4673,8 +4673,8 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -4692,29 +4692,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.Return": {
                 "cairo_type": "(allowance: starkware.cairo.common.uint256.Uint256)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.read.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.storage_read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.storage_read": {
                 "destination": "starkware.starknet.common.syscalls.storage_read",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.storage_write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.storage_write": {
                 "destination": "starkware.starknet.common.syscalls.storage_write",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write": {
                 "decorators": [],
                 "pc": 571,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.Args",
                 "members": {
                     "owner": {
                         "cairo_type": "felt",
@@ -4732,8 +4732,8 @@
                 "size": 4,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -4751,21 +4751,21 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_allowances.write.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve": {
                 "decorators": [],
                 "pc": 937,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.Args",
                 "members": {
                     "amount": {
                         "cairo_type": "starkware.cairo.common.uint256.Uint256",
@@ -4783,8 +4783,8 @@
                 "size": 4,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -4802,48 +4802,48 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_approve.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr": {
                 "decorators": [],
                 "pc": 481,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.Args",
                 "members": {
                     "account": {
                         "cairo_type": "felt",
@@ -4853,8 +4853,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -4868,29 +4868,29 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.addr.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.hash2": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.hash2": {
                 "destination": "starkware.cairo.common.hash.hash2",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.normalize_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.normalize_address": {
                 "destination": "starkware.starknet.common.storage.normalize_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read": {
                 "decorators": [],
                 "pc": 495,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.Args",
                 "members": {
                     "account": {
                         "cairo_type": "felt",
@@ -4900,8 +4900,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -4919,29 +4919,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.Return": {
                 "cairo_type": "(balance: starkware.cairo.common.uint256.Uint256)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.read.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.storage_read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.storage_read": {
                 "destination": "starkware.starknet.common.syscalls.storage_read",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.storage_write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.storage_write": {
                 "destination": "starkware.starknet.common.syscalls.storage_write",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write": {
                 "decorators": [],
                 "pc": 515,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.Args",
                 "members": {
                     "account": {
                         "cairo_type": "felt",
@@ -4955,8 +4955,8 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -4974,21 +4974,21 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_balances.write.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn": {
                 "decorators": [],
                 "pc": 969,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.Args",
                 "members": {
                     "account": {
                         "cairo_type": "felt",
@@ -5002,8 +5002,8 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5021,54 +5021,54 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_burn.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr": {
                 "decorators": [],
                 "pc": 410,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5082,35 +5082,35 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.addr.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.hash2": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.hash2": {
                 "destination": "starkware.cairo.common.hash.hash2",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.normalize_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.normalize_address": {
                 "destination": "starkware.starknet.common.storage.normalize_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read": {
                 "decorators": [],
                 "pc": 415,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5128,29 +5128,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.Return": {
                 "cairo_type": "(decimals: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.read.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.storage_read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.storage_read": {
                 "destination": "starkware.starknet.common.syscalls.storage_read",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.storage_write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.storage_write": {
                 "destination": "starkware.starknet.common.syscalls.storage_write",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write": {
                 "decorators": [],
                 "pc": 428,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.Args",
                 "members": {
                     "value": {
                         "cairo_type": "felt",
@@ -5160,8 +5160,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5179,21 +5179,21 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_decimals.write.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer": {
                 "decorators": [],
                 "pc": 590,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.Args",
                 "members": {
                     "decimals": {
                         "cairo_type": "felt",
@@ -5211,8 +5211,8 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5230,21 +5230,21 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_initializer.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint": {
                 "decorators": [],
                 "pc": 802,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.Args",
                 "members": {
                     "amount": {
                         "cairo_type": "starkware.cairo.common.uint256.Uint256",
@@ -5258,8 +5258,8 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5277,54 +5277,54 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_mint.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 4
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr": {
                 "decorators": [],
                 "pc": 350,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5338,35 +5338,35 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.addr.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.hash2": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.hash2": {
                 "destination": "starkware.cairo.common.hash.hash2",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.normalize_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.normalize_address": {
                 "destination": "starkware.starknet.common.storage.normalize_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read": {
                 "decorators": [],
                 "pc": 355,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5384,29 +5384,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.Return": {
                 "cairo_type": "(name: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.read.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.storage_read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.storage_read": {
                 "destination": "starkware.starknet.common.syscalls.storage_read",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.storage_write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.storage_write": {
                 "destination": "starkware.starknet.common.syscalls.storage_write",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write": {
                 "decorators": [],
                 "pc": 368,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.Args",
                 "members": {
                     "value": {
                         "cairo_type": "felt",
@@ -5416,8 +5416,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5435,54 +5435,54 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_name.write.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr": {
                 "decorators": [],
                 "pc": 380,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5496,35 +5496,35 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.addr.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.hash2": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.hash2": {
                 "destination": "starkware.cairo.common.hash.hash2",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.normalize_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.normalize_address": {
                 "destination": "starkware.starknet.common.storage.normalize_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read": {
                 "decorators": [],
                 "pc": 385,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5542,29 +5542,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.Return": {
                 "cairo_type": "(symbol: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.read.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.storage_read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.storage_read": {
                 "destination": "starkware.starknet.common.syscalls.storage_read",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.storage_write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.storage_write": {
                 "destination": "starkware.starknet.common.syscalls.storage_write",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write": {
                 "decorators": [],
                 "pc": 398,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.Args",
                 "members": {
                     "value": {
                         "cairo_type": "felt",
@@ -5574,8 +5574,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5593,54 +5593,54 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_symbol.write.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr": {
                 "decorators": [],
                 "pc": 440,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5654,35 +5654,35 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.addr.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.hash2": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.hash2": {
                 "destination": "starkware.cairo.common.hash.hash2",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.normalize_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.normalize_address": {
                 "destination": "starkware.starknet.common.storage.normalize_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read": {
                 "decorators": [],
                 "pc": 445,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5700,29 +5700,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.Return": {
                 "cairo_type": "(total_supply: starkware.cairo.common.uint256.Uint256)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.read.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.storage_read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.storage_read": {
                 "destination": "starkware.starknet.common.syscalls.storage_read",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.storage_write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.storage_write": {
                 "destination": "starkware.starknet.common.syscalls.storage_write",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write": {
                 "decorators": [],
                 "pc": 464,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.Args",
                 "members": {
                     "value": {
                         "cairo_type": "starkware.cairo.common.uint256.Uint256",
@@ -5732,8 +5732,8 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5751,21 +5751,21 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_total_supply.write.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer": {
                 "decorators": [],
                 "pc": 865,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.Args",
                 "members": {
                     "amount": {
                         "cairo_type": "starkware.cairo.common.uint256.Uint256",
@@ -5783,8 +5783,8 @@
                 "size": 4,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5802,64 +5802,64 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.ERC20_transfer.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 2
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.MAX_DECIMALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.MAX_DECIMALS": {
                 "type": "const",
                 "value": 255
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.SignatureBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.SignatureBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.SignatureBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.SELECTOR": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.SELECTOR": {
                 "type": "const",
                 "value": 271746229759260285552388728919865295615886751538523744128730118297934206697
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.alloc": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.alloc": {
                 "destination": "starkware.cairo.common.alloc.alloc",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit": {
                 "decorators": [],
                 "pc": 296,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.Args",
                 "members": {
                     "from_": {
                         "cairo_type": "felt",
@@ -5877,8 +5877,8 @@
                 "size": 4,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.ImplicitArgs",
                 "members": {
                     "range_check_ptr": {
                         "cairo_type": "felt",
@@ -5892,35 +5892,35 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 2
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit_event": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.emit_event": {
                 "destination": "starkware.starknet.common.syscalls.emit_event",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.memcpy": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Transfer.memcpy": {
                 "destination": "starkware.cairo.common.memcpy.memcpy",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.Uint256": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.Uint256": {
                 "destination": "starkware.cairo.common.uint256.Uint256",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance": {
                 "decorators": [
                     "view"
                 ],
                 "pc": 765,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.Args",
                 "members": {
                     "owner": {
                         "cairo_type": "felt",
@@ -5934,8 +5934,8 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -5953,31 +5953,31 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.Return": {
                 "cairo_type": "(remaining: starkware.cairo.common.uint256.Uint256)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.allowance.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.assert_nn_le": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.assert_nn_le": {
                 "destination": "starkware.cairo.common.math.assert_nn_le",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.assert_not_zero": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.assert_not_zero": {
                 "destination": "starkware.cairo.common.math.assert_not_zero",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf": {
                 "decorators": [
                     "view"
                 ],
                 "pc": 730,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.Args",
                 "members": {
                     "account": {
                         "cairo_type": "felt",
@@ -5987,8 +5987,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6006,29 +6006,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.Return": {
                 "cairo_type": "(balance: starkware.cairo.common.uint256.Uint256)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.balanceOf.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals": {
                 "decorators": [
                     "view"
                 ],
                 "pc": 700,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6046,29 +6046,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.Return": {
                 "cairo_type": "(decimals: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.decimals.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name": {
                 "decorators": [
                     "view"
                 ],
                 "pc": 609,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6086,29 +6086,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name.Return": {
                 "cairo_type": "(name: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.name.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.name.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol": {
                 "decorators": [
                     "view"
                 ],
                 "pc": 639,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6126,29 +6126,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.Return": {
                 "cairo_type": "(symbol: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.symbol.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply": {
                 "decorators": [
                     "view"
                 ],
                 "pc": 669,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6166,57 +6166,57 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.Return": {
                 "cairo_type": "(totalSupply: starkware.cairo.common.uint256.Uint256)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.totalSupply.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.uint256_add": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.uint256_add": {
                 "destination": "starkware.cairo.common.uint256.uint256_add",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.uint256_check": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.uint256_check": {
                 "destination": "starkware.cairo.common.uint256.uint256_check",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.uint256_le": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.uint256_le": {
                 "destination": "starkware.cairo.common.uint256.uint256_le",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.ERC20_base.uint256_sub": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.ERC20_base.uint256_sub": {
                 "destination": "starkware.cairo.common.uint256.uint256_sub",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.assert_not_zero": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.assert_not_zero": {
                 "destination": "starkware.cairo.common.math.assert_not_zero",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.get_caller_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.get_caller_address": {
                 "destination": "starkware.starknet.common.syscalls.get_caller_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter": {
                 "decorators": [
                     "view"
                 ],
                 "pc": 1075,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6234,21 +6234,21 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter.Return": {
                 "cairo_type": "(minter: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permittedMinter.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permittedMinter.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_initializer": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_initializer": {
                 "decorators": [],
                 "pc": 1065,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_initializer.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_initializer.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_initializer.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_initializer.Args",
                 "members": {
                     "minter_address": {
                         "cairo_type": "felt",
@@ -6258,8 +6258,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_initializer.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_initializer.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_initializer.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_initializer.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6277,54 +6277,54 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_initializer.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_initializer.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_initializer.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_initializer.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.addr": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.addr": {
                 "decorators": [],
                 "pc": 1035,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.addr.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.addr.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.addr.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.addr.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.addr.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.addr.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.addr.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.addr.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6338,35 +6338,35 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.addr.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.addr.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.addr.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.addr.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.hash2": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.hash2": {
                 "destination": "starkware.cairo.common.hash.hash2",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.normalize_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.normalize_address": {
                 "destination": "starkware.starknet.common.storage.normalize_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.read": {
                 "decorators": [],
                 "pc": 1040,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.read.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.read.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.read.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.read.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.read.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.read.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.read.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.read.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6384,29 +6384,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.read.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.read.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.read.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.read.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.storage_read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.storage_read": {
                 "destination": "starkware.starknet.common.syscalls.storage_read",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.storage_write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.storage_write": {
                 "destination": "starkware.starknet.common.syscalls.storage_write",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.write": {
                 "decorators": [],
                 "pc": 1053,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.write.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.write.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.write.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.write.Args",
                 "members": {
                     "value": {
                         "cairo_type": "felt",
@@ -6416,8 +6416,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.write.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.write.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.write.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.write.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6435,27 +6435,27 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.write.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.write.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter.write.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter.write.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter_only": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter_only": {
                 "decorators": [],
                 "pc": 1105,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter_only.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter_only.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter_only.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter_only.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter_only.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter_only.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter_only.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter_only.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6473,66 +6473,66 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter_only.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter_only.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.ERC20.permitted.permitted_minter_only.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.ERC20.permitted.cairo.permitted_minter_only.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.FALSE": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.FALSE": {
                 "destination": "starkware.cairo.common.bool.FALSE",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.TRUE": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.TRUE": {
                 "destination": "starkware.cairo.common.bool.TRUE",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized": {
                 "type": "namespace"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.HashBuiltin": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.HashBuiltin": {
                 "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.ImplicitArgs",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr": {
                 "decorators": [],
                 "pc": 1120,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6546,35 +6546,35 @@
                 "size": 2,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.addr.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.hash2": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.hash2": {
                 "destination": "starkware.cairo.common.hash.hash2",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.normalize_address": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.normalize_address": {
                 "destination": "starkware.starknet.common.storage.normalize_address",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read": {
                 "decorators": [],
                 "pc": 1125,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6592,29 +6592,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.read.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.storage_read": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.storage_read": {
                 "destination": "starkware.starknet.common.syscalls.storage_read",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.storage_write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.storage_write": {
                 "destination": "starkware.starknet.common.syscalls.storage_write",
                 "type": "alias"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write": {
                 "decorators": [],
                 "pc": 1138,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.Args",
                 "members": {
                     "value": {
                         "cairo_type": "felt",
@@ -6624,8 +6624,8 @@
                 "size": 1,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6643,29 +6643,29 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable._initialized.write.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized": {
                 "decorators": [
                     "view"
                 ],
                 "pc": 1150,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6683,27 +6683,27 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.Return": {
                 "cairo_type": "(res: felt)",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.initialized.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized": {
                 "decorators": [],
                 "pc": 1180,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6721,27 +6721,27 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.only_uninitialized.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized": {
                 "decorators": [],
                 "pc": 1191,
                 "type": "function"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.Args": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.Args",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.Args": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.Args",
                 "members": {},
                 "size": 0,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.ImplicitArgs": {
-                "full_name": "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.ImplicitArgs",
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.ImplicitArgs": {
+                "full_name": "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.ImplicitArgs",
                 "members": {
                     "pedersen_ptr": {
                         "cairo_type": "starkware.cairo.common.cairo_builtins.HashBuiltin*",
@@ -6759,11 +6759,11 @@
                 "size": 3,
                 "type": "struct"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.Return": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.Return": {
                 "cairo_type": "()",
                 "type": "type_definition"
             },
-            "blockifier.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.SIZEOF_LOCALS": {
+            "blockifier.ERC20.ERC20_Cairo0.ERC20_without_some_syscalls.upgradability_proxy.initializable.set_initialized.SIZEOF_LOCALS": {
                 "type": "const",
                 "value": 0
             },
