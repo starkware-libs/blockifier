@@ -32,6 +32,7 @@ use py_validator::PyValidator;
 use pyo3::prelude::*;
 use storage::StorageConfig;
 
+use crate::py_objects::PyVersionedConstantsOverrides;
 use crate::py_state_diff::PyStateDiff;
 use crate::py_testing_wrappers::{
     estimate_casm_hash_computation_resources_for_testing_list,
@@ -47,6 +48,7 @@ fn native_blockifier(py: Python<'_>, py_module: &PyModule) -> PyResult<()> {
     py_module.add_class::<PyBlockExecutor>()?;
     py_module.add_class::<PyStateDiff>()?;
     py_module.add_class::<PyValidator>()?;
+    py_module.add_class::<PyVersionedConstantsOverrides>()?;
     py_module.add_class::<PyExecutionResources>()?;
     py_module.add_class::<StorageConfig>()?;
     py_module.add("UndeclaredClassHashError", py.get_type::<UndeclaredClassHashError>())?;
