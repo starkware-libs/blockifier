@@ -21,7 +21,7 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_objects::{PyBouncerConfig, PyConcurrencyConfig};
+use crate::py_objects::{PyBouncerConfig, PyConcurrencyConfig, PyVersionedConstantsOverrides};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::{py_tx, PyClassInfo, PY_TX_PARSING_ERR};
 use crate::py_utils::{int_to_chain_id, into_block_number_hash_pair, PyFelt};
@@ -91,23 +91,20 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (bouncer_config, concurrency_config, general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
+    #[pyo3(signature = (bouncer_config, concurrency_config, general_config, global_contract_cache_size, target_storage_config, py_versioned_constants_overrides))]
     pub fn create(
         bouncer_config: PyBouncerConfig,
         concurrency_config: PyConcurrencyConfig,
         general_config: PyGeneralConfig,
-        validate_max_n_steps: u32,
-        max_recursion_depth: usize,
         global_contract_cache_size: usize,
         target_storage_config: StorageConfig,
+        py_versioned_constants_overrides: PyVersionedConstantsOverrides,
     ) -> Self {
         log::debug!("Initializing Block Executor...");
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage.");
-        let versioned_constants = VersionedConstants::latest_constants_with_overrides(
-            validate_max_n_steps,
-            max_recursion_depth,
-        );
+        let versioned_constants =
+            VersionedConstants::get_versioned_constants(py_versioned_constants_overrides.into());
         log::debug!("Initialized Block Executor.");
 
         Self {

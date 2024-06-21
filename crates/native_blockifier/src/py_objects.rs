@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use blockifier::abi::constants;
 use blockifier::blockifier::config::ConcurrencyConfig;
 use blockifier::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
+use blockifier::versioned_constants::{VersionedConstants, VersionedConstantsOverrides};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 // From Rust to Python.
@@ -30,6 +32,58 @@ impl From<ExecutionResources> for PyExecutionResources {
 }
 
 // From Python to Rust.
+
+#[pyclass]
+#[derive(Clone)]
+pub struct PyVersionedConstantsOverrides {
+    pub validate_max_n_steps: u32,
+    pub max_recursion_depth: usize,
+    pub versioned_constants_base_overrides: Option<String>,
+}
+
+#[pymethods]
+impl PyVersionedConstantsOverrides {
+    #[new]
+    #[pyo3(signature = (validate_max_n_steps, max_recursion_depth, versioned_constants_base_overrides))]
+    pub fn create(
+        validate_max_n_steps: u32,
+        max_recursion_depth: usize,
+        versioned_constants_base_overrides: Option<String>,
+    ) -> Self {
+        Self { validate_max_n_steps, max_recursion_depth, versioned_constants_base_overrides }
+    }
+
+    #[staticmethod]
+    pub fn assert_versioned_consts_load_successfully(
+        versioned_constants_str: &str,
+    ) -> PyResult<()> {
+        if serde_json::from_str::<VersionedConstants>(versioned_constants_str).is_ok() {
+            Ok(())
+        } else {
+            Err(PyValueError::new_err("Failed to parse `versioned_constants_str`."))
+        }
+    }
+}
+
+impl From<PyVersionedConstantsOverrides> for VersionedConstantsOverrides {
+    fn from(py_versioned_constants_overrides: PyVersionedConstantsOverrides) -> Self {
+        let PyVersionedConstantsOverrides {
+            validate_max_n_steps,
+            max_recursion_depth,
+            versioned_constants_base_overrides,
+        } = py_versioned_constants_overrides;
+        let base_overrides =
+            versioned_constants_base_overrides.map(|versioned_constants_base_overrides| {
+                serde_json::from_str(&versioned_constants_base_overrides)
+                    .expect("Versioned constants JSON file is malformed.")
+            });
+        Self {
+            validate_max_n_steps,
+            max_recursion_depth,
+            versioned_constants_base_overrides: base_overrides,
+        }
+    }
+}
 
 #[derive(Clone, Debug, FromPyObject)]
 pub struct PyBouncerConfig {
