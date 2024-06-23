@@ -34,7 +34,6 @@ use crate::transaction::objects::{
     CommonAccountFields, CurrentTransactionInfo, DeprecatedTransactionInfo, TransactionInfo,
 };
 
-
 // TODO even more thorough testing with native
 #[test_case(
     FeatureContract::SierraTestContract,
