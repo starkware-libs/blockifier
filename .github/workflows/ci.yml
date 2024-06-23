@@ -55,7 +55,7 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: Set up Native Dependencies
-        uses: ./.github/actions/setup-native-dep
+        uses: ./.github/actions/setup-native-dep-macos
         id: native-deps
       - run: scripts/clippy.sh
         env:
@@ -83,7 +83,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Set up Native Dependencies
-        uses: ./.github/actions/setup-native-dep
+        uses: ./.github/actions/setup-native-dep-macos
         id: native-deps
       - run: cargo test --features testing
         env:
@@ -99,7 +99,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Set up Native Dependencies
-        uses: ./.github/actions/setup-native-dep
+        uses: ./.github/actions/setup-native-dep-macos
         id: native-deps
       - run: cargo test --features concurrency
         env:
@@ -117,7 +117,7 @@ jobs:
         with:
           toolchain: nightly-2023-12-21
       - name: Set up Native Dependencies
-        uses: ./.github/actions/setup-native-dep
+        uses: ./.github/actions/setup-native-dep-macos
       - uses: Swatinem/rust-cache@v2
         id: "cache-cargo"
       - if: ${{ steps.cache-cargo.outputs.cache-hit != 'true' }}
