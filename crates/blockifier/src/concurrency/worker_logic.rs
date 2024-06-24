@@ -273,17 +273,23 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                     sequencer_balance_value_low,
                     sequencer_balance_value_high,
                 );
+                add_fee_to_sequencer_balance(
+                    tx_context.fee_token_address(),
+                    &mut tx_versioned_state,
+                    tx_execution_info.transaction_receipt.fee,
+                    self.block_context,
+                    sequencer_balance_value_low,
+                    sequencer_balance_value_high,
+                );
+                // Changing the sequencer balance storage cell does not trigger (re-)validation of
+                // the next transactions.
+            } else {
+                assert_eq!(
+                    tx_execution_info.transaction_receipt.fee,
+                    Fee(0),
+                    "Transaction with no fee transfer info must have zero fee."
+                )
             }
-            add_fee_to_sequencer_balance(
-                tx_context.fee_token_address(),
-                &mut tx_versioned_state,
-                tx_execution_info.transaction_receipt.fee,
-                self.block_context,
-                sequencer_balance_value_low,
-                sequencer_balance_value_high,
-            );
-            // Changing the sequencer balance storage cell does not trigger (re-)validation of
-            // the next transactions.
         }
 
         true
