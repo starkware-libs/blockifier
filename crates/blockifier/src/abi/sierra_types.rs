@@ -36,16 +36,21 @@ pub trait SierraType: Sized {
     fn from_memory(vm: &VirtualMachine, ptr: &mut Relocatable) -> SierraTypeResult<Self>;
 
     fn from_storage(
-        state: &mut dyn StateReader,
+        state: &dyn StateReader,
         contract_address: &ContractAddress,
         key: &StorageKey,
     ) -> SierraTypeResult<Self>;
 }
 
 // Utils.
+
 pub fn felt_to_u128(felt: &Felt252) -> Result<u128, SierraTypeError> {
     felt.to_u128()
         .ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: felt.clone(), ty: "u128" })
+}
+
+pub fn stark_felt_to_u128(stark_felt: &StarkFelt) -> Result<u128, SierraTypeError> {
+    felt_to_u128(&stark_felt_to_felt(*stark_felt))
 }
 
 // TODO(barak, 01/10/2023): Move to starknet_api under StorageKey implementation.
@@ -78,7 +83,7 @@ impl SierraType for SierraU128 {
     }
 
     fn from_storage(
-        state: &mut dyn StateReader,
+        state: &dyn StateReader,
         contract_address: &ContractAddress,
         key: &StorageKey,
     ) -> SierraTypeResult<Self> {
@@ -111,7 +116,7 @@ impl SierraType for SierraU256 {
     }
 
     fn from_storage(
-        state: &mut dyn StateReader,
+        state: &dyn StateReader,
         contract_address: &ContractAddress,
         key: &StorageKey,
     ) -> SierraTypeResult<Self> {
