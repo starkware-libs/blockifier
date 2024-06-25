@@ -46,8 +46,7 @@ pub fn test_fill_sequencer_balance_reads(
 
     fill_sequencer_balance_reads(
         &mut concurrency_call_info,
-        StarkFelt::from(sequencer_balance),
-        StarkFelt::ZERO,
+        (StarkFelt::from(sequencer_balance), StarkFelt::ZERO),
     );
 
     assert_eq!(concurrency_call_info, call_info);
@@ -75,8 +74,7 @@ pub fn test_add_fee_to_sequencer_balance(
         &mut state,
         actual_fee,
         &block_context,
-        sequencer_balance_low,
-        sequencer_balance_high,
+        (sequencer_balance_low, sequencer_balance_high),
     );
 
     let new_sequencer_balance_value_low =
