@@ -11,11 +11,13 @@ use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
 use crate::bouncer::Bouncer;
-use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
+use crate::concurrency::fee_utils::{
+    add_fee_to_sequencer_balance, STORAGE_READ_SEQUENCER_BALANCE_INDICES,
+};
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
 use crate::concurrency::versioned_state::ThreadSafeVersionedState;
-use crate::concurrency::worker_logic::{add_fee_to_sequencer_balance, lock_mutex_in_array};
+use crate::concurrency::worker_logic::lock_mutex_in_array;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
