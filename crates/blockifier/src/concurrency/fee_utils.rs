@@ -6,12 +6,13 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::transaction::Fee;
 
-use crate::context::BlockContext;
+use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::CallInfo;
 use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::{ContractClassMapping, StateMaps};
 use crate::state::state_api::UpdatableState;
+use crate::transaction::objects::TransactionExecutionInfo;
 
 #[cfg(test)]
 #[path = "fee_utils_test.rs"]
@@ -22,9 +23,56 @@ mod test;
 // [account_balance, 0, sequencer_balance, 0]
 pub(crate) const STORAGE_READ_SEQUENCER_BALANCE_INDICES: (usize, usize) = (2, 3);
 
-// Completes the fee transfer execution by fixing the call info to have the correct sequencer
-// balance. In concurrency mode, the fee transfer is executed with a false (constant) sequencer
-// balance. This affects the call info.
+// Completes the fee transfer flow if needed (if the transfer was made in concurrent mode).
+pub fn complete_fee_transfer_flow(
+    tx_context: &TransactionContext,
+    tx_execution_info: &mut TransactionExecutionInfo,
+    state: &mut impl UpdatableState,
+) {
+    if tx_context.is_sequencer_the_sender() {
+        // When the sequencer is the sender, we use the sequential (full) fee transfer.
+        return;
+    }
+
+    let (sequencer_balance_value_low, sequencer_balance_value_high) = state
+                    .get_fee_token_balance(
+                        tx_context.block_context.block_info.sequencer_address,
+                        tx_context.fee_token_address(),
+                    )
+                    // TODO(barak, 01/07/2024): Consider propagating the error.
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "Access to storage failed. Probably due to a bug in Papyrus. {error:?}: {error}"
+                        )
+                    });
+
+    if let Some(fee_transfer_call_info) = tx_execution_info.fee_transfer_call_info.as_mut() {
+        // Fix the transfer call info.
+        fill_sequencer_balance_reads(
+            fee_transfer_call_info,
+            sequencer_balance_value_low,
+            sequencer_balance_value_high,
+        );
+        // Update the balance.
+        add_fee_to_sequencer_balance(
+            tx_context.fee_token_address(),
+            state,
+            tx_execution_info.transaction_receipt.fee,
+            &tx_context.block_context,
+            sequencer_balance_value_low,
+            sequencer_balance_value_high,
+        );
+    } else {
+        assert_eq!(
+            tx_execution_info.transaction_receipt.fee,
+            Fee(0),
+            "Transaction with no fee transfer info must have zero fee."
+        )
+    }
+}
+
+// Fixes the fee transfer call info to have the correct sequencer balance. In concurrency mode, the
+// fee transfer is executed with a false (constant) sequencer balance. This affects the call info.
 pub fn fill_sequencer_balance_reads(
     fee_transfer_call_info: &mut CallInfo,
     sequencer_balance_low: StarkFelt,
