@@ -5,12 +5,11 @@ use std::thread;
 use std::time::Duration;
 
 use starknet_api::core::ClassHash;
-use starknet_api::transaction::Fee;
 
 use super::versioned_state::VersionedState;
 use crate::blockifier::transaction_executor::TransactionExecutorError;
 use crate::bouncer::Bouncer;
-use crate::concurrency::fee_utils::{add_fee_to_sequencer_balance, fill_sequencer_balance_reads};
+use crate::concurrency::fee_utils::complete_fee_transfer_flow;
 use crate::concurrency::scheduler::{Scheduler, Task};
 use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::versioned_state::ThreadSafeVersionedState;
@@ -248,49 +247,9 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
                     }
                 }
             }
-            // Update the sequencer balance (in state + call info).
-            if tx_context.is_sequencer_the_sender() {
-                // When the sequencer is the sender, we use the sequential (full) fee transfer.
-                return true;
-            }
-
-            let (sequencer_balance_value_low, sequencer_balance_value_high) = tx_versioned_state
-                    .get_fee_token_balance(
-                        tx_context.block_context.block_info.sequencer_address,
-                        tx_context.fee_token_address(),
-                    )
-                    // TODO(barak, 01/07/2024): Consider propagating the error.
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "Access to storage failed. Probably due to a bug in Papyrus. {error:?}: {error}"
-                        )
-                    });
-
-            if let Some(fee_transfer_call_info) = tx_execution_info.fee_transfer_call_info.as_mut()
-            {
-                // Fix the transfer call info.
-                fill_sequencer_balance_reads(
-                    fee_transfer_call_info,
-                    sequencer_balance_value_low,
-                    sequencer_balance_value_high,
-                );
-                add_fee_to_sequencer_balance(
-                    tx_context.fee_token_address(),
-                    &mut tx_versioned_state,
-                    tx_execution_info.transaction_receipt.fee,
-                    self.block_context,
-                    sequencer_balance_value_low,
-                    sequencer_balance_value_high,
-                );
-                // Changing the sequencer balance storage cell does not trigger (re-)validation of
-                // the next transactions.
-            } else {
-                assert_eq!(
-                    tx_execution_info.transaction_receipt.fee,
-                    Fee(0),
-                    "Transaction with no fee transfer info must have zero fee."
-                )
-            }
+            complete_fee_transfer_flow(&tx_context, tx_execution_info, &mut tx_versioned_state);
+            // Optimization: changing the sequencer balance storage cell does not trigger
+            // (re-)validation of the next transactions.
         }
 
         true
