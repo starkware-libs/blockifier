@@ -29,11 +29,16 @@ jobs:
 
       - name: Validate PR commits with commitlint
         if: github.event_name == 'pull_request' && !(contains(github.event.pull_request.title, '/merge-main') || contains(github.event.pull_request.title, '/merge main'))
-        run: commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
 
       - name: Validate PR title with commitlint
         if: github.event_name != 'merge_group' && github.event_name != 'push' && !(contains(github.event.pull_request.title, '/merge-main') || contains(github.event.pull_request.title, '/merge main'))
-        run: echo "${{ github.event.pull_request.title }}" | commitlint --verbose
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$TITLE" | commitlint --verbose
 
   format:
     runs-on: ubuntu-latest
@@ -76,7 +81,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test
       - run: cargo test --features concurrency
-
 
   udeps:
     runs-on: ubuntu-latest
