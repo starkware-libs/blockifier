@@ -29,38 +29,33 @@ pub fn complete_fee_transfer_flow(
     tx_execution_info: &mut TransactionExecutionInfo,
     state: &mut impl UpdatableState,
 ) {
-    if tx_context.is_sequencer_the_sender() {
+    if !tx_context.block_context.concurrency_mode || tx_context.is_sequencer_the_sender() {
         // When the sequencer is the sender, we use the sequential (full) fee transfer.
         return;
     }
 
-    let (sequencer_balance_value_low, sequencer_balance_value_high) = state
-                    .get_fee_token_balance(
-                        tx_context.block_context.block_info.sequencer_address,
-                        tx_context.fee_token_address(),
-                    )
-                    // TODO(barak, 01/07/2024): Consider propagating the error.
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "Access to storage failed. Probably due to a bug in Papyrus. {error:?}: {error}"
-                        )
-                    });
-
     if let Some(fee_transfer_call_info) = tx_execution_info.fee_transfer_call_info.as_mut() {
+        let sequencer_balance = state
+        .get_fee_token_balance(
+            tx_context.block_context.block_info.sequencer_address,
+            tx_context.fee_token_address()
+        )
+        // TODO(barak, 01/07/2024): Consider propagating the error.
+        .unwrap_or_else(|error| {
+            panic!(
+                "Access to storage failed. Probably due to a bug in Papyrus. {error:?}: {error}"
+            )
+        });
+
         // Fix the transfer call info.
-        fill_sequencer_balance_reads(
-            fee_transfer_call_info,
-            sequencer_balance_value_low,
-            sequencer_balance_value_high,
-        );
+        fill_sequencer_balance_reads(fee_transfer_call_info, sequencer_balance);
         // Update the balance.
         add_fee_to_sequencer_balance(
             tx_context.fee_token_address(),
             state,
             tx_execution_info.transaction_receipt.fee,
             &tx_context.block_context,
-            sequencer_balance_value_low,
-            sequencer_balance_value_high,
+            sequencer_balance,
         );
     } else {
         assert_eq!(
@@ -75,8 +70,7 @@ pub fn complete_fee_transfer_flow(
 // fee transfer is executed with a false (constant) sequencer balance. This affects the call info.
 pub fn fill_sequencer_balance_reads(
     fee_transfer_call_info: &mut CallInfo,
-    sequencer_balance_low: StarkFelt,
-    sequencer_balance_high: StarkFelt,
+    sequencer_balance: (StarkFelt, StarkFelt),
 ) {
     let storage_read_values = &mut fee_transfer_call_info.storage_read_values;
     assert_eq!(storage_read_values.len(), 4, "Storage read values should have 4 elements");
@@ -85,8 +79,9 @@ pub fn fill_sequencer_balance_reads(
     for index in [low_index, high_index] {
         assert_eq!(storage_read_values[index], StarkFelt::ZERO, "Sequencer balance should be zero");
     }
-    storage_read_values[low_index] = sequencer_balance_low;
-    storage_read_values[high_index] = sequencer_balance_high;
+    let (low, high) = sequencer_balance;
+    storage_read_values[low_index] = low;
+    storage_read_values[high_index] = high;
 }
 
 pub fn add_fee_to_sequencer_balance(
@@ -94,15 +89,13 @@ pub fn add_fee_to_sequencer_balance(
     state: &mut impl UpdatableState,
     actual_fee: Fee,
     block_context: &BlockContext,
-    sequencer_balance_value_low: StarkFelt,
-    sequencer_balance_value_high: StarkFelt,
+    sequencer_balance: (StarkFelt, StarkFelt),
 ) {
-    let sequencer_balance_low_as_u128 = stark_felt_to_felt(sequencer_balance_value_low)
-        .to_u128()
-        .expect("sequencer balance low should be u128");
-    let sequencer_balance_high_as_u128 = stark_felt_to_felt(sequencer_balance_value_high)
-        .to_u128()
-        .expect("sequencer balance high should be u128");
+    let (low, high) = sequencer_balance;
+    let sequencer_balance_low_as_u128 =
+        stark_felt_to_felt(low).to_u128().expect("sequencer balance low should be u128");
+    let sequencer_balance_high_as_u128 =
+        stark_felt_to_felt(high).to_u128().expect("sequencer balance high should be u128");
     let (new_value_low, carry) = sequencer_balance_low_as_u128.overflowing_add(actual_fee.0);
     let (new_value_high, carry) = sequencer_balance_high_as_u128.overflowing_add(carry.into());
     assert!(
