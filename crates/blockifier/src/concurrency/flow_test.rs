@@ -37,7 +37,7 @@ fn scheduler_flow_test(
         let scheduler = Arc::clone(&scheduler);
         let versioned_state = versioned_state.clone();
         let handle = std::thread::spawn(move || {
-            let mut task = Task::NoTask;
+            let mut task = Task::AskForTask;
             loop {
                 if let Some(mut transaction_committer) = scheduler.try_enter_commit_phase() {
                     while let Some(tx_index) = transaction_committer.try_commit() {
@@ -70,7 +70,7 @@ fn scheduler_flow_test(
                             &HashMap::default(),
                         );
                         scheduler.finish_execution(tx_index);
-                        Task::NoTask
+                        Task::AskForTask
                     }
                     Task::ValidationTask(tx_index) => {
                         let state_proxy = versioned_state.pin_version(tx_index);
@@ -82,10 +82,11 @@ fn scheduler_flow_test(
                             state_proxy.delete_writes(&writes, &ContractClassMapping::default());
                             scheduler.finish_abort(tx_index)
                         } else {
-                            Task::NoTask
+                            Task::AskForTask
                         }
                     }
-                    Task::NoTask => scheduler.next_task(),
+                    Task::NoTaskAvailable => Task::AskForTask,
+                    Task::AskForTask => scheduler.next_task(),
                     Task::Done => break,
                 }
             }
