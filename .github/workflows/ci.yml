@@ -86,19 +86,11 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 'pypy3.9'
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Build native_blockifier shared object
-        run: |
-          PYO3_PYTHON=pypy3.9 cargo build \
-            --release \
-            -p native_blockifier \
-            --features=testing
+        run: ./build_native_blockifier.sh
 
       - name: Get commit hash prefix
         id: commit_prefix
