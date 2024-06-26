@@ -6,15 +6,8 @@ repository.workspace = true
 license-file.workspace = true
 description = "The transaction-executing component in the Starknet sequencer."
 
-[lints.rust]
-future-incompatible = "deny"
-nonstandard-style = "deny"
-rust-2018-idioms = "deny"
-unused = "deny"
-warnings = "deny"
-
-[lints.clippy]
-as_conversions = "deny"
+[lints]
+workspace = true
 
 [features]
 concurrency = []
