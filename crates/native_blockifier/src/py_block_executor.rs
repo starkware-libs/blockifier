@@ -331,6 +331,7 @@ impl PyBlockExecutor {
         // to deallocate the transaction executor here to prevent leaks.
         self.teardown_block_execution();
         self.storage.close();
+        println!("DORI: test");
     }
 
     #[cfg(any(feature = "testing", test))]
