@@ -87,15 +87,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 'pypy3.9'
+
+      - name: Install pypy
+        run: source scripts/install_pypy.sh && install_pypy
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Build native_blockifier shared object
         run: |
-          PYO3_PYTHON=pypy3.9 cargo build \
+          PYO3_PYTHON=/usr/local/bin/pypy3.9 cargo build \
             --release \
             -p native_blockifier \
             --features=testing
