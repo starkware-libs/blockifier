@@ -10,7 +10,7 @@ use starknet_api::{contract_address, patricia_key, stark_felt};
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
-use crate::bouncer::Bouncer;
+use crate::bouncer::{Bouncer, BouncerWeights};
 use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
@@ -31,7 +31,7 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
 use crate::transaction::objects::HasRelatedFeeType;
 use crate::transaction::test_utils::{
-    account_invoke_tx, calculate_class_info_for_testing, max_resource_bounds,
+    account_invoke_tx, calculate_class_info_for_testing, emit_n_events_tx, max_resource_bounds,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
@@ -624,8 +624,14 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
 fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
     let concurrency_mode = true;
+    let max_n_events_in_block = 3;
+    // Initialize the bouncer with 2 events to make a 2 event transaction trigger BlockFull (if we
+    // simply set max_n_events_in_block to 1, the transaction will fail with a different error,
+    // TransactionTooLarge).
+    let initial_bouncer_weights = BouncerWeights { n_events: 2, ..Default::default() };
+    let n_events_in_tx = 2;
     let block_context =
-        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+        BlockContext::create_for_bouncer_testing(max_n_events_in_block, concurrency_mode);
 
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
@@ -647,7 +653,7 @@ fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
         &[*storage_key.0.key(), storage_value], // Calldata:  address, value.
     );
 
-    let txs = (0..3)
+    let mut txs = (0..3)
         .map(|_| {
             Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
                 sender_address,
@@ -658,7 +664,15 @@ fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
         })
         .collect::<Vec<Transaction>>();
 
+    txs.push(Transaction::AccountTransaction(emit_n_events_tx(
+        n_events_in_tx,
+        sender_address,
+        test_contract_address,
+        nonce_manager.next(sender_address),
+    )));
+
     let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    bouncer.set_accumulated_weights(initial_bouncer_weights);
     let worker_executor =
         WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
 
@@ -689,27 +703,38 @@ fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
     assert_eq!(*worker_executor.scheduler.get_tx_status(0), TransactionStatus::Committed);
     assert_eq!(*worker_executor.scheduler.get_tx_status(1), TransactionStatus::Committed);
 
-    // Create the final execution task and execute it.
+    // Create the third execution task and execute it.
     assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(2));
     worker_executor.execute(2);
 
-    // Commit the third (and last) transaction.
+    // Commit the third (and last in the block) transaction.
     worker_executor.commit_while_possible();
 
-    // Verify the commit index is now 3, the status of the last transaction is `Committed`, and the
-    // next task is `Done`.
+    // Verify the commit index is now 3 and the status of the third transaction is `Committed`.
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
     assert_eq!(*worker_executor.scheduler.get_tx_status(2), TransactionStatus::Committed);
+
+    // Create the last execution task and execute it.
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(3));
+    worker_executor.execute(3);
+
+    // Commit the last transaction, triggering the bouncer, and closing the block.
+    worker_executor.commit_while_possible();
+
+    // Verify the commit index is still 3, the status of the last transaction is `Committed`, and
+    // the next task is `Done`.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
+    assert_eq!(*worker_executor.scheduler.get_tx_status(3), TransactionStatus::Committed);
     assert_eq!(worker_executor.scheduler.next_task(), Task::Done);
 
     // Try to commit when all transactions are already committed.
     worker_executor.commit_while_possible();
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
 
+    // Make sure all transactions were actually executed successfully.
     for execution_output in worker_executor.execution_outputs.iter() {
         let locked_execution_output = execution_output.lock().unwrap();
         let result = locked_execution_output.as_ref().unwrap().result.as_ref();
         assert!(!result.unwrap().is_reverted());
     }
-    // TODO(Avi, 15/06/2024): Check the halt mechanism once the bouncer is supported.
 }
