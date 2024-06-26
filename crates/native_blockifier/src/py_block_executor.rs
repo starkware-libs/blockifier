@@ -168,13 +168,13 @@ impl PyBlockExecutor {
     ) -> NativeBlockifierResult<Py<PyBytes>> {
         let tx: Transaction = py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
         let tx_execution_info = self.tx_executor().execute(&tx)?;
-        let typed_tx_execution_info = ThinTransactionExecutionInfo::from_tx_execution_info(
+        let thin_tx_execution_info = ThinTransactionExecutionInfo::from_tx_execution_info(
             &self.tx_executor().block_context,
             tx_execution_info,
         );
 
         // Serialize and convert to PyBytes.
-        let serialized_tx_execution_info = typed_tx_execution_info.serialize();
+        let serialized_tx_execution_info = thin_tx_execution_info.serialize();
         Ok(Python::with_gil(|py| PyBytes::new(py, &serialized_tx_execution_info).into()))
     }
 
@@ -390,7 +390,7 @@ impl PyBlockExecutor {
         use blockifier::state::global_cache::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
             bouncer_config: BouncerConfig::max(),
-            tx_executor_config: TransactionExecutorConfig::default(),
+            tx_executor_config: TransactionExecutorConfig::create_for_testing(),
             storage: Box::new(storage),
             chain_info: ChainInfo::default(),
             versioned_constants: VersionedConstants::latest_constants().clone(),
