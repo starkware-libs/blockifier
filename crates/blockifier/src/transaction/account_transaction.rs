@@ -340,6 +340,7 @@ impl AccountTransaction {
 
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
         let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
+        println!("before transfer");
         let fee_transfer_call = CallEntryPoint {
             class_hash: None,
             code_address: None,
@@ -358,6 +359,7 @@ impl AccountTransaction {
         };
 
         let mut context = EntryPointExecutionContext::new_invoke(tx_context, true)?;
+        println!("after transfer");
 
         Ok(fee_transfer_call
             .execute(state, &mut ExecutionResources::default(), &mut context)
@@ -375,6 +377,7 @@ impl AccountTransaction {
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
+        println!("Im charging fee here");
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
         let fee_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
         let (sequencer_balance_key_low, sequencer_balance_key_high) =
@@ -386,10 +389,12 @@ impl AccountTransaction {
         for key in [sequencer_balance_key_low, sequencer_balance_key_high] {
             cache.set_storage_initial_value(fee_address, key, StarkFelt::ZERO);
         }
-
+        println!("before execute fee transfer");
         let fee_transfer_call_info =
             AccountTransaction::execute_fee_transfer(&mut transfer_state, tx_context, actual_fee);
+        println!("after execute fee transfer");
         // Commit without updating the sequencer balance.
+        println!("fee transfer call_info in execute fee: {:?}", fee_transfer_call_info);
         let storage_writes = &mut transfer_state.cache.get_mut().writes.storage;
         storage_writes.remove(&(fee_address, sequencer_balance_key_low));
         storage_writes.remove(&(fee_address, sequencer_balance_key_high));

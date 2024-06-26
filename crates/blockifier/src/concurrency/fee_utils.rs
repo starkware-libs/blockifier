@@ -72,7 +72,9 @@ pub fn fill_sequencer_balance_reads(
     fee_transfer_call_info: &mut CallInfo,
     sequencer_balance: (StarkFelt, StarkFelt),
 ) {
+    println!("fee transfer call_info: {:?}", fee_transfer_call_info);
     let storage_read_values = &mut fee_transfer_call_info.storage_read_values;
+    println!("storage_read_values: {:?}", storage_read_values);
     assert_eq!(storage_read_values.len(), 4, "Storage read values should have 4 elements");
 
     let (low_index, high_index) = STORAGE_READ_SEQUENCER_BALANCE_INDICES;
