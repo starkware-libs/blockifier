@@ -241,7 +241,7 @@ fn test_l1_handler(block_context: BlockContext) {
 
 fn test_bouncing(#[case] initial_bouncer_weights: BouncerWeights, #[case] n_events: usize) {
     let max_n_events_in_block = 10;
-    let block_context = BlockContext::create_for_bouncer_testing(max_n_events_in_block);
+    let block_context = BlockContext::create_for_bouncer_testing(max_n_events_in_block, false);
 
     let TestInitData { state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);
@@ -265,14 +265,17 @@ fn test_bouncing(#[case] initial_bouncer_weights: BouncerWeights, #[case] n_even
 
 #[rstest]
 fn test_execute_txs_bouncing() {
+    let config = TransactionExecutorConfig::create_for_testing();
     let max_n_events_in_block = 10;
-    let block_context = BlockContext::create_for_bouncer_testing(max_n_events_in_block);
+    let block_context = BlockContext::create_for_bouncer_testing(
+        max_n_events_in_block,
+        config.concurrency_config.enabled,
+    );
 
     let TestInitData { state, account_address, contract_address, .. } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);
 
-    let mut tx_executor =
-        TransactionExecutor::new(state, block_context, TransactionExecutorConfig::default());
+    let mut tx_executor = TransactionExecutor::new(state, block_context, config);
 
     let txs: Vec<Transaction> = [
         emit_n_events_tx(1, account_address, contract_address, nonce!(0_u32)),

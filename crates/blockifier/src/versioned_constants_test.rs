@@ -87,6 +87,26 @@ fn get_json_value_without_defaults() -> serde_json::Value {
     json_value_without_defaults
 }
 
+/// Assert `versioned_constants_base_overrides` are used when provided.
+#[test]
+fn test_versioned_constants_base_overrides() {
+    // Create a versioned constants copy with a modified value for `invoke_tx_max_n_steps`.
+    let mut versioned_constants_base_overrides = DEFAULT_CONSTANTS.clone();
+    versioned_constants_base_overrides.invoke_tx_max_n_steps += 1;
+
+    let result = VersionedConstants::get_versioned_constants(VersionedConstantsOverrides {
+        validate_max_n_steps: versioned_constants_base_overrides.validate_max_n_steps,
+        max_recursion_depth: versioned_constants_base_overrides.max_recursion_depth,
+        versioned_constants_base_overrides: Some(versioned_constants_base_overrides.clone()),
+    });
+
+    // Assert the new value is used.
+    assert_eq!(
+        result.invoke_tx_max_n_steps,
+        versioned_constants_base_overrides.invoke_tx_max_n_steps
+    );
+}
+
 #[test]
 fn test_default_values() {
     let json_value_without_defaults = get_json_value_without_defaults();

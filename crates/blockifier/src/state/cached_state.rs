@@ -8,9 +8,11 @@ use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
+use crate::context::TransactionContext;
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader, StateResult, UpdatableState};
+use crate::transaction::objects::TransactionExecutionInfo;
 use crate::utils::{strict_subtract_mappings, subtract_mappings};
 
 #[cfg(test)]
@@ -315,11 +317,25 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>
 #[cfg_attr(any(feature = "testing", test), derive(Clone))]
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct StateMaps {
+<<<<<<< HEAD
     pub(crate) nonces: HashMap<ContractAddress, Nonce>,
     pub(crate) class_hashes: HashMap<ContractAddress, ClassHash>,
     pub(crate) storage: HashMap<StorageEntry, Felt>,
     pub(crate) compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
     pub(crate) declared_contracts: HashMap<ClassHash, bool>,
+||||||| ab9375de
+    pub(crate) nonces: HashMap<ContractAddress, Nonce>,
+    pub(crate) class_hashes: HashMap<ContractAddress, ClassHash>,
+    pub(crate) storage: HashMap<StorageEntry, StarkFelt>,
+    pub(crate) compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
+    pub(crate) declared_contracts: HashMap<ClassHash, bool>,
+=======
+    pub nonces: HashMap<ContractAddress, Nonce>,
+    pub class_hashes: HashMap<ContractAddress, ClassHash>,
+    pub storage: HashMap<StorageEntry, StarkFelt>,
+    pub compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
+    pub declared_contracts: HashMap<ClassHash, bool>,
+>>>>>>> origin/main
 }
 
 impl StateMaps {
@@ -606,6 +622,23 @@ impl StateChangesKeys {
         self.storage_keys.extend(&other.storage_keys);
         self.compiled_class_hash_keys.extend(&other.compiled_class_hash_keys);
         self.modified_contracts.extend(&other.modified_contracts);
+    }
+
+    pub fn update_sequencer_key_in_storage(
+        &mut self,
+        tx_context: &TransactionContext,
+        tx_result: &TransactionExecutionInfo,
+    ) {
+        let actual_fee = tx_result.transaction_receipt.fee.0;
+        let sequencer_address = tx_context.block_context.block_info.sequencer_address;
+        if tx_context.block_context.concurrency_mode
+            && !tx_context.is_sequencer_the_sender()
+            && actual_fee > 0
+        {
+            // Add the deleted sequencer balance key to the storage keys.
+            let sequencer_balance_low = get_fee_token_var_address(sequencer_address);
+            self.storage_keys.insert((tx_context.fee_token_address(), sequencer_balance_low));
+        }
     }
 
     pub fn count(&self) -> StateChangesCount {

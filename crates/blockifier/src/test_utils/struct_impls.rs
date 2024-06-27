@@ -174,7 +174,10 @@ impl BlockContext {
         }
     }
 
-    pub fn create_for_bouncer_testing(max_n_events_in_block: usize) -> Self {
+    pub fn create_for_bouncer_testing(
+        max_n_events_in_block: usize,
+        concurrency_mode: bool,
+    ) -> Self {
         Self {
             bouncer_config: BouncerConfig {
                 block_max_capacity: BouncerWeights {
@@ -183,7 +186,7 @@ impl BlockContext {
                 },
                 ..BouncerConfig::empty()
             },
-            ..Self::create_for_testing()
+            ..Self::create_for_account_testing_with_concurrency_mode(concurrency_mode)
         }
     }
 

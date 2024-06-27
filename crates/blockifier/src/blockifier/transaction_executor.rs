@@ -1,4 +1,6 @@
 #[cfg(feature = "concurrency")]
+use std::collections::{HashMap, HashSet};
+#[cfg(feature = "concurrency")]
 use std::sync::Arc;
 #[cfg(feature = "concurrency")]
 use std::sync::Mutex;
@@ -62,6 +64,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         config: TransactionExecutorConfig,
     ) -> Self {
         log::debug!("Initializing Transaction Executor...");
+        assert_eq!(
+            block_context.concurrency_mode, config.concurrency_config.enabled,
+            "The concurrency mode must be identical in the block context and in the config."
+        );
         let bouncer_config = block_context.bouncer_config.clone();
         // Note: the state might not be empty even at this point; it is the creator's
         // responsibility to tune the bouncer according to pre and post block process.
@@ -83,6 +89,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: &Transaction,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
+        assert!(
+            !self.block_context.concurrency_mode,
+            "Executing a single transaction cannot be done in a concurrent mode."
+        );
         let mut transactional_state = TransactionalState::create_transactional(
             self.block_state.as_mut().expect(BLOCK_STATE_ACCESS_ERR),
         );
@@ -115,6 +125,10 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         txs: &[Transaction],
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        assert!(
+            !self.block_context.concurrency_mode,
+            "Executing transactions sequentially cannot be done in a concurrent mode."
+        );
         let mut results = Vec::new();
         for tx in txs {
             match self.execute(tx) {
@@ -240,25 +254,23 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
         });
 
         let n_committed_txs = worker_executor.scheduler.get_n_committed_txs();
-        let tx_execution_results = worker_executor
-            .execution_outputs
-            .iter()
-            .fold_while(Vec::new(), |mut results, execution_output| {
-                if results.len() >= n_committed_txs {
-                    Done(results)
-                } else {
-                    let locked_execution_output = execution_output
-                        .lock()
-                        .expect("Failed to lock execution output.")
-                        .take()
-                        .expect("Output must be ready.");
-                    results.push(
-                        locked_execution_output.result.map_err(TransactionExecutorError::from),
-                    );
-                    Continue(results)
-                }
-            })
-            .into_inner();
+        let mut tx_execution_results = Vec::new();
+        let mut visited_pcs: HashMap<ClassHash, HashSet<usize>> = HashMap::new();
+        for execution_output in worker_executor.execution_outputs.iter() {
+            if tx_execution_results.len() >= n_committed_txs {
+                break;
+            }
+            let locked_execution_output = execution_output
+                .lock()
+                .expect("Failed to lock execution output.")
+                .take()
+                .expect("Output must be ready.");
+            tx_execution_results
+                .push(locked_execution_output.result.map_err(TransactionExecutorError::from));
+            for (class_hash, class_visited_pcs) in locked_execution_output.visited_pcs {
+                visited_pcs.entry(class_hash).or_default().extend(class_visited_pcs);
+            }
+        }
 
         let block_state_after_commit = Arc::try_unwrap(worker_executor)
             .unwrap_or_else(|_| {
@@ -268,7 +280,7 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
                      it."
                 )
             })
-            .commit_chunk_and_recover_block_state(n_committed_txs);
+            .commit_chunk_and_recover_block_state(n_committed_txs, visited_pcs);
         self.block_state.replace(block_state_after_commit);
 
         tx_execution_results

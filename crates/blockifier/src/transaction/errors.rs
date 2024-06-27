@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
@@ -23,8 +24,9 @@ pub enum TransactionFeeError {
     InsufficientL1Fee { paid_fee: Fee, actual_fee: Fee },
     #[error(
         "L1 gas bounds (max amount: {max_amount}, max price: {max_price}) exceed balance \
-         (Uint256({balance_low}, {balance_high}))."
+         ({balance})."
     )]
+<<<<<<< HEAD
     L1GasBoundsExceedBalance {
         max_amount: u64,
         max_price: u128,
@@ -33,6 +35,20 @@ pub enum TransactionFeeError {
     },
     #[error("Max fee ({}) exceeds balance (Uint256({balance_low}, {balance_high})).", max_fee.0)]
     MaxFeeExceedsBalance { max_fee: Fee, balance_low: Felt, balance_high: Felt },
+||||||| ab9375de
+    L1GasBoundsExceedBalance {
+        max_amount: u64,
+        max_price: u128,
+        balance_low: StarkFelt,
+        balance_high: StarkFelt,
+    },
+    #[error("Max fee ({}) exceeds balance (Uint256({balance_low}, {balance_high})).", max_fee.0)]
+    MaxFeeExceedsBalance { max_fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
+=======
+    L1GasBoundsExceedBalance { max_amount: u64, max_price: u128, balance: BigUint },
+    #[error("Max fee ({}) exceeds balance ({balance}).", max_fee.0, )]
+    MaxFeeExceedsBalance { max_fee: Fee, balance: BigUint },
+>>>>>>> origin/main
     #[error("Max fee ({}) is too low. Minimum fee: {}.", max_fee.0, min_fee.0)]
     MaxFeeTooLow { min_fee: Fee, max_fee: Fee },
     #[error(

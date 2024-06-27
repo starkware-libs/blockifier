@@ -1,12 +1,28 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+<<<<<<< HEAD
 use num_bigint::BigUint;
 use rstest::rstest;
+||||||| ab9375de
+use num_bigint::BigUint;
+=======
+use rstest::rstest;
+>>>>>>> origin/main
 use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
+<<<<<<< HEAD
 use starknet_api::transaction::{ContractAddressSalt, Fee, TransactionVersion};
 use starknet_api::{contract_address, felt, patricia_key};
 use starknet_types_core::felt::Felt;
+||||||| ab9375de
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::transaction::{ContractAddressSalt, Fee, TransactionVersion};
+use starknet_api::{contract_address, patricia_key, stark_felt};
+=======
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::transaction::{ContractAddressSalt, ResourceBoundsMapping, TransactionVersion};
+use starknet_api::{contract_address, patricia_key, stark_felt};
+>>>>>>> origin/main
 
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
@@ -16,7 +32,7 @@ use crate::concurrency::fee_utils::STORAGE_READ_SEQUENCER_BALANCE_INDICES;
 use crate::concurrency::scheduler::{Task, TransactionStatus};
 use crate::concurrency::test_utils::safe_versioned_state_for_testing;
 use crate::concurrency::versioned_state::ThreadSafeVersionedState;
-use crate::concurrency::worker_logic::{add_fee_to_sequencer_balance, lock_mutex_in_array};
+use crate::concurrency::worker_logic::lock_mutex_in_array;
 use crate::context::{BlockContext, TransactionContext};
 use crate::fee::fee_utils::get_sequencer_balance_keys;
 use crate::state::cached_state::StateMaps;
@@ -25,14 +41,14 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
+    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE,
+    TEST_ERC20_CONTRACT_ADDRESS2,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
-use crate::transaction::objects::{FeeType, HasRelatedFeeType};
+use crate::transaction::objects::HasRelatedFeeType;
 use crate::transaction::test_utils::{
-    account_invoke_tx, calculate_class_info_for_testing, l1_resource_bounds,
+    account_invoke_tx, calculate_class_info_for_testing, max_resource_bounds,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
@@ -45,9 +61,8 @@ fn trivial_calldata_invoke_tx(
     account_invoke_tx(invoke_tx_args! {
         sender_address: account_address,
         calldata: create_trivial_calldata(test_contract_address),
-        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-        version: TransactionVersion::THREE,
-        nonce: nonce,
+        resource_bounds: max_resource_bounds(),
+        nonce,
     })
 }
 
@@ -249,8 +264,8 @@ fn test_commit_tx_when_sender_is_sequencer() {
     assert_eq!(sequencer_balance_high_before, sequencer_balance_high_after);
 }
 
-#[test]
-fn test_worker_execute() {
+#[rstest]
+fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
     let concurrency_mode = true;
     let block_context =
@@ -277,7 +292,7 @@ fn test_worker_execute() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address)
     });
 
@@ -290,7 +305,7 @@ fn test_worker_execute() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address)
 
     });
@@ -302,7 +317,7 @@ fn test_worker_execute() {
             "write_and_revert",
             &[felt!(1991_u16),storage_value ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds,
         nonce: nonce_manager.next(account_address)
 
     });
@@ -343,8 +358,8 @@ fn test_worker_execute() {
     let account_balance = BALANCE - result.transaction_receipt.fee.0;
     assert!(!result.is_reverted());
 
-    let erc20 = FeatureContract::ERC20;
-    let erc_contract_address = contract_address!(TEST_ERC20_CONTRACT_ADDRESS);
+    let erc20 = FeatureContract::ERC20(CairoVersion::Cairo0);
+    let erc_contract_address = contract_address!(TEST_ERC20_CONTRACT_ADDRESS2);
     let account_balance_key_low = get_fee_token_var_address(account_address);
     let account_balance_key_high = next_storage_key(&account_balance_key_low).unwrap();
     // Both in write and read sets, only the account balance appear, and not the sequencer balance.
@@ -425,8 +440,8 @@ fn test_worker_execute() {
     }
 }
 
-#[test]
-fn test_worker_validate() {
+#[rstest]
+fn test_worker_validate(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
     let concurrency_mode = true;
     let block_context =
@@ -456,7 +471,7 @@ fn test_worker_validate() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value0 ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address)
     });
 
@@ -467,7 +482,7 @@ fn test_worker_validate() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value1 ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds,
         nonce: nonce_manager.next(account_address)
 
     });
@@ -500,7 +515,7 @@ fn test_worker_validate() {
     // Validate succeeds.
     let tx_index = 0;
     let next_task = worker_executor.validate(tx_index);
-    assert_eq!(next_task, Task::NoTask);
+    assert_eq!(next_task, Task::AskForTask);
     // Verify writes exist in state.
     assert_eq!(
         safe_versioned_state
@@ -528,10 +543,11 @@ fn test_worker_validate() {
     assert_eq!(*worker_executor.scheduler.get_tx_status(tx_index), TransactionStatus::Executing);
 
     let next_task2 = worker_executor.validate(tx_index);
-    assert_eq!(next_task2, Task::NoTask);
+    assert_eq!(next_task2, Task::AskForTask);
 }
 
 #[rstest]
+<<<<<<< HEAD
 #[case::no_overflow(Fee(50_u128), felt!(100_u128), Felt::ZERO)]
 #[case::overflow(Fee(150_u128), felt!(u128::MAX), felt!(5_u128))]
 #[case::overflow_edge_case(Fee(500_u128), felt!(u128::MAX), felt!(u128::MAX-1))]
@@ -577,6 +593,62 @@ pub fn test_add_fee_to_sequencer_balance(
 
 #[test]
 fn test_deploy_before_declare() {
+||||||| ab9375de
+#[case::no_overflow(Fee(50_u128), stark_felt!(100_u128), StarkFelt::ZERO)]
+#[case::overflow(Fee(150_u128), stark_felt!(u128::MAX), stark_felt!(5_u128))]
+#[case::overflow_edge_case(Fee(500_u128), stark_felt!(u128::MAX), stark_felt!(u128::MAX-1))]
+pub fn test_add_fee_to_sequencer_balance(
+    #[case] actual_fee: Fee,
+    #[case] sequencer_balance_low: StarkFelt,
+    #[case] sequencer_balance_high: StarkFelt,
+) {
+    let tx_index = 0;
+    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let account = FeatureContract::Empty(CairoVersion::Cairo1);
+    let safe_versioned_state =
+        safe_versioned_state_for_testing(test_state(&block_context.chain_info, 0, &[(account, 1)]));
+    let mut tx_versioned_state = safe_versioned_state.pin_version(tx_index);
+    let (sequencer_balance_key_low, sequencer_balance_key_high) =
+        get_sequencer_balance_keys(&block_context);
+
+    let fee_token_address = block_context.chain_info.fee_token_address(&FeeType::Strk);
+
+    add_fee_to_sequencer_balance(
+        fee_token_address,
+        &mut tx_versioned_state,
+        actual_fee,
+        &block_context,
+        sequencer_balance_low,
+        sequencer_balance_high,
+    );
+
+    let new_sequencer_balance_value_low =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_low).unwrap();
+    let new_sequencer_balance_value_high =
+        tx_versioned_state.get_storage_at(fee_token_address, sequencer_balance_key_high).unwrap();
+    let expected_balance =
+        (stark_felt_to_felt(sequencer_balance_low) + Felt252::from(actual_fee.0)).to_biguint();
+
+    let mask_128_bit = (BigUint::from(1_u8) << 128) - 1_u8;
+    let expected_sequencer_balance_value_low = Felt252::from(&expected_balance & mask_128_bit);
+    let expected_sequencer_balance_value_high =
+        stark_felt_to_felt(sequencer_balance_high) + Felt252::from(&expected_balance >> 128);
+
+    assert_eq!(
+        new_sequencer_balance_value_low,
+        felt_to_stark_felt(&expected_sequencer_balance_value_low)
+    );
+    assert_eq!(
+        new_sequencer_balance_value_high,
+        felt_to_stark_felt(&expected_sequencer_balance_value_high)
+    );
+}
+
+#[test]
+fn test_deploy_before_declare() {
+=======
+fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
+>>>>>>> origin/main
     // Create the state.
     let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
     let chain_info = &block_context.chain_info;
@@ -591,15 +663,13 @@ fn test_deploy_before_declare() {
     let test_class_hash = test_contract.get_class_hash();
     let test_class_info = calculate_class_info_for_testing(test_contract.get_class());
     let test_compiled_class_hash = test_contract.get_compiled_class_hash();
-
     let declare_tx = declare_tx(
         declare_tx_args! {
-            max_fee: Fee(MAX_FEE),
             sender_address: account_address_0,
-            version: TransactionVersion::THREE,
-            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            resource_bounds: max_resource_bounds.clone(),
             class_hash: test_class_hash,
             compiled_class_hash: test_compiled_class_hash,
+            version: TransactionVersion::THREE,
             nonce: nonce!(0_u8),
         },
         test_class_info.clone(),
@@ -619,7 +689,7 @@ fn test_deploy_before_declare() {
                 felt!(1_u8),                  // Constructor calldata arg2.
             ]
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds,
         nonce: nonce!(0_u8)
     });
 
@@ -662,11 +732,11 @@ fn test_deploy_before_declare() {
 
     // Successful validation for transaction 1.
     let next_task = worker_executor.validate(1);
-    assert_eq!(next_task, Task::NoTask);
+    assert_eq!(next_task, Task::AskForTask);
 }
 
-#[test]
-fn test_worker_commit_phase() {
+#[rstest]
+fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
     let concurrency_mode = true;
     let block_context =
@@ -691,14 +761,13 @@ fn test_worker_commit_phase() {
         "test_storage_read_write",
         &[*storage_key.0.key(), storage_value], // Calldata:  address, value.
     );
-    let max_fee = Fee(MAX_FEE);
 
     let txs = (0..3)
         .map(|_| {
             Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
                 sender_address,
                 calldata: calldata.clone(),
-                max_fee,
+                resource_bounds: max_resource_bounds.clone(),
                 nonce: nonce_manager.next(sender_address)
             }))
         })

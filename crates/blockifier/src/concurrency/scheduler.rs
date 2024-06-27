@@ -9,6 +9,10 @@ use crate::concurrency::TxIndex;
 #[path = "scheduler_test.rs"]
 pub mod test;
 
+#[cfg(test)]
+#[path = "flow_test.rs"]
+pub mod flow_test;
+
 pub struct TransactionCommitter<'a> {
     scheduler: &'a Scheduler,
     commit_index_guard: MutexGuard<'a, usize>,
@@ -22,9 +26,13 @@ impl<'a> TransactionCommitter<'a> {
     /// Tries to commit the next uncommitted transaction in the chunk. Returns the index of the
     /// transaction to commit if successful, or None if the transaction is not yet executed.
     pub fn try_commit(&mut self) -> Option<usize> {
-        if *self.commit_index_guard >= self.scheduler.chunk_size {
+        if self.scheduler.done() {
             return None;
         };
+        assert!(
+            *self.commit_index_guard < self.scheduler.chunk_size,
+            "The commit index must be less than the chunk size, since the scheduler is not done."
+        );
 
         let mut status = self.scheduler.lock_tx_status(*self.commit_index_guard);
         if *status != TransactionStatus::Executed {
@@ -85,7 +93,7 @@ impl Scheduler {
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
 
         if min(index_to_validate, index_to_execute) >= self.chunk_size {
-            return Task::NoTask;
+            return Task::NoTaskAvailable;
         }
 
         if index_to_validate < index_to_execute {
@@ -98,7 +106,7 @@ impl Scheduler {
             return Task::ExecutionTask(tx_index);
         }
 
-        Task::NoTask
+        Task::AskForTask
     }
 
     /// Updates the Scheduler that an execution task has been finished and triggers the creation of
@@ -126,7 +134,7 @@ impl Scheduler {
         if self.execution_index.load(Ordering::Acquire) > tx_index && self.try_incarnate(tx_index) {
             Task::ExecutionTask(tx_index)
         } else {
-            Task::NoTask
+            Task::AskForTask
         }
     }
 
@@ -245,7 +253,8 @@ impl Scheduler {
 pub enum Task {
     ExecutionTask(TxIndex),
     ValidationTask(TxIndex),
-    NoTask,
+    AskForTask,
+    NoTaskAvailable,
     Done,
 }
 

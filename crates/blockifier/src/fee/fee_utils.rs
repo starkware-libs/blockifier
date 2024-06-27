@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
+use num_bigint::BigUint;
 use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Fee;
@@ -121,14 +122,12 @@ pub fn verify_can_pay_committed_bounds(
                 TransactionFeeError::L1GasBoundsExceedBalance {
                     max_amount: l1_bounds.max_amount,
                     max_price: l1_bounds.max_price_per_unit,
-                    balance_low,
-                    balance_high,
+                    balance: balance_to_big_uint(&balance_low, &balance_high),
                 }
             }
             TransactionInfo::Deprecated(context) => TransactionFeeError::MaxFeeExceedsBalance {
                 max_fee: context.max_fee,
-                balance_low,
-                balance_high,
+                balance: balance_to_big_uint(&balance_low, &balance_high),
             },
         })
     }
@@ -145,4 +144,10 @@ pub fn get_address_balance_keys(address: ContractAddress) -> (StorageKey, Storag
         panic!("Failed to get balance_key_high for address: {:?}", address.0);
     });
     (balance_key_low, balance_key_high)
+}
+
+pub(crate) fn balance_to_big_uint(balance_low: &StarkFelt, balance_high: &StarkFelt) -> BigUint {
+    let low = BigUint::from_bytes_be(balance_low.bytes());
+    let high = BigUint::from_bytes_be(balance_high.bytes());
+    (high << 128) + low
 }

@@ -21,7 +21,7 @@ use starknet_api::transaction::Fee;
 use starknet_types_core::felt::Felt;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
-use crate::py_objects::{PyBouncerConfig, PyConcurrencyConfig};
+use crate::py_objects::{PyBouncerConfig, PyConcurrencyConfig, PyVersionedConstantsOverrides};
 use crate::py_state_diff::{PyBlockInfo, PyStateDiff};
 use crate::py_transaction::{py_tx, PyClassInfo, PY_TX_PARSING_ERR};
 use crate::py_utils::{int_to_chain_id, into_block_number_hash_pair, PyFelt};
@@ -91,23 +91,20 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (bouncer_config, concurrency_config, general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
+    #[pyo3(signature = (bouncer_config, concurrency_config, general_config, global_contract_cache_size, target_storage_config, py_versioned_constants_overrides))]
     pub fn create(
         bouncer_config: PyBouncerConfig,
         concurrency_config: PyConcurrencyConfig,
         general_config: PyGeneralConfig,
-        validate_max_n_steps: u32,
-        max_recursion_depth: usize,
         global_contract_cache_size: usize,
         target_storage_config: StorageConfig,
+        py_versioned_constants_overrides: PyVersionedConstantsOverrides,
     ) -> Self {
         log::debug!("Initializing Block Executor...");
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage.");
-        let versioned_constants = VersionedConstants::latest_constants_with_overrides(
-            validate_max_n_steps,
-            max_recursion_depth,
-        );
+        let versioned_constants =
+            VersionedConstants::get_versioned_constants(py_versioned_constants_overrides.into());
         log::debug!("Initialized Block Executor.");
 
         Self {
@@ -171,13 +168,13 @@ impl PyBlockExecutor {
     ) -> NativeBlockifierResult<Py<PyBytes>> {
         let tx: Transaction = py_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
         let tx_execution_info = self.tx_executor().execute(&tx)?;
-        let typed_tx_execution_info = ThinTransactionExecutionInfo::from_tx_execution_info(
+        let thin_tx_execution_info = ThinTransactionExecutionInfo::from_tx_execution_info(
             &self.tx_executor().block_context,
             tx_execution_info,
         );
 
         // Serialize and convert to PyBytes.
-        let serialized_tx_execution_info = typed_tx_execution_info.serialize();
+        let serialized_tx_execution_info = thin_tx_execution_info.serialize();
         Ok(Python::with_gil(|py| PyBytes::new(py, &serialized_tx_execution_info).into()))
     }
 
@@ -393,7 +390,7 @@ impl PyBlockExecutor {
         use blockifier::state::global_cache::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
         Self {
             bouncer_config: BouncerConfig::max(),
-            tx_executor_config: TransactionExecutorConfig::default(),
+            tx_executor_config: TransactionExecutorConfig::create_for_testing(),
             storage: Box::new(storage),
             chain_info: ChainInfo::default(),
             versioned_constants: VersionedConstants::latest_constants().clone(),

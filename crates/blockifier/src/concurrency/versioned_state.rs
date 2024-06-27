@@ -121,7 +121,9 @@ impl<S: StateReader> VersionedState<S> {
             let is_declared = self.declared_contracts.read(tx_index, class_hash).expect(READ_ERR);
             assert_eq!(
                 is_declared,
-                self.compiled_contract_classes.read(tx_index, class_hash).is_some()
+                self.compiled_contract_classes.read(tx_index, class_hash).is_some(),
+                "The declared contracts mapping should match the compiled contract classes \
+                 mapping."
             );
 
             if &is_declared != expected_value {
@@ -156,7 +158,12 @@ impl<S: StateReader> VersionedState<S> {
         }
         for (&key, &value) in &writes.declared_contracts {
             self.declared_contracts.write(tx_index, key, value);
-            assert_eq!(value, self.compiled_contract_classes.read(tx_index, key).is_some());
+            assert_eq!(
+                value,
+                self.compiled_contract_classes.read(tx_index, key).is_some(),
+                "The declared contracts mapping should match the compiled contract classes \
+                 mapping."
+            );
         }
     }
 
@@ -192,7 +199,11 @@ impl<S: StateReader> VersionedState<S> {
 }
 
 impl<U: UpdatableState> VersionedState<U> {
-    pub fn commit_chunk_and_recover_block_state(mut self, n_committed_txs: usize) -> U {
+    pub fn commit_chunk_and_recover_block_state(
+        mut self,
+        n_committed_txs: usize,
+        visited_pcs: HashMap<ClassHash, HashSet<usize>>,
+    ) -> U {
         if n_committed_txs == 0 {
             return self.into_initial_state();
         }
@@ -201,8 +212,7 @@ impl<U: UpdatableState> VersionedState<U> {
         let class_hash_to_class =
             self.compiled_contract_classes.get_writes_up_to_index(commit_index);
         let mut state = self.into_initial_state();
-        // TODO(barak, 01/08/2024): Add visited_pcs argument to `apply_writes`.
-        state.apply_writes(&writes, &class_hash_to_class, &HashMap::default());
+        state.apply_writes(&writes, &class_hash_to_class, &visited_pcs);
         state
     }
 }
