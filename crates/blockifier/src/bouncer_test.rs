@@ -20,6 +20,7 @@ use crate::transaction::errors::TransactionExecutionError;
 
 #[test]
 fn test_block_weights_has_room() {
+    println!("test");
     let max_bouncer_weights = BouncerWeights {
         builtin_count: BuiltinCount {
             bitwise: 10,
