@@ -26,7 +26,7 @@ name = "native_blockifier"
 crate-type = ["cdylib"]
 
 [dependencies]
-blockifier = { path = "../blockifier", features = ["testing"] }
+blockifier = { path = "../blockifier", features = ["concurrency", "testing"] }
 cairo-lang-starknet-classes.workspace = true
 cairo-vm.workspace = true
 indexmap.workspace = true
