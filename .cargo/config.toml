@@ -1,4 +1,6 @@
 [env]
+# Enforce native_blockifier linking with pypy3.9.
+PYO3_PYTHON = "/usr/local/bin/pypy3.9"
 # Increase Rust stack size.
 # This should be large enough for `MAX_ENTRY_POINT_RECURSION_DEPTH` recursive entry point calls.
 RUST_MIN_STACK = "4194304" #  4 MiB
@@ -7,7 +9,7 @@ RUST_MIN_STACK = "4194304" #  4 MiB
 rustflags = [
   "-C", "link-arg=-undefined",
   "-C", "link-arg=dynamic_lookup",
-]
+  ]
 
 [target.aarch64-apple-darwin]
 rustflags = [
