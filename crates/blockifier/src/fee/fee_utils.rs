@@ -146,8 +146,8 @@ pub fn get_address_balance_keys(address: ContractAddress) -> (StorageKey, Storag
     (balance_key_low, balance_key_high)
 }
 
-pub(crate) fn balance_to_big_uint(balance_low: &StarkFelt, balance_high: &StarkFelt) -> BigUint {
-    let low = BigUint::from_bytes_be(balance_low.bytes());
-    let high = BigUint::from_bytes_be(balance_high.bytes());
+pub(crate) fn balance_to_big_uint(balance_low: &Felt, balance_high: &Felt) -> BigUint {
+    let low = BigUint::from_bytes_be(&balance_low.to_bytes_be());
+    let high = BigUint::from_bytes_be(&balance_high.to_bytes_be());
     (high << 128) + low
 }

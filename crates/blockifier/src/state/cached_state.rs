@@ -317,25 +317,11 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>
 #[cfg_attr(any(feature = "testing", test), derive(Clone))]
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct StateMaps {
-<<<<<<< HEAD
-    pub(crate) nonces: HashMap<ContractAddress, Nonce>,
-    pub(crate) class_hashes: HashMap<ContractAddress, ClassHash>,
-    pub(crate) storage: HashMap<StorageEntry, Felt>,
-    pub(crate) compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
-    pub(crate) declared_contracts: HashMap<ClassHash, bool>,
-||||||| ab9375de
-    pub(crate) nonces: HashMap<ContractAddress, Nonce>,
-    pub(crate) class_hashes: HashMap<ContractAddress, ClassHash>,
-    pub(crate) storage: HashMap<StorageEntry, StarkFelt>,
-    pub(crate) compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
-    pub(crate) declared_contracts: HashMap<ClassHash, bool>,
-=======
     pub nonces: HashMap<ContractAddress, Nonce>,
     pub class_hashes: HashMap<ContractAddress, ClassHash>,
-    pub storage: HashMap<StorageEntry, StarkFelt>,
+    pub storage: HashMap<StorageEntry, Felt>,
     pub compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
     pub declared_contracts: HashMap<ClassHash, bool>,
->>>>>>> origin/main
 }
 
 impl StateMaps {

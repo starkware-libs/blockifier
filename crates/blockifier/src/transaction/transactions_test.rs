@@ -31,15 +31,7 @@ use crate::execution::call_info::{
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
-<<<<<<< HEAD
-use crate::execution::syscalls::hint_processor::EmitEventError;
-||||||| ab9375de
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
-use crate::execution::syscalls::hint_processor::EmitEventError;
-=======
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{EmitEventError, L1_GAS, L2_GAS};
->>>>>>> origin/main
 use crate::execution::syscalls::SyscallSelector;
 use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_utils::balance_to_big_uint;
@@ -1664,13 +1656,7 @@ fn test_only_query_flag(
         account_balance,
         &[(account, 1), (test_contract, 1)],
     );
-<<<<<<< HEAD
-    let mut version = Felt::from(1_u8);
-||||||| ab9375de
-    let mut version = Felt252::from(1_u8);
-=======
-    let mut version = Felt252::from(3_u8);
->>>>>>> origin/main
+    let mut version = Felt::from(3_u8);
     if only_query {
         let query_version_base = Felt::TWO.pow(constants::QUERY_VERSION_BASE_BIT);
         version += query_version_base;
@@ -1678,62 +1664,31 @@ fn test_only_query_flag(
     let sender_address = account.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
     let expected_tx_info = vec![
-<<<<<<< HEAD
         version,                                                     // Transaction version.
         *sender_address.0.key(),                                     // Account address.
-        felt!(max_fee.0),                                            // Max fee.
+        Felt::ZERO,                                                  // Max fee.
         Felt::ZERO,                                                  // Signature.
         Felt::ZERO,                                                  // Transaction hash.
         felt!(&*ChainId::Other(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
         Felt::ZERO,                                                  // Nonce.
-        Felt::ZERO,                                                  /* Length of resource
-                                                                      * bounds array. */
+    ];
+
+    let expected_resource_bounds = vec![
+        Felt::TWO,                // Length of ResourceBounds array.
+        felt!(L1_GAS),            // Resource.
+        felt!(MAX_L1_GAS_AMOUNT), // Max amount.
+        felt!(MAX_L1_GAS_PRICE),  // Max price per unit.
+        felt!(L2_GAS),            // Resource.
+        Felt::ZERO,               // Max amount.
+        Felt::ZERO,               // Max price per unit.
+    ];
+
+    let expected_unsupported_fields = vec![
         Felt::ZERO, // Tip.
         Felt::ZERO, // Paymaster data.
         Felt::ZERO, // Nonce DA.
         Felt::ZERO, // Fee DA.
         Felt::ZERO, // Account data.
-||||||| ab9375de
-        felt_to_stark_felt(&version), // Transaction version.
-        *sender_address.0.key(),      // Account address.
-        stark_felt!(max_fee.0),       // Max fee.
-        StarkFelt::ZERO,              // Signature.
-        StarkFelt::ZERO,              // Transaction hash.
-        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-        StarkFelt::ZERO,              // Nonce.
-        StarkFelt::ZERO,              // Length of resource bounds array.
-        StarkFelt::ZERO,              // Tip.
-        StarkFelt::ZERO,              // Paymaster data.
-        StarkFelt::ZERO,              // Nonce DA.
-        StarkFelt::ZERO,              // Fee DA.
-        StarkFelt::ZERO,              // Account data.
-=======
-        felt_to_stark_felt(&version), // Transaction version.
-        *sender_address.0.key(),      // Account address.
-        StarkFelt::ZERO,              // Max fee.
-        StarkFelt::ZERO,              // Signature.
-        StarkFelt::ZERO,              // Transaction hash.
-        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-        StarkFelt::ZERO,              // Nonce.
->>>>>>> origin/main
-    ];
-
-    let expected_resource_bounds = vec![
-        StarkFelt::TWO,                 // Length of ResourceBounds array.
-        stark_felt!(L1_GAS),            // Resource.
-        stark_felt!(MAX_L1_GAS_AMOUNT), // Max amount.
-        stark_felt!(MAX_L1_GAS_PRICE),  // Max price per unit.
-        stark_felt!(L2_GAS),            // Resource.
-        StarkFelt::ZERO,                // Max amount.
-        StarkFelt::ZERO,                // Max price per unit.
-    ];
-
-    let expected_unsupported_fields = vec![
-        StarkFelt::ZERO, // Tip.
-        StarkFelt::ZERO, // Paymaster data.
-        StarkFelt::ZERO, // Nonce DA.
-        StarkFelt::ZERO, // Fee DA.
-        StarkFelt::ZERO, // Account data.
     ];
 
     let entry_point_selector = selector_from_name("test_get_execution_info");
@@ -2010,17 +1965,9 @@ fn max_event_data() -> usize {
     }))]
 fn test_emit_event_exceeds_limit(
     block_context: BlockContext,
-<<<<<<< HEAD
+    max_resource_bounds: ResourceBoundsMapping,
     #[case] event_keys: Vec<Felt>,
     #[case] event_data: Vec<Felt>,
-||||||| ab9375de
-    #[case] event_keys: Vec<StarkFelt>,
-    #[case] event_data: Vec<StarkFelt>,
-=======
-    max_resource_bounds: ResourceBoundsMapping,
-    #[case] event_keys: Vec<StarkFelt>,
-    #[case] event_data: Vec<StarkFelt>,
->>>>>>> origin/main
     #[case] n_emitted_events: usize,
     #[case] expected_error: Option<EmitEventError>,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
@@ -2074,6 +2021,6 @@ fn test_emit_event_exceeds_limit(
 
 #[test]
 fn test_balance_print() {
-    let int = balance_to_big_uint(&StarkFelt::from(16_u64), &StarkFelt::from(1_u64));
+    let int = balance_to_big_uint(&Felt::from(16_u64), &Felt::from(1_u64));
     assert!(format!("{}", int) == (BigUint::from(u128::MAX) + BigUint::from(17_u128)).to_string());
 }

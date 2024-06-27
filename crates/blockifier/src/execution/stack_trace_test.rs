@@ -620,16 +620,8 @@ fn test_contract_ctor_frame_stack_trace(
                 validate_constructor,
             ]
         ),
-<<<<<<< HEAD
-        version: TransactionVersion::ONE,
-        nonce: Nonce(felt!(0_u8)),
-||||||| ab9375de
-        version: TransactionVersion::ONE,
-        nonce: Nonce(stark_felt!(0_u8)),
-=======
         resource_bounds: max_resource_bounds,
-        nonce: Nonce(stark_felt!(0_u8)),
->>>>>>> origin/main
+        nonce: Nonce(felt!(0_u8)),
     });
 
     // Construct expected output.

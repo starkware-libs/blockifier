@@ -2,21 +2,11 @@ use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::ContractAddress;
-<<<<<<< HEAD
 use starknet_api::felt;
-use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
-use starknet_types_core::felt::Felt;
-||||||| ab9375de
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
-use starknet_api::transaction::{Calldata, Fee, TransactionSignature, TransactionVersion};
-=======
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::{
     Calldata, Fee, ResourceBoundsMapping, TransactionSignature, TransactionVersion,
 };
->>>>>>> origin/main
+use starknet_types_core::felt::Felt;
 
 use crate::context::{BlockContext, ChainInfo};
 use crate::execution::syscalls::SyscallSelector;

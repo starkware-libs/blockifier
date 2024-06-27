@@ -2,15 +2,9 @@ use std::collections::HashMap;
 
 use blockifier::abi::constants;
 use blockifier::blockifier::config::ConcurrencyConfig;
-<<<<<<< HEAD
 use blockifier::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount, HashMapWrapper};
-use cairo_vm::types::builtin_name::BuiltinName;
-||||||| ab9375de
-use blockifier::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
-=======
-use blockifier::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
 use blockifier::versioned_constants::{VersionedConstants, VersionedConstantsOverrides};
->>>>>>> origin/main
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

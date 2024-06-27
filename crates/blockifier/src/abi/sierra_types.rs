@@ -40,23 +40,9 @@ pub trait SierraType: Sized {
 }
 
 // Utils.
-<<<<<<< HEAD
+
 pub fn felt_to_u128(felt: &Felt) -> Result<u128, SierraTypeError> {
     felt.to_u128().ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: *felt, ty: "u128" })
-||||||| ab9375de
-pub fn felt_to_u128(felt: &Felt252) -> Result<u128, SierraTypeError> {
-    felt.to_u128()
-        .ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: felt.clone(), ty: "u128" })
-=======
-
-pub fn felt_to_u128(felt: &Felt252) -> Result<u128, SierraTypeError> {
-    felt.to_u128()
-        .ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: felt.clone(), ty: "u128" })
->>>>>>> origin/main
-}
-
-pub fn stark_felt_to_u128(stark_felt: &StarkFelt) -> Result<u128, SierraTypeError> {
-    felt_to_u128(&stark_felt_to_felt(*stark_felt))
 }
 
 // TODO(barak, 01/10/2023): Move to starknet_api under StorageKey implementation.

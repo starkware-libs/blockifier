@@ -4,8 +4,7 @@ use std::sync::Arc;
 
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::{contract_address, patricia_key, stark_felt};
+use starknet_api::{contract_address, felt, patricia_key};
 
 use crate::abi::sierra_types::{SierraType, SierraU128};
 use crate::concurrency::scheduler::{Scheduler, Task, TransactionStatus};
@@ -114,7 +113,7 @@ fn scheduler_flow_test(
             *storage_writes
                 .get(&(contract_address!(CONTRACT_ADDRESS), storage_key!(STORAGE_KEY)))
                 .unwrap(),
-            stark_felt!(format!("{:x}", tx_index + 1).as_str())
+            felt!(format!("{:x}", tx_index + 1).as_str())
         );
     }
 }
@@ -168,7 +167,7 @@ fn state_maps_with_single_storage_entry(value: u128) -> StateMaps {
     StateMaps {
         storage: HashMap::from([(
             (contract_address!(CONTRACT_ADDRESS), storage_key!(STORAGE_KEY)),
-            stark_felt!(value),
+            felt!(value),
         )]),
         ..Default::default()
     }

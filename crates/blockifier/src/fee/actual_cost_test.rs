@@ -1,16 +1,6 @@
 use rstest::{fixture, rstest};
-<<<<<<< HEAD
-use starknet_api::transaction::{Fee, L2ToL1Payload, TransactionVersion};
-use starknet_types_core::felt::Felt;
-||||||| ab9375de
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
-use starknet_api::transaction::{Fee, L2ToL1Payload, TransactionVersion};
-=======
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::{L2ToL1Payload, ResourceBoundsMapping};
->>>>>>> origin/main
+use starknet_types_core::felt::Felt;
 
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
