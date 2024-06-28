@@ -62,7 +62,6 @@ fn test_decode_non_utf8_str() {
     let felts = [v1, v2, v3];
 
     let res = decode_felts_as_str(&felts);
-    dbg!(res.as_bytes());
     assert_eq!(res, format!("[{}, {} ({}), {}]", v1, v2_msg, v2, v3))
 }
 

@@ -90,7 +90,7 @@ impl AccountTransaction {
             Self::DeployAccount(_) => constants::VALIDATE_DEPLOY_ENTRY_POINT_NAME,
             Self::Invoke(_) => constants::VALIDATE_ENTRY_POINT_NAME,
         };
-        dbg!(validate_entry_point_name);
+        // dbg!(validate_entry_point_name);
         selector_from_name(validate_entry_point_name)
     }
 
@@ -745,8 +745,8 @@ impl ValidatableTransaction for AccountTransaction {
         let storage_address = tx_info.sender_address();
         let class_hash = state.get_class_hash_at(storage_address)?;
         let validate_selector = self.validate_entry_point_selector();
-        dbg!("CReating Validate Call");
-        dbg!(validate_selector);
+        // dbg!("CReating Validate Call");
+        // dbg!(validate_selector);
         let validate_call = CallEntryPoint {
             entry_point_type: EntryPointType::External,
             entry_point_selector: validate_selector,

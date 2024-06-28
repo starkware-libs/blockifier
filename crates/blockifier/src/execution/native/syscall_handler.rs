@@ -203,7 +203,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
         _remaining_gas: &mut u128,
     ) -> SyscallResult<ExecutionInfoV2> {
         // Get Block Info
-        dbg!("Executing v2");
+        // dbg!("Executing v2");
         let block_info = &self.execution_context.tx_context.block_context.block_info;
         let native_block_info: BlockInfo = if self.execution_context.execution_mode
             == ExecutionMode::Validate
@@ -412,7 +412,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
 
         self.inner_calls.push(call_info);
 
-        dbg!(&retdata);
+        // dbg!(&retdata);
         Ok(retdata)
     }
 
@@ -434,7 +434,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
                 execution_mode: ExecutionMode::Validate,
             };
 
-            dbg!(&err);
+            // dbg!(&err);
             return Err(encode_str_as_felts(&err.to_string()));
         }
 
