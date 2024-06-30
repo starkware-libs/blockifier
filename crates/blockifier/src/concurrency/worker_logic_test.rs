@@ -31,7 +31,7 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
 use crate::transaction::objects::HasRelatedFeeType;
 use crate::transaction::test_utils::{
-    account_invoke_tx, calculate_class_info_for_testing, max_resource_bounds,
+    account_invoke_tx, calculate_class_info_for_testing, emit_n_events_tx, max_resource_bounds,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
@@ -706,10 +706,82 @@ fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
     worker_executor.commit_while_possible();
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
 
+    // Make sure all transactions were executed successfully.
     for execution_output in worker_executor.execution_outputs.iter() {
         let locked_execution_output = execution_output.lock().unwrap();
         let result = locked_execution_output.as_ref().unwrap().result.as_ref();
         assert!(!result.unwrap().is_reverted());
     }
-    // TODO(Avi, 15/06/2024): Check the halt mechanism once the bouncer is supported.
+}
+
+#[rstest]
+fn test_worker_commit_phase_with_halt() {
+    // Settings.
+    let concurrency_mode = true;
+    let max_n_events_in_block = 3;
+    let block_context =
+        BlockContext::create_for_bouncer_testing(max_n_events_in_block, concurrency_mode);
+
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let chain_info = &block_context.chain_info;
+
+    // Create the state.
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
+
+    // Create transactions.
+    let test_contract_address = test_contract.get_instance_address(0);
+    let sender_address = account_contract.get_instance_address(0);
+    let nonce_manager = &mut NonceManager::default();
+    // Create two transactions with 2 events to trigger BlockFull (if we use a single transaction
+    // and simply set max_n_events_in_block to 1, the transaction will fail with a different error,
+    // TransactionTooLarge).
+    let n_events = 2;
+
+    let txs = (0..2)
+        .map(|_| {
+            Transaction::AccountTransaction(emit_n_events_tx(
+                n_events,
+                sender_address,
+                test_contract_address,
+                nonce_manager.next(sender_address),
+            ))
+        })
+        .collect::<Vec<Transaction>>();
+
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    let worker_executor =
+        WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
+
+    // Creates 2 active tasks.
+    // Creating these tasks changes the status of the two transactions to `Executing`. If we skip
+    // this step, executing them will panic when reaching `finish_execution` (as their status
+    // will be `ReadyToExecute` and not `Executing` as expected).
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(0));
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(1));
+
+    // Execute the first two transactions.
+    worker_executor.execute(0);
+    worker_executor.execute(1);
+
+    // Commit the first two transactions (only).
+    worker_executor.commit_while_possible();
+
+    // Verify the scheduler is halted.
+    assert_eq!(worker_executor.scheduler.next_task(), Task::Done);
+
+    // Verify the commit index is now 1.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 1);
+
+    // Verify the status of the two transactions is `Committed`.
+    assert_eq!(*worker_executor.scheduler.get_tx_status(0), TransactionStatus::Committed);
+    assert_eq!(*worker_executor.scheduler.get_tx_status(1), TransactionStatus::Committed);
+
+    // Make sure all transactions were executed successfully.
+    for execution_output in worker_executor.execution_outputs.iter() {
+        let locked_execution_output = execution_output.lock().unwrap();
+        let result = locked_execution_output.as_ref().unwrap().result.as_ref();
+        assert!(!result.unwrap().is_reverted());
+    }
 }
