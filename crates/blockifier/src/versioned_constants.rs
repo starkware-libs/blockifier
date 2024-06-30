@@ -35,6 +35,10 @@ static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
 
 pub type ResourceCost = Ratio<u128>;
 
+fn default_true() -> bool {
+    true
+}
+
 /// Contains constants for the Blockifier that may vary between versions.
 /// Additional constants in the JSON file, not used by Blockifier but included for transparency, are
 /// automatically ignored during deserialization.
@@ -48,6 +52,10 @@ pub struct VersionedConstants {
     pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
     pub validate_max_n_steps: u32,
+
+    // Transactions settings.
+    #[serde(default = "default_true")]
+    pub disable_cairo0_redeclaration: bool,
 
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.

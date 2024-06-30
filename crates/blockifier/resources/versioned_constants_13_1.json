@@ -23,6 +23,7 @@
             1000
         ]
     },
+    "disable_cairo0_redeclaration": false,
     "max_recursion_depth": 50,
     "os_constants": {
         "nop_entry_point_offset": -1,
