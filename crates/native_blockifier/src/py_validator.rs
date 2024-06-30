@@ -2,6 +2,8 @@ use blockifier::blockifier::stateful_validator::StatefulValidator;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
+use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::objects::TransactionInfoCreator;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::{pyclass, pymethods, PyAny};
 use starknet_api::core::Nonce;
@@ -65,7 +67,19 @@ impl PyValidator {
     ) -> NativeBlockifierResult<()> {
         let account_tx = py_account_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
         let deploy_account_tx_hash = deploy_account_tx_hash.map(|hash| TransactionHash(hash.0));
-        self.stateful_validator.perform_validations(account_tx, deploy_account_tx_hash)?;
+        // We check if the transaction should be skipped due to the deploy account not being
+        // processed.
+        let skip_validate = if let AccountTransaction::Invoke(_) = &account_tx {
+            let tx_info = account_tx.create_tx_info();
+            self.stateful_validator.skip_validate_due_to_unprocessed_deploy_account(
+                tx_info.sender_address(),
+                tx_info.nonce(),
+                deploy_account_tx_hash,
+            )?
+        } else {
+            false
+        };
+        self.stateful_validator.perform_validations(account_tx, skip_validate)?;
 
         Ok(())
     }
