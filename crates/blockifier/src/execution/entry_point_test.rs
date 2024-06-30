@@ -384,9 +384,7 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Requested contract address ContractAddress(PatriciaKey(Felt(FieldElement { value: \
-         UnsignedInteger { limbs: [576460752303410992, 18446744073709551615, \
-         18446744073709551615, 18446744073709550881] } }))) is not deployed",
+        "Requested contract address 0x17 is not deployed",
         "test_bad_call_address",
         calldata![],
     );
