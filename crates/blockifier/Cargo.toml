@@ -11,7 +11,13 @@ workspace = true
 
 [features]
 concurrency = []
+<<<<<<< HEAD
 testing = ["rand", "rstest"]
+||||||| 73c3821e
+=======
+jemalloc = ["dep:tikv-jemallocator"]
+testing = ["rand", "rstest"]
+>>>>>>> origin/main
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -43,12 +49,20 @@ rstest = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 sha2.workspace = true
+<<<<<<< HEAD
 sha3.workspace = true
 starknet-types-core.workspace = true
+||||||| 73c3821e
+starknet-crypto.workspace = true
+=======
+sha3.workspace = true
+starknet-crypto.workspace = true
+>>>>>>> origin/main
 starknet_api = { workspace = true, features = ["testing"] }
 strum.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
+tikv-jemallocator = { workspace = true, optional = true }
 
 [dev-dependencies]
 assert_matches.workspace = true
@@ -62,6 +76,7 @@ test-case.workspace = true
 
 [[bench]]
 harness = false
+<<<<<<< HEAD
 name = "blockifier_bench"
 path = "bench/blockifier_bench.rs"
 required-features = ["testing"]
@@ -69,3 +84,8 @@ required-features = ["testing"]
 [[test]]
 name = "feature_contracts_compatibility_test"
 required-features = ["testing"]
+||||||| 73c3821e
+=======
+name = "blockifier_bench"
+path = "bench/blockifier_bench.rs"
+>>>>>>> origin/main
