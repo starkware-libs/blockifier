@@ -166,17 +166,41 @@ impl<S: State> Executable<S> for DeclareTransaction {
         &self,
         state: &mut S,
         _resources: &mut ExecutionResources,
-        _context: &mut EntryPointExecutionContext,
+        context: &mut EntryPointExecutionContext,
         _remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.class_hash();
-
+        let multiple_declaration = context
+            .tx_context
+            .block_context
+            .versioned_constants
+            .allow_deprecated_multiple_declarations;
         match &self.tx {
             // No class commitment, so no need to check if the class is already declared.
             starknet_api::transaction::DeclareTransaction::V0(_)
             | starknet_api::transaction::DeclareTransaction::V1(_) => {
-                state.set_contract_class(class_hash, self.contract_class())?;
-                Ok(None)
+                match  multiple_declaration {
+                    true => {
+                        state.set_contract_class(class_hash, self.contract_class())?;
+                        Ok(None)
+                    }
+                    false =>{
+                        match state.get_compiled_contract_class(class_hash) {
+                            Err(StateError::UndeclaredClassHash(_)) => {
+                                // Class is undeclared; declare it.
+                                state.set_contract_class(class_hash, self.contract_class())?;
+                                Ok(None)
+                            }
+                            Err(error) => Err(error)?,
+                            Ok(_) => {
+                                // Class is already declared, cannot redeclare
+                                // (i.e., make sure the leaf is uninitialized).
+                                Err(TransactionExecutionError::DeclareTransactionError { class_hash })
+                            }
+                        }
+                    }
+                }
+
             }
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
                 compiled_class_hash,

@@ -23,6 +23,7 @@
             1000
         ]
     },
+    "allow_deprecated_multiple_declarations": false,
     "max_recursion_depth": 50,
     "os_constants": {
         "block_hash_contract_address": 1,

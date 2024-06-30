@@ -47,6 +47,7 @@ pub struct VersionedConstants {
     #[serde(default)]
     pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
+    pub allow_deprecated_multiple_declarations: bool,
     pub validate_max_n_steps: u32,
 
     // Cairo OS constants.
