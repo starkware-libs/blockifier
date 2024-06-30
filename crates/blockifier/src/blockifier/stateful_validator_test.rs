@@ -9,7 +9,8 @@ use crate::test_utils::initial_test_state::{fund_account, test_state};
 use crate::test_utils::{CairoVersion, BALANCE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::test_utils::{
-    block_context, create_account_tx_for_validate_test_nonce_0, FaultyAccountTxCreatorArgs, VALID,
+    block_context, create_account_tx_for_validate_test_nonce_0, FaultyAccountTxCreatorArgs,
+    INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
 
@@ -65,6 +66,32 @@ fn test_transaction_validator(
     // Test the stateful validator.
     let mut stateful_validator = StatefulValidator::create(state, block_context, nonce!(0_u32));
 
-    let reuslt = stateful_validator.perform_validations(tx, None);
+    let reuslt = stateful_validator.perform_validations(tx, false);
     assert!(reuslt.is_ok(), "Validation failed: {:?}", reuslt.unwrap_err());
+}
+
+#[test]
+fn test_transaction_validator_skip_validate() {
+    let block_context = BlockContext::create_for_testing();
+    let faulty_account = FeatureContract::FaultyAccount(CairoVersion::Cairo1);
+    let state = test_state(&block_context.chain_info, BALANCE, &[(faulty_account, 1)]);
+    let transaction_args = FaultyAccountTxCreatorArgs {
+        tx_type: TransactionType::InvokeFunction,
+        tx_version: TransactionVersion::THREE,
+        sender_address: faulty_account.get_instance_address(0),
+        class_hash: faulty_account.get_class_hash(),
+        max_fee: Fee(BALANCE),
+        ..Default::default()
+    };
+
+    // Create an transaction that does not pass validations.
+    let tx = create_account_tx_for_validate_test_nonce_0(FaultyAccountTxCreatorArgs {
+        scenario: INVALID,
+        ..transaction_args
+    });
+
+    let mut stateful_validator = StatefulValidator::create(state, block_context, nonce!(0_u32));
+    // The transaction validations should be skipped and the function should return Ok.
+    let result = stateful_validator.perform_validations(tx, true);
+    assert!(result.is_ok());
 }
