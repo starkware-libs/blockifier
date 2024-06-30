@@ -49,6 +49,10 @@ pub struct VersionedConstants {
     pub max_recursion_depth: usize,
     pub validate_max_n_steps: u32,
 
+    // Transactions settings.
+    #[serde(default)]
+    pub disable_cairo0_redeclaration: bool,
+
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
     // See the struct's docstring for more details.
