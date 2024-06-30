@@ -1,10 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::iter::Sum;
 use std::ops::Add;
 
-use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EthAddress, PatriciaKey};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
@@ -82,54 +81,6 @@ pub struct CallExecution {
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     pub failed: bool,
     pub gas_consumed: u64,
-}
-
-// TODO(Dori, 1/1/2025): If and when cairo_vm::types::builtin_name::serde_generic_map_impl is
-//   public, remove this inline-module and use the cairo_vm's implementation.
-pub(crate) mod serialize_builtin_map {
-    use std::collections::HashMap;
-
-    use cairo_vm::types::builtin_name::BuiltinName;
-    use serde::de::Error;
-    use serde::ser::SerializeMap;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn serialize<S, V>(
-        values: &HashMap<BuiltinName, V>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-        V: Serialize,
-    {
-        let mut map_serializer = serializer.serialize_map(Some(values.len()))?;
-        for (key, val) in values {
-            map_serializer.serialize_entry(key.to_str_with_suffix(), val)?
-        }
-        map_serializer.end()
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>, V: Deserialize<'de>>(
-        d: D,
-    ) -> Result<HashMap<BuiltinName, V>, D::Error> {
-        // First deserialize keys into String
-        let map = HashMap::<String, V>::deserialize(d)?;
-        // Then match keys to BuiltinName and handle invalid names
-        map.into_iter()
-            .map(|(k, v)| BuiltinName::from_str_with_suffix(&k).map(|k| (k, v)))
-            .collect::<Option<HashMap<_, _>>>()
-            .ok_or(D::Error::custom("Invalid builtin name"))
-    }
-}
-
-// This struct is used to implement `serde` functionality in a remote `ExecutionResources` Struct.
-#[derive(Debug, Default, Deserialize, derive_more::From, Eq, PartialEq, Serialize)]
-#[serde(remote = "ExecutionResources")]
-struct ExecutionResourcesDef {
-    n_steps: usize,
-    n_memory_holes: usize,
-    #[serde(with = "serialize_builtin_map")]
-    builtin_instance_counter: HashMap<BuiltinName, usize>,
 }
 
 #[derive(Default)]
@@ -215,7 +166,6 @@ impl TestExecutionSummary {
 pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
-    #[serde(with = "ExecutionResourcesDef")]
     pub resources: ExecutionResources,
     pub inner_calls: Vec<CallInfo>,
 
