@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use starknet_api::core::Nonce;
+use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionHash;
 use thiserror::Error;
@@ -19,7 +19,6 @@ use crate::state::errors::StateError;
 use crate::state::state_api::StateReader;
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
-use crate::transaction::objects::TransactionInfo;
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::ValidatableTransaction;
 
@@ -61,7 +60,7 @@ impl<S: StateReader> StatefulValidator<S> {
     pub fn perform_validations(
         &mut self,
         tx: AccountTransaction,
-        deploy_account_tx_hash: Option<TransactionHash>,
+        skip_validate: bool,
     ) -> StatefulValidatorResult<()> {
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,
@@ -71,14 +70,7 @@ impl<S: StateReader> StatefulValidator<S> {
             return Ok(());
         }
 
-        // First, we check if the transaction should be skipped due to the deploy account not being
-        // processed. It is done before the pre-validations checks because, in these checks, we
-        // change the state (more precisely, we increment the nonce).
         let tx_context = self.tx_executor.block_context.to_tx_context(&tx);
-        let skip_validate = self.skip_validate_due_to_unprocessed_deploy_account(
-            &tx_context.tx_info,
-            deploy_account_tx_hash,
-        )?;
         self.perform_pre_validation_stage(&tx, &tx_context)?;
 
         if skip_validate {
@@ -122,9 +114,10 @@ impl<S: StateReader> StatefulValidator<S> {
     // Check if deploy account was submitted but not processed yet. If so, then skip
     // `__validate__` method for subsequent transactions for a better user experience.
     // (they will otherwise fail solely because the deploy account hasn't been processed yet).
-    fn skip_validate_due_to_unprocessed_deploy_account(
+    pub fn skip_validate_due_to_unprocessed_deploy_account(
         &mut self,
-        tx_info: &TransactionInfo,
+        sender_address: ContractAddress,
+        tx_nonce: Nonce,
         deploy_account_tx_hash: Option<TransactionHash>,
     ) -> StatefulValidatorResult<bool> {
         let nonce = self
@@ -132,8 +125,7 @@ impl<S: StateReader> StatefulValidator<S> {
             .block_state
             .as_ref()
             .expect(BLOCK_STATE_ACCESS_ERR)
-            .get_nonce_at(tx_info.sender_address())?;
-        let tx_nonce = tx_info.nonce();
+            .get_nonce_at(sender_address)?;
 
         let deploy_account_not_processed =
             deploy_account_tx_hash.is_some() && nonce == Nonce(StarkFelt::ZERO);
