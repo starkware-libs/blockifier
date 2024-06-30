@@ -66,7 +66,8 @@ fn get_json_value_without_defaults() -> serde_json::Value {
             }
         },
         "vm_resource_fee_cost": {},
-        "max_recursion_depth": 2
+        "max_recursion_depth": 2,
+        "disable_cairo0_redeclaration": true
     }"#;
     // Fill the os constants with the gas cost values (do not have a default value).
     let mut os_constants: Value = serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON)

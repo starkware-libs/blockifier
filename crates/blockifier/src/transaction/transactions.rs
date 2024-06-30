@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::calldata;
-use starknet_api::core::{ClassHash, ContractAddress, Nonce};
+use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
@@ -161,22 +161,51 @@ impl DeclareTransaction {
     }
 }
 
+fn try_declearing<S: State>(
+    state: &mut S,
+    class_hash: ClassHash,
+    contract_class: ContractClass,
+    compiled_class_hash: Option<CompiledClassHash>,
+) -> Result<Option<CallInfo>, TransactionExecutionError> {
+    match state.get_compiled_contract_class(class_hash) {
+        Err(StateError::UndeclaredClassHash(_)) => {
+            // Class is undeclared; declare it.
+            state.set_contract_class(class_hash, contract_class)?;
+            if compiled_class_hash.is_some() {
+                state.set_compiled_class_hash(class_hash, compiled_class_hash.unwrap())?;
+            }
+            Ok(None)
+        }
+        Err(error) => Err(error)?,
+        Ok(_) => {
+            // Class is already declared, cannot redeclare
+            // (i.e., make sure the leaf is uninitialized).
+            Err(TransactionExecutionError::DeclareTransactionError { class_hash })
+        }
+    }
+}
 impl<S: State> Executable<S> for DeclareTransaction {
     fn run_execute(
         &self,
         state: &mut S,
         _resources: &mut ExecutionResources,
-        _context: &mut EntryPointExecutionContext,
+        context: &mut EntryPointExecutionContext,
         _remaining_gas: &mut u64,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.class_hash();
-
+        let disable_cairo0_redeclaration =
+            context.tx_context.block_context.versioned_constants.disable_cairo0_redeclaration;
         match &self.tx {
             // No class commitment, so no need to check if the class is already declared.
             starknet_api::transaction::DeclareTransaction::V0(_)
             | starknet_api::transaction::DeclareTransaction::V1(_) => {
-                state.set_contract_class(class_hash, self.contract_class())?;
-                Ok(None)
+                match disable_cairo0_redeclaration {
+                    true => try_declearing(state, class_hash, self.contract_class(), None),
+                    false => {
+                        state.set_contract_class(class_hash, self.contract_class())?;
+                        Ok(None)
+                    }
+                }
             }
             starknet_api::transaction::DeclareTransaction::V2(DeclareTransactionV2 {
                 compiled_class_hash,
@@ -186,20 +215,7 @@ impl<S: State> Executable<S> for DeclareTransaction {
                 compiled_class_hash,
                 ..
             }) => {
-                match state.get_compiled_contract_class(class_hash) {
-                    Err(StateError::UndeclaredClassHash(_)) => {
-                        // Class is undeclared; declare it.
-                        state.set_contract_class(class_hash, self.contract_class())?;
-                        state.set_compiled_class_hash(class_hash, *compiled_class_hash)?;
-                        Ok(None)
-                    }
-                    Err(error) => Err(error)?,
-                    Ok(_) => {
-                        // Class is already declared, cannot redeclare
-                        // (i.e., make sure the leaf is uninitialized).
-                        Err(TransactionExecutionError::DeclareTransactionError { class_hash })
-                    }
-                }
+                try_declearing(state, class_hash, self.contract_class(), Some(*compiled_class_hash))
             }
         }
     }
