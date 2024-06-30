@@ -44,13 +44,13 @@ pub struct EntryPointErrorFrame {
 impl EntryPointErrorFrame {
     fn preamble_text(&self) -> String {
         format!(
-            "{}: {} (contract address: {}, class hash: {}, selector: {}):",
+            "{}: {} (contract address: {:#064x}, class hash: {:#064x}, selector: {}):",
             self.depth,
             self.preamble_type.text(),
             self.storage_address.0.key(),
-            self.class_hash,
+            self.class_hash.0,
             if let Some(selector) = self.selector {
-                format!("{}", selector.0)
+                format!("{:#064x}", selector.0)
             } else {
                 "UNKNOWN".to_string()
             }
