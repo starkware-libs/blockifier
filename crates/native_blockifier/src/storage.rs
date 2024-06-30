@@ -99,7 +99,7 @@ impl Storage for PapyrusStorage {
     }
 
     fn revert_block(&mut self, block_number: u64) -> NativeBlockifierResult<()> {
-        log::debug!("Reverting state diff for {block_number:?}.");
+        log::info!("Reverting state diff for {block_number:?}.");
         let block_number = BlockNumber(block_number);
         let revert_txn = self.writer().begin_rw_txn()?;
         let (revert_txn, _) = revert_txn.revert_state_diff(block_number)?;
