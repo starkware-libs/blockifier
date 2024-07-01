@@ -43,7 +43,6 @@ impl PyValidator {
             general_config.starknet_os_config.into_chain_info(),
             versioned_constants,
             BouncerConfig::max(),
-            false,
         );
 
         // Create the stateful validator.

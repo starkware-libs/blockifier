@@ -53,8 +53,14 @@ pub trait ExecutableTransaction<U: UpdatableState>: Sized {
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
         let mut transactional_state = TransactionalState::create_transactional(state);
-        let execution_result =
-            self.execute_raw(&mut transactional_state, block_context, charge_fee, validate);
+        let run_concurrently = false;
+        let execution_result = self.execute_raw(
+            &mut transactional_state,
+            block_context,
+            charge_fee,
+            validate,
+            run_concurrently,
+        );
 
         match execution_result {
             Ok(value) => {
@@ -80,6 +86,7 @@ pub trait ExecutableTransaction<U: UpdatableState>: Sized {
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
+        run_concurrently: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo>;
 }
 
