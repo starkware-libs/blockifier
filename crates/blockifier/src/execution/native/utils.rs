@@ -159,7 +159,7 @@ pub fn run_native_executor(
             // dbg!("Executing AOT");
             // dbg!(&call.calldata.0);
             let calldata = stark_felts_to_native_felts(&call.calldata.0);
-            let calldata_converted: Vec<String> = calldata.iter().map(|x| x.to_hex_string()).collect();
+            let _calldata_converted: Vec<String> = calldata.iter().map(|x| x.to_hex_string()).collect();
             // dbg!(&calldata_converted);
             executor.invoke_contract_dynamic(
                 sierra_entry_function_id,
