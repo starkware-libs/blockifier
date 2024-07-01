@@ -623,13 +623,11 @@ impl StateChangesKeys {
         &mut self,
         tx_context: &TransactionContext,
         tx_result: &TransactionExecutionInfo,
+        concurrency_mode: bool,
     ) {
         let actual_fee = tx_result.transaction_receipt.fee.0;
         let sequencer_address = tx_context.block_context.block_info.sequencer_address;
-        if tx_context.block_context.concurrency_mode
-            && !tx_context.is_sequencer_the_sender()
-            && actual_fee > 0
-        {
+        if concurrency_mode && !tx_context.is_sequencer_the_sender() && actual_fee > 0 {
             // Add the deleted sequencer balance key to the storage keys.
             let sequencer_balance_low = get_fee_token_var_address(sequencer_address);
             self.storage_keys.insert((tx_context.fee_token_address(), sequencer_balance_low));

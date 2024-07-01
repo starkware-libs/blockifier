@@ -60,7 +60,7 @@ pub fn test_add_fee_to_sequencer_balance(
     #[case] sequencer_balance_low: StarkFelt,
     #[case] sequencer_balance_high: StarkFelt,
 ) {
-    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let block_context = BlockContext::create_for_account_testing();
     let account = FeatureContract::Empty(CairoVersion::Cairo1);
     let mut state = test_state(&block_context.chain_info, 0, &[(account, 1)]);
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
