@@ -309,6 +309,7 @@ impl AccountTransaction {
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
         charge_fee: bool,
+        run_concurrently: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if !charge_fee || actual_fee == Fee(0) {
             // Fee charging is not enforced in some transaction simulations and tests.
@@ -318,8 +319,7 @@ impl AccountTransaction {
         // TODO(Amos, 8/04/2024): Add test for this assert.
         Self::assert_actual_fee_in_bounds(&tx_context, actual_fee)?;
 
-        let fee_transfer_call_info =
-            if tx_context.block_context.concurrency_mode && !tx_context.is_sequencer_the_sender() {
+        let fee_transfer_call_info = if run_concurrently && !tx_context.is_sequencer_the_sender() {
                 Self::concurrency_execute_fee_transfer(state, tx_context, actual_fee)?
             } else {
                 Self::execute_fee_transfer(state, tx_context, actual_fee)?
@@ -638,6 +638,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
+        run_concurrently: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx_context = Arc::new(block_context.to_tx_context(self));
         self.verify_tx_version(tx_context.tx_info.version())?;
@@ -666,7 +667,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
             validate,
             charge_fee,
         )?;
-        let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?;
+        let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee, run_concurrently)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,

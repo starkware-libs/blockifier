@@ -161,7 +161,6 @@ impl BlockContext {
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_testing(),
             bouncer_config: BouncerConfig::max(),
-            concurrency_mode: false,
         }
     }
 
@@ -171,13 +170,11 @@ impl BlockContext {
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_account_testing(),
             bouncer_config: BouncerConfig::max(),
-            concurrency_mode: false,
         }
     }
 
     pub fn create_for_bouncer_testing(
         max_n_events_in_block: usize,
-        concurrency_mode: bool,
     ) -> Self {
         Self {
             bouncer_config: BouncerConfig {
@@ -187,7 +184,7 @@ impl BlockContext {
                 },
                 ..BouncerConfig::empty()
             },
-            ..Self::create_for_account_testing_with_concurrency_mode(concurrency_mode)
+            ..Self::create_for_account_testing()
         }
     }
 
@@ -196,10 +193,6 @@ impl BlockContext {
             block_info: BlockInfo::create_for_testing_with_kzg(use_kzg_da),
             ..Self::create_for_account_testing()
         }
-    }
-
-    pub fn create_for_account_testing_with_concurrency_mode(concurrency_mode: bool) -> Self {
-        Self { concurrency_mode, ..Self::create_for_account_testing() }
     }
 }
 

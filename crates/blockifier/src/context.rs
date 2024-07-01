@@ -30,7 +30,6 @@ pub struct BlockContext {
     pub(crate) chain_info: ChainInfo,
     pub(crate) versioned_constants: VersionedConstants,
     pub(crate) bouncer_config: BouncerConfig,
-    pub(crate) concurrency_mode: bool,
 }
 
 impl BlockContext {
@@ -39,14 +38,12 @@ impl BlockContext {
         chain_info: ChainInfo,
         versioned_constants: VersionedConstants,
         bouncer_config: BouncerConfig,
-        concurrency_mode: bool,
     ) -> Self {
         BlockContext {
             block_info,
             chain_info,
             versioned_constants,
             bouncer_config,
-            concurrency_mode,
         }
     }
 

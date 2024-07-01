@@ -77,7 +77,7 @@ fn verify_sequencer_balance_update<S: StateReader>(
 
 #[rstest]
 pub fn test_commit_tx() {
-    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let block_context = BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut expected_sequencer_balance_low = 0_u128;
@@ -186,7 +186,7 @@ pub fn test_commit_tx() {
 // Thus, we skip the last step of commit tx, meaning the execution result before and after
 // commit tx should be the same (except for re-execution changes).
 fn test_commit_tx_when_sender_is_sequencer() {
-    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let mut block_context = BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let account_address = account.get_instance_address(0_u16);
@@ -253,9 +253,7 @@ fn test_commit_tx_when_sender_is_sequencer() {
 #[rstest]
 fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
-    let concurrency_mode = true;
-    let block_context =
-        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+    let block_context = BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -429,10 +427,7 @@ fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
 #[rstest]
 fn test_worker_validate(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
-    let concurrency_mode = true;
-    let block_context =
-        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
-
+    let block_context = BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -535,7 +530,7 @@ fn test_worker_validate(max_resource_bounds: ResourceBoundsMapping) {
 #[rstest]
 fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
     // Create the state.
-    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let block_context = BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let state = test_state(chain_info, BALANCE, &[(account_contract, 2)]);
@@ -623,10 +618,7 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
 #[rstest]
 fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
-    let concurrency_mode = true;
-    let block_context =
-        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
-
+    let block_context = BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
