@@ -107,6 +107,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for L1HandlerTransaction {
         block_context: &BlockContext,
         _charge_fee: bool,
         _validate: bool,
+        _concurrency_mode: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx_context = Arc::new(block_context.to_tx_context(self));
 
@@ -159,16 +160,21 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
+        concurrency_mode: bool,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         // TODO(Yoni, 1/8/2024): consider unimplementing the ExecutableTransaction trait for inner
         // types, since now running Transaction::execute_raw is not identical to
         // AccountTransaction::execute_raw.
         let tx_execution_info = match self {
-            Self::AccountTransaction(account_tx) => {
-                account_tx.execute_raw(state, block_context, charge_fee, validate)?
-            }
+            Self::AccountTransaction(account_tx) => account_tx.execute_raw(
+                state,
+                block_context,
+                charge_fee,
+                validate,
+                concurrency_mode,
+            )?,
             Self::L1HandlerTransaction(tx) => {
-                tx.execute_raw(state, block_context, charge_fee, validate)?
+                tx.execute_raw(state, block_context, charge_fee, validate, concurrency_mode)?
             }
         };
 
@@ -179,6 +185,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         tx_state_changes_keys.update_sequencer_key_in_storage(
             &block_context.to_tx_context(self),
             &tx_execution_info,
+            concurrency_mode,
         );
         verify_tx_weights_in_bounds(
             state,

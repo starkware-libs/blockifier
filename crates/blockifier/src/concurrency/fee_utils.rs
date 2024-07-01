@@ -29,7 +29,7 @@ pub fn complete_fee_transfer_flow(
     tx_execution_info: &mut TransactionExecutionInfo,
     state: &mut impl UpdatableState,
 ) {
-    if !tx_context.block_context.concurrency_mode || tx_context.is_sequencer_the_sender() {
+    if tx_context.is_sequencer_the_sender() {
         // When the sequencer is the sender, we use the sequential (full) fee transfer.
         return;
     }
