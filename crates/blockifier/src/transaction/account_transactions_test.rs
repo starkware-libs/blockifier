@@ -1042,7 +1042,8 @@ fn test_count_actual_storage_changes(
         nonce: nonce_manager.next(account_address),
     };
     let account_tx = account_invoke_tx(invoke_args.clone());
-    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
+    let execution_info =
+        account_tx.execute_raw(&mut state, &block_context, true, true, false).unwrap();
 
     let fee_1 = execution_info.transaction_receipt.fee;
     let state_changes_1 = state.get_actual_state_changes().unwrap();
@@ -1084,7 +1085,8 @@ fn test_count_actual_storage_changes(
         nonce: nonce_manager.next(account_address),
         ..invoke_args.clone()
     });
-    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
+    let execution_info =
+        account_tx.execute_raw(&mut state, &block_context, true, true, false).unwrap();
 
     let fee_2 = execution_info.transaction_receipt.fee;
     let state_changes_2 = state.get_actual_state_changes().unwrap();
@@ -1121,7 +1123,8 @@ fn test_count_actual_storage_changes(
         calldata: transfer_calldata,
         ..invoke_args
     });
-    let execution_info = account_tx.execute_raw(&mut state, &block_context, true, true).unwrap();
+    let execution_info =
+        account_tx.execute_raw(&mut state, &block_context, true, true, false).unwrap();
 
     let fee_transfer = execution_info.transaction_receipt.fee;
     let state_changes_transfer = state.get_actual_state_changes().unwrap();
@@ -1176,7 +1179,7 @@ fn test_concurrency_execute_fee_transfer(
     const TRANSFER_AMOUNT: u128 = 100;
     const SEQUENCER_BALANCE_LOW_INITIAL: u128 = 50;
 
-    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let block_context = BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -1198,8 +1201,16 @@ fn test_concurrency_execute_fee_transfer(
     let mut transactional_state = TransactionalState::create_transactional(state);
     let charge_fee = true;
     let validate = true;
-    let result =
-        account_tx.execute(&mut transactional_state, &block_context, charge_fee, validate).unwrap();
+    let concurrency_mode = true;
+    let result = account_tx
+        .execute_raw(
+            &mut transactional_state,
+            &block_context,
+            charge_fee,
+            validate,
+            concurrency_mode,
+        )
+        .unwrap();
     assert!(!result.is_reverted());
     let transactional_cache = transactional_state.cache.borrow();
     for storage in [
@@ -1237,8 +1248,14 @@ fn test_concurrency_execute_fee_transfer(
         resource_bounds: max_resource_bounds,
     });
 
-    let result =
-        account_tx.execute(&mut transactional_state, &block_context, charge_fee, validate).unwrap();
+    let execution_result = account_tx.execute_raw(
+        &mut transactional_state,
+        &block_context,
+        charge_fee,
+        validate,
+        concurrency_mode,
+    );
+    let result = execution_result.unwrap();
     assert!(!result.is_reverted());
     // Check that the sequencer balance was not updated.
     let storage_writes = transactional_state.cache.borrow().writes.storage.clone();
@@ -1270,7 +1287,7 @@ fn test_concurrent_fee_transfer_when_sender_is_sequencer(
     max_resource_bounds: ResourceBoundsMapping,
     #[case] version: TransactionVersion,
 ) {
-    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let mut block_context = BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let account_address = account.get_instance_address(0_u16);
     block_context.block_info.sequencer_address = account_address;

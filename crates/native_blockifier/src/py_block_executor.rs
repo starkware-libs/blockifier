@@ -135,7 +135,6 @@ impl PyBlockExecutor {
             self.chain_info.clone(),
             self.versioned_constants.clone(),
             self.bouncer_config.clone(),
-            self.tx_executor_config.concurrency_config.enabled,
         );
         let next_block_number = block_context.block_info().block_number;
 

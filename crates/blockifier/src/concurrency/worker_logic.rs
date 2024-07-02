@@ -128,9 +128,15 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             TransactionalState::create_transactional(&mut tx_versioned_state);
         let validate = true;
         let charge_fee = true;
+        let concurrency_mode = true;
 
-        let execution_result =
-            tx.execute_raw(&mut transactional_state, self.block_context, charge_fee, validate);
+        let execution_result = tx.execute_raw(
+            &mut transactional_state,
+            self.block_context,
+            charge_fee,
+            validate,
+            concurrency_mode,
+        );
 
         if execution_result.is_ok() {
             // TODO(Noa, 15/05/2024): use `tx_versioned_state` when we add support to transactional
@@ -230,7 +236,12 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         if let Ok(tx_execution_info) = tx_result.as_mut() {
             let tx_context = self.block_context.to_tx_context(&self.chunk[tx_index]);
             // Add the deleted sequencer balance key to the storage keys.
-            tx_state_changes_keys.update_sequencer_key_in_storage(&tx_context, tx_execution_info);
+            let concurrency_mode = true;
+            tx_state_changes_keys.update_sequencer_key_in_storage(
+                &tx_context,
+                tx_execution_info,
+                concurrency_mode,
+            );
             // Ask the bouncer if there is room for the transaction in the block.
             let bouncer_result = self.bouncer.lock().expect("Bouncer lock failed.").try_update(
                 &tx_versioned_state,
