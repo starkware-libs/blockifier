@@ -21,11 +21,16 @@ mod TestContract {
         info::{BlockInfo, SyscallResultTrait}, info::v2::{ExecutionInfo, TxInfo, ResourceBounds,},
         syscalls
     };
+    use core::circuit::{
+        CircuitElement, CircuitInput, circuit_add, circuit_sub, circuit_mul, circuit_inverse,
+        EvalCircuitResult, EvalCircuitTrait, u384, CircuitOutputsTrait,
+        CircuitModulus, CircuitInputs, AddInputResultTrait
+    };
 
     #[storage]
     struct Storage {
         my_storage_var: felt252,
-        two_counters: LegacyMap<felt252, (felt252, felt252)>,
+        two_counters: starknet::storage::Map<felt252, (felt252, felt252)>,
         ec_point: (felt252, felt252),
     }
 
@@ -531,5 +536,21 @@ mod TestContract {
         payload.append(12);
         payload.append(34);
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
+    }
+
+    #[external(v0)]
+    fn test_circuit(ref self: ContractState) {
+        let in1 = CircuitElement::<CircuitInput<0>> {};
+        let in2 = CircuitElement::<CircuitInput<1>> {};
+        let add = circuit_add(in1, in2);
+        let inv = circuit_inverse(add);
+        let sub = circuit_sub(inv, in2);
+        let mul = circuit_mul(inv, sub);
+
+        let modulus = TryInto::<_, CircuitModulus>::try_into([7, 0, 0, 0]).unwrap();
+        let outputs =
+            (mul,).new_inputs().next([3, 0, 0, 0]).next([6, 0, 0, 0]).done().eval(modulus).unwrap();
+
+        assert!(outputs.get_output(mul) == u384 { limb0: 6, limb1: 0, limb2: 0, limb3: 0 });
     }
 }

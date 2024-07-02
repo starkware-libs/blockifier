@@ -135,6 +135,12 @@ impl VersionedConstants {
             (BuiltinName::poseidon.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
             (BuiltinName::output.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
             (BuiltinName::ec_op.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
+            (
+                BuiltinName::range_check96.to_str_with_suffix().to_string(),
+                ResourceCost::from_integer(1),
+            ),
+            (BuiltinName::add_mod.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
+            (BuiltinName::mul_mod.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
         ]));
 
         Self { vm_resource_fee_cost, ..Self::create_for_testing() }

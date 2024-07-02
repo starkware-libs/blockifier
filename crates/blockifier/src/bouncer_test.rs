@@ -21,13 +21,16 @@ use crate::transaction::errors::TransactionExecutionError;
 fn test_block_weights_has_room() {
     let max_bouncer_weights = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 10,
             bitwise: 10,
             ecdsa: 10,
             ec_op: 10,
             keccak: 10,
+            mul_mod: 10,
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
+            range_check96: 10,
         },
         gas: 10,
         message_segment_length: 10,
@@ -38,13 +41,16 @@ fn test_block_weights_has_room() {
 
     let bouncer_weights = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 6,
             bitwise: 6,
             ecdsa: 7,
             ec_op: 7,
             keccak: 8,
+            mul_mod: 6,
             pedersen: 7,
             poseidon: 9,
             range_check: 10,
+            range_check96: 10,
         },
         gas: 7,
         message_segment_length: 10,
@@ -57,13 +63,16 @@ fn test_block_weights_has_room() {
 
     let bouncer_weights_exceeds_max = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 5,
             bitwise: 11,
             ecdsa: 5,
             ec_op: 5,
             keccak: 5,
+            mul_mod: 5,
             pedersen: 5,
             poseidon: 5,
             range_check: 5,
+            range_check96: 5,
         },
         gas: 5,
         message_segment_length: 5,
@@ -89,13 +98,16 @@ fn test_block_weights_has_room() {
     bouncer_config: BouncerConfig::empty(),
     accumulated_weights: BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 10,
             bitwise: 10,
             ecdsa: 10,
             ec_op: 10,
             keccak: 10,
+            mul_mod: 10,
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
+            range_check96: 10,
         },
         gas: 10,
         message_segment_length: 10,
@@ -116,13 +128,16 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
 
     let weights_to_update = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 0,
             bitwise: 1,
             ecdsa: 2,
             ec_op: 3,
             keccak: 4,
+            mul_mod: 0,
             pedersen: 6,
             poseidon: 7,
             range_check: 8,
+            range_check96: 0,
         },
         gas: 9,
         message_segment_length: 10,
@@ -200,13 +215,16 @@ fn test_bouncer_try_update(
     // Setup the bouncer.
     let block_max_capacity = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 20,
             bitwise: 20,
             ecdsa: 20,
             ec_op: 20,
             keccak: 0,
+            mul_mod: 20,
             pedersen: 20,
             poseidon: 20,
             range_check: 20,
+            range_check96: 20,
         },
         gas: 20,
         message_segment_length: 20,
@@ -220,13 +238,16 @@ fn test_bouncer_try_update(
 
     let accumulated_weights = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 10,
             bitwise: 10,
             ecdsa: 10,
             ec_op: 10,
             keccak: initial_keccak,
+            mul_mod: 10,
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
+            range_check96: 10,
         },
         gas: 10,
         message_segment_length: 10,
