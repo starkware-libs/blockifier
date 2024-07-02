@@ -9,6 +9,7 @@ use starknet_api::transaction::{
     Calldata, ContractAddressSalt, DeployAccountTransactionV1, DeployAccountTransactionV3, Fee,
     PaymasterData, ResourceBoundsMapping, Tip, TransactionHash, TransactionSignature,
 };
+use starknet_types_core::felt::Felt;
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_transaction::{PyDataAvailabilityMode, PyResourceBoundsMapping};
@@ -72,22 +73,21 @@ impl TryFrom<PyDeployAccountTransactionV3> for DeployAccountTransactionV3 {
 }
 
 pub fn py_deploy_account(py_tx: &PyAny) -> NativeBlockifierResult<DeployAccountTransaction> {
-    let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
-    let tx = match version {
-        1 => {
-            let py_deploy_account_tx: PyDeployAccountTransactionV1 = py_tx.extract()?;
-            let deploy_account_tx = DeployAccountTransactionV1::from(py_deploy_account_tx);
-            Ok(starknet_api::transaction::DeployAccountTransaction::V1(deploy_account_tx))
-        }
-        3 => {
-            let py_deploy_account_tx: PyDeployAccountTransactionV3 = py_tx.extract()?;
-            let deploy_account_tx = DeployAccountTransactionV3::try_from(py_deploy_account_tx)?;
-            Ok(starknet_api::transaction::DeployAccountTransaction::V3(deploy_account_tx))
-        }
-        _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
+    let version = py_attr::<PyFelt>(py_tx, "version")?.0;
+    // TODO: Make TransactionVersion an enum and use match here.
+    let tx = if version == Felt::ONE {
+        let py_deploy_account_tx: PyDeployAccountTransactionV1 = py_tx.extract()?;
+        let deploy_account_tx = DeployAccountTransactionV1::from(py_deploy_account_tx);
+        Ok(starknet_api::transaction::DeployAccountTransaction::V1(deploy_account_tx))
+    } else if version == Felt::THREE {
+        let py_deploy_account_tx: PyDeployAccountTransactionV3 = py_tx.extract()?;
+        let deploy_account_tx = DeployAccountTransactionV3::try_from(py_deploy_account_tx)?;
+        Ok(starknet_api::transaction::DeployAccountTransaction::V3(deploy_account_tx))
+    } else {
+        Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::DeployAccount,
-            version,
-        }),
+            version: version.to_biguint(),
+        })
     }?;
 
     let tx_hash = TransactionHash(py_attr::<PyFelt>(py_tx, "hash_value")?.0);

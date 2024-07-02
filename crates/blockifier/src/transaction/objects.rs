@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use cairo_felt::Felt252;
-use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use num_traits::Pow;
 use serde::Serialize;
@@ -11,12 +10,12 @@ use starknet_api::transaction::{
     AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping,
     Tip, TransactionHash, TransactionSignature, TransactionVersion,
 };
+use starknet_types_core::felt::Felt;
 use strum_macros::EnumIter;
 
 use crate::abi::constants as abi_constants;
 use crate::blockifier::block::BlockInfo;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::eth_gas_constants;
 use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, get_fee_by_gas_vector};
@@ -84,9 +83,9 @@ impl TransactionInfo {
             return version;
         }
 
-        let query_version_base = Pow::pow(Felt252::from(2_u8), constants::QUERY_VERSION_BASE_BIT);
-        let query_version = query_version_base + stark_felt_to_felt(version.0);
-        TransactionVersion(felt_to_stark_felt(&query_version))
+        let query_version_base = Felt::TWO.pow(constants::QUERY_VERSION_BASE_BIT);
+        let query_version = query_version_base + version.0;
+        TransactionVersion(query_version)
     }
 
     pub fn enforce_fee(&self) -> TransactionFeeResult<bool> {
@@ -480,7 +479,8 @@ impl TransactionResources {
 pub trait ExecutionResourcesTraits {
     fn total_n_steps(&self) -> usize;
     fn to_resources_mapping(&self) -> ResourcesMapping;
-    fn prover_builtins(&self) -> HashMap<String, usize>;
+    fn prover_builtins(&self) -> HashMap<BuiltinName, usize>;
+    fn prover_builtins_by_name(&self) -> HashMap<String, usize>;
 }
 
 impl ExecutionResourcesTraits for ExecutionResources {
@@ -495,24 +495,31 @@ impl ExecutionResourcesTraits for ExecutionResources {
             + abi_constants::N_STEPS_PER_SEGMENT_ARENA_BUILTIN
                 * self
                     .builtin_instance_counter
-                    .get(SEGMENT_ARENA_BUILTIN_NAME)
+                    .get(&BuiltinName::segment_arena)
                     .cloned()
                     .unwrap_or_default()
     }
 
-    fn prover_builtins(&self) -> HashMap<String, usize> {
+    fn prover_builtins(&self) -> HashMap<BuiltinName, usize> {
         let mut builtins = self.builtin_instance_counter.clone();
 
         // See "total_n_steps" documentation.
-        builtins.remove(SEGMENT_ARENA_BUILTIN_NAME);
+        builtins.remove(&BuiltinName::segment_arena);
         builtins
+    }
+
+    fn prover_builtins_by_name(&self) -> HashMap<String, usize> {
+        self.prover_builtins()
+            .iter()
+            .map(|(builtin, value)| (builtin.to_str_with_suffix().to_string(), *value))
+            .collect()
     }
 
     // TODO(Nimrod, 1/5/2024): Delete this function when it's no longer in use.
     fn to_resources_mapping(&self) -> ResourcesMapping {
         let mut map =
             HashMap::from([(abi_constants::N_STEPS_RESOURCE.to_string(), self.total_n_steps())]);
-        map.extend(self.prover_builtins());
+        map.extend(self.prover_builtins_by_name());
 
         ResourcesMapping(map)
     }

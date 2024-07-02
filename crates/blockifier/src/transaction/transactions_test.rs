@@ -2,8 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
-use cairo_felt::Felt252;
-use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME};
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use num_bigint::BigUint;
 use num_traits::Pow;
@@ -12,13 +11,13 @@ use pretty_assertions::assert_eq;
 use rstest::{fixture, rstest};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EthAddress, Nonce, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, EventContent, EventData, EventKey, Fee, L2ToL1Payload, ResourceBoundsMapping,
     TransactionSignature, TransactionVersion,
 };
-use starknet_api::{calldata, class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{calldata, class_hash, contract_address, felt, patricia_key};
+use starknet_types_core::felt::Felt;
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::{
@@ -32,7 +31,6 @@ use crate::execution::call_info::{
 };
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
 use crate::execution::syscalls::hint_processor::{EmitEventError, L1_GAS, L2_GAS};
 use crate::execution::syscalls::SyscallSelector;
 use crate::fee::actual_cost::TransactionReceipt;
@@ -112,7 +110,7 @@ fn expected_validate_call_info(
 ) -> Option<CallInfo> {
     let retdata = match cairo_version {
         CairoVersion::Cairo0 => Retdata::default(),
-        CairoVersion::Cairo1 => retdata!(stark_felt!(constants::VALIDATE_RETDATA)),
+        CairoVersion::Cairo1 => retdata!(felt!(constants::VALIDATE_RETDATA)),
     };
     // Extra range check in regular (invoke) validate call, due to passing the calldata as an array.
     let n_range_checks = match cairo_version {
@@ -135,10 +133,7 @@ fn expected_validate_call_info(
     let resources = ExecutionResources {
         n_steps,
         n_memory_holes: 0,
-        builtin_instance_counter: HashMap::from([(
-            RANGE_CHECK_BUILTIN_NAME.to_string(),
-            n_range_checks,
-        )]),
+        builtin_instance_counter: HashMap::from([(BuiltinName::range_check, n_range_checks)]),
     }
     .filter_unused_builtins();
 
@@ -172,9 +167,9 @@ fn expected_fee_transfer_call_info(
     let expected_sequencer_address = block_context.block_info.sequencer_address;
     let expected_sequencer_address_felt = *expected_sequencer_address.0.key();
     // The least significant 128 bits of the expected amount transferred.
-    let lsb_expected_amount = stark_felt!(actual_fee.0);
+    let lsb_expected_amount = felt!(actual_fee.0);
     // The most significant 128 bits of the expected amount transferred.
-    let msb_expected_amount = stark_felt!(0_u8);
+    let msb_expected_amount = felt!(0_u8);
     let storage_address = block_context.chain_info.fee_token_address(fee_type);
     let expected_fee_transfer_call = CallEntryPoint {
         class_hash: Some(expected_fee_token_class_hash),
@@ -214,18 +209,13 @@ fn expected_fee_transfer_call_info(
     Some(CallInfo {
         call: expected_fee_transfer_call,
         execution: CallExecution {
-            retdata: retdata![stark_felt!(constants::FELT_TRUE)],
+            retdata: retdata![felt!(constants::FELT_TRUE)],
             events: vec![expected_fee_transfer_event],
             ..Default::default()
         },
         resources: Prices::FeeTransfer(account_address, *fee_type).into(),
         // We read sender and recipient balance - Uint256(BALANCE, 0) then Uint256(0, 0).
-        storage_read_values: vec![
-            stark_felt!(BALANCE),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-            stark_felt!(0_u8),
-        ],
+        storage_read_values: vec![felt!(BALANCE), felt!(0_u8), felt!(0_u8), felt!(0_u8)],
         accessed_storage_keys: HashSet::from_iter(vec![
             sender_balance_key_low,
             sender_balance_key_high,
@@ -268,8 +258,8 @@ fn validate_final_balances(
 ) {
     // Expected balances of account and sequencer, per fee type.
     let (expected_sequencer_balance_eth, expected_sequencer_balance_strk) = match fee_type {
-        FeeType::Eth => (stark_felt!(expected_actual_fee.0), StarkFelt::ZERO),
-        FeeType::Strk => (StarkFelt::ZERO, stark_felt!(expected_actual_fee.0)),
+        FeeType::Eth => (felt!(expected_actual_fee.0), Felt::ZERO),
+        FeeType::Strk => (Felt::ZERO, felt!(expected_actual_fee.0)),
     };
     let mut expected_account_balance_eth = initial_account_balance_eth;
     let mut expected_account_balance_strk = initial_account_balance_strk;
@@ -287,10 +277,10 @@ fn validate_final_balances(
         (strk_fee_token_address, expected_account_balance_strk, expected_sequencer_balance_strk),
     ] {
         let account_balance = state.get_storage_at(fee_address, erc20_account_balance_key).unwrap();
-        assert_eq!(account_balance, stark_felt!(expected_account_balance));
+        assert_eq!(account_balance, felt!(expected_account_balance));
         assert_eq!(
             state.get_storage_at(fee_address, test_erc20_sequencer_balance_key()).unwrap(),
-            stark_felt!(expected_sequencer_balance)
+            expected_sequencer_balance
         );
     }
 }
@@ -311,11 +301,7 @@ fn add_kzg_da_resources_to_resources_mapping(
     target.n_steps += os_kzg_da_resources.n_steps;
 
     os_kzg_da_resources.builtin_instance_counter.into_iter().for_each(|(key, value)| {
-        target
-            .builtin_instance_counter
-            .entry(key.to_string())
-            .and_modify(|v| *v += value)
-            .or_insert(value);
+        target.builtin_instance_counter.entry(key).and_modify(|v| *v += value).or_insert(value);
     });
 }
 
@@ -325,7 +311,7 @@ fn add_kzg_da_resources_to_resources_mapping(
         resources: &get_syscall_resources(SyscallSelector::CallContract) + &ExecutionResources {
             n_steps: 62,
             n_memory_holes:  0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 1)]),
+            builtin_instance_counter: HashMap::from([(BuiltinName::range_check, 1)]),
         },
         validate_gas_consumed: 0,
         execute_gas_consumed: 0,
@@ -337,7 +323,7 @@ fn add_kzg_da_resources_to_resources_mapping(
         resources: &get_syscall_resources(SyscallSelector::CallContract) + &ExecutionResources {
             n_steps: 219,
             n_memory_holes: 0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 8)]),
+            builtin_instance_counter: HashMap::from([(BuiltinName::range_check, 8)]),
         },
         validate_gas_consumed: 4740, // The gas consumption results from parsing the input
             // arguments.
@@ -401,7 +387,7 @@ fn test_invoke_tx(
     );
 
     // Build expected execute call info.
-    let expected_return_result_calldata = vec![stark_felt!(2_u8)];
+    let expected_return_result_calldata = vec![felt!(2_u8)];
     let expected_return_result_call = CallEntryPoint {
         entry_point_selector: selector_from_name("return_result"),
         class_hash: Some(test_contract.get_class_hash()),
@@ -513,9 +499,9 @@ fn verify_storage_after_invoke_advanced_operations(
     state: &mut CachedState<DictStateReader>,
     contract_address: ContractAddress,
     account_address: ContractAddress,
-    index: StarkFelt,
-    expected_counters: [StarkFelt; 2],
-    expected_ec_point: [StarkFelt; 2],
+    index: Felt,
+    expected_counters: [Felt; 2],
+    expected_ec_point: [Felt; 2],
     expected_nonce: Nonce,
 ) {
     // Verify the two_counters values in storage.
@@ -552,7 +538,7 @@ fn test_invoke_tx_advanced_operations(
         &mut test_state(&block_context.chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
     let account_address = account.get_instance_address(0);
     let contract_address = test_contract.get_instance_address(0);
-    let index = stark_felt!(123_u32);
+    let index = felt!(123_u32);
     let base_tx_args = invoke_tx_args! {
         resource_bounds: max_resource_bounds,
         sender_address: account_address,
@@ -561,7 +547,7 @@ fn test_invoke_tx_advanced_operations(
     // Invoke advance_counter function.
     let mut nonce_manager = NonceManager::default();
     let counter_diffs = [101_u32, 102_u32];
-    let initial_counters = [stark_felt!(counter_diffs[0]), stark_felt!(counter_diffs[1])];
+    let initial_counters = [felt!(counter_diffs[0]), felt!(counter_diffs[1])];
     let calldata_args = vec![index, initial_counters[0], initial_counters[1]];
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
@@ -573,7 +559,7 @@ fn test_invoke_tx_advanced_operations(
     account_tx.execute(state, block_context, true, true).unwrap();
 
     let next_nonce = nonce_manager.next(account_address);
-    let initial_ec_point = [StarkFelt::ZERO, StarkFelt::ZERO];
+    let initial_ec_point = [Felt::ZERO, Felt::ZERO];
     verify_storage_after_invoke_advanced_operations(
         state,
         contract_address,
@@ -586,12 +572,8 @@ fn test_invoke_tx_advanced_operations(
 
     // Invoke call_xor_counters function.
     let xor_values = [31_u32, 32_u32];
-    let calldata_args = vec![
-        *contract_address.0.key(),
-        index,
-        stark_felt!(xor_values[0]),
-        stark_felt!(xor_values[1]),
-    ];
+    let calldata_args =
+        vec![*contract_address.0.key(), index, felt!(xor_values[0]), felt!(xor_values[1])];
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
         nonce: next_nonce,
@@ -601,10 +583,8 @@ fn test_invoke_tx_advanced_operations(
     });
     account_tx.execute(state, block_context, true, true).unwrap();
 
-    let expected_counters = [
-        stark_felt!(counter_diffs[0] ^ xor_values[0]),
-        stark_felt!(counter_diffs[1] ^ xor_values[1]),
-    ];
+    let expected_counters =
+        [felt!(counter_diffs[0] ^ xor_values[0]), felt!(counter_diffs[1] ^ xor_values[1])];
     let next_nonce = nonce_manager.next(account_address);
     verify_storage_after_invoke_advanced_operations(
         state,
@@ -626,18 +606,18 @@ fn test_invoke_tx_advanced_operations(
     account_tx.execute(state, block_context, true, true).unwrap();
 
     let expected_ec_point = [
-        StarkFelt::new([
-            0x05, 0x07, 0xF8, 0x28, 0xEA, 0xE0, 0x0C, 0x08, 0xED, 0x10, 0x60, 0x5B, 0xAA, 0xD4,
-            0x80, 0xB7, 0x4B, 0x0E, 0x9B, 0x61, 0x9C, 0x1A, 0x2C, 0x53, 0xFB, 0x75, 0x86, 0xE3,
-            0xEE, 0x1A, 0x82, 0xBA,
-        ])
-        .unwrap(),
-        StarkFelt::new([
-            0x05, 0x43, 0x9A, 0x5D, 0xC0, 0x8C, 0xC1, 0x35, 0x64, 0x11, 0xA4, 0x57, 0x8F, 0x50,
-            0x71, 0x54, 0xB4, 0x84, 0x7B, 0xAA, 0x73, 0x70, 0x68, 0x17, 0x1D, 0xFA, 0x6C, 0x8A,
-            0xB3, 0x49, 0x9D, 0x8B,
-        ])
-        .unwrap(),
+        Felt::from_bytes_be(&[
+            0x05_u8, 0x07_u8, 0xF8_u8, 0x28_u8, 0xEA_u8, 0xE0_u8, 0x0C_u8, 0x08_u8, 0xED_u8,
+            0x10_u8, 0x60_u8, 0x5B_u8, 0xAA_u8, 0xD4_u8, 0x80_u8, 0xB7_u8, 0x4B_u8, 0x0E_u8,
+            0x9B_u8, 0x61_u8, 0x9C_u8, 0x1A_u8, 0x2C_u8, 0x53_u8, 0xFB_u8, 0x75_u8, 0x86_u8,
+            0xE3_u8, 0xEE_u8, 0x1A_u8, 0x82_u8, 0xBA_u8,
+        ]),
+        Felt::from_bytes_be(&[
+            0x05_u8, 0x43_u8, 0x9A_u8, 0x5D_u8, 0xC0_u8, 0x8C_u8, 0xC1_u8, 0x35_u8, 0x64_u8,
+            0x11_u8, 0xA4_u8, 0x57_u8, 0x8F_u8, 0x50_u8, 0x71_u8, 0x54_u8, 0xB4_u8, 0x84_u8,
+            0x7B_u8, 0xAA_u8, 0x73_u8, 0x70_u8, 0x68_u8, 0x17_u8, 0x1D_u8, 0xFA_u8, 0x6C_u8,
+            0x8A_u8, 0xB3_u8, 0x49_u8, 0x9D_u8, 0x8B_u8,
+        ]),
     ];
     let next_nonce = nonce_manager.next(account_address);
     verify_storage_after_invoke_advanced_operations(
@@ -651,8 +631,8 @@ fn test_invoke_tx_advanced_operations(
     );
 
     // Invoke add_signature_to_counters function.
-    let signature_values = [Felt252::from(200_u64), Felt252::from(300_u64)];
-    let signature = TransactionSignature(signature_values.iter().map(felt_to_stark_felt).collect());
+    let signature_values = [Felt::from(200_u64), Felt::from(300_u64)];
+    let signature = TransactionSignature(signature_values.into());
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
         signature,
@@ -664,12 +644,8 @@ fn test_invoke_tx_advanced_operations(
     account_tx.execute(state, block_context, true, true).unwrap();
 
     let expected_counters = [
-        felt_to_stark_felt(
-            &(stark_felt_to_felt(expected_counters[0]) + signature_values[0].clone()),
-        ),
-        felt_to_stark_felt(
-            &(stark_felt_to_felt(expected_counters[1]) + signature_values[1].clone()),
-        ),
+        (expected_counters[0] + signature_values[0]),
+        (expected_counters[1] + signature_values[1]),
     ];
     let next_nonce = nonce_manager.next(account_address);
     verify_storage_after_invoke_advanced_operations(
@@ -683,11 +659,11 @@ fn test_invoke_tx_advanced_operations(
     );
 
     // Invoke send_message function that send a message to L1.
-    let to_address = Felt252::from(85);
+    let to_address = Felt::from(85);
     let account_tx = account_invoke_tx(invoke_tx_args! {
         nonce: next_nonce,
         calldata:
-            create_calldata(contract_address, "send_message", &[felt_to_stark_felt(&to_address)]),
+            create_calldata(contract_address, "send_message", &[to_address]),
         ..base_tx_args
     });
     let execution_info = account_tx.execute(state, block_context, true, true).unwrap();
@@ -704,8 +680,8 @@ fn test_invoke_tx_advanced_operations(
     let expected_msg = OrderedL2ToL1Message {
         order: 0,
         message: MessageToL1 {
-            to_address: EthAddress::try_from(felt_to_stark_felt(&to_address)).unwrap(),
-            payload: L2ToL1Payload(vec![stark_felt!(12_u32), stark_felt!(34_u32)]),
+            to_address: EthAddress::try_from(to_address).unwrap(),
+            payload: L2ToL1Payload(vec![felt!(12_u32), felt!(34_u32)]),
         },
     };
     assert_eq!(
@@ -729,8 +705,9 @@ fn test_state_get_fee_token_balance(
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let state = &mut test_state(chain_info, BALANCE, &[(account, 1), (test_contract, 1)]);
     let account_address = account.get_instance_address(0);
-    let (mint_high, mint_low) = (stark_felt!(54_u8), stark_felt!(39_u8));
-    let recipient = stark_felt!(10_u8);
+    let (mint_high, mint_low) = (felt!(54_u8), felt!(39_u8));
+    let recipient_int = 10_u8;
+    let recipient = felt!(recipient_int);
     let fee_token_address = chain_info.fee_token_address(&fee_type);
 
     // Give the account mint privileges.
@@ -756,7 +733,7 @@ fn test_state_get_fee_token_balance(
 
     // Get balance from state, and validate.
     let (low, high) =
-        state.get_fee_token_balance(contract_address!(recipient), fee_token_address).unwrap();
+        state.get_fee_token_balance(contract_address!(recipient_int), fee_token_address).unwrap();
 
     assert_eq!(low, mint_low);
     assert_eq!(high, mint_high);
@@ -1079,23 +1056,27 @@ fn declare_validate_callinfo(
 /// Returns the expected used L1 gas and blob gas (according to use_kzg_da flag) due to execution of
 /// a declare transaction.
 fn declare_expected_state_changes_count(version: TransactionVersion) -> StateChangesCount {
-    match version {
-        TransactionVersion::ZERO => StateChangesCount {
+    // TODO: Make TransactionVersion an enum and use match here.
+    if version == TransactionVersion::ZERO {
+        StateChangesCount {
             n_storage_updates: 1, // Sender balance.
             ..StateChangesCount::default()
-        },
-        TransactionVersion::ONE => StateChangesCount {
+        }
+    } else if version == TransactionVersion::ONE {
+        StateChangesCount {
             n_storage_updates: 1,    // Sender balance.
             n_modified_contracts: 1, // Nonce.
             ..StateChangesCount::default()
-        },
-        TransactionVersion::TWO | TransactionVersion::THREE => StateChangesCount {
+        }
+    } else if version == TransactionVersion::TWO || version == TransactionVersion::THREE {
+        StateChangesCount {
             n_storage_updates: 1,             // Sender balance.
             n_modified_contracts: 1,          // Nonce.
             n_compiled_class_hash_updates: 1, // Also set compiled class hash.
             ..StateChangesCount::default()
-        },
-        version => panic!("Unsupported version {version:?}."),
+        }
+    } else {
+        panic!("Unsupported version {version:?}.")
     }
 }
 
@@ -1267,7 +1248,7 @@ fn test_deploy_account_tx(
             .set_storage_at(
                 chain_info.fee_token_address(&fee_type),
                 deployed_account_balance_key,
-                stark_felt!(BALANCE),
+                felt!(BALANCE),
             )
             .unwrap();
     }
@@ -1423,7 +1404,7 @@ fn test_fail_deploy_account_undeclared_class_hash(block_context: BlockContext) {
         .set_storage_at(
             chain_info.fee_token_address(&FeeType::Eth),
             get_fee_token_var_address(deploy_account.contract_address),
-            stark_felt!(BALANCE),
+            felt!(BALANCE),
         )
         .unwrap();
 
@@ -1498,9 +1479,9 @@ fn test_validate_accounts_tx(
     // Try to call another contract (forbidden).
     let account_tx = create_account_tx_for_validate_test_nonce_0(FaultyAccountTxCreatorArgs {
         scenario: CALL_CONTRACT,
-        additional_data: Some(vec![stark_felt!("0x1991")]), /* Some address different than
-                                                             * the address of
-                                                             * faulty_account. */
+        additional_data: Some(vec![felt!("0x1991")]), /* Some address different than
+                                                       * the address of
+                                                       * faulty_account. */
         contract_address_salt: salt_manager.next_salt(),
         ..default_args
     });
@@ -1584,7 +1565,7 @@ fn test_validate_accounts_tx(
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_NUMBER,
                 contract_address_salt: salt_manager.next_salt(),
-                additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE)]),
+                additional_data: Some(vec![Felt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE)]),
                 declared_contract: Some(FeatureContract::AccountWithoutValidations(
                     declared_contract_cairo_version,
                 )),
@@ -1601,7 +1582,7 @@ fn test_validate_accounts_tx(
             FaultyAccountTxCreatorArgs {
                 scenario: GET_BLOCK_TIMESTAMP,
                 contract_address_salt: salt_manager.next_salt(),
-                additional_data: Some(vec![StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE)]),
+                additional_data: Some(vec![Felt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE)]),
                 declared_contract: Some(FeatureContract::Empty(declared_contract_cairo_version)),
                 ..default_args
             },
@@ -1619,9 +1600,9 @@ fn test_validate_accounts_tx(
                 scenario: GET_EXECUTION_INFO,
                 contract_address_salt: salt_manager.next_salt(),
                 additional_data: Some(vec![
-                    StarkFelt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
-                    StarkFelt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
-                    StarkFelt::from(0_u64), // Sequencer address for validate.
+                    Felt::from(CURRENT_BLOCK_NUMBER_FOR_VALIDATE),
+                    Felt::from(CURRENT_BLOCK_TIMESTAMP_FOR_VALIDATE),
+                    Felt::from(0_u64), // Sequencer address for validate.
                 ]),
                 declared_contract: Some(FeatureContract::Empty(declared_contract_cairo_version)),
                 ..default_args
@@ -1675,51 +1656,51 @@ fn test_only_query_flag(
         account_balance,
         &[(account, 1), (test_contract, 1)],
     );
-    let mut version = Felt252::from(3_u8);
+    let mut version = Felt::from(3_u8);
     if only_query {
-        let query_version_base = Pow::pow(Felt252::from(2_u8), constants::QUERY_VERSION_BASE_BIT);
+        let query_version_base = Felt::TWO.pow(constants::QUERY_VERSION_BASE_BIT);
         version += query_version_base;
     }
     let sender_address = account.get_instance_address(0);
     let test_contract_address = test_contract.get_instance_address(0);
     let expected_tx_info = vec![
-        felt_to_stark_felt(&version), // Transaction version.
-        *sender_address.0.key(),      // Account address.
-        StarkFelt::ZERO,              // Max fee.
-        StarkFelt::ZERO,              // Signature.
-        StarkFelt::ZERO,              // Transaction hash.
-        stark_felt!(&*ChainId(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
-        StarkFelt::ZERO,              // Nonce.
+        version,                                                     // Transaction version.
+        *sender_address.0.key(),                                     // Account address.
+        Felt::ZERO,                                                  // Max fee.
+        Felt::ZERO,                                                  // Signature.
+        Felt::ZERO,                                                  // Transaction hash.
+        felt!(&*ChainId::Other(CHAIN_ID_NAME.to_string()).as_hex()), // Chain ID.
+        Felt::ZERO,                                                  // Nonce.
     ];
 
     let expected_resource_bounds = vec![
-        StarkFelt::TWO,                 // Length of ResourceBounds array.
-        stark_felt!(L1_GAS),            // Resource.
-        stark_felt!(MAX_L1_GAS_AMOUNT), // Max amount.
-        stark_felt!(MAX_L1_GAS_PRICE),  // Max price per unit.
-        stark_felt!(L2_GAS),            // Resource.
-        StarkFelt::ZERO,                // Max amount.
-        StarkFelt::ZERO,                // Max price per unit.
+        Felt::TWO,                // Length of ResourceBounds array.
+        felt!(L1_GAS),            // Resource.
+        felt!(MAX_L1_GAS_AMOUNT), // Max amount.
+        felt!(MAX_L1_GAS_PRICE),  // Max price per unit.
+        felt!(L2_GAS),            // Resource.
+        Felt::ZERO,               // Max amount.
+        Felt::ZERO,               // Max price per unit.
     ];
 
     let expected_unsupported_fields = vec![
-        StarkFelt::ZERO, // Tip.
-        StarkFelt::ZERO, // Paymaster data.
-        StarkFelt::ZERO, // Nonce DA.
-        StarkFelt::ZERO, // Fee DA.
-        StarkFelt::ZERO, // Account data.
+        Felt::ZERO, // Tip.
+        Felt::ZERO, // Paymaster data.
+        Felt::ZERO, // Nonce DA.
+        Felt::ZERO, // Fee DA.
+        Felt::ZERO, // Account data.
     ];
 
     let entry_point_selector = selector_from_name("test_get_execution_info");
     let expected_call_info = vec![
-        *sender_address.0.key(),             // Caller address.
-        *test_contract_address.0.key(),      // Storage address.
-        stark_felt!(entry_point_selector.0), // Entry point selector.
+        *sender_address.0.key(),        // Caller address.
+        *test_contract_address.0.key(), // Storage address.
+        entry_point_selector.0,         // Entry point selector.
     ];
     let expected_block_info = [
-        stark_felt!(CURRENT_BLOCK_NUMBER),    // Block number.
-        stark_felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
-        stark_felt!(TEST_SEQUENCER_ADDRESS),  // Sequencer address.
+        felt!(CURRENT_BLOCK_NUMBER),    // Block number.
+        felt!(CURRENT_BLOCK_TIMESTAMP), // Block timestamp.
+        felt!(TEST_SEQUENCER_ADDRESS),  // Sequencer address.
     ];
     let calldata_len = expected_block_info.len()
         + expected_tx_info.len()
@@ -1731,7 +1712,7 @@ fn test_only_query_flag(
         entry_point_selector.0,         // EP selector.
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
-        stark_felt!(u64::try_from(calldata_len).expect("Failed to convert usize to u64.")), /* Calldata length. */
+        felt!(u64::try_from(calldata_len).expect("Failed to convert usize to u64.")), /* Calldata length. */
     ];
     let execute_calldata = Calldata(
         [
@@ -1796,7 +1777,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
         resources: ExecutionResources {
             n_steps: 154,
             n_memory_holes: 0,
-            builtin_instance_counter: HashMap::from([(RANGE_CHECK_BUILTIN_NAME.to_string(), 6)]),
+            builtin_instance_counter: HashMap::from([(BuiltinName::range_check, 6)]),
         },
         accessed_storage_keys: HashSet::from_iter(vec![accessed_storage_key]),
         ..Default::default()
@@ -1822,11 +1803,11 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
 
     let mut expected_execution_resources = ExecutionResources {
         builtin_instance_counter: HashMap::from([
-            (HASH_BUILTIN_NAME.to_string(), 11 + payload_size),
+            (BuiltinName::pedersen, 11 + payload_size),
             (
-                RANGE_CHECK_BUILTIN_NAME.to_string(),
+                BuiltinName::range_check,
                 get_tx_resources(TransactionType::L1Handler).builtin_instance_counter
-                    [&RANGE_CHECK_BUILTIN_NAME.to_string()]
+                    [&BuiltinName::range_check]
                     + 6,
             ),
         ]),
@@ -1891,13 +1872,7 @@ fn test_l1_handler(#[values(false, true)] use_kzg_da: bool) {
     // set the storage back to 0, so the fee will also include the storage write.
     // TODO(Meshi, 15/6/2024): change the l1_handler_set_value cairo function to
     // always uptade the storage instad.
-    state
-        .set_storage_at(
-            contract_address,
-            StorageKey::try_from(key).unwrap(),
-            StarkFelt::from_u128(0),
-        )
-        .unwrap();
+    state.set_storage_at(contract_address, StorageKey::try_from(key).unwrap(), Felt::ZERO).unwrap();
     let tx_no_fee = L1HandlerTransaction::create_for_testing(Fee(0), contract_address);
     let error = tx_no_fee.execute(state, block_context, true, true).unwrap_err();
     // Today, we check that the paid_fee is positive, no matter what was the actual fee.
@@ -1929,7 +1904,7 @@ fn test_execute_tx_with_invalid_transaction_version(
     let calldata = create_calldata(
         test_contract.get_instance_address(0),
         "test_tx_version",
-        &[stark_felt!(invalid_version)],
+        &[felt!(invalid_version)],
     );
     let account_tx = account_invoke_tx(invoke_tx_args! {
         resource_bounds: max_resource_bounds,
@@ -1960,29 +1935,29 @@ fn max_event_data() -> usize {
 
 #[rstest]
 #[case::positive_flow(
-    vec![stark_felt!(1_u16); max_event_keys()],
-    vec![stark_felt!(2_u16); max_event_data()],
+    vec![felt!(1_u16); max_event_keys()],
+    vec![felt!(2_u16); max_event_data()],
     max_n_emitted_events(),
     None)]
 #[case::exceeds_max_number_of_events(
-    vec![stark_felt!(1_u16)],
-    vec![stark_felt!(2_u16)],
+    vec![felt!(1_u16)],
+    vec![felt!(2_u16)],
     max_n_emitted_events() + 1,
     Some(EmitEventError::ExceedsMaxNumberOfEmittedEvents {
         n_emitted_events: max_n_emitted_events() + 1,
         max_n_emitted_events: max_n_emitted_events(),
     }))]
 #[case::exceeds_max_number_of_keys(
-    vec![stark_felt!(3_u16); max_event_keys() + 1],
-    vec![stark_felt!(4_u16)],
+    vec![felt!(3_u16); max_event_keys() + 1],
+    vec![felt!(4_u16)],
     1,
     Some(EmitEventError::ExceedsMaxKeysLength{
         keys_length: max_event_keys() + 1,
         max_keys_length: max_event_keys(),
     }))]
 #[case::exceeds_data_length(
-    vec![stark_felt!(5_u16)],
-    vec![stark_felt!(6_u16); max_event_data() + 1],
+    vec![felt!(5_u16)],
+    vec![felt!(6_u16); max_event_data() + 1],
     1,
     Some(EmitEventError::ExceedsMaxDataLength{
         data_length: max_event_data() + 1,
@@ -1991,8 +1966,8 @@ fn max_event_data() -> usize {
 fn test_emit_event_exceeds_limit(
     block_context: BlockContext,
     max_resource_bounds: ResourceBoundsMapping,
-    #[case] event_keys: Vec<StarkFelt>,
-    #[case] event_data: Vec<StarkFelt>,
+    #[case] event_keys: Vec<Felt>,
+    #[case] event_data: Vec<Felt>,
     #[case] n_emitted_events: usize,
     #[case] expected_error: Option<EmitEventError>,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
@@ -2007,17 +1982,11 @@ fn test_emit_event_exceeds_limit(
     );
 
     let calldata = [
-        vec![stark_felt!(
-            u16::try_from(n_emitted_events).expect("Failed to convert usize to u16.")
-        )]
-        .to_owned(),
-        vec![stark_felt!(
-            u16::try_from(event_keys.len()).expect("Failed to convert usize to u16.")
-        )],
+        vec![felt!(u16::try_from(n_emitted_events).expect("Failed to convert usize to u16."))]
+            .to_owned(),
+        vec![felt!(u16::try_from(event_keys.len()).expect("Failed to convert usize to u16."))],
         event_keys.clone(),
-        vec![stark_felt!(
-            u16::try_from(event_data.len()).expect("Failed to convert usize to u16.")
-        )],
+        vec![felt!(u16::try_from(event_data.len()).expect("Failed to convert usize to u16."))],
         event_data.clone(),
     ]
     .concat();
@@ -2025,9 +1994,7 @@ fn test_emit_event_exceeds_limit(
         [
             vec![test_contract.get_instance_address(0).into()],
             vec![selector_from_name("test_emit_events").0],
-            vec![stark_felt!(
-                u16::try_from(calldata.len()).expect("Failed to convert usize to u16.")
-            )],
+            vec![felt!(u16::try_from(calldata.len()).expect("Failed to convert usize to u16."))],
             calldata.clone(),
         ]
         .concat()
@@ -2054,6 +2021,6 @@ fn test_emit_event_exceeds_limit(
 
 #[test]
 fn test_balance_print() {
-    let int = balance_to_big_uint(&StarkFelt::from(16_u64), &StarkFelt::from(1_u64));
+    let int = balance_to_big_uint(&Felt::from(16_u64), &Felt::from(1_u64));
     assert!(format!("{}", int) == (BigUint::from(u128::MAX) + BigUint::from(17_u128)).to_string());
 }

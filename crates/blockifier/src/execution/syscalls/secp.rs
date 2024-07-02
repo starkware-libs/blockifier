@@ -1,23 +1,19 @@
 use ark_ec::short_weierstrass;
 use ark_ec::short_weierstrass::SWCurveConfig;
 use ark_ff::{BigInteger, PrimeField};
-use cairo_felt::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
-use starknet_api::hash::StarkFelt;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::sierra_types::{SierraType, SierraU256};
-use crate::execution::execution_utils::{
-    felt_from_ptr, stark_felt_from_ptr, write_maybe_relocatable, write_u256,
-};
+use crate::execution::execution_utils::{felt_from_ptr, write_maybe_relocatable, write_u256};
 use crate::execution::syscalls::hint_processor::{
     felt_to_bool, SyscallHintProcessor, INVALID_ARGUMENT,
 };
 use crate::execution::syscalls::{
-    felt_to_stark_felt, SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult,
-    WriteResponseResult,
+    SyscallExecutionError, SyscallRequest, SyscallResponse, SyscallResult, WriteResponseResult,
 };
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -53,7 +49,7 @@ where
         if request.x >= modulos {
             return Err(SyscallExecutionError::SyscallError {
                 error_data: vec![
-                    StarkFelt::try_from(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
+                    Felt::from_hex(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
                 ],
             });
         }
@@ -84,7 +80,7 @@ where
         if x >= modulos || y >= modulos {
             return Err(SyscallExecutionError::SyscallError {
                 error_data: vec![
-                    StarkFelt::try_from(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
+                    Felt::from_hex(INVALID_ARGUMENT).map_err(SyscallExecutionError::from)?,
                 ],
             });
         }
@@ -111,11 +107,11 @@ where
 
     fn get_point_by_id(
         &self,
-        ec_point_id: Felt252,
+        ec_point_id: Felt,
     ) -> SyscallResult<&short_weierstrass::Affine<Curve>> {
         ec_point_id.to_usize().and_then(|id| self.points.get(id)).ok_or_else(|| {
             SyscallExecutionError::InvalidSyscallInput {
-                input: felt_to_stark_felt(&ec_point_id),
+                input: ec_point_id,
                 info: "Invalid Secp point ID".to_string(),
             }
         })
@@ -172,8 +168,8 @@ impl SyscallResponse for SecpOpRespone {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct SecpAddRequest {
-    pub lhs_id: Felt252,
-    pub rhs_id: Felt252,
+    pub lhs_id: Felt,
+    pub rhs_id: Felt,
 }
 
 impl SyscallRequest for SecpAddRequest {
@@ -216,7 +212,7 @@ impl SyscallRequest for SecpGetPointFromXRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SecpGetPointFromXRequest> {
         let x = SierraU256::from_memory(vm, ptr)?.to_biguint();
 
-        let y_parity = felt_to_bool(stark_felt_from_ptr(vm, ptr)?, "Invalid y parity")?;
+        let y_parity = felt_to_bool(felt_from_ptr(vm, ptr)?, "Invalid y parity")?;
         Ok(SecpGetPointFromXRequest { x, y_parity })
     }
 }
@@ -245,7 +241,7 @@ pub fn secp256r1_get_point_from_x(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct SecpGetXyRequest {
-    pub ec_point_id: Felt252,
+    pub ec_point_id: Felt,
 }
 
 impl SyscallRequest for SecpGetXyRequest {
@@ -286,7 +282,7 @@ pub fn secp256r1_get_xy(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct SecpMulRequest {
-    pub ec_point_id: Felt252,
+    pub ec_point_id: Felt,
     pub multiplier: BigUint,
 }
 

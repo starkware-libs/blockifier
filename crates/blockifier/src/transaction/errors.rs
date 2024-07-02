@@ -2,6 +2,7 @@ use num_bigint::BigUint;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, Nonce};
 use starknet_api::transaction::{Fee, TransactionVersion};
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::FromStrError;
 use thiserror::Error;
 
 use crate::execution::call_info::Retdata;
@@ -72,6 +73,8 @@ pub enum TransactionExecutionError {
     },
     #[error(transparent)]
     FeeCheckError(#[from] FeeCheckError),
+    #[error(transparent)]
+    FromStr(#[from] FromStrError),
     #[error("The `validate` entry point should return `VALID`. Got {actual:?}.")]
     InvalidValidateReturnData { actual: Retdata },
     #[error(

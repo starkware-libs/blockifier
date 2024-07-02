@@ -1,3 +1,4 @@
+use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
@@ -43,13 +44,13 @@ pub struct EntryPointErrorFrame {
 impl EntryPointErrorFrame {
     fn preamble_text(&self) -> String {
         format!(
-            "{}: {} (contract address: {}, class hash: {}, selector: {}):",
+            "{}: {} (contract address: {:#064x}, class hash: {:#064x}, selector: {}):",
             self.depth,
             self.preamble_type.text(),
             self.storage_address.0.key(),
-            self.class_hash,
+            self.class_hash.0,
             if let Some(selector) = self.selector {
-                format!("{}", selector.0)
+                format!("{:#064x}", selector.0)
             } else {
                 "UNKNOWN".to_string()
             }
@@ -64,13 +65,13 @@ impl From<&EntryPointErrorFrame> for String {
 }
 
 pub struct VmExceptionFrame {
-    pc: usize,
+    pc: Relocatable,
     traceback: Option<String>,
 }
 
 impl From<&VmExceptionFrame> for String {
     fn from(value: &VmExceptionFrame) -> Self {
-        let vm_exception_preamble = format!("Error at pc=0:{}:", value.pc);
+        let vm_exception_preamble = format!("Error at pc={}:", value.pc);
         let vm_exception_traceback = if let Some(traceback) = &value.traceback {
             format!("\n{}", traceback)
         } else {

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use indexmap::IndexMap;
+use papyrus_storage::class::ClassStorageWriter;
 use papyrus_storage::compiled_class::CasmStorageWriter;
 use papyrus_storage::header::{HeaderStorageReader, HeaderStorageWriter};
 use papyrus_storage::state::{StateStorageReader, StateStorageWriter};
@@ -12,7 +13,7 @@ use starknet_api::block::{BlockHash, BlockHeader, BlockNumber};
 use starknet_api::core::{ChainId, ClassHash, CompiledClassHash, ContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
 use starknet_api::hash::StarkHash;
-use starknet_api::state::{ContractClass, StateDiff, StateNumber};
+use starknet_api::state::{ContractClass, StateDiff, StateNumber, ThinStateDiff};
 
 use crate::errors::NativeBlockifierResult;
 use crate::py_state_diff::PyBlockInfo;
@@ -93,7 +94,7 @@ impl Storage for PapyrusStorage {
             .reader()
             .begin_ro_txn()?
             .get_block_header(block_number)?
-            .map(|block_header| Vec::from(block_header.block_hash.0.bytes().as_slice()));
+            .map(|block_header| Vec::from(block_header.block_hash.0.to_bytes_be().as_slice()));
         Ok(block_hash)
     }
 
@@ -196,12 +197,19 @@ impl Storage for PapyrusStorage {
         state_diff.declared_classes = declared_classes;
         state_diff.replaced_classes = replaced_classes;
 
-        let deployed_contract_class_definitions =
-            IndexMap::<ClassHash, DeprecatedContractClass>::new();
-        append_txn = append_txn.append_state_diff(
+        let (thin_state_diff, declared_classes, deprecated_declared_classes) =
+            ThinStateDiff::from_state_diff(state_diff);
+
+        append_txn = append_txn.append_state_diff(block_number, thin_state_diff)?.append_classes(
             block_number,
-            state_diff,
-            deployed_contract_class_definitions,
+            &declared_classes
+                .iter()
+                .map(|(class_hash, contract_class)| (*class_hash, contract_class))
+                .collect::<Vec<_>>(),
+            &deprecated_declared_classes
+                .iter()
+                .map(|(class_hash, contract_class)| (*class_hash, contract_class))
+                .collect::<Vec<_>>(),
         )?;
 
         let previous_block_id = previous_block_id.unwrap_or_else(|| PyFelt::from(GENESIS_BLOCK_ID));

@@ -1,3 +1,4 @@
+use cairo_vm::types::builtin_name::BuiltinName;
 use glob::glob;
 use pretty_assertions::assert_eq;
 
@@ -125,8 +126,8 @@ fn test_default_values() {
     let expected_declare_resources = ExecutionResources {
         n_steps: 2839,
         builtin_instance_counter: HashMap::from([
-            ("pedersen_builtin".to_string(), 16),
-            ("range_check_builtin".to_string(), 63),
+            (BuiltinName::pedersen, 16),
+            (BuiltinName::range_check, 63),
         ]),
         ..Default::default()
     };

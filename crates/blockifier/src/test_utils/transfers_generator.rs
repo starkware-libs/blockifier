@@ -1,8 +1,8 @@
 use rand::{Rng, SeedableRng};
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, TransactionVersion};
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::selector_from_name;
 use crate::blockifier::config::TransactionExecutorConfig;
@@ -21,7 +21,7 @@ use crate::transaction::transaction_execution::Transaction;
 const N_ACCOUNTS: u16 = 10000;
 const CHUNK_SIZE: usize = 10;
 const RANDOMIZATION_SEED: u64 = 0;
-const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(StarkFelt::ONE);
+const TRANSACTION_VERSION: TransactionVersion = TransactionVersion(Felt::ONE);
 
 pub struct TransfersGenerator {
     account_addresses: Vec<ContractAddress>,
@@ -86,23 +86,21 @@ impl TransfersGenerator {
         let nonce = self.nonce_manager.next(sender_address);
 
         let entry_point_selector = selector_from_name(TRANSFER_ENTRY_POINT_NAME);
-        let contract_address = match TRANSACTION_VERSION {
-            TransactionVersion::ONE => {
-                *self.chain_info.fee_token_addresses.eth_fee_token_address.0.key()
-            }
-            TransactionVersion::THREE => {
-                *self.chain_info.fee_token_addresses.strk_fee_token_address.0.key()
-            }
-            _ => panic!("Unsupported transaction version: {TRANSACTION_VERSION:?}"),
+        let contract_address = if TRANSACTION_VERSION == TransactionVersion::ONE {
+            *self.chain_info.fee_token_addresses.eth_fee_token_address.0.key()
+        } else if TRANSACTION_VERSION == TransactionVersion::THREE {
+            *self.chain_info.fee_token_addresses.strk_fee_token_address.0.key()
+        } else {
+            panic!("Unsupported transaction version: {TRANSACTION_VERSION:?}")
         };
 
         let execute_calldata = calldata![
             contract_address,           // Contract address.
             entry_point_selector.0,     // EP selector.
-            stark_felt!(3_u8),          // Calldata length.
+            felt!(3_u8),                // Calldata length.
             *recipient_address.0.key(), // Calldata: recipient.
-            stark_felt!(1_u8),          // Calldata: lsb amount.
-            stark_felt!(0_u8)           // Calldata: msb amount.
+            felt!(1_u8),                // Calldata: lsb amount.
+            felt!(0_u8)                 // Calldata: msb amount.
         ];
 
         let tx = invoke_tx(invoke_tx_args! {

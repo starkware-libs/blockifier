@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use strum::IntoEnumIterator;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
@@ -23,10 +22,8 @@ pub fn fund_account(
     let storage_view = &mut state_reader.storage_view;
     let balance_key = get_fee_token_var_address(account_address);
     for fee_type in FeeType::iter() {
-        storage_view.insert(
-            (chain_info.fee_token_address(&fee_type), balance_key),
-            stark_felt!(initial_balance),
-        );
+        storage_view
+            .insert((chain_info.fee_token_address(&fee_type), balance_key), felt!(initial_balance));
     }
 }
 

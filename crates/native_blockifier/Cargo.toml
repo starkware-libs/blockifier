@@ -38,6 +38,7 @@ pyo3 = { workspace = true, features = ["hashbrown", "num-bigint"] }
 pyo3-log.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
+starknet-types-core.workspace = true
 starknet_api = { workspace = true, features = ["testing"] }
 thiserror.workspace = true
 

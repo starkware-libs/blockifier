@@ -7,10 +7,12 @@ use blockifier::transaction::errors::{
 };
 use blockifier::transaction::transaction_types::TransactionType;
 use cairo_vm::types::errors::program_errors::ProgramError;
+use num_bigint::BigUint;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::FromStrError;
 use thiserror::Error;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
@@ -85,11 +87,15 @@ pub enum NativeBlockifierInputError {
     #[error(transparent)]
     ProgramError(#[from] ProgramError),
     #[error(transparent)]
+    PyFeltParseError(#[from] FromStrError),
+    #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
+    #[error("Unknown builtin: {0}.")]
+    UnknownBuiltin(String),
     #[error("Contract class of version {version} is unsupported.")]
     UnsupportedContractClassVersion { version: usize },
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
-    UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
+    UnsupportedTransactionVersion { tx_type: TransactionType, version: BigUint },
 }
 
 #[derive(Debug, Error)]

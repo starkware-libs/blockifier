@@ -1,12 +1,11 @@
 use std::collections::HashSet;
 
-use cairo_vm::serde::deserialize_program::BuiltinName;
+use cairo_vm::types::builtin_name::BuiltinName;
 use num_bigint::BigInt;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{EntryPointSelector, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 
 use crate::abi::abi_utils::{get_storage_var_address, selector_from_name};
 use crate::context::ChainInfo;
@@ -30,20 +29,20 @@ fn test_call_info_iteration() {
     //           |
     //       left_leaf (2)
     let left_leaf = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(2_u8)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![felt!(2_u8)], ..Default::default() },
         ..Default::default()
     };
     let right_leaf = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(3_u8)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![felt!(3_u8)], ..Default::default() },
         ..Default::default()
     };
     let inner_node = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(1_u8)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![felt!(1_u8)], ..Default::default() },
         inner_calls: vec![left_leaf],
         ..Default::default()
     };
     let root = CallInfo {
-        call: CallEntryPoint { calldata: calldata![stark_felt!(0_u8)], ..Default::default() },
+        call: CallEntryPoint { calldata: calldata![felt!(0_u8)], ..Default::default() },
         inner_calls: vec![inner_node, right_leaf],
         ..Default::default()
     };
@@ -53,7 +52,7 @@ fn test_call_info_iteration() {
         // works.
         assert_eq!(
             call_info.call.calldata,
-            calldata![stark_felt!(u64::try_from(i).expect("Failed to convert usize to u64."))]
+            calldata![felt!(u64::try_from(i).expect("Failed to convert usize to u64."))]
         );
     }
 }
@@ -76,7 +75,7 @@ fn test_entry_point_without_arg() {
 fn test_entry_point_with_arg() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
-    let calldata = calldata![stark_felt!(25_u8)];
+    let calldata = calldata![felt!(25_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("with_arg"),
@@ -101,11 +100,11 @@ fn test_long_retdata() {
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution::from_retdata(retdata![
-            stark_felt!(0_u8),
-            stark_felt!(1_u8),
-            stark_felt!(2_u8),
-            stark_felt!(3_u8),
-            stark_felt!(4_u8)
+            felt!(0_u8),
+            felt!(1_u8),
+            felt!(2_u8),
+            felt!(3_u8),
+            felt!(4_u8)
         ])
     );
 }
@@ -114,7 +113,7 @@ fn test_long_retdata() {
 fn test_entry_point_with_builtin() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
-    let calldata = calldata![stark_felt!(47_u8), stark_felt!(31_u8)];
+    let calldata = calldata![felt!(47_u8), felt!(31_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("bitwise_and"),
@@ -130,7 +129,7 @@ fn test_entry_point_with_builtin() {
 fn test_entry_point_with_hint() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
-    let calldata = calldata![stark_felt!(81_u8)];
+    let calldata = calldata![felt!(81_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("sqrt"),
@@ -146,7 +145,7 @@ fn test_entry_point_with_hint() {
 fn test_entry_point_with_return_value() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
-    let calldata = calldata![stark_felt!(23_u8)];
+    let calldata = calldata![felt!(23_u8)];
     let entry_point_call = CallEntryPoint {
         calldata,
         entry_point_selector: selector_from_name("return_result"),
@@ -154,7 +153,7 @@ fn test_entry_point_with_return_value() {
     };
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution::from_retdata(retdata![stark_felt!(23_u8)])
+        CallExecution::from_retdata(retdata![felt!(23_u8)])
     );
 }
 
@@ -162,7 +161,7 @@ fn test_entry_point_with_return_value() {
 fn test_entry_point_not_found_in_contract() {
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut state = test_state(&ChainInfo::create_for_testing(), 0, &[(test_contract, 1)]);
-    let entry_point_selector = EntryPointSelector(stark_felt!(2_u8));
+    let entry_point_selector = EntryPointSelector(felt!(2_u8));
     let entry_point_call =
         CallEntryPoint { entry_point_selector, ..trivial_external_entry_point_new(test_contract) };
     let error = entry_point_call.execute_directly(&mut state).unwrap_err();
@@ -307,7 +306,7 @@ fn test_builtin_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Inconsistent auto-deduction for builtin pedersen",
+        "Inconsistent auto-deduction for pedersen_builtin",
         "test_bad_pedersen_values",
         calldata![],
     );
@@ -362,7 +361,7 @@ fn test_syscall_execution_security_failures() {
     for perform_inner_call_to_foo in 0..2 {
         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
         // works.
-        let calldata = calldata![stark_felt!(
+        let calldata = calldata![felt!(
             u8::try_from(perform_inner_call_to_foo).expect("Failed to convert i32 to u8.")
         )];
         run_security_test(
@@ -386,8 +385,7 @@ fn test_syscall_execution_security_failures() {
         state,
         security_contract,
         "Requested contract address \
-         ContractAddress(PatriciaKey(StarkFelt(\"\
-         0x0000000000000000000000000000000000000000000000000000000000000017\"))) is not deployed",
+         0x0000000000000000000000000000000000000000000000000000000000000017 is not deployed",
         "test_bad_call_address",
         calldata![],
     );
@@ -401,10 +399,7 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Entry point \
-         EntryPointSelector(StarkFelt(\"\
-         0x0000000000000000000000000000000000000000000000000000000000000019\")) not found in \
-         contract",
+        "Entry point EntryPointSelector(0x19) not found in contract",
         "test_bad_call_selector",
         calldata![],
     );
@@ -426,14 +421,14 @@ fn test_post_run_validation_security_failure() {
     run_security_test(
         state,
         security_contract,
-        "Missing memory cells for builtin range_check",
+        "Missing memory cells for range_check_builtin",
         "test_builtin_hole",
         calldata![],
     );
     run_security_test(
         state,
         security_contract,
-        "Missing memory cells for builtin pedersen",
+        "Missing memory cells for pedersen_builtin",
         "test_missing_pedersen_values",
         calldata![],
     );
@@ -479,7 +474,7 @@ fn test_post_run_validation_security_failure() {
         "test_write_to_call_contract_return_value",
         calldata![],
     );
-    let calldata = calldata![stark_felt!(1_u8), stark_felt!(1_u8)];
+    let calldata = calldata![felt!(1_u8), felt!(1_u8)];
     run_security_test(
         state,
         security_contract,
@@ -501,15 +496,16 @@ fn test_storage_related_members() {
         ..trivial_external_entry_point_new(test_contract)
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
-    assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(39_u8)]);
+    assert_eq!(actual_call_info.storage_read_values, vec![felt!(39_u8)]);
     assert_eq!(
         actual_call_info.accessed_storage_keys,
-        HashSet::from([get_storage_var_address("number_map", &[stark_felt!(1_u8)])])
+        HashSet::from([get_storage_var_address("number_map", &[felt!(1_u8)])])
     );
 
     // Test raw storage read and write.
-    let key = stark_felt!(1234_u16);
-    let value = stark_felt!(18_u8);
+    let key_int = 1234_u16;
+    let key = felt!(key_int);
+    let value = felt!(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -518,7 +514,7 @@ fn test_storage_related_members() {
     };
     let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
     assert_eq!(actual_call_info.storage_read_values, vec![value]);
-    assert_eq!(actual_call_info.accessed_storage_keys, HashSet::from([storage_key!(key)]));
+    assert_eq!(actual_call_info.accessed_storage_keys, HashSet::from([storage_key!(key_int)]));
 }
 
 #[test]
@@ -539,6 +535,6 @@ fn test_cairo1_entry_point_segment_arena() {
             .unwrap()
             .resources
             .builtin_instance_counter
-            .contains_key(BuiltinName::segment_arena.name())
+            .contains_key(&BuiltinName::segment_arena)
     );
 }

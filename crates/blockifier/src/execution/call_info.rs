@@ -1,21 +1,21 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::iter::Sum;
 use std::ops::Add;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EthAddress, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::patricia_key;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
+use starknet_api::{felt, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use crate::execution::entry_point::CallEntryPoint;
 use crate::fee::gas_usage::get_message_segment_length;
 use crate::state::cached_state::StorageEntry;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
-pub struct Retdata(pub Vec<StarkFelt>);
+pub struct Retdata(pub Vec<Felt>);
 
 #[macro_export]
 macro_rules! retdata {
@@ -81,15 +81,6 @@ pub struct CallExecution {
     pub l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     pub failed: bool,
     pub gas_consumed: u64,
-}
-
-// This struct is used to implement `serde` functionality in a remote `ExecutionResources` Struct.
-#[derive(Debug, Default, Deserialize, derive_more::From, Eq, PartialEq, Serialize)]
-#[serde(remote = "ExecutionResources")]
-struct ExecutionResourcesDef {
-    n_steps: usize,
-    n_memory_holes: usize,
-    builtin_instance_counter: HashMap<String, usize>,
 }
 
 #[derive(Default)]
@@ -158,7 +149,7 @@ impl TestExecutionSummary {
                         order: i,
                         message: MessageToL1 {
                             to_address: EthAddress::default(),
-                            payload: L2ToL1Payload(vec![StarkFelt::default()]),
+                            payload: L2ToL1Payload(vec![Felt::default()]),
                         },
                     })
                     .collect(),
@@ -175,12 +166,11 @@ impl TestExecutionSummary {
 pub struct CallInfo {
     pub call: CallEntryPoint,
     pub execution: CallExecution,
-    #[serde(with = "ExecutionResourcesDef")]
     pub resources: ExecutionResources,
     pub inner_calls: Vec<CallInfo>,
 
     // Additional information gathered during execution.
-    pub storage_read_values: Vec<StarkFelt>,
+    pub storage_read_values: Vec<Felt>,
     pub accessed_storage_keys: HashSet<StorageKey>,
 }
 

@@ -6,9 +6,9 @@ use blockifier::state::state_api::StateReader;
 use cached::Cached;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use pretty_assertions::assert_eq;
-use starknet_api::class_hash;
 use starknet_api::core::ClassHash;
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::{class_hash, felt};
+use starknet_types_core::felt::Felt;
 
 use crate::py_block_executor::{PyBlockExecutor, PyGeneralConfig};
 use crate::py_objects::PyConcurrencyConfig;
@@ -73,7 +73,7 @@ fn get_block_id() {
         0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf,
     ];
     let max_class_hash_vec = Vec::from(max_class_hash);
-    let expected_max_class_hash_as_py_felt = PyFelt(StarkFelt::new(max_class_hash).unwrap());
+    let expected_max_class_hash_as_py_felt = PyFelt(Felt::from_bytes_be(&max_class_hash));
 
     let storage =
         MockStorage { block_number_to_class_hash: HashMap::from([(1138, max_class_hash_vec)]) };

@@ -1,7 +1,6 @@
 use rstest::rstest;
-use starknet_api::class_hash;
 use starknet_api::core::ClassHash;
-use starknet_api::hash::StarkHash;
+use starknet_api::{class_hash, felt};
 
 use crate::execution::call_info::{
     CallExecution, CallInfo, ExecutionSummary, OrderedEvent, TestExecutionSummary,

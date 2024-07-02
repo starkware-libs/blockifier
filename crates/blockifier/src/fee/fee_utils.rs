@@ -3,9 +3,9 @@ use std::collections::HashSet;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use num_bigint::BigUint;
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Fee;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::constants;
@@ -34,7 +34,7 @@ pub fn calculate_l1_gas_by_vm_usage(
 ) -> TransactionFeeResult<GasVector> {
     // TODO(Yoni, 1/7/2024): rename vm -> cairo.
     let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
-    let mut vm_resource_usage_for_fee = vm_resource_usage.prover_builtins();
+    let mut vm_resource_usage_for_fee = vm_resource_usage.prover_builtins_by_name();
     vm_resource_usage_for_fee.insert(
         constants::N_STEPS_RESOURCE.to_string(),
         vm_resource_usage.total_n_steps() + n_reverted_steps,
@@ -81,7 +81,7 @@ pub fn get_balance_and_if_covers_fee(
     state: &mut dyn StateReader,
     tx_context: &TransactionContext,
     fee: Fee,
-) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
+) -> TransactionFeeResult<(Felt, Felt, bool)> {
     let tx_info = &tx_context.tx_info;
     let (balance_low, balance_high) =
         state.get_fee_token_balance(tx_info.sender_address(), tx_context.fee_token_address())?;
@@ -90,7 +90,7 @@ pub fn get_balance_and_if_covers_fee(
         balance_high,
         // TODO(Dori,1/10/2023): If/when fees can be more than 128 bit integers, this should be
         //   updated.
-        balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0),
+        balance_high > Felt::from(0_u8) || balance_low >= Felt::from(fee.0),
     ))
 }
 
@@ -146,8 +146,8 @@ pub fn get_address_balance_keys(address: ContractAddress) -> (StorageKey, Storag
     (balance_key_low, balance_key_high)
 }
 
-pub(crate) fn balance_to_big_uint(balance_low: &StarkFelt, balance_high: &StarkFelt) -> BigUint {
-    let low = BigUint::from_bytes_be(balance_low.bytes());
-    let high = BigUint::from_bytes_be(balance_high.bytes());
+pub(crate) fn balance_to_big_uint(balance_low: &Felt, balance_high: &Felt) -> BigUint {
+    let low = BigUint::from_bytes_be(&balance_low.to_bytes_be());
+    let high = BigUint::from_bytes_be(&balance_high.to_bytes_be());
     (high << 128) + low
 }

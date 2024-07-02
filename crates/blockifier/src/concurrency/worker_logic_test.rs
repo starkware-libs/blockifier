@@ -3,9 +3,9 @@ use std::sync::Mutex;
 
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{ContractAddressSalt, ResourceBoundsMapping, TransactionVersion};
-use starknet_api::{contract_address, patricia_key, stark_felt};
+use starknet_api::{contract_address, felt, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
@@ -62,8 +62,8 @@ fn verify_sequencer_balance_update<S: StateReader>(
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(block_context);
     for (expected_balance, storage_key) in [
-        (stark_felt!(expected_sequencer_balance_low), sequencer_balance_key_low),
-        (StarkFelt::ZERO, sequencer_balance_key_high),
+        (felt!(expected_sequencer_balance_low), sequencer_balance_key_low),
+        (Felt::ZERO, sequencer_balance_key_high),
     ] {
         let actual_balance = tx_version_state
             .get_storage_at(
@@ -163,10 +163,7 @@ pub fn test_commit_tx() {
                     .as_ref()
                     .unwrap()
                     .storage_read_values[read_storage_index];
-                assert_eq!(
-                    stark_felt!(expected_sequencer_storage_read),
-                    actual_sequencer_storage_read,
-                );
+                assert_eq!(felt!(expected_sequencer_storage_read), actual_sequencer_storage_read,);
             }
         }
         let tx_context = executor.block_context.to_tx_context(&txs[commit_idx]);
@@ -268,7 +265,7 @@ fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account_contract.get_instance_address(0);
     let nonce_manager = &mut NonceManager::default();
-    let storage_value = stark_felt!(93_u8);
+    let storage_value = felt!(93_u8);
     let storage_key = storage_key!(1993_u16);
 
     let tx_success = account_invoke_tx(invoke_tx_args! {
@@ -301,7 +298,7 @@ fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
         calldata: create_calldata(
             test_contract_address,
             "write_and_revert",
-            &[stark_felt!(1991_u16),storage_value ], // Calldata:  address, value.
+            &[felt!(1991_u16),storage_value ], // Calldata:  address, value.
         ),
         resource_bounds: max_resource_bounds,
         nonce: nonce_manager.next(account_address)
@@ -356,8 +353,8 @@ fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
         nonces: HashMap::from([(account_address, nonce!(1_u8))]),
         storage: HashMap::from([
             ((test_contract_address, storage_key), storage_value),
-            ((erc_contract_address, account_balance_key_low), stark_felt!(account_balance)),
-            ((erc_contract_address, account_balance_key_high), stark_felt!(0_u8)),
+            ((erc_contract_address, account_balance_key_low), felt!(account_balance)),
+            ((erc_contract_address, account_balance_key_high), felt!(0_u8)),
         ]),
         ..Default::default()
     };
@@ -370,9 +367,9 @@ fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
             (erc_contract_address, erc20.get_class_hash()),
         ]),
         storage: HashMap::from([
-            ((test_contract_address, storage_key), stark_felt!(0_u8)),
-            ((erc_contract_address, account_balance_key_low), stark_felt!(BALANCE)),
-            ((erc_contract_address, account_balance_key_high), stark_felt!(0_u8)),
+            ((test_contract_address, storage_key), felt!(0_u8)),
+            ((erc_contract_address, account_balance_key_low), felt!(BALANCE)),
+            ((erc_contract_address, account_balance_key_high), felt!(0_u8)),
         ]),
         // When running an entry point, we load its contract class.
         declared_contracts: HashMap::from([
@@ -445,8 +442,8 @@ fn test_worker_validate(max_resource_bounds: ResourceBoundsMapping) {
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account_contract.get_instance_address(0);
     let nonce_manager = &mut NonceManager::default();
-    let storage_value0 = stark_felt!(93_u8);
-    let storage_value1 = stark_felt!(39_u8);
+    let storage_value0 = felt!(93_u8);
+    let storage_value1 = felt!(39_u8);
     let storage_key = storage_key!(1993_u16);
 
     // Both transactions change the same storage key.
@@ -569,9 +566,9 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
             &[
                 test_class_hash.0,                  // Class hash.
                 ContractAddressSalt::default().0,   // Salt.
-                stark_felt!(2_u8),                  // Constructor calldata length.
-                stark_felt!(1_u8),                  // Constructor calldata arg1.
-                stark_felt!(1_u8),                  // Constructor calldata arg2.
+                felt!(2_u8),                  // Constructor calldata length.
+                felt!(1_u8),                  // Constructor calldata arg1.
+                felt!(1_u8),                  // Constructor calldata arg2.
             ]
         ),
         resource_bounds: max_resource_bounds,
@@ -639,7 +636,7 @@ fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
     let test_contract_address = test_contract.get_instance_address(0);
     let sender_address = account_contract.get_instance_address(0);
     let nonce_manager = &mut NonceManager::default();
-    let storage_value = stark_felt!(93_u8);
+    let storage_value = felt!(93_u8);
     let storage_key = storage_key!(1993_u16);
     let calldata = create_calldata(
         test_contract_address,

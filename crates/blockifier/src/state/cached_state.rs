@@ -4,8 +4,8 @@ use std::collections::{HashMap, HashSet};
 use derive_more::IntoIterator;
 use indexmap::IndexMap;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::context::TransactionContext;
@@ -132,7 +132,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         let mut cache = self.cache.borrow_mut();
 
         if cache.get_storage_at(contract_address, key).is_none() {
@@ -187,7 +187,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
                     cache.set_declared_contract_initial_values(class_hash, false);
                     cache.set_compiled_class_hash_initial_value(
                         class_hash,
-                        CompiledClassHash(StarkFelt::ZERO),
+                        CompiledClassHash(Felt::ZERO),
                     );
                     Err(StateError::UndeclaredClassHash(class_hash))?;
                 }
@@ -227,7 +227,7 @@ impl<S: StateReader> State for CachedState<S> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) -> StateResult<()> {
         self.cache.get_mut().set_storage_value(contract_address, key, value);
 
@@ -236,12 +236,7 @@ impl<S: StateReader> State for CachedState<S> {
 
     fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
         let current_nonce = self.get_nonce_at(contract_address)?;
-        // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the conversion
-        // works.
-        let current_nonce_as_u64: u64 =
-            usize::try_from(current_nonce.0)?.try_into().expect("Failed to convert usize to u64.");
-        let next_nonce_val = 1_u64 + current_nonce_as_u64;
-        let next_nonce = Nonce(StarkFelt::from(next_nonce_val));
+        let next_nonce = Nonce(current_nonce.0 + Felt::ONE);
         self.cache.get_mut().set_nonce_value(contract_address, next_nonce);
 
         Ok(())
@@ -300,10 +295,10 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
 pub type StorageEntry = (ContractAddress, StorageKey);
 
 #[derive(Debug, Default, IntoIterator)]
-pub struct StorageView(pub HashMap<StorageEntry, StarkFelt>);
+pub struct StorageView(pub HashMap<StorageEntry, Felt>);
 
 /// Converts a `CachedState`'s storage mapping into a `StateDiff`'s storage mapping.
-impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> {
+impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, Felt>> {
     fn from(storage_view: StorageView) -> Self {
         let mut storage_updates = Self::new();
         for ((address, key), value) in storage_view.into_iter() {
@@ -324,7 +319,7 @@ impl From<StorageView> for IndexMap<ContractAddress, IndexMap<StorageKey, StarkF
 pub struct StateMaps {
     pub nonces: HashMap<ContractAddress, Nonce>,
     pub class_hashes: HashMap<ContractAddress, ClassHash>,
-    pub storage: HashMap<StorageEntry, StarkFelt>,
+    pub storage: HashMap<StorageEntry, Felt>,
     pub compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
     pub declared_contracts: HashMap<ClassHash, bool>,
 }
@@ -386,11 +381,7 @@ impl StateCache {
         self.initial_reads.declared_contracts.insert(class_hash, is_declared);
     }
 
-    fn get_storage_at(
-        &self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> Option<&StarkFelt> {
+    fn get_storage_at(&self, contract_address: ContractAddress, key: StorageKey) -> Option<&Felt> {
         let contract_storage_key = (contract_address, key);
         self.writes
             .storage
@@ -409,7 +400,7 @@ impl StateCache {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) {
         let contract_storage_key = (contract_address, key);
         self.initial_reads.storage.insert(contract_storage_key, value);
@@ -419,7 +410,7 @@ impl StateCache {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) {
         let contract_storage_key = (contract_address, key);
         self.writes.storage.insert(contract_storage_key, value);
@@ -492,7 +483,7 @@ impl<'a, S: StateReader + ?Sized> StateReader for MutRefState<'a, S> {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         self.0.get_storage_at(contract_address, key)
     }
 
@@ -542,7 +533,7 @@ impl<'a, U: UpdatableState> TransactionalState<'a, U> {
     }
 }
 
-type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>;
+type StorageDiff = IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>;
 
 /// Holds uncommitted changes induced on Starknet contracts.
 #[cfg_attr(any(feature = "testing", test), derive(Clone))]
@@ -551,7 +542,7 @@ pub struct CommitmentStateDiff {
     // Contract instance attributes (per address).
     pub address_to_class_hash: IndexMap<ContractAddress, ClassHash>,
     pub address_to_nonce: IndexMap<ContractAddress, Nonce>,
-    pub storage_updates: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
+    pub storage_updates: IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>,
 
     // Global attributes.
     pub class_hash_to_compiled_class_hash: IndexMap<ClassHash, CompiledClassHash>,

@@ -2,8 +2,8 @@ use std::num::NonZeroU128;
 
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::constants;
 use crate::state::errors::StateError;
@@ -85,7 +85,7 @@ pub struct BlockNumberHashPair {
 }
 
 impl BlockNumberHashPair {
-    pub fn new(block_number: u64, block_hash: StarkFelt) -> BlockNumberHashPair {
+    pub fn new(block_number: u64, block_hash: Felt) -> BlockNumberHashPair {
         BlockNumberHashPair { number: BlockNumber(block_number), hash: BlockHash(block_hash) }
     }
 }

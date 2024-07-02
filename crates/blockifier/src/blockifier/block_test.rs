@@ -1,6 +1,6 @@
 use starknet_api::block::BlockNumber;
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
+use starknet_api::felt;
 use starknet_api::state::StorageKey;
 
 use crate::abi::constants;
@@ -18,7 +18,7 @@ fn test_pre_process_block() {
 
     // Test the positive flow of pre_process_block inside the allowed block number interval
     let block_number = BlockNumber(constants::STORED_BLOCK_HASH_BUFFER);
-    let block_hash = StarkFelt::from(20_u8);
+    let block_hash = felt!(20_u8);
     pre_process_block(
         &mut state,
         Some(BlockNumberHashPair::new(block_number.0, block_hash)),

@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
@@ -26,7 +26,7 @@ const READ_ERR: &str = "Error: read value missing in the versioned storage";
 pub struct VersionedState<S: StateReader> {
     // TODO(barak, 01/08/2024): Change initial_state to state.
     initial_state: S,
-    storage: VersionedStorage<(ContractAddress, StorageKey), StarkFelt>,
+    storage: VersionedStorage<(ContractAddress, StorageKey), Felt>,
     nonces: VersionedStorage<ContractAddress, Nonce>,
     class_hashes: VersionedStorage<ContractAddress, ClassHash>,
     compiled_class_hashes: VersionedStorage<ClassHash, CompiledClassHash>,
@@ -288,7 +288,7 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         let mut state = self.state();
         match state.storage.read(self.tx_index, (contract_address, key)) {
             Some(value) => Ok(value),
@@ -354,7 +354,7 @@ impl<S: StateReader> StateReader for VersionedStateProxy<S> {
                     // values. We artificially insert zero for undeclared contracts.
                     state
                         .compiled_class_hashes
-                        .set_initial_value(class_hash, CompiledClassHash(StarkFelt::ZERO));
+                        .set_initial_value(class_hash, CompiledClassHash(Felt::ZERO));
                     Err(StateError::UndeclaredClassHash(class_hash))?
                 }
                 Err(error) => Err(error)?,

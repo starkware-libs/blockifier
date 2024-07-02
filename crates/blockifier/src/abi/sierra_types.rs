@@ -1,4 +1,3 @@
-use cairo_felt::Felt252;
 use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
@@ -6,13 +5,11 @@ use cairo_vm::vm::vm_core::VirtualMachine;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::ToPrimitive;
 use starknet_api::core::{ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::StarknetApiError;
-use starknet_crypto::FieldElement;
+use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
-use crate::execution::execution_utils::stark_felt_to_felt;
 use crate::state::errors::StateError;
 use crate::state::state_api::StateReader;
 
@@ -21,7 +18,7 @@ pub type SierraTypeResult<T> = Result<T, SierraTypeError>;
 #[derive(Debug, Error)]
 pub enum SierraTypeError {
     #[error("Felt {val} is too big to convert to '{ty}'.")]
-    ValueTooLargeForType { val: Felt252, ty: &'static str },
+    ValueTooLargeForType { val: Felt, ty: &'static str },
     #[error(transparent)]
     MemoryError(#[from] MemoryError),
     #[error(transparent)]
@@ -44,20 +41,13 @@ pub trait SierraType: Sized {
 
 // Utils.
 
-pub fn felt_to_u128(felt: &Felt252) -> Result<u128, SierraTypeError> {
-    felt.to_u128()
-        .ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: felt.clone(), ty: "u128" })
-}
-
-pub fn stark_felt_to_u128(stark_felt: &StarkFelt) -> Result<u128, SierraTypeError> {
-    felt_to_u128(&stark_felt_to_felt(*stark_felt))
+pub fn felt_to_u128(felt: &Felt) -> Result<u128, SierraTypeError> {
+    felt.to_u128().ok_or_else(|| SierraTypeError::ValueTooLargeForType { val: *felt, ty: "u128" })
 }
 
 // TODO(barak, 01/10/2023): Move to starknet_api under StorageKey implementation.
 pub fn next_storage_key(key: &StorageKey) -> Result<StorageKey, StarknetApiError> {
-    Ok(StorageKey(PatriciaKey::try_from(StarkFelt::from(
-        FieldElement::from(*key.0.key()) + FieldElement::ONE,
-    ))?))
+    Ok(StorageKey(PatriciaKey::try_from(*key.0.key() + Felt::ONE)?))
 }
 
 // Implementations.
@@ -77,9 +67,9 @@ impl SierraU128 {
 
 impl SierraType for SierraU128 {
     fn from_memory(vm: &VirtualMachine, ptr: &mut Relocatable) -> SierraTypeResult<Self> {
-        let val_as_felt = vm.get_integer(*ptr)?;
+        let felt = vm.get_integer(*ptr)?;
         *ptr = (*ptr + 1)?;
-        Ok(Self { val: felt_to_u128(&val_as_felt)? })
+        Ok(Self { val: felt_to_u128(&felt)? })
     }
 
     fn from_storage(
@@ -87,8 +77,8 @@ impl SierraType for SierraU128 {
         contract_address: &ContractAddress,
         key: &StorageKey,
     ) -> SierraTypeResult<Self> {
-        let val_as_felt = stark_felt_to_felt(state.get_storage_at(*contract_address, *key)?);
-        Ok(Self { val: felt_to_u128(&val_as_felt)? })
+        let felt = state.get_storage_at(*contract_address, *key)?;
+        Ok(Self { val: felt_to_u128(&felt)? })
     }
 }
 

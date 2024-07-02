@@ -1,7 +1,6 @@
 use rstest::{fixture, rstest};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
 use starknet_api::transaction::{L2ToL1Payload, ResourceBoundsMapping};
+use starknet_types_core::felt::Felt;
 
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
@@ -141,7 +140,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
 
     let mut call_infos = Vec::new();
     for i in 0..4 {
-        let payload_vec = vec![stark_felt!(0_u16); i];
+        let payload_vec = vec![Felt::ZERO; i];
         let call_info = CallInfo {
             execution: CallExecution {
                 l2_to_l1_messages: vec![OrderedL2ToL1Message {
@@ -338,8 +337,8 @@ fn test_calculate_tx_gas_usage(
         constants::TRANSFER_ENTRY_POINT_NAME,
         &[
             *some_other_account_address.0.key(), // Calldata: recipient.
-            stark_felt!(2_u8),                   // Calldata: lsb amount.
-            stark_felt!(0_u8),                   // Calldata: msb amount.
+            Felt::TWO,                           // Calldata: lsb amount.
+            Felt::ZERO,                          // Calldata: msb amount.
         ],
     );
 

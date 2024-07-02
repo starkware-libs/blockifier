@@ -1,7 +1,6 @@
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
-use cairo_felt::Felt252;
 use cairo_lang_casm::hints::{Hint, StarknetHint};
 use cairo_lang_casm::operand::{BinOpOperand, DerefOrImmediate, Operation, Register, ResOperand};
 use cairo_lang_runner::casm_run::execute_core_hint_base;
@@ -15,13 +14,12 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
-use num_traits::Zero;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{Calldata, Resource};
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::{Felt, FromStrError};
 use thiserror::Error;
 
 use crate::abi::sierra_types::SierraTypeError;
@@ -30,8 +28,8 @@ use crate::execution::common_hints::{ExecutionMode, HintExecutionResult};
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::execution::execution_utils::{
-    felt_range_from_ptr, max_fee_for_execution_info, stark_felt_from_ptr, stark_felt_to_felt,
-    write_maybe_relocatable, ReadOnlySegment, ReadOnlySegments,
+    felt_from_ptr, felt_range_from_ptr, max_fee_for_execution_info, write_maybe_relocatable,
+    ReadOnlySegment, ReadOnlySegments,
 };
 use crate::execution::syscalls::secp::{
     secp256k1_add, secp256k1_get_point_from_x, secp256k1_get_xy, secp256k1_mul, secp256k1_new,
@@ -59,8 +57,10 @@ pub enum SyscallExecutionError {
     EmitEventError(#[from] EmitEventError),
     #[error("Cannot replace V1 class hash with V0 class hash: {class_hash}.")]
     ForbiddenClassReplacement { class_hash: ClassHash },
+    #[error(transparent)]
+    FromStr(#[from] FromStrError),
     #[error("Invalid address domain: {address_domain}.")]
-    InvalidAddressDomain { address_domain: StarkFelt },
+    InvalidAddressDomain { address_domain: Felt },
     #[error(transparent)]
     ConstructorEntryPointExecutionError(#[from] ConstructorEntryPointExecutionError),
     #[error(transparent)]
@@ -80,9 +80,9 @@ pub enum SyscallExecutionError {
         error: Box<SyscallExecutionError>,
     },
     #[error("Invalid syscall input: {input:?}; {info}")]
-    InvalidSyscallInput { input: StarkFelt, info: String },
+    InvalidSyscallInput { input: Felt, info: String },
     #[error("Invalid syscall selector: {0:?}.")]
-    InvalidSyscallSelector(StarkFelt),
+    InvalidSyscallSelector(Felt),
     #[error("Unauthorized syscall {syscall_name} in execution mode {execution_mode}.")]
     InvalidSyscallInExecutionMode { syscall_name: String, execution_mode: ExecutionMode },
     #[error(transparent)]
@@ -98,7 +98,7 @@ pub enum SyscallExecutionError {
     #[error(transparent)]
     VirtualMachineError(#[from] VirtualMachineError),
     #[error("Syscall error.")]
-    SyscallError { error_data: Vec<StarkFelt> },
+    SyscallError { error_data: Vec<Felt> },
 }
 
 #[derive(Debug, Error)]
@@ -198,7 +198,7 @@ pub struct SyscallHintProcessor<'a> {
     pub syscall_ptr: Relocatable,
 
     // Additional information gathered during execution.
-    pub read_values: Vec<StarkFelt>,
+    pub read_values: Vec<Felt>,
     pub accessed_keys: HashSet<StorageKey>,
 
     // Secp hint processors.
@@ -433,9 +433,9 @@ impl<'a> SyscallHintProcessor<'a> {
         vm: &mut VirtualMachine,
         tx_info: &CurrentTransactionInfo,
     ) -> SyscallResult<(Relocatable, Relocatable)> {
-        let l1_gas = StarkFelt::try_from(L1_GAS).map_err(SyscallExecutionError::from)?;
-        let l2_gas = StarkFelt::try_from(L2_GAS).map_err(SyscallExecutionError::from)?;
-        let flat_resource_bounds: Vec<StarkFelt> = tx_info
+        let l1_gas = Felt::from_hex(L1_GAS).map_err(SyscallExecutionError::from)?;
+        let l2_gas = Felt::from_hex(L2_GAS).map_err(SyscallExecutionError::from)?;
+        let flat_resource_bounds: Vec<Felt> = tx_info
             .resource_bounds
             .0
             .iter()
@@ -447,8 +447,8 @@ impl<'a> SyscallHintProcessor<'a> {
 
                 vec![
                     resource,
-                    StarkFelt::from(resource_bounds.max_amount),
-                    StarkFelt::from(resource_bounds.max_price_per_unit),
+                    Felt::from(resource_bounds.max_amount),
+                    Felt::from(resource_bounds.max_price_per_unit),
                 ]
             })
             .collect();
@@ -481,7 +481,7 @@ impl<'a> SyscallHintProcessor<'a> {
         if gas_counter < required_gas {
             //  Out of gas failure.
             let out_of_gas_error =
-                StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;
+                Felt::from_hex(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;
             let response: SyscallResponseWrapper<Response> =
                 SyscallResponseWrapper::Failure { gas_counter, error_data: vec![out_of_gas_error] };
             response.write(vm, &mut self.syscall_ptr)?;
@@ -507,8 +507,8 @@ impl<'a> SyscallHintProcessor<'a> {
         Ok(())
     }
 
-    fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<StarkFelt> {
-        let selector = stark_felt_from_ptr(vm, &mut self.syscall_ptr)?;
+    fn read_next_syscall_selector(&mut self, vm: &mut VirtualMachine) -> SyscallResult<Felt> {
+        let selector = felt_from_ptr(vm, &mut self.syscall_ptr)?;
 
         Ok(selector)
     }
@@ -532,9 +532,9 @@ impl<'a> SyscallHintProcessor<'a> {
         let additional_info: Vec<MaybeRelocatable> = vec![
             block_info_ptr.into(),
             tx_info_ptr.into(),
-            stark_felt_to_felt(*self.caller_address().0.key()).into(),
-            stark_felt_to_felt(*self.storage_address().0.key()).into(),
-            stark_felt_to_felt(self.entry_point_selector().0).into(),
+            self.caller_address().0.key().into(),
+            self.storage_address().0.key().into(),
+            self.entry_point_selector().0.into(),
         ];
         let execution_info_segment_start_ptr =
             self.read_only_segments.allocate(vm, &additional_info)?;
@@ -550,7 +550,7 @@ impl<'a> SyscallHintProcessor<'a> {
         let block_timestamp = block_info.block_timestamp.0;
         let block_number = block_info.block_number.0;
         let versioned_constants = self.context.versioned_constants();
-        let block_data: Vec<StarkFelt> = if self.is_validate_mode() {
+        let block_data: Vec<Felt> = if self.is_validate_mode() {
             // Round down to the nearest multiple of validate_block_number_rounding.
             let validate_block_number_rounding =
                 versioned_constants.get_validate_block_number_rounding();
@@ -561,15 +561,11 @@ impl<'a> SyscallHintProcessor<'a> {
             let rounded_timestamp =
                 (block_timestamp / validate_timestamp_rounding) * validate_timestamp_rounding;
 
-            vec![
-                StarkFelt::from(rounded_block_number),
-                StarkFelt::from(rounded_timestamp),
-                StarkFelt::ZERO,
-            ]
+            vec![Felt::from(rounded_block_number), Felt::from(rounded_timestamp), Felt::ZERO]
         } else {
             vec![
-                StarkFelt::from(block_number),
-                StarkFelt::from(block_timestamp),
+                Felt::from(block_number),
+                Felt::from(block_timestamp),
                 *block_info.sequencer_address.0.key(),
             ]
         };
@@ -581,9 +577,9 @@ impl<'a> SyscallHintProcessor<'a> {
     fn allocate_data_segment(
         &mut self,
         vm: &mut VirtualMachine,
-        data: &[StarkFelt],
+        data: &[Felt],
     ) -> SyscallResult<(Relocatable, Relocatable)> {
-        let data = data.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
+        let data = data.iter().map(|&x| MaybeRelocatable::from(x)).collect();
         let data_segment_start_ptr = self.read_only_segments.allocate(vm, &data)?;
         let data_segment_end_ptr = (data_segment_start_ptr + data.len())?;
         Ok((data_segment_start_ptr, data_segment_end_ptr))
@@ -595,17 +591,17 @@ impl<'a> SyscallHintProcessor<'a> {
             &self.allocate_data_segment(vm, &tx_info.signature().0)?;
 
         let mut tx_data: Vec<MaybeRelocatable> = vec![
-            stark_felt_to_felt(tx_info.signed_version().0).into(),
-            stark_felt_to_felt(*tx_info.sender_address().0.key()).into(),
+            tx_info.signed_version().0.into(),
+            tx_info.sender_address().0.key().into(),
             max_fee_for_execution_info(tx_info).into(),
             tx_signature_start_ptr.into(),
             tx_signature_end_ptr.into(),
-            stark_felt_to_felt((tx_info).transaction_hash().0).into(),
-            Felt252::from_bytes_be(
-                self.context.tx_context.block_context.chain_info.chain_id.0.as_bytes(),
-            )
+            (tx_info).transaction_hash().0.into(),
+            Felt::from_hex(
+                self.context.tx_context.block_context.chain_info.chain_id.as_hex().as_str(),
+            )?
             .into(),
-            stark_felt_to_felt((tx_info).nonce().0).into(),
+            (tx_info).nonce().0.into(),
         ];
 
         match tx_info {
@@ -622,17 +618,17 @@ impl<'a> SyscallHintProcessor<'a> {
                 tx_data.extend_from_slice(&[
                     tx_resource_bounds_start_ptr.into(),
                     tx_resource_bounds_end_ptr.into(),
-                    Felt252::from(context.tip.0).into(),
+                    Felt::from(context.tip.0).into(),
                     tx_paymaster_data_start_ptr.into(),
                     tx_paymaster_data_end_ptr.into(),
-                    stark_felt_to_felt(context.nonce_data_availability_mode.into()).into(),
-                    stark_felt_to_felt(context.fee_data_availability_mode.into()).into(),
+                    Felt::from(context.nonce_data_availability_mode).into(),
+                    Felt::from(context.fee_data_availability_mode).into(),
                     tx_account_deployment_data_start_ptr.into(),
                     tx_account_deployment_data_end_ptr.into(),
                 ]);
             }
             TransactionInfo::Deprecated(_) => {
-                let zero_felt: MaybeRelocatable = Felt252::zero().into();
+                let zero_felt: MaybeRelocatable = Felt::ZERO.into();
                 tx_data.extend_from_slice(&[
                     zero_felt.clone(), // Empty segment of resource bounds (start ptr).
                     zero_felt.clone(), // Empty segment of resource bounds (end ptr).
@@ -665,7 +661,7 @@ impl<'a> SyscallHintProcessor<'a> {
     pub fn set_contract_storage_at(
         &mut self,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) -> SyscallResult<StorageWriteResponse> {
         self.accessed_keys.insert(key);
         self.state.set_storage_at(self.storage_address(), key, value)?;
@@ -678,12 +674,12 @@ impl<'a> SyscallHintProcessor<'a> {
 /// A [ResOperand] represents a CASM result expression, and is deserialized with the hint.
 fn get_ptr_from_res_operand_unchecked(vm: &mut VirtualMachine, res: &ResOperand) -> Relocatable {
     let (cell, base_offset) = match res {
-        ResOperand::Deref(cell) => (cell, Felt252::from(0)),
+        ResOperand::Deref(cell) => (cell, Felt::from(0)),
         ResOperand::BinOp(BinOpOperand {
             op: Operation::Add,
             a,
             b: DerefOrImmediate::Immediate(b),
-        }) => (a, Felt252::from(b.clone().value)),
+        }) => (a, Felt::from(b.clone().value)),
         _ => panic!("Illegal argument for a buffer."),
     };
     let base = match cell.register {
@@ -718,7 +714,7 @@ impl HintProcessorLogic for SyscallHintProcessor<'_> {
         vm: &mut VirtualMachine,
         exec_scopes: &mut ExecutionScopes,
         hint_data: &Box<dyn Any>,
-        _constants: &HashMap<String, Felt252>,
+        _constants: &HashMap<String, Felt>,
     ) -> HintExecutionResult {
         let hint = hint_data.downcast_ref::<Hint>().ok_or(HintError::WrongHintData)?;
         match hint {
@@ -739,10 +735,10 @@ impl HintProcessorLogic for SyscallHintProcessor<'_> {
     }
 }
 
-pub fn felt_to_bool(felt: StarkFelt, error_info: &str) -> SyscallResult<bool> {
-    if felt == StarkFelt::from(0_u8) {
+pub fn felt_to_bool(felt: Felt, error_info: &str) -> SyscallResult<bool> {
+    if felt == Felt::from(0_u8) {
         Ok(false)
-    } else if felt == StarkFelt::from(1_u8) {
+    } else if felt == Felt::from(1_u8) {
         Ok(true)
     } else {
         Err(SyscallExecutionError::InvalidSyscallInput { input: felt, info: error_info.into() })
@@ -757,7 +753,7 @@ pub fn read_call_params(
     vm: &VirtualMachine,
     ptr: &mut Relocatable,
 ) -> SyscallResult<(EntryPointSelector, Calldata)> {
-    let function_selector = EntryPointSelector(stark_felt_from_ptr(vm, ptr)?);
+    let function_selector = EntryPointSelector(felt_from_ptr(vm, ptr)?);
     let calldata = read_calldata(vm, ptr)?;
 
     Ok((function_selector, calldata))
@@ -790,7 +786,7 @@ pub fn execute_inner_call(
 pub fn create_retdata_segment(
     vm: &mut VirtualMachine,
     syscall_handler: &mut SyscallHintProcessor<'_>,
-    raw_retdata: &[StarkFelt],
+    raw_retdata: &[Felt],
 ) -> SyscallResult<ReadOnlySegment> {
     let (retdata_segment_start_ptr, _) = syscall_handler.allocate_data_segment(vm, raw_retdata)?;
 
@@ -830,10 +826,7 @@ pub fn execute_library_call(
     })
 }
 
-pub fn read_felt_array<TErr>(
-    vm: &VirtualMachine,
-    ptr: &mut Relocatable,
-) -> Result<Vec<StarkFelt>, TErr>
+pub fn read_felt_array<TErr>(vm: &VirtualMachine, ptr: &mut Relocatable) -> Result<Vec<Felt>, TErr>
 where
     TErr: From<StarknetApiError> + From<VirtualMachineError> + From<MemoryError> + From<MathError>,
 {
