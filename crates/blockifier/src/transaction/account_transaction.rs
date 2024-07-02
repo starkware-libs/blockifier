@@ -34,7 +34,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::update_remaining_gas;
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
-    InvokeTransaction, ValidatableTransaction,
+    ExecutionFlags, InvokeTransaction, ValidatableTransaction,
 };
 
 #[cfg(test)]
@@ -636,16 +636,19 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
         &self,
         state: &mut TransactionalState<'_, U>,
         block_context: &BlockContext,
-        charge_fee: bool,
-        validate: bool,
-        concurrency_mode: bool,
+        execution_flags: ExecutionFlags,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx_context = Arc::new(block_context.to_tx_context(self));
         self.verify_tx_version(tx_context.tx_info.version())?;
 
         // Nonce and fee check should be done before running user code.
         let strict_nonce_check = true;
-        self.perform_pre_validation_stage(state, &tx_context, charge_fee, strict_nonce_check)?;
+        self.perform_pre_validation_stage(
+            state,
+            &tx_context,
+            execution_flags.charge_fee,
+            strict_nonce_check,
+        )?;
 
         // Run validation and execution.
         let mut remaining_gas = block_context.versioned_constants.tx_initial_gas();
@@ -664,11 +667,16 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
             state,
             &mut remaining_gas,
             tx_context.clone(),
-            validate,
-            charge_fee,
+            execution_flags.validate,
+            execution_flags.charge_fee,
         )?;
-        let fee_transfer_call_info =
-            self.handle_fee(state, tx_context, final_fee, charge_fee, concurrency_mode)?;
+        let fee_transfer_call_info = self.handle_fee(
+            state,
+            tx_context,
+            final_fee,
+            execution_flags.charge_fee,
+            execution_flags.concurrency_mode,
+        )?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,

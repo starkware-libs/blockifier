@@ -44,7 +44,7 @@ use crate::transaction::test_utils::{
     TestInitData, INVALID,
 };
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction};
+use crate::transaction::transactions::{DeclareTransaction, ExecutableTransaction, ExecutionFlags};
 use crate::{
     check_transaction_execution_error_for_invalid_scenario, declare_tx_args,
     deploy_account_tx_args, invoke_tx_args, nonce, storage_key,
@@ -1042,8 +1042,10 @@ fn test_count_actual_storage_changes(
         nonce: nonce_manager.next(account_address),
     };
     let account_tx = account_invoke_tx(invoke_args.clone());
+    let execution_flags =
+        ExecutionFlags { charge_fee: true, validate: true, concurrency_mode: false };
     let execution_info =
-        account_tx.execute_raw(&mut state, &block_context, true, true, false).unwrap();
+        account_tx.execute_raw(&mut state, &block_context, execution_flags.clone()).unwrap();
 
     let fee_1 = execution_info.transaction_receipt.fee;
     let state_changes_1 = state.get_actual_state_changes().unwrap();
@@ -1086,7 +1088,7 @@ fn test_count_actual_storage_changes(
         ..invoke_args.clone()
     });
     let execution_info =
-        account_tx.execute_raw(&mut state, &block_context, true, true, false).unwrap();
+        account_tx.execute_raw(&mut state, &block_context, execution_flags.clone()).unwrap();
 
     let fee_2 = execution_info.transaction_receipt.fee;
     let state_changes_2 = state.get_actual_state_changes().unwrap();
@@ -1124,7 +1126,7 @@ fn test_count_actual_storage_changes(
         ..invoke_args
     });
     let execution_info =
-        account_tx.execute_raw(&mut state, &block_context, true, true, false).unwrap();
+        account_tx.execute_raw(&mut state, &block_context, execution_flags).unwrap();
 
     let fee_transfer = execution_info.transaction_receipt.fee;
     let state_changes_transfer = state.get_actual_state_changes().unwrap();
@@ -1199,17 +1201,10 @@ fn test_concurrency_execute_fee_transfer(
     // Case 1: The transaction did not read form/ write to the sequenser balance before executing
     // fee transfer.
     let mut transactional_state = TransactionalState::create_transactional(state);
-    let charge_fee = true;
-    let validate = true;
-    let concurrency_mode = true;
+    let execution_flags =
+        ExecutionFlags { charge_fee: true, validate: true, concurrency_mode: true };
     let result = account_tx
-        .execute_raw(
-            &mut transactional_state,
-            &block_context,
-            charge_fee,
-            validate,
-            concurrency_mode,
-        )
+        .execute_raw(&mut transactional_state, &block_context, execution_flags.clone())
         .unwrap();
     assert!(!result.is_reverted());
     let transactional_cache = transactional_state.cache.borrow();
@@ -1248,13 +1243,8 @@ fn test_concurrency_execute_fee_transfer(
         resource_bounds: max_resource_bounds,
     });
 
-    let execution_result = account_tx.execute_raw(
-        &mut transactional_state,
-        &block_context,
-        charge_fee,
-        validate,
-        concurrency_mode,
-    );
+    let execution_result =
+        account_tx.execute_raw(&mut transactional_state, &block_context, execution_flags);
     let result = execution_result.unwrap();
     assert!(!result.is_reverted());
     // Check that the sequencer balance was not updated.
