@@ -279,7 +279,7 @@ fn test_sha256() {
 
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
-        CallExecution { gas_consumed: 895830, ..CallExecution::from_retdata(retdata![]) }
+        CallExecution { gas_consumed: 892990, ..CallExecution::from_retdata(retdata![]) }
     );
 }
 
