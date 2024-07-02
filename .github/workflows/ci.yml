@@ -41,7 +41,7 @@ jobs:
         run: echo "$TITLE" | commitlint --verbose
 
   format:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -52,7 +52,7 @@ jobs:
       - run: scripts/rust_fmt.sh --check
 
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -73,7 +73,7 @@ jobs:
       - run: scripts/clippy.sh
 
   run-python-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -85,7 +85,7 @@ jobs:
       - run: pytest scripts/merge_paths_test.py
 
   run-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
