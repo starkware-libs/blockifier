@@ -60,16 +60,6 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
 
-      # Setup pypy and link to the location expected by .cargo/config.toml.
-      - uses: actions/setup-python@v5
-        id: setup-pypy
-        with:
-          python-version: 'pypy3.9'
-      - run: ln -s '${{ steps.setup-pypy.outputs.python-path }}' /usr/local/bin/pypy3.9
-      - env:
-          LD_LIBRARY_PATH: ${{ steps.setup-pypy.outputs.pythonLocation }}/bin
-        run: echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-
       - run: scripts/clippy.sh
 
   run-python-tests:
@@ -91,18 +81,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
-      # Setup pypy and link to the location expected by .cargo/config.toml.
-      - uses: actions/setup-python@v5
-        id: setup-pypy
-        with:
-          python-version: 'pypy3.9'
-      - run: ln -s '${{ steps.setup-pypy.outputs.python-path }}' /usr/local/bin/pypy3.9
-      - env:
-          LD_LIBRARY_PATH: ${{ env.Python3_ROOT_DIR }}/bin
-        run: echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-
-      - run: cargo test
-      - run: cargo test --features concurrency
+      - run: ./docker_cargo.sh test
+      - run: ./docker_cargo.sh test --features concurrency
 
   native-blockifier-artifacts-push:
     runs-on: ubuntu-20.04

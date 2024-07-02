@@ -1,3 +1,3 @@
 #!/bin/bash
 
-cargo +nightly-2024-01-12 fmt --all -- "$@"
+./docker_cargo.sh +nightly-2024-01-12 fmt --all -- "$@"

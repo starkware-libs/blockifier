@@ -25,10 +25,4 @@ jobs:
           components: rustfmt
           toolchain: nightly-2024-01-12
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-          cache: 'pip'
-      - run:
-          pip install -r crates/blockifier/tests/requirements.txt;
-          cargo test verify_feature_contracts -- --include-ignored
+      - run: ./docker_cargo.sh test verify_feature_contracts -- --include-ignored

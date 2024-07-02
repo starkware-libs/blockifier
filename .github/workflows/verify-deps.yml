@@ -13,8 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Update Dependencies
-        run: cargo update --verbose
+        run: ./docker_cargo.sh update --verbose
       - name: Build
-        run: cargo build --verbose
+        run: ./docker_cargo.sh build --verbose
       - name: Test
-        run: cargo test --verbose
+        run: ./docker_cargo.sh test --verbose

@@ -11,10 +11,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo llvm-cov --codecov --output-path codecov.json
+        run: ./docker_cargo.sh llvm-cov --codecov --output-path codecov.json
         env:
           SEED: 0
       - name: Upload coverage to Codecov
