@@ -304,7 +304,6 @@ impl AccountTransaction {
     }
 
     fn handle_fee<S: StateReader>(
-        &self,
         state: &mut TransactionalState<'_, S>,
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
@@ -666,7 +665,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
             validate,
             charge_fee,
         )?;
-        let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?;
+        let fee_transfer_call_info = Self::handle_fee(state, tx_context, final_fee, charge_fee)?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
