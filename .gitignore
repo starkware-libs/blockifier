@@ -9,3 +9,5 @@ target
 
 tmp_venv/*
 
+.idea
+.vscode
