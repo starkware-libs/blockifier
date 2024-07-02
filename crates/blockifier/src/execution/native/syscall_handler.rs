@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 use std::hash::RandomState;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use cairo_felt::Felt252;
 use cairo_native::starknet::{
     BlockInfo, ExecutionInfoV2, Secp256k1Point, Secp256r1Point, StarknetSyscallHandler,
@@ -621,16 +623,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
 
         match self.secp256k1_hint_processor.secp_add(request) {
             Ok(SecpAddResponse { ec_point_id: id }) => {
-                let id = Felt252::from(id);
-
-                let point = self
-                    .secp256k1_hint_processor
-                    .get_point_by_id(id)
-                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
-                let x = big4int_to_u256(point.x.0);
-                let y = big4int_to_u256(point.y.0);
-
-                Ok(Secp256k1Point { x, y })
+                self.secp256k1_hint_processor.get_secp256point_by_id(id)
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
                 Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
@@ -651,16 +644,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
 
         match self.secp256k1_hint_processor.secp_mul(request) {
             Ok(SecpMulResponse { ec_point_id: id }) => {
-                let id = Felt252::from(id);
-
-                let point = self
-                    .secp256k1_hint_processor
-                    .get_point_by_id(id)
-                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
-                let x = big4int_to_u256(point.x.0);
-                let y = big4int_to_u256(point.y.0);
-
-                Ok(Secp256k1Point { x, y })
+                self.secp256k1_hint_processor.get_secp256point_by_id(id)
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
                 Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
@@ -675,20 +659,12 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
         y_parity: bool,
         _remaining_gas: &mut u128,
     ) -> SyscallResult<Option<Secp256k1Point>> {
-        let request = SecpGetPointFromXRequest { x: u256_to_biguint(x), y_parity };
+        let x = u256_to_biguint(x);
+        let request = SecpGetPointFromXRequest { x, y_parity };
 
         match self.secp256k1_hint_processor.secp_get_point_from_x(request) {
             Ok(SecpGetPointFromXResponse { optional_ec_point_id: Some(id) }) => {
-                let id = Felt252::from(id);
-
-                let point = self
-                    .secp256k1_hint_processor
-                    .get_point_by_id(id)
-                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
-                let x = big4int_to_u256(point.x.0);
-                let y = big4int_to_u256(point.y.0);
-
-                Ok(Some(Secp256k1Point { x, y }))
+                self.secp256k1_hint_processor.get_secp256point_by_id(id).map(Some)
             }
             Ok(SecpGetPointFromXResponse { optional_ec_point_id: None }) => Ok(None),
             Err(SyscallExecutionError::SyscallError { error_data }) => {
@@ -737,16 +713,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
 
         match self.secp256r1_hint_processor.secp_add(request) {
             Ok(SecpAddResponse { ec_point_id: id }) => {
-                let id = Felt252::from(id);
-
-                let point = self
-                    .secp256r1_hint_processor
-                    .get_point_by_id(id)
-                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
-                let x = big4int_to_u256(point.x.0);
-                let y = big4int_to_u256(point.y.0);
-
-                Ok(Secp256r1Point { x, y })
+                self.secp256r1_hint_processor.get_secp256point_by_id(id)
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
                 Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
@@ -767,17 +734,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
 
         match self.secp256r1_hint_processor.secp_mul(request) {
             Ok(SecpMulResponse { ec_point_id: id }) => {
-                let id = Felt252::from(id);
-
-                let point = self
-                    .secp256r1_hint_processor
-                    .get_point_by_id(id)
-                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
-
-                let x = big4int_to_u256(point.x.0);
-                let y = big4int_to_u256(point.y.0);
-
-                Ok(Secp256r1Point { x, y })
+                self.secp256r1_hint_processor.get_secp256point_by_id(id)
             }
             Err(SyscallExecutionError::SyscallError { error_data }) => {
                 Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
@@ -796,16 +753,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
 
         match self.secp256r1_hint_processor.secp_get_point_from_x(request) {
             Ok(SecpGetPointFromXResponse { optional_ec_point_id: Some(id) }) => {
-                let id = Felt252::from(id);
-
-                let point = self
-                    .secp256r1_hint_processor
-                    .get_point_by_id(id)
-                    .map_err(|error| encode_str_as_felts(&error.to_string()))?;
-                let x = big4int_to_u256(point.x.0);
-                let y = big4int_to_u256(point.y.0);
-
-                Ok(Some(Secp256r1Point { x, y }))
+                self.secp256r1_hint_processor.get_secp256point_by_id(id).map(Some)
             }
             Ok(SecpGetPointFromXResponse { optional_ec_point_id: None }) => Ok(None),
             Err(SyscallExecutionError::SyscallError { error_data }) => {
@@ -822,56 +770,66 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
     ) -> SyscallResult<(U256, U256)> {
         Ok((p.x, p.y))
     }
+}
 
-    fn pop_log(&mut self) {
-        todo!("Native syscall handler - pop_log") // unimplemented in cairo native
+use ark_ff::PrimeField;
+
+impl<Curve: SWCurveConfig> SecpHintProcessor<Curve>
+where
+    // It's not possible to directly constrain on
+    // ark_secp256k1::Config and
+    // ark_secp256r1::Config. The following
+    // constraints have the same effect.
+    Curve::BaseField: PrimeField, // constraint for get_point_by_id
+    ark_ff::BigInt<4>: From<<Curve>::BaseField>, // constraint for point to bigint
+{
+    fn get_secp256point_by_id<Point>(&mut self, id: usize) -> Result<Point, Vec<Felt>>
+    where
+        // See Note [Hint processor and Secp256Point]
+        Point: From<Secp256Point<Curve>>,
+    {
+        // A workaround for turning big4int into a u256 that matches the way the
+        // result of native and VM are displayed.
+        // Having to swap around is most-likely a bug, but best investigated after
+        // this issue (TODO(xrvdg) Github link)
+        fn swap(x: U256) -> U256 {
+            U256 { hi: x.lo, lo: x.hi }
+        }
+
+        let id = Felt252::from(id);
+
+        let point: &Affine<Curve> =
+            self.get_point_by_id(id).map_err(|error| encode_str_as_felts(&error.to_string()))?;
+
+        // Here /into/ must be used, accessing the BigInt via .0 will lead to an
+        // transformation being missed.
+        let x = big4int_to_u256(point.x.into());
+        let y = big4int_to_u256(point.y.into());
+
+        Ok(Secp256Point::<Curve> { x: swap(x), y: swap(y), _phantom: Default::default() }.into())
     }
+}
 
-    fn set_account_contract_address(&mut self, _contract_address: Felt) {
-        todo!("Native syscall handler - set_account_contract_address") // unimplemented in cairo native
+/// Note [Hint processor and Secp256Point]
+/// With this data structure and it's From instances we
+/// tie a hint processor to the corresponding Secp256k1 or Secp256r1 point.
+/// Thereby making the hint processor operations generic over the Secp256 point.
+struct Secp256Point<Config> {
+    x: U256,
+    y: U256,
+    _phantom: PhantomData<Config>,
+}
+
+use std::convert::From;
+
+impl From<Secp256Point<ark_secp256k1::Config>> for Secp256k1Point {
+    fn from(p: Secp256Point<ark_secp256k1::Config>) -> Self {
+        Secp256k1Point { x: p.x, y: p.y }
     }
+}
 
-    fn set_block_number(&mut self, _block_number: u64) {
-        todo!("Native syscall handler - set_block_number") // unimplemented in cairo native
-    }
-
-    fn set_block_timestamp(&mut self, _block_timestamp: u64) {
-        todo!("Native syscall handler - set_block_timestamp") // unimplemented in cairo native
-    }
-
-    fn set_caller_address(&mut self, _address: Felt) {
-        todo!("Native syscall handler - set_caller_address") // unimplemented in cairo native
-    }
-
-    fn set_chain_id(&mut self, _chain_id: Felt) {
-        todo!("Native syscall handler - set_chain_id") // unimplemented in cairo native
-    }
-
-    fn set_contract_address(&mut self, _address: Felt) {
-        todo!("Native syscall handler - set_contract_address") // unimplemented in cairo native
-    }
-
-    fn set_max_fee(&mut self, _max_fee: u128) {
-        todo!("Native syscall handler - set_max_fee") // unimplemented in cairo native
-    }
-
-    fn set_nonce(&mut self, _nonce: Felt) {
-        todo!("Native syscall handler - set_nonce") // unimplemented in cairo native
-    }
-
-    fn set_sequencer_address(&mut self, _address: Felt) {
-        todo!("Native syscall handler - set_sequencer_address") // unimplemented in cairo native
-    }
-
-    fn set_signature(&mut self, _signature: &[Felt]) {
-        todo!("Native syscall handler - set_signature") // unimplemented in cairo native
-    }
-
-    fn set_transaction_hash(&mut self, _transaction_hash: Felt) {
-        todo!("Native syscall handler - set_transaction_hash") // unimplemented in cairo native
-    }
-
-    fn set_version(&mut self, _version: Felt) {
-        todo!("Native syscall handler - set_version") // unimplemented in cairo native
+impl From<Secp256Point<ark_secp256r1::Config>> for Secp256r1Point {
+    fn from(p: Secp256Point<ark_secp256r1::Config>) -> Self {
+        Secp256r1Point { x: p.x, y: p.y }
     }
 }
