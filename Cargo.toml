@@ -3,7 +3,7 @@
 #   https://doc.rust-lang.org/cargo/reference/resolver.html#feature-resolver-version-2
 resolver = "2"
 
-members = ["crates/blockifier"]
+members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.package]
 version = "0.8.0-dev.1"
@@ -49,16 +49,8 @@ serde = "1.0.184"
 serde_json = "1.0.81"
 sha2 = "0.10.8"
 sha3 = "0.10.6"
-<<<<<<< HEAD
 starknet-types-core = { version = "0.1.5", features = ["hash", "prime-bigint"] }
 starknet_api = "0.13.0-dev.9"
-||||||| 7f957394
-starknet-crypto = "0.5.1"
-starknet_api = "0.12.0-dev.0"
-=======
-starknet-crypto = "0.5.1"
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", branch = "main-mempool" }
->>>>>>> origin/main-mempool
 strum = "0.24.1"
 strum_macros = "0.24.3"
 tempfile = "3.7.0"
