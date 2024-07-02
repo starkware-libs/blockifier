@@ -14,7 +14,9 @@ jobs:
         with:
           components: rustfmt
           toolchain: nightly-2024-01-12
-      # - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v0-rust-ubuntu-20.04"
 
       # Setup pypy and link to the location expected by .cargo/config.toml.
       - uses: actions/setup-python@v5
