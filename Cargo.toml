@@ -37,7 +37,7 @@ num-integer = "0.1.45"
 num-rational = { version = "0.4", features = ["serde"] }
 num-traits = "0.2"
 once_cell = "1.19.0"
-papyrus_storage = "0.4.0-dev.3"
+papyrus_storage = "0.4.0-dev.4"
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 pyo3 = "0.19.1"
@@ -49,8 +49,8 @@ serde = "1.0.184"
 serde_json = "1.0.81"
 sha2 = "0.10.8"
 sha3 = "0.10.6"
-starknet-types-core = { version = "0.1.2", features = ["hash", "prime-bigint"] }
-starknet_api = "0.13.0-dev.4"
+starknet-types-core = { version = "0.1.5", features = ["hash", "prime-bigint"] }
+starknet_api = "0.13.0-dev.9"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 tempfile = "3.7.0"

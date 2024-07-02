@@ -2476,14 +2476,15 @@ dependencies = [
 
 [[package]]
 name = "papyrus_common"
-version = "0.4.0-dev.3"
+version = "0.4.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73569af240855f6da238fd33b885b79b01fbf00a59537bdd4e44e7e7af00b487"
+checksum = "253c374b2174d98425fdd5e2e0a1bfd9b9f880a37c45149926ff02548ca6fa56"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",
  "hex",
  "indexmap 2.2.6",
+ "itertools 0.10.5",
  "lazy_static",
  "rand",
  "serde",
@@ -2497,9 +2498,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_config"
-version = "0.4.0-dev.3"
+version = "0.4.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cfb8e1b9f494c6ddd78d49a8d28b5c039c3f32f58abdd57b3bc3899b6158dee"
+checksum = "681c77c3036aa865206d874c5fbaa264713f22bfd0ef518c7881a1954fc3a045"
 dependencies = [
  "clap 4.5.4",
  "itertools 0.10.5",
@@ -2512,9 +2513,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_proc_macros"
-version = "0.4.0-dev.3"
+version = "0.4.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1960ff19a4b84ae1e88110962e746306fb53751fb6c5a6473d3d63460de41f39"
+checksum = "80ae7c26b3754c405b911a45d9304c10feebf237b6b91b3c3c0fc31cbad9692f"
 dependencies = [
  "quote",
  "syn 2.0.66",
@@ -2522,9 +2523,9 @@ dependencies = [
 
 [[package]]
 name = "papyrus_storage"
-version = "0.4.0-dev.3"
+version = "0.4.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "596d81580ac910667b750035e7273c962ca83dc6d06e84911377520df1fc9c17"
+checksum = "92bd277d8c0f980cb9da4584b01cd43213309ed0d5dc73a627b24080fab89845"
 dependencies = [
  "byteorder",
  "cairo-lang-casm",
@@ -3482,9 +3483,9 @@ dependencies = [
 
 [[package]]
 name = "starknet-types-core"
-version = "0.1.2"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4098ac4ad57621cc7ec133b80fe72814d2cc4bee63ca8e7be4450ba6f42a07e8"
+checksum = "ce6bacf0ba19bc721e518bc4bf389ff13daa8a7c5db5fd320600473b8aa9fcbd"
 dependencies = [
  "lambdaworks-crypto",
  "lambdaworks-math",
@@ -3497,9 +3498,9 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.13.0-dev.4"
+version = "0.13.0-dev.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27090bd07dd034d6c1140a8f4294d0587d5d81a2b101ad6c50b57993bc9565e1"
+checksum = "66a6dc6b4f77fff0f28894cc36d5a691784550054d06c6850e901278aed2c7e6"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",

@@ -384,7 +384,8 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Requested contract address 0x17 is not deployed",
+        "Requested contract address \
+         0x0000000000000000000000000000000000000000000000000000000000000017 is not deployed",
         "test_bad_call_address",
         calldata![],
     );
@@ -398,9 +399,7 @@ fn test_syscall_execution_security_failures() {
     run_security_test(
         state,
         security_contract,
-        "Entry point EntryPointSelector(Felt(FieldElement { value: UnsignedInteger { limbs: \
-         [576460752303409904, 18446744073709551615, 18446744073709551615, 18446744073709550817] } \
-         })) not found in contract",
+        "Entry point EntryPointSelector(0x19) not found in contract",
         "test_bad_call_selector",
         calldata![],
     );
