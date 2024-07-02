@@ -11,6 +11,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+
+      # Setup pypy and link to the location expected by .cargo/config.toml.
+      - uses: actions/setup-python@v5
+        id: setup-pypy
+        with:
+          python-version: 'pypy3.9'
+      - run: ln -s '${{ steps.setup-pypy.outputs.python-path }}' /usr/local/bin/pypy3.9
+      - env:
+          LD_LIBRARY_PATH: ${{ steps.setup-pypy.outputs.pythonLocation }}/bin
+        run: echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
