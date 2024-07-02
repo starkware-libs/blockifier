@@ -32,6 +32,7 @@ pub struct VmExecutionContext<'a> {
     pub program_extra_data_length: usize,
 }
 
+#[derive(Clone, Debug)]
 pub struct CallResult {
     pub failed: bool,
     pub retdata: Retdata,
