@@ -3,6 +3,7 @@ pub struct TransactionExecutorConfig {
     pub concurrency_config: ConcurrencyConfig,
 }
 impl TransactionExecutorConfig {
+    #[cfg(feature = "testing")]
     pub fn create_for_testing() -> Self {
         Self { concurrency_config: ConcurrencyConfig::create_for_testing() }
     }
