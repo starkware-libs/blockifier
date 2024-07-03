@@ -85,6 +85,7 @@ jobs:
         with:
           prefix-key: "v0-rust-ubuntu-20.04"
       - run: cargo build -p blockifier
+      - run: cargo test -p blockifier
 
   run-python-tests:
     runs-on: ubuntu-20.04
