@@ -47,7 +47,7 @@ pub fn calculate_l1_gas_by_vm_usage(
         used_resource_names.is_subset(&HashSet::from_iter(vm_resource_fee_costs.keys())),
         "{:#?} should contain {:#?}",
         vm_resource_fee_costs.keys(),
-        used_resource_names,
+        vm_resource_usage_for_fee,
     );
 
     // Convert Cairo usage to L1 gas usage.
