@@ -40,15 +40,11 @@ pub type HashMapWrapper = HashMap<BuiltinName, usize>;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
-    pub block_max_capacity_with_keccak: BouncerWeights,
 }
 
 impl BouncerConfig {
     pub fn max() -> Self {
-        Self {
-            block_max_capacity_with_keccak: BouncerWeights::max(true),
-            block_max_capacity: BouncerWeights::max(false),
-        }
+        Self { block_max_capacity: BouncerWeights::max() }
     }
 
     pub fn empty() -> Self {
@@ -56,13 +52,7 @@ impl BouncerConfig {
     }
 
     pub fn has_room(&self, weights: BouncerWeights) -> bool {
-        let max_capacity = if weights.builtin_count.keccak > 0 {
-            self.block_max_capacity_with_keccak
-        } else {
-            self.block_max_capacity
-        };
-
-        max_capacity.has_room(weights)
+        self.block_max_capacity.has_room(weights)
     }
 }
 
@@ -102,14 +92,14 @@ impl BouncerWeights {
         self.checked_sub(other).is_some()
     }
 
-    pub fn max(with_keccak: bool) -> Self {
+    pub fn max() -> Self {
         Self {
             gas: usize::MAX,
             n_steps: usize::MAX,
             message_segment_length: usize::MAX,
             state_diff_size: usize::MAX,
             n_events: usize::MAX,
-            builtin_count: BuiltinCount::max(with_keccak),
+            builtin_count: BuiltinCount::max(),
         }
     }
 }
@@ -139,13 +129,12 @@ pub struct BuiltinCount {
 impl BuiltinCount {
     impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
 
-    pub fn max(with_keccak: bool) -> Self {
-        let keccak = if with_keccak { usize::MAX } else { 0 };
+    pub fn max() -> Self {
         Self {
             bitwise: usize::MAX,
             ecdsa: usize::MAX,
             ec_op: usize::MAX,
-            keccak,
+            keccak: usize::MAX,
             pedersen: usize::MAX,
             poseidon: usize::MAX,
             range_check: usize::MAX,
