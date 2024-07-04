@@ -1,3 +1,7 @@
 #!/bin/bash
 
-cargo +nightly-2024-01-12 fmt --all -- "$@"
+# Install toolchain if missing (local run).
+TOOLCHAIN="nightly-2024-04-29"
+rustup toolchain list | grep -q ${TOOLCHAIN} || rustup toolchain install ${TOOLCHAIN}
+
+cargo +${TOOLCHAIN} fmt --all -- "$@"
