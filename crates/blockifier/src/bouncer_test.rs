@@ -155,39 +155,16 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
 }
 
 #[rstest]
-#[case::positive_flow(0, 1, 0, Ok(()))]
-#[case::block_full(0, 11, 0, Err(TransactionExecutorError::BlockFull))]
+#[case::positive_flow(1, Ok(()))]
+#[case::block_full(11, Err(TransactionExecutorError::BlockFull))]
 #[case::transaction_too_large(
-    0,
     21,
-    0,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::TransactionTooLarge
-    ))
-)]
-#[case::positive_flow_with_keccak(0, 0, 1, Ok(()))]
-#[case::block_full_with_keccak(1, 0, 1, Err(TransactionExecutorError::BlockFull))]
-#[case::transaction_too_large_with_keccak(
-    0,
-    0,
-    2,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::TransactionTooLarge
-    ))
-)]
-#[case::block_full_with_keccak_ecdsa_exceeds(0, 11, 1, Err(TransactionExecutorError::BlockFull))]
-#[case::transaction_too_large_with_keccak_ecdsa_too_large(
-    0,
-    21,
-    1,
     Err(TransactionExecutorError::TransactionExecutionError(
         TransactionExecutionError::TransactionTooLarge
     ))
 )]
 fn test_bouncer_try_update(
-    #[case] initial_keccak: usize,
     #[case] added_ecdsa: usize,
-    #[case] added_keccak: usize,
     #[case] expected_result: TransactionExecutorResult<()>,
 ) {
     use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
@@ -203,7 +180,7 @@ fn test_bouncer_try_update(
             bitwise: 20,
             ecdsa: 20,
             ec_op: 20,
-            keccak: 0,
+            keccak: 20,
             pedersen: 20,
             poseidon: 20,
             range_check: 20,
@@ -214,16 +191,14 @@ fn test_bouncer_try_update(
         n_events: 20,
         state_diff_size: 20,
     };
-    let mut block_max_capacity_with_keccak = block_max_capacity;
-    block_max_capacity_with_keccak.builtin_count.keccak = 1;
-    let bouncer_config = BouncerConfig { block_max_capacity, block_max_capacity_with_keccak };
+    let bouncer_config = BouncerConfig { block_max_capacity };
 
     let accumulated_weights = BouncerWeights {
         builtin_count: BuiltinCount {
             bitwise: 10,
             ecdsa: 10,
             ec_op: 10,
-            keccak: initial_keccak,
+            keccak: 10,
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
@@ -243,7 +218,7 @@ fn test_bouncer_try_update(
         (BuiltinName::bitwise, 1),
         (BuiltinName::ecdsa, added_ecdsa),
         (BuiltinName::ec_op, 1),
-        (BuiltinName::keccak, added_keccak),
+        (BuiltinName::keccak, 1),
         (BuiltinName::pedersen, 1),
         (BuiltinName::poseidon, 1),
         (BuiltinName::range_check, 1),

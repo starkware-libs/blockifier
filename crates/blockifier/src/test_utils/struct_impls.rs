@@ -177,9 +177,8 @@ impl BlockContext {
             bouncer_config: BouncerConfig {
                 block_max_capacity: BouncerWeights {
                     n_events: max_n_events_in_block,
-                    ..BouncerWeights::max(false)
+                    ..BouncerWeights::max()
                 },
-                ..BouncerConfig::empty()
             },
             ..Self::create_for_account_testing()
         }
