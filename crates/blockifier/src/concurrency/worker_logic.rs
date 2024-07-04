@@ -21,7 +21,7 @@ use crate::state::cached_state::{
 use crate::state::state_api::{StateReader, UpdatableState};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
 use crate::transaction::transaction_execution::Transaction;
-use crate::transaction::transactions::ExecutableTransaction;
+use crate::transaction::transactions::{ExecutableTransaction, ExecutionFlags};
 
 #[cfg(test)]
 #[path = "worker_logic_test.rs"]
@@ -126,17 +126,10 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let tx = &self.chunk[tx_index];
         let mut transactional_state =
             TransactionalState::create_transactional(&mut tx_versioned_state);
-        let validate = true;
-        let charge_fee = true;
-        let concurrency_mode = true;
-
-        let execution_result = tx.execute_raw(
-            &mut transactional_state,
-            self.block_context,
-            charge_fee,
-            validate,
-            concurrency_mode,
-        );
+        let execution_flags =
+            ExecutionFlags { charge_fee: true, validate: true, concurrency_mode: true };
+        let execution_result =
+            tx.execute_raw(&mut transactional_state, self.block_context, execution_flags);
 
         if execution_result.is_ok() {
             // TODO(Noa, 15/05/2024): use `tx_versioned_state` when we add support to transactional

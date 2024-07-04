@@ -66,3 +66,8 @@ test-case.workspace = true
 harness = false
 name = "blockifier_bench"
 path = "bench/blockifier_bench.rs"
+
+[[test]]
+name = "feature_contracts_compatibility_test"
+path = "tests/feature_contracts_compatibility_test.rs"
+required-features = ["testing"]
