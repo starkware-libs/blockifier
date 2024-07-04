@@ -94,7 +94,6 @@ impl From<PyVersionedConstantsOverrides> for VersionedConstantsOverrides {
 
 #[derive(Clone, Debug, FromPyObject)]
 pub struct PyBouncerConfig {
-    pub full_total_weights_with_keccak: HashMap<String, usize>,
     pub full_total_weights: HashMap<String, usize>,
 }
 
@@ -104,9 +103,6 @@ impl TryFrom<PyBouncerConfig> for BouncerConfig {
         Ok(BouncerConfig {
             block_max_capacity: hash_map_into_bouncer_weights(
                 py_bouncer_config.full_total_weights.clone(),
-            )?,
-            block_max_capacity_with_keccak: hash_map_into_bouncer_weights(
-                py_bouncer_config.full_total_weights_with_keccak.clone(),
             )?,
         })
     }

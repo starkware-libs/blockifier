@@ -347,11 +347,7 @@ impl PyBlockExecutor {
             bouncer_config: BouncerConfig {
                 block_max_capacity: BouncerWeights {
                     state_diff_size: max_state_diff_size,
-                    ..BouncerWeights::max(false)
-                },
-                block_max_capacity_with_keccak: BouncerWeights {
-                    state_diff_size: max_state_diff_size,
-                    ..BouncerWeights::max(true)
+                    ..BouncerWeights::max()
                 },
             },
             tx_executor_config: TransactionExecutorConfig {

@@ -18,7 +18,7 @@ use crate::transaction::objects::{
 };
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
-    InvokeTransaction, L1HandlerTransaction,
+    ExecutionFlags, InvokeTransaction, L1HandlerTransaction,
 };
 
 // TODO: Move into transaction.rs, makes more sense to be defined there.
@@ -105,9 +105,7 @@ impl<U: UpdatableState> ExecutableTransaction<U> for L1HandlerTransaction {
         &self,
         state: &mut TransactionalState<'_, U>,
         block_context: &BlockContext,
-        _charge_fee: bool,
-        _validate: bool,
-        _concurrency_mode: bool,
+        _execution_flags: ExecutionFlags,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx_context = Arc::new(block_context.to_tx_context(self));
 
@@ -158,23 +156,18 @@ impl<U: UpdatableState> ExecutableTransaction<U> for Transaction {
         &self,
         state: &mut TransactionalState<'_, U>,
         block_context: &BlockContext,
-        charge_fee: bool,
-        validate: bool,
-        concurrency_mode: bool,
+        execution_flags: ExecutionFlags,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         // TODO(Yoni, 1/8/2024): consider unimplementing the ExecutableTransaction trait for inner
         // types, since now running Transaction::execute_raw is not identical to
         // AccountTransaction::execute_raw.
+        let concurrency_mode = execution_flags.concurrency_mode;
         let tx_execution_info = match self {
-            Self::AccountTransaction(account_tx) => account_tx.execute_raw(
-                state,
-                block_context,
-                charge_fee,
-                validate,
-                concurrency_mode,
-            )?,
+            Self::AccountTransaction(account_tx) => {
+                account_tx.execute_raw(state, block_context, execution_flags)?
+            }
             Self::L1HandlerTransaction(tx) => {
-                tx.execute_raw(state, block_context, charge_fee, validate, concurrency_mode)?
+                tx.execute_raw(state, block_context, execution_flags)?
             }
         };
 
