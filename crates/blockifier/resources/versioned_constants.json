@@ -554,10 +554,6 @@
     },
     "validate_max_n_steps": 1000000,
     "vm_resource_fee_cost": {
-        "add_mod_builtin": [
-            4,
-            100
-        ],
         "bitwise_builtin": [
             16,
             100
@@ -572,10 +568,6 @@
         ],
         "keccak_builtin": [
             512,
-            100
-        ],
-        "mul_mod_builtin": [
-            4,
             100
         ],
         "n_steps": [
@@ -595,10 +587,6 @@
             100
         ],
         "range_check_builtin": [
-            4,
-            100
-        ],
-        "range_check96_builtin": [
             4,
             100
         ]
