@@ -129,8 +129,23 @@ pub struct BuiltinCount {
     pub range_check96: usize,
 }
 
+macro_rules! impl_all_non_zero {
+    ($($field:ident),+) => {
+            pub fn all_non_zero(&self) -> bool {
+                $( self.$field != 0 )&&+
+        }
+    };
+}
+
+macro_rules! impl_builtin_variants {
+    ($($field:ident),+) => {
+        impl_checked_sub!($($field),+);
+        impl_all_non_zero!($($field),+);
+    };
+}
+
 impl BuiltinCount {
-    impl_checked_sub!(
+    impl_builtin_variants!(
         add_mod,
         bitwise,
         ec_op,
