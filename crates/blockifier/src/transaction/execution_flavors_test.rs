@@ -351,7 +351,7 @@ fn test_simulate_validate_charge_fee_fail_validate(
 
     // Validation scenario: fallible validation.
     let (actual_gas_used, actual_fee) = gas_and_fee(
-        u64_from_usize(get_tx_resources(TransactionType::InvokeFunction).n_steps + 27229),
+        u64_from_usize(get_tx_resources(TransactionType::InvokeFunction).n_steps + 27231),
         validate,
         &fee_type,
     );
