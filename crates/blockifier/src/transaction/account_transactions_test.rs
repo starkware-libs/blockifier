@@ -82,7 +82,7 @@ fn test_circuit(block_context: BlockContext, max_resource_bounds: ResourceBounds
     .unwrap();
 
     assert!(tx_execution_info.revert_error.is_none());
-    assert_eq!(tx_execution_info.transaction_receipt.gas, GasVector::from_l1_gas(6690));
+    assert_eq!(tx_execution_info.transaction_receipt.gas, GasVector::from_l1_gas(6682));
 }
 
 #[rstest]

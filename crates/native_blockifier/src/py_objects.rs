@@ -113,13 +113,8 @@ fn hash_map_into_builtin_count(
 ) -> Result<BuiltinCount, NativeBlockifierInputError> {
     let mut wrapper = HashMapWrapper::new();
     for (builtin_name, count) in builtins.iter() {
-        // TODO(Yoni, 10/7/2024): fix once the VM is upgraded.
-        let builtin = if builtin_name == "range_check96_builtin" {
-            BuiltinName::range_check96
-        } else {
-            BuiltinName::from_str_with_suffix(builtin_name)
-                .ok_or(NativeBlockifierInputError::UnknownBuiltin(builtin_name.clone()))?
-        };
+        let builtin = BuiltinName::from_str_with_suffix(builtin_name)
+            .ok_or(NativeBlockifierInputError::UnknownBuiltin(builtin_name.clone()))?;
         wrapper.insert(builtin, *count);
     }
     Ok(wrapper.into())
