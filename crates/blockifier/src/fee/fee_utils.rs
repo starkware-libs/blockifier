@@ -35,6 +35,10 @@ pub fn calculate_l1_gas_by_vm_usage(
     // TODO(Yoni, 1/7/2024): rename vm -> cairo.
     let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
     let mut vm_resource_usage_for_fee = vm_resource_usage.prover_builtins_by_name();
+    // TODO(Yoni, 10/7/2024): fix once the VM is upgraded.
+    if let Some(usage) = vm_resource_usage_for_fee.remove("range_check_96_builtin") {
+        vm_resource_usage_for_fee.insert("range_check96_builtin".into(), usage);
+    }
     vm_resource_usage_for_fee.insert(
         constants::N_STEPS_RESOURCE.to_string(),
         vm_resource_usage.total_n_steps() + n_reverted_steps,
