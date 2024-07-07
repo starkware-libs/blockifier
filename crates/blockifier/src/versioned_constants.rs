@@ -139,8 +139,10 @@ impl VersionedConstants {
             (BuiltinName::poseidon.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
             (BuiltinName::output.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
             (BuiltinName::ec_op.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
-            // TODO(Yoni, 10/7/2024): fix once the VM is upgraded.
-            ("range_check96_builtin".to_string(), ResourceCost::from_integer(1)),
+            (
+                BuiltinName::range_check96.to_str_with_suffix().to_string(),
+                ResourceCost::from_integer(1),
+            ),
             (BuiltinName::add_mod.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
             (BuiltinName::mul_mod.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
         ]));
