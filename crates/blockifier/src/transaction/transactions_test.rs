@@ -1102,6 +1102,7 @@ fn test_declare_tx(
     let compiled_class_hash = empty_contract.get_compiled_class_hash();
     let class_info = calculate_class_info_for_testing(empty_contract.get_class());
     let sender_address = account.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
     let starknet_resources = StarknetResources::new(
         0,
         0,
@@ -1116,9 +1117,10 @@ fn test_declare_tx(
             max_fee: Fee(MAX_FEE),
             sender_address,
             version: tx_version,
-            resource_bounds: max_resource_bounds,
+            resource_bounds: max_resource_bounds.clone(),
             class_hash,
             compiled_class_hash,
+            nonce: nonce_manager.next(sender_address),
         },
         class_info.clone(),
     );
@@ -1214,6 +1216,26 @@ fn test_declare_tx(
     // Verify class declaration.
     let contract_class_from_state = state.get_compiled_contract_class(class_hash).unwrap();
     assert_eq!(contract_class_from_state, class_info.contract_class());
+
+    // Checks that redeclaring the same contract fails.
+    let account_tx2 = declare_tx(
+        declare_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            sender_address,
+            version: tx_version,
+            resource_bounds: max_resource_bounds,
+            class_hash,
+            compiled_class_hash,
+            nonce: nonce_manager.next(sender_address),
+        },
+        class_info.clone(),
+    );
+    let result = account_tx2.execute(state, block_context, true, true);
+    assert_matches!(
+         result.unwrap_err(),
+        TransactionExecutionError::DeclareTransactionError{ class_hash:already_declared_class_hash } if
+        already_declared_class_hash == class_hash
+    );
 }
 
 #[rstest]
