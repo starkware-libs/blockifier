@@ -1217,6 +1217,61 @@ fn test_declare_tx(
 }
 
 #[rstest]
+#[case::transaction_version_zero(TransactionVersion::ZERO, CairoVersion::Cairo0)]
+#[case::transaction_version_one(TransactionVersion::ONE, CairoVersion::Cairo0)]
+#[case::transaction_version_two(TransactionVersion::TWO, CairoVersion::Cairo1)]
+#[case::transaction_version_three(TransactionVersion::THREE, CairoVersion::Cairo1)]
+fn test_redeclaration(
+    #[case] version: TransactionVersion,
+    #[case] cairo_version: CairoVersion,
+    max_resource_bounds: ResourceBoundsMapping,
+) {
+    let block_context = &BlockContext::create_for_account_testing();
+    let empty_contract = FeatureContract::Empty(cairo_version);
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
+    let class_hash = empty_contract.get_class_hash();
+    let compiled_class_hash = empty_contract.get_compiled_class_hash();
+    let class_info = calculate_class_info_for_testing(empty_contract.get_class());
+    let sender_address = account.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
+    let account_tx = declare_tx(
+        declare_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            sender_address,
+            version,
+            resource_bounds: max_resource_bounds.clone(),
+            class_hash,
+            compiled_class_hash,
+            nonce: nonce_manager.next(sender_address),
+        },
+        class_info.clone(),
+    );
+    let charge_fee = true;
+    let validate = true;
+    account_tx.execute(state, block_context, charge_fee, validate).unwrap();
+
+    let account_tx2 = declare_tx(
+        declare_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            sender_address,
+            version,
+            resource_bounds: max_resource_bounds,
+            class_hash,
+            compiled_class_hash,
+            nonce: nonce_manager.next(sender_address),
+        },
+        class_info.clone(),
+    );
+    let resust = account_tx2.execute(state, block_context, charge_fee, validate);
+    assert_eq!(
+        resust.err().unwrap().to_string(),
+        TransactionExecutionError::DeclareTransactionError { class_hash }.to_string()
+    );
+}
+
+#[rstest]
 fn test_deploy_account_tx(
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
     #[values(false, true)] use_kzg_da: bool,
