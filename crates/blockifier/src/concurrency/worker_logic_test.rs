@@ -3,7 +3,9 @@ use std::sync::Mutex;
 
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
-use starknet_api::transaction::{ContractAddressSalt, ResourceBoundsMapping, TransactionVersion};
+use starknet_api::transaction::{
+    ContractAddressSalt, Fee, ResourceBoundsMapping, TransactionVersion,
+};
 use starknet_api::{contract_address, felt, patricia_key};
 use starknet_types_core::felt::Felt;
 
@@ -31,7 +33,8 @@ use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
 use crate::transaction::objects::HasRelatedFeeType;
 use crate::transaction::test_utils::{
-    account_invoke_tx, calculate_class_info_for_testing, emit_n_events_tx, max_resource_bounds,
+    account_invoke_tx, calculate_class_info_for_testing, emit_n_events_tx, max_fee,
+    max_resource_bounds,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
@@ -525,18 +528,25 @@ fn test_worker_validate(max_resource_bounds: ResourceBoundsMapping) {
 }
 
 #[rstest]
-fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
+#[case::transaction_version_one(CairoVersion::Cairo0, TransactionVersion::ONE)]
+#[case::transaction_version_three(CairoVersion::Cairo1, TransactionVersion::THREE)]
+fn test_deploy_before_declare(
+    max_fee: Fee,
+    max_resource_bounds: ResourceBoundsMapping,
+    #[case] cairo_version: CairoVersion,
+    #[case] version: TransactionVersion,
+) {
     // Create the state.
     let block_context = BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
-    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let state = test_state(chain_info, BALANCE, &[(account_contract, 2)]);
     let safe_versioned_state = safe_versioned_state_for_testing(state);
 
     // Create transactions.
     let account_address_0 = account_contract.get_instance_address(0);
     let account_address_1 = account_contract.get_instance_address(1);
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(cairo_version);
     let test_class_hash = test_contract.get_class_hash();
     let test_class_info = calculate_class_info_for_testing(test_contract.get_class());
     let test_compiled_class_hash = test_contract.get_compiled_class_hash();
@@ -546,7 +556,8 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
             resource_bounds: max_resource_bounds.clone(),
             class_hash: test_class_hash,
             compiled_class_hash: test_compiled_class_hash,
-            version: TransactionVersion::THREE,
+            version,
+            max_fee,
             nonce: nonce!(0_u8),
         },
         test_class_info.clone(),
@@ -556,7 +567,7 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
     let invoke_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account_address_1,
         calldata: create_calldata(
-            account_contract.get_instance_address(0),
+            account_contract.get_instance_address(1),
             DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME,
             &[
                 test_class_hash.0,                  // Class hash.
@@ -567,6 +578,8 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
             ]
         ),
         resource_bounds: max_resource_bounds,
+        max_fee,
+        version,
         nonce: nonce!(0_u8)
     });
 
@@ -590,6 +603,7 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
     let execution_output = worker_executor.execution_outputs[1].lock().unwrap();
     let tx_execution_info = execution_output.as_ref().unwrap().result.as_ref().unwrap();
     assert!(tx_execution_info.is_reverted());
+    println!("{:?}", tx_execution_info.revert_error.clone().unwrap());
     assert!(tx_execution_info.revert_error.clone().unwrap().contains("not declared."));
     drop(execution_output);
 
