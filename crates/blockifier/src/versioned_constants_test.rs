@@ -1,11 +1,16 @@
 use cairo_vm::types::builtin_name::BuiltinName;
-use glob::glob;
+use glob::{glob, Paths};
 use pretty_assertions::assert_eq;
 
 use super::*;
 
 // TODO: Test Starknet OS validation.
 // TODO: Add an unallowed field scenario for GasCost parsing.
+
+/// Returns all JSON files in the resources directory (should be all versioned constants files).
+fn all_jsons_in_dir() -> Paths {
+    glob(format!("{}/resources/*.json", env!("CARGO_MANIFEST_DIR")).as_str()).unwrap()
+}
 
 #[test]
 fn test_successful_gas_costs_parsing() {
@@ -70,7 +75,7 @@ fn get_json_value_without_defaults() -> serde_json::Value {
         "max_recursion_depth": 2
     }"#;
     // Fill the os constants with the gas cost values (do not have a default value).
-    let mut os_constants: Value = serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON)
+    let mut os_constants: Value = serde_json::from_str::<Value>(VERSIONED_CONSTANTS_LATEST_JSON)
         .unwrap()
         .get("os_constants")
         .unwrap()
@@ -91,7 +96,7 @@ fn get_json_value_without_defaults() -> serde_json::Value {
 #[test]
 fn test_versioned_constants_base_overrides() {
     // Create a versioned constants copy with a modified value for `invoke_tx_max_n_steps`.
-    let mut versioned_constants_base_overrides = DEFAULT_CONSTANTS.clone();
+    let mut versioned_constants_base_overrides = VERSIONED_CONSTANTS_LATEST.clone();
     versioned_constants_base_overrides.invoke_tx_max_n_steps += 1;
 
     let result = VersionedConstants::get_versioned_constants(VersionedConstantsOverrides {
@@ -218,9 +223,13 @@ fn test_invalid_number() {
 
 #[test]
 fn test_old_json_parsing() {
-    let files = glob(format!("{}/resources/*.json", env!("CARGO_MANIFEST_DIR")).as_str()).unwrap();
-    for file in files.map(Result::unwrap) {
+    for file in all_jsons_in_dir().map(Result::unwrap) {
         serde_json::from_reader::<_, VersionedConstants>(&std::fs::File::open(&file).unwrap())
             .unwrap_or_else(|_| panic!("Versioned constants JSON file {file:#?} is malformed"));
     }
+}
+
+#[test]
+fn test_all_jsons_in_enum() {
+    assert_eq!(StarknetVersion::iter().count(), all_jsons_in_dir().count());
 }
