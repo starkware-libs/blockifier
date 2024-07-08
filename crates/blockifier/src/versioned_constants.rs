@@ -8,10 +8,12 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use indexmap::{IndexMap, IndexSet};
 use num_rational::Ratio;
 use once_cell::sync::Lazy;
+use paste::paste;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Number, Value};
 use strum::IntoEnumIterator;
+use strum_macros::{EnumCount, EnumIter};
 use thiserror::Error;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
@@ -21,17 +23,51 @@ use crate::execution::syscalls::SyscallSelector;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::StarknetResources;
 use crate::transaction::transaction_types::TransactionType;
-
 #[cfg(test)]
 #[path = "versioned_constants_test.rs"]
 pub mod test;
 
-pub(crate) const DEFAULT_CONSTANTS_JSON: &str =
-    include_str!("../resources/versioned_constants.json");
-static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
-    serde_json::from_str(DEFAULT_CONSTANTS_JSON)
-        .expect("Versioned constants JSON file is malformed")
-});
+/// Auto-generate getters for listed versioned constants versions.
+macro_rules! versioned_versioned_constants {
+    ($(($variant:ident, $path_to_json:expr)),* $(,)?) => {
+        /// Enum of all the versioned constants versions.
+        #[derive(Clone, Debug, EnumCount, EnumIter, Hash, Eq, PartialEq)]
+        pub enum StarknetVersionForVersionedConstants {
+            $($variant,)*
+        }
+
+        // Static (lazy) instances of the versioned constants.
+        paste! {
+            $(
+                pub(crate) const [<VERSIONED_CONSTANTS_ $variant:upper _JSON>]: &str =
+                    include_str!($path_to_json);
+                static [<VERSIONED_CONSTANTS_ $variant:upper>]: Lazy<VersionedConstants> = Lazy::new(|| {
+                    serde_json::from_str([<VERSIONED_CONSTANTS_ $variant:upper _JSON>])
+                        .expect(&format!("Versioned constants {} is malformed.", $path_to_json))
+                });
+            )*
+        }
+
+        impl VersionedConstants {
+            pub fn get_by_version(version: StarknetVersionForVersionedConstants) -> &'static Self {
+                match version {
+                    $(
+                        StarknetVersionForVersionedConstants::$variant => {
+                           & paste! { [<VERSIONED_CONSTANTS_ $variant:upper>] }
+                        }
+                    )*
+                }
+            }
+        }
+    };
+}
+
+versioned_versioned_constants! {
+    (V0_13_0, "../resources/versioned_constants_13_0.json"),
+    (V0_13_1, "../resources/versioned_constants_13_1.json"),
+    (V0_13_1_1, "../resources/versioned_constants_13_1_1.json"),
+    (Latest, "../resources/versioned_constants.json"),
+}
 
 pub type ResourceCost = Ratio<u128>;
 
@@ -71,7 +107,7 @@ impl VersionedConstants {
     /// Get the constants that shipped with the current version of the Blockifier.
     /// To use custom constants, initialize the struct from a file using `try_from`.
     pub fn latest_constants() -> &'static Self {
-        &DEFAULT_CONSTANTS
+        &VERSIONED_CONSTANTS_LATEST
     }
 
     /// Returns the initial gas of any transaction to run with.
