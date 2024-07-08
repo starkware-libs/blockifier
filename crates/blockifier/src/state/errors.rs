@@ -21,7 +21,8 @@ pub enum StateError {
     ProgramError(#[from] ProgramError),
     #[error("Requested {0:?} is unavailable for deployment.")]
     UnavailableContractAddress(ContractAddress),
-    #[error("Class with hash {0} is not declared.")]
+    // TODO: (Aviv, 8/7/2024): use lowerhex print instead of debug in the next starknet-api version.
+    #[error("Class with hash {0:?} is not declared.")]
     UndeclaredClassHash(ClassHash),
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
