@@ -29,6 +29,7 @@ use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionCont
 use crate::execution::call_info::{
     CallExecution, CallInfo, MessageToL1, OrderedEvent, OrderedL2ToL1Message, Retdata,
 };
+use crate::execution::contract_class::{ContractClass, ContractClassV0};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointExecutionError};
 use crate::execution::syscalls::hint_processor::{EmitEventError, L1_GAS, L2_GAS};
@@ -2023,4 +2024,7 @@ fn test_emit_event_exceeds_limit(
 fn test_balance_print() {
     let int = balance_to_big_uint(&Felt::from(16_u64), &Felt::from(1_u64));
     assert!(format!("{}", int) == (BigUint::from(u128::MAX) + BigUint::from(17_u128)).to_string());
+    let path = "feature_contracts/cairo0/compiled/noa_compiled.json";
+    let _noa: ContractClass = ContractClassV0::from_file(path).into();
+    panic!();
 }

@@ -130,6 +130,7 @@ impl ContractClassV0 {
 
     pub fn try_from_json_string(raw_contract_class: &str) -> Result<ContractClassV0, ProgramError> {
         let contract_class: ContractClassV0Inner = serde_json::from_str(raw_contract_class)?;
+        dbg!("noa");
         Ok(ContractClassV0(Arc::new(contract_class)))
     }
 }
@@ -427,6 +428,7 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 pub fn deserialize_program<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Program, D::Error> {
+    dbg!("noa d1");
     let deprecated_program = DeprecatedProgram::deserialize(deserializer)?;
     sn_api_to_cairo_vm_program(deprecated_program)
         .map_err(|err| DeserializationError::custom(err.to_string()))

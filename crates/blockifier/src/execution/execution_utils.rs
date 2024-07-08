@@ -109,7 +109,9 @@ pub fn felt_range_from_ptr(
 
 // TODO(Elin,01/05/2023): aim to use LC's implementation once it's in a separate crate.
 pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program, ProgramError> {
+    dbg!(&program.identifiers);
     let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;
+    dbg!("what");
     let builtins = serde_json::from_value(program.builtins)?;
     let data = deserialize_array_of_bigint_hex(program.data)?;
     let hints = serde_json::from_value::<HashMap<usize, Vec<HintParams>>>(program.hints)?;
