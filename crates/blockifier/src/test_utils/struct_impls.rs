@@ -28,7 +28,7 @@ use crate::transaction::objects::{
     DeprecatedTransactionInfo, FeeType, TransactionFeeResult, TransactionInfo, TransactionResources,
 };
 use crate::versioned_constants::{
-    GasCosts, OsConstants, VersionedConstants, DEFAULT_CONSTANTS_JSON,
+    GasCosts, OsConstants, StarknetVersionForVersionedConstants, VersionedConstants,
 };
 
 impl CallEntryPoint {
@@ -109,7 +109,10 @@ impl TransactionResources {
 impl GasCosts {
     pub fn create_for_testing_from_subset(subset_of_os_constants: &str) -> Self {
         let subset_of_os_constants: Value = serde_json::from_str(subset_of_os_constants).unwrap();
-        let mut os_constants: Value = serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON)
+        let mut os_constants: Value =
+            serde_json::from_str::<Value>(&VersionedConstants::get_json_by_version(
+                StarknetVersionForVersionedConstants::LATEST_VERSIONED_CONSTANTS,
+            ))
             .unwrap()
             .get("os_constants")
             .unwrap()

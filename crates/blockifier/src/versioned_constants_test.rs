@@ -70,7 +70,10 @@ fn get_json_value_without_defaults() -> serde_json::Value {
         "max_recursion_depth": 2
     }"#;
     // Fill the os constants with the gas cost values (do not have a default value).
-    let mut os_constants: Value = serde_json::from_str::<Value>(DEFAULT_CONSTANTS_JSON)
+    let mut os_constants: Value =
+        serde_json::from_str::<Value>(&VersionedConstants::get_json_by_version(
+            StarknetVersionForVersionedConstants::LATEST_VERSIONED_CONSTANTS,
+        ))
         .unwrap()
         .get("os_constants")
         .unwrap()
@@ -91,7 +94,7 @@ fn get_json_value_without_defaults() -> serde_json::Value {
 #[test]
 fn test_versioned_constants_base_overrides() {
     // Create a versioned constants copy with a modified value for `invoke_tx_max_n_steps`.
-    let mut versioned_constants_base_overrides = DEFAULT_CONSTANTS.clone();
+    let mut versioned_constants_base_overrides = LATEST_VERSIONED_CONSTANTS.clone();
     versioned_constants_base_overrides.invoke_tx_max_n_steps += 1;
 
     let result = VersionedConstants::get_versioned_constants(VersionedConstantsOverrides {
