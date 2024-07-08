@@ -72,7 +72,9 @@ use crate::transaction::test_utils::{
     GET_SEQUENCER_ADDRESS, INVALID, VALID,
 };
 use crate::transaction::transaction_types::TransactionType;
-use crate::transaction::transactions::{ExecutableTransaction, L1HandlerTransaction};
+use crate::transaction::transactions::{
+    ExecutableTransaction, ExecutionFlags, L1HandlerTransaction,
+};
 use crate::versioned_constants::VersionedConstants;
 use crate::{
     check_transaction_execution_error_for_custom_hint,
@@ -1214,6 +1216,62 @@ fn test_declare_tx(
     // Verify class declaration.
     let contract_class_from_state = state.get_compiled_contract_class(class_hash).unwrap();
     assert_eq!(contract_class_from_state, class_info.contract_class());
+}
+
+#[rstest]
+#[case::transaction_version_zero(TransactionVersion::ZERO, CairoVersion::Cairo0)]
+#[case::transaction_version_one(TransactionVersion::ONE, CairoVersion::Cairo0)]
+#[case::transaction_version_two(TransactionVersion::TWO, CairoVersion::Cairo1)]
+#[case::transaction_version_three(TransactionVersion::THREE, CairoVersion::Cairo1)]
+fn test_redeclaration(
+    #[case] version: TransactionVersion,
+    #[case] cairo_version: CairoVersion,
+    #[values(true, false)] concurrency_mode: bool,
+    max_resource_bounds: ResourceBoundsMapping,
+) {
+    let block_context = &&BlockContext::create_for_account_testing();
+    let empty_contract = FeatureContract::Empty(cairo_version);
+    let account = FeatureContract::AccountWithoutValidations(cairo_version);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[(account, 1)]);
+    let class_hash = empty_contract.get_class_hash();
+    let compiled_class_hash = empty_contract.get_compiled_class_hash();
+    let class_info = calculate_class_info_for_testing(empty_contract.get_class());
+    let sender_address = account.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
+    let account_tx = declare_tx(
+        declare_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            sender_address,
+            version,
+            resource_bounds: max_resource_bounds.clone(),
+            class_hash,
+            compiled_class_hash,
+            nonce: nonce_manager.next(sender_address),
+        },
+        class_info.clone(),
+    );
+    let mut transactional_state = TransactionalState::create_transactional(state);
+    let execution_flags = ExecutionFlags { charge_fee: true, validate: true, concurrency_mode };
+    account_tx.execute_raw(&mut transactional_state, block_context, execution_flags).unwrap();
+
+    let account_tx2 = declare_tx(
+        declare_tx_args! {
+            max_fee: Fee(MAX_FEE),
+            sender_address,
+            version,
+            resource_bounds: max_resource_bounds,
+            class_hash,
+            compiled_class_hash,
+            nonce: nonce_manager.next(sender_address),
+        },
+        class_info.clone(),
+    );
+    let result = account_tx2.execute_raw(&mut transactional_state, block_context, execution_flags);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        TransactionExecutionError::DeclareTransactionError { class_hash }.to_string()
+    );
 }
 
 #[rstest]
