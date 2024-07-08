@@ -367,6 +367,19 @@ impl PyBlockExecutor {
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
     }
+
+    /// Wrapper with pub(crate) visibility for internal (in crate) testing.
+    #[cfg(test)]
+    #[pyo3(signature = (concurrency_config, general_config, path, max_state_diff_size))]
+    #[staticmethod]
+    pub(crate) fn native_create_for_testing(
+        concurrency_config: PyConcurrencyConfig,
+        general_config: PyGeneralConfig,
+        path: std::path::PathBuf,
+        max_state_diff_size: usize,
+    ) -> Self {
+        Self::create_for_testing(concurrency_config, general_config, path, max_state_diff_size)
+    }
 }
 
 impl PyBlockExecutor {
