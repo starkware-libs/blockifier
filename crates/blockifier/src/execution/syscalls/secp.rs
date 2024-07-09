@@ -113,7 +113,7 @@ where
         Ok(SecpNewResponse { optional_ec_point_id: Some(self.allocate_point(ec_point)) })
     }
 
-    fn allocate_point(&mut self, ec_point: short_weierstrass::Affine<Curve>) -> usize {
+    pub fn allocate_point(&mut self, ec_point: short_weierstrass::Affine<Curve>) -> usize {
         let points = &mut self.points;
         let id = points.len();
         points.push(ec_point);

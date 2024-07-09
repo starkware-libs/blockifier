@@ -41,6 +41,7 @@ const SECURITY_TEST_CONTRACT_BASE: u32 = 6 * CLASS_HASH_BASE;
 const TEST_CONTRACT_BASE: u32 = 7 * CLASS_HASH_BASE;
 const ERC20_CONTRACT_BASE: u32 = 8 * CLASS_HASH_BASE;
 const SIERRA_TEST_CONTRACT_BASE: u32 = 9 * CLASS_HASH_BASE;
+const SIERRA_EXECUTION_INFO_V1_CONTRACT_BASE: u32 = 10 * CLASS_HASH_BASE;
 
 // Contract names.
 const ACCOUNT_LONG_VALIDATE_NAME: &str = "account_with_long_validate";
@@ -51,6 +52,7 @@ const LEGACY_CONTRACT_NAME: &str = "legacy_test_contract";
 const SECURITY_TEST_CONTRACT_NAME: &str = "security_tests_contract";
 const TEST_CONTRACT_NAME: &str = "test_contract";
 const SIERRA_TEST_CONTRACT_NAME: &str = "sierra_test_contract";
+const SIERRA_EXECUTION_INFO_V1_CONTRACT_NAME: &str = "sierra_execution_info_v1";
 
 // ERC20 contract is in a unique location.
 const ERC20_CONTRACT_PATH: &str =
@@ -69,6 +71,7 @@ pub enum FeatureContract {
     SecurityTests,
     TestContract(CairoVersion),
     SierraTestContract,
+    SierraExecutionInfoV1Contract,
 }
 
 impl FeatureContract {
@@ -80,7 +83,9 @@ impl FeatureContract {
             | Self::FaultyAccount(version)
             | Self::TestContract(version) => *version,
             Self::SecurityTests | Self::ERC20 => CairoVersion::Cairo0,
-            Self::LegacyTestContract | Self::SierraTestContract => CairoVersion::Cairo1,
+            Self::LegacyTestContract
+            | Self::SierraTestContract
+            | Self::SierraExecutionInfoV1Contract => CairoVersion::Cairo1,
         }
     }
 
@@ -104,6 +109,7 @@ impl FeatureContract {
                 Self::SecurityTests => SECURITY_TEST_CONTRACT_BASE,
                 Self::TestContract(_) => TEST_CONTRACT_BASE,
                 Self::SierraTestContract => SIERRA_TEST_CONTRACT_BASE,
+                Self::SierraExecutionInfoV1Contract => SIERRA_EXECUTION_INFO_V1_CONTRACT_BASE,
             }
     }
 
@@ -120,6 +126,7 @@ impl FeatureContract {
             Self::SierraTestContract => SIERRA_TEST_CONTRACT_NAME,
             // ERC20 is a special case - not in the feature_contracts directory.
             Self::ERC20 => return ERC20_CONTRACT_PATH.into(),
+            Self::SierraExecutionInfoV1Contract => SIERRA_EXECUTION_INFO_V1_CONTRACT_NAME,
         };
         format!(
             "./feature_contracts/cairo{}/compiled/{}{}.json",
@@ -131,7 +138,7 @@ impl FeatureContract {
             match self {
                 // TODO replace with a vm vs native flag when expanding native tests to use all the
                 // cairo 1 contracts
-                Self::SierraTestContract => ".sierra",
+                Self::SierraTestContract | Self::SierraExecutionInfoV1Contract => ".sierra",
                 _ => match cairo_version {
                     CairoVersion::Cairo0 => "_compiled",
                     CairoVersion::Cairo1 => ".casm",
@@ -150,7 +157,8 @@ impl FeatureContract {
             Self::ERC20
             | Self::LegacyTestContract
             | Self::SecurityTests
-            | Self::SierraTestContract => {
+            | Self::SierraTestContract
+            | Self::SierraExecutionInfoV1Contract => {
                 panic!("{self:?} contract has no configurable version.")
             }
         }
@@ -169,7 +177,7 @@ impl FeatureContract {
     pub fn get_class(&self) -> ContractClass {
         match self {
             // TODO replace once vm/native is a flag
-            Self::SierraTestContract => {
+            Self::SierraTestContract | Self::SierraExecutionInfoV1Contract => {
                 SierraContractClassV1::from_file(&self.get_compiled_path()).into()
             }
             _ => match self.cairo_version() {

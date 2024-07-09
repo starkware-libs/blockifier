@@ -101,10 +101,7 @@ impl TransactionInfo {
 
     pub fn max_fee(&self) -> TransactionFeeResult<Fee> {
         match self {
-            Self::Current(context) => {
-                let l1_bounds = context.l1_resource_bounds()?;
-                Ok(Fee(u128::from(l1_bounds.max_amount) * l1_bounds.max_price_per_unit))
-            }
+            Self::Current(_context) => Ok(Fee(0)),
             Self::Deprecated(context) => Ok(context.max_fee),
         }
     }

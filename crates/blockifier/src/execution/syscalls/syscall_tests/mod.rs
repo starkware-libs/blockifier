@@ -44,7 +44,9 @@ fn assert_contract_uses_vm(class_hash: ClassHash, state: &dyn State) {
 fn assert_consistent_contract_version(contract: FeatureContract, state: &dyn State) {
     let hash = contract.get_class_hash();
     match contract {
-        FeatureContract::SierraTestContract => assert_contract_uses_native(hash, state),
+        FeatureContract::SierraTestContract | FeatureContract::SierraExecutionInfoV1Contract => {
+            assert_contract_uses_native(hash, state)
+        }
         FeatureContract::SecurityTests
         | FeatureContract::ERC20
         | FeatureContract::LegacyTestContract

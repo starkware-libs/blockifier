@@ -3,8 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::RandomState;
 use std::rc::Rc;
 
-use ark_ec::short_weierstrass::SWCurveConfig;
-use ark_ff::{BigInt, PrimeField};
+use ark_ff::BigInt;
 use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_starknet_classes::contract_class::{ContractEntryPoint, ContractEntryPoints};
@@ -31,8 +30,7 @@ use crate::execution::call_info::{
 use crate::execution::entry_point::{CallEntryPoint, EntryPointExecutionResult};
 use crate::execution::errors::EntryPointExecutionError;
 use crate::execution::native::syscall_handler::NativeSyscallHandler;
-use crate::execution::syscalls::hint_processor::{SyscallExecutionError, L1_GAS, L2_GAS};
-use crate::execution::syscalls::secp::{SecpHintProcessor, SecpNewRequest, SecpNewResponse};
+use crate::execution::syscalls::hint_processor::{L1_GAS, L2_GAS};
 use crate::transaction::objects::CurrentTransactionInfo;
 
 #[cfg(test)]
@@ -270,30 +268,6 @@ pub fn decode_felts_as_str(encoding: &[Felt]) -> String {
                 .join(", ");
             format!("[{}]", err_msgs)
         }
-    }
-}
-
-pub fn allocate_point<Curve: SWCurveConfig>(
-    point_x: U256,
-    point_y: U256,
-    hint_processor: &mut SecpHintProcessor<Curve>,
-) -> SyscallResult<usize>
-where
-    Curve::BaseField: PrimeField,
-{
-    let request = SecpNewRequest { x: u256_to_biguint(point_x), y: u256_to_biguint(point_y) };
-
-    let response = hint_processor.secp_new_unchecked(request);
-
-    match response {
-        // We can't receive None here, as the response is always Some from `secp_new_unchecked`.
-        Ok(SecpNewResponse { optional_ec_point_id: id }) => Ok(id.unwrap()),
-        Err(SyscallExecutionError::SyscallError { error_data }) => {
-            Err(error_data.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect())
-        }
-        Err(_) => unreachable!(
-            "Can't receive an error other than SyscallError from `secp_new_unchecked`."
-        ),
     }
 }
 
