@@ -370,7 +370,7 @@ fn test_false_validate_reads(
     safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
 ) {
     let version_state_proxy = safe_versioned_state.pin_version(0);
-    version_state_proxy.state().apply_writes(0, &tx_0_writes, &HashMap::default());
+    version_state_proxy.state().apply_writes(0, &tx_0_writes);
     assert!(!safe_versioned_state.pin_version(1).validate_reads(&tx_1_reads));
 }
 
@@ -378,18 +378,18 @@ fn test_false_validate_reads(
 fn test_false_validate_reads_declared_contracts(
     safe_versioned_state: ThreadSafeVersionedState<CachedState<DictStateReader>>,
 ) {
+    let compiled_contract_calss = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
     let tx_1_reads = StateMaps {
         declared_contracts: HashMap::from([(class_hash!(1_u8), false)]),
         ..Default::default()
     };
     let tx_0_writes = StateMaps {
         declared_contracts: HashMap::from([(class_hash!(1_u8), true)]),
+        class_hash_to_class: HashMap::from([(class_hash!(1_u8), compiled_contract_calss)]),
         ..Default::default()
     };
     let version_state_proxy = safe_versioned_state.pin_version(0);
-    let compiled_contract_calss = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
-    let class_hash_to_class = HashMap::from([(class_hash!(1_u8), compiled_contract_calss)]);
-    version_state_proxy.state().apply_writes(0, &tx_0_writes, &class_hash_to_class);
+    version_state_proxy.state().apply_writes(0, &tx_0_writes);
     assert!(!safe_versioned_state.pin_version(1).validate_reads(&tx_1_reads));
 }
 
@@ -413,13 +413,12 @@ fn test_apply_writes(
 
     // Transaction 0 contract class.
     let contract_class_0 = FeatureContract::TestContract(CairoVersion::Cairo1).get_class();
-    assert!(transactional_states[0].class_hash_to_class.borrow().is_empty());
+    assert!(transactional_states[0].cache.borrow().writes.class_hash_to_class.is_empty());
     transactional_states[0].set_contract_class(class_hash, contract_class_0.clone()).unwrap();
-    assert_eq!(transactional_states[0].class_hash_to_class.borrow().len(), 1);
+    assert_eq!(transactional_states[0].cache.borrow().writes.class_hash_to_class.len(), 1);
 
     safe_versioned_state.pin_version(0).apply_writes(
         &transactional_states[0].cache.borrow().writes,
-        &transactional_states[0].class_hash_to_class.borrow().clone(),
         &HashMap::default(),
     );
     assert!(transactional_states[1].get_class_hash_at(contract_address).unwrap() == class_hash_0);
@@ -451,7 +450,6 @@ fn test_apply_writes_reexecute_scenario(
 
     safe_versioned_state.pin_version(0).apply_writes(
         &transactional_states[0].cache.borrow().writes,
-        &transactional_states[0].class_hash_to_class.borrow().clone(),
         &HashMap::default(),
     );
     // Although transaction 0 wrote to the shared state, version 1 needs to be re-executed to see
@@ -496,14 +494,12 @@ fn test_delete_writes(
             .unwrap();
         safe_versioned_state.pin_version(i).apply_writes(
             &tx_state.cache.borrow().writes,
-            &tx_state.class_hash_to_class.borrow(),
             &HashMap::default(),
         );
     }
 
     safe_versioned_state.pin_version(tx_index_to_delete_writes).delete_writes(
         &transactional_states[tx_index_to_delete_writes].cache.borrow().writes,
-        &transactional_states[tx_index_to_delete_writes].class_hash_to_class.borrow(),
     );
 
     for tx_index in 0..num_of_txs {
@@ -549,33 +545,23 @@ fn test_delete_writes_completeness(
             compiled_class_hash!(0x1_u16),
         )]),
         declared_contracts: HashMap::from([(feature_contract.get_class_hash(), true)]),
+        class_hash_to_class:
+        HashMap::from([(feature_contract.get_class_hash(), feature_contract.get_class())]),
     };
-    let class_hash_to_class_writes =
-        HashMap::from([(feature_contract.get_class_hash(), feature_contract.get_class())]);
 
     let tx_index = 0;
     let mut versioned_state_proxy = safe_versioned_state.pin_version(tx_index);
 
     versioned_state_proxy.apply_writes(
         &state_maps_writes,
-        &class_hash_to_class_writes,
         &HashMap::default(),
     );
     assert_eq!(
         safe_versioned_state.0.lock().unwrap().get_writes_of_index(tx_index),
         state_maps_writes
     );
-    assert_eq!(
-        safe_versioned_state
-            .0
-            .lock()
-            .unwrap()
-            .compiled_contract_classes
-            .get_writes_of_index(tx_index),
-        class_hash_to_class_writes
-    );
 
-    versioned_state_proxy.delete_writes(&state_maps_writes, &class_hash_to_class_writes);
+    versioned_state_proxy.delete_writes(&state_maps_writes);
     assert_eq!(
         safe_versioned_state.0.lock().unwrap().get_writes_of_index(tx_index),
         StateMaps::default()
@@ -626,7 +612,6 @@ fn test_versioned_proxy_state_flow(
         safe_versioned_state.0.lock().unwrap().apply_writes(
             i,
             &transactional_state.cache.borrow().writes,
-            &transactional_state.class_hash_to_class.borrow().clone(),
         );
     }
 

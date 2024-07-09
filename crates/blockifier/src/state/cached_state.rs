@@ -31,7 +31,6 @@ pub struct CachedState<S: StateReader> {
     // Invariant: read/write access is managed by CachedState.
     // Using interior mutability to update caches during `State`'s immutable getters.
     pub(crate) cache: RefCell<StateCache>,
-    pub(crate) class_hash_to_class: RefCell<ContractClassMapping>,
     /// A map from class hash to the set of PC values that were visited in the class.
     pub visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
@@ -41,7 +40,6 @@ impl<S: StateReader> CachedState<S> {
         Self {
             state,
             cache: RefCell::new(StateCache::default()),
-            class_hash_to_class: RefCell::new(HashMap::default()),
             visited_pcs: HashMap::default(),
         }
     }
@@ -57,20 +55,6 @@ impl<S: StateReader> CachedState<S> {
     /// Returns the state changes made on this state.
     pub fn get_actual_state_changes(&mut self) -> StateResult<StateChanges> {
         Ok(self.to_state_diff()?.into())
-    }
-
-    pub fn update_cache(
-        &mut self,
-        write_updates: &StateMaps,
-        local_contract_cache_updates: ContractClassMapping,
-    ) {
-        // Check consistency between declared_contracts and class_hash_to_class.
-        for (&key, &value) in &write_updates.declared_contracts {
-            assert_eq!(value, local_contract_cache_updates.contains_key(&key));
-        }
-        let mut cache = self.cache.borrow_mut();
-        cache.writes.extend(write_updates);
-        self.class_hash_to_class.get_mut().extend(local_contract_cache_updates);
     }
 
     pub fn update_visited_pcs_cache(&mut self, visited_pcs: &HashMap<ClassHash, HashSet<usize>>) {
@@ -111,11 +95,9 @@ impl<S: StateReader> UpdatableState for CachedState<S> {
     fn apply_writes(
         &mut self,
         writes: &StateMaps,
-        class_hash_to_class: &ContractClassMapping,
         visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
     ) {
-        // TODO(OriF,15/5/24): Reconsider the clone.
-        self.update_cache(writes, class_hash_to_class.clone());
+        self.cache.borrow_mut().writes.extend(writes);
         self.update_visited_pcs_cache(visited_pcs);
     }
 }
@@ -177,7 +159,7 @@ impl<S: StateReader> StateReader for CachedState<S> {
 
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         let mut cache = self.cache.borrow_mut();
-        let class_hash_to_class = &mut *self.class_hash_to_class.borrow_mut();
+        let class_hash_to_class = &mut self.cache.borrow_mut().initial_reads.class_hash_to_class;
 
         if let std::collections::hash_map::Entry::Vacant(vacant_entry) =
             class_hash_to_class.entry(class_hash)
@@ -260,7 +242,7 @@ impl<S: StateReader> State for CachedState<S> {
         class_hash: ClassHash,
         contract_class: ContractClass,
     ) -> StateResult<()> {
-        self.class_hash_to_class.get_mut().insert(class_hash, contract_class);
+        self.cache.get_mut().initial_reads.class_hash_to_class.insert(class_hash, contract_class);
         let mut cache = self.cache.borrow_mut();
         cache.declare_contract(class_hash);
         Ok(())
@@ -286,7 +268,6 @@ impl Default for CachedState<crate::test_utils::dict_state_reader::DictStateRead
         Self {
             state: Default::default(),
             cache: Default::default(),
-            class_hash_to_class: Default::default(),
             visited_pcs: Default::default(),
         }
     }
@@ -322,6 +303,7 @@ pub struct StateMaps {
     pub storage: HashMap<StorageEntry, Felt>,
     pub compiled_class_hashes: HashMap<ClassHash, CompiledClassHash>,
     pub declared_contracts: HashMap<ClassHash, bool>,
+    pub class_hash_to_class: HashMap<ClassHash, ContractClass>,
 }
 
 impl StateMaps {
@@ -330,7 +312,8 @@ impl StateMaps {
         self.class_hashes.extend(&other.class_hashes);
         self.storage.extend(&other.storage);
         self.compiled_class_hashes.extend(&other.compiled_class_hashes);
-        self.declared_contracts.extend(&other.declared_contracts)
+        self.class_hash_to_class.extend(&other.class_hash_to_class);
+        self.declared_contracts.extend(&other.declared_contracts);
     }
 
     /// Subtracts other's mappings from self.
@@ -349,6 +332,10 @@ impl StateMaps {
             declared_contracts: subtract_mappings(
                 &self.declared_contracts,
                 &other.declared_contracts,
+            ),
+            class_hash_to_class: subtract_mappings(
+                &self.class_hash_to_class,
+                &other.class_hash_to_class,
             ),
         }
     }
@@ -527,7 +514,6 @@ impl<'a, U: UpdatableState> TransactionalState<'a, U> {
         let child_cache = self.cache.into_inner();
         state.apply_writes(
             &child_cache.writes,
-            &self.class_hash_to_class.into_inner(),
             &self.visited_pcs,
         )
     }

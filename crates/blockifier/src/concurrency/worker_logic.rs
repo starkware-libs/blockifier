@@ -136,7 +136,6 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             // versioned state.
             self.state.pin_version(tx_index).apply_writes(
                 &transactional_state.cache.borrow().writes,
-                &transactional_state.class_hash_to_class.borrow(),
                 &HashMap::default(),
             );
         }
@@ -169,7 +168,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
         let aborted = !reads_valid && self.scheduler.try_validation_abort(tx_index);
         if aborted {
             tx_versioned_state
-                .delete_writes(&execution_output.writes, &execution_output.contract_classes);
+                .delete_writes(&execution_output.writes);
             self.scheduler.finish_abort(tx_index)
         } else {
             Task::AskForTask
@@ -201,7 +200,6 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
             // Revalidate failed: re-execute the transaction.
             tx_versioned_state.delete_writes(
                 &execution_output_ref.writes,
-                &execution_output_ref.contract_classes,
             );
             // Release the execution output lock as it is acquired in execution (avoid dead-lock).
             drop(execution_output);

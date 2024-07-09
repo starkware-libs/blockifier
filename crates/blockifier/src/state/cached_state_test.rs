@@ -25,7 +25,7 @@ fn set_initial_state_values(
 ) {
     assert!(*state.cache.borrow() == StateCache::default(), "Cache already initialized.");
 
-    state.class_hash_to_class.replace(class_hash_to_class);
+    state.cache.get_mut().initial_reads.class_hash_to_class.extend(class_hash_to_class);
     state.cache.get_mut().initial_reads.class_hashes.extend(class_hash_initial_values);
     state.cache.get_mut().initial_reads.nonces.extend(nonce_initial_values);
     state.cache.get_mut().initial_reads.storage.extend(storage_initial_values);
@@ -425,11 +425,11 @@ fn test_contract_cache_is_used() {
     let state = CachedState::new(reader);
 
     // Assert local cache is initialized empty.
-    assert!(state.class_hash_to_class.borrow().get(&class_hash).is_none());
+    assert!(state.cache.borrow().initial_reads.class_hash_to_class.get(&class_hash).is_none());
 
     // Check state uses the cache.
     assert_eq!(state.get_compiled_contract_class(class_hash).unwrap(), contract_class);
-    assert_eq!(state.class_hash_to_class.borrow().get(&class_hash).unwrap(), &contract_class);
+    assert_eq!(state.cache.borrow().initial_reads.class_hash_to_class.get(&class_hash).unwrap(), &contract_class);
 }
 
 #[test]
@@ -461,6 +461,7 @@ fn test_cache_get_write_keys() {
         ]),
         compiled_class_hashes: HashMap::from([(class_hash0, compiled_class_hash!(0x3_u16))]),
         declared_contracts: HashMap::default(),
+        class_hash_to_class: HashMap::default(),
     });
 
     let expected_keys = StateChangesKeys {
@@ -589,12 +590,14 @@ fn test_state_maps() {
     let nonce1 = Nonce(felt!(0x104_u16));
     let compiled_class_hash1 = compiled_class_hash!(0x105_u16);
     let some_felt1 = felt!("0x106");
+    let contract_class = FeatureContract::TestContract(CairoVersion::Cairo0).get_class();
     let maps = StateMaps {
         nonces: HashMap::from([(contract_address1, nonce1)]),
         class_hashes: HashMap::from([(contract_address1, class_hash1)]),
         storage: HashMap::from([((contract_address1, storage_key1), some_felt1)]),
         compiled_class_hashes: HashMap::from([(class_hash1, compiled_class_hash1)]),
         declared_contracts: HashMap::from([(class_hash1, true)]),
+        class_hash_to_class: HashMap::from([(class_hash1, contract_class)]),
     };
 
     // Test that `extend` extends all hash maps (by constructing `maps` without default values).

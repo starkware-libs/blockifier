@@ -8,7 +8,7 @@ use starknet_types_core::felt::Felt;
 use crate::concurrency::versioned_storage::VersionedStorage;
 use crate::concurrency::TxIndex;
 use crate::execution::contract_class::ContractClass;
-use crate::state::cached_state::{ContractClassMapping, StateMaps};
+use crate::state::cached_state::StateMaps;
 use crate::state::errors::StateError;
 use crate::state::state_api::{StateReader, StateResult, UpdatableState};
 
@@ -57,6 +57,7 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: self.class_hashes.get_writes_up_to_index(tx_index),
             compiled_class_hashes: self.compiled_class_hashes.get_writes_up_to_index(tx_index),
             declared_contracts: self.declared_contracts.get_writes_up_to_index(tx_index),
+            class_hash_to_class: self.compiled_contract_classes.get_writes_up_to_index(tx_index),
         }
     }
 
@@ -68,6 +69,7 @@ impl<S: StateReader> VersionedState<S> {
             class_hashes: self.class_hashes.get_writes_of_index(tx_index),
             compiled_class_hashes: self.compiled_class_hashes.get_writes_of_index(tx_index),
             declared_contracts: self.declared_contracts.get_writes_of_index(tx_index),
+            class_hash_to_class: self.compiled_contract_classes.get_writes_up_to_index(tx_index),
         }
     }
 
@@ -139,7 +141,6 @@ impl<S: StateReader> VersionedState<S> {
         &mut self,
         tx_index: TxIndex,
         writes: &StateMaps,
-        class_hash_to_class: &ContractClassMapping,
     ) {
         for (&key, &value) in &writes.storage {
             self.storage.write(tx_index, key, value);
@@ -153,7 +154,7 @@ impl<S: StateReader> VersionedState<S> {
         for (&key, &value) in &writes.compiled_class_hashes {
             self.compiled_class_hashes.write(tx_index, key, value);
         }
-        for (&key, value) in class_hash_to_class {
+        for (&key, value) in &writes.class_hash_to_class {
             self.compiled_contract_classes.write(tx_index, key, value.clone());
         }
         for (&key, &value) in &writes.declared_contracts {
@@ -171,7 +172,6 @@ impl<S: StateReader> VersionedState<S> {
         &mut self,
         tx_index: TxIndex,
         writes: &StateMaps,
-        class_hash_to_class: &ContractClassMapping,
     ) {
         for &key in writes.storage.keys() {
             self.storage.delete_write(key, tx_index);
@@ -188,7 +188,7 @@ impl<S: StateReader> VersionedState<S> {
         for &key in writes.declared_contracts.keys() {
             self.declared_contracts.delete_write(key, tx_index);
         }
-        for &key in class_hash_to_class.keys() {
+        for &key in writes.class_hash_to_class.keys() {
             self.compiled_contract_classes.delete_write(key, tx_index);
         }
     }
@@ -209,10 +209,8 @@ impl<U: UpdatableState> VersionedState<U> {
         }
         let commit_index = n_committed_txs - 1;
         let writes = self.get_writes_up_to_index(commit_index);
-        let class_hash_to_class =
-            self.compiled_contract_classes.get_writes_up_to_index(commit_index);
         let mut state = self.into_initial_state();
-        state.apply_writes(&writes, &class_hash_to_class, &visited_pcs);
+        state.apply_writes(&writes, &visited_pcs);
         state
     }
 }
@@ -266,8 +264,8 @@ impl<S: StateReader> VersionedStateProxy<S> {
         self.state().validate_reads(self.tx_index, reads)
     }
 
-    pub fn delete_writes(&self, writes: &StateMaps, class_hash_to_class: &ContractClassMapping) {
-        self.state().delete_writes(self.tx_index, writes, class_hash_to_class);
+    pub fn delete_writes(&self, writes: &StateMaps) {
+        self.state().delete_writes(self.tx_index, writes);
     }
 }
 
@@ -276,10 +274,9 @@ impl<S: StateReader> UpdatableState for VersionedStateProxy<S> {
     fn apply_writes(
         &mut self,
         writes: &StateMaps,
-        class_hash_to_class: &ContractClassMapping,
         _visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
     ) {
-        self.state().apply_writes(self.tx_index, writes, class_hash_to_class)
+        self.state().apply_writes(self.tx_index, writes)
     }
 }
 

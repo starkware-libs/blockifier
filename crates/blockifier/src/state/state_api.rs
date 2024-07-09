@@ -4,7 +4,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 
-use super::cached_state::{ContractClassMapping, StateMaps};
+use super::cached_state::StateMaps;
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
 use crate::execution::contract_class::ContractClass;
@@ -115,7 +115,6 @@ pub trait UpdatableState: StateReader {
     fn apply_writes(
         &mut self,
         writes: &StateMaps,
-        class_hash_to_class: &ContractClassMapping,
         visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
     );
 }
