@@ -271,7 +271,7 @@ impl<S: StateReader> VersionedStateProxy<S> {
     }
 }
 
-// TODO(OriF, 15/5/24): Consider using visited_pcs.
+// TODO(Noa, 15/5/24): Consider using visited_pcs.
 impl<S: StateReader> UpdatableState for VersionedStateProxy<S> {
     fn apply_writes(
         &mut self,

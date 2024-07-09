@@ -114,7 +114,7 @@ impl<S: StateReader> UpdatableState for CachedState<S> {
         class_hash_to_class: &ContractClassMapping,
         visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
     ) {
-        // TODO(OriF,15/5/24): Reconsider the clone.
+        // TODO(Noa,15/5/24): Reconsider the clone.
         self.update_cache(writes, class_hash_to_class.clone());
         self.update_visited_pcs_cache(visited_pcs);
     }
