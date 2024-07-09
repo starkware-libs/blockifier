@@ -135,6 +135,8 @@ fn test_default_values() {
         versioned_constants.os_resources_for_tx_type(&TransactionType::Declare, calldata_length),
         expected_declare_resources
     );
+    // The default value of disabled_cairo0_redeclaration is false to allow backward compatibility.
+    assert_eq!(versioned_constants.disable_cairo0_redeclaration, false);
 }
 
 #[test]

@@ -343,6 +343,10 @@ impl PyBlockExecutor {
     ) -> Self {
         use blockifier::bouncer::BouncerWeights;
         use blockifier::state::global_cache::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
+        // TODO(Meshi, 01/01/2025): Remove this once we fix all python tests that re-declare cairo0
+        // contracts.
+        let mut versioned_constants = VersionedConstants::latest_constants().clone();
+        versioned_constants.disable_cairo0_redeclaration = false;
         Self {
             bouncer_config: BouncerConfig {
                 block_max_capacity: BouncerWeights {
@@ -358,7 +362,7 @@ impl PyBlockExecutor {
                 &general_config.starknet_os_config.chain_id,
             )),
             chain_info: general_config.starknet_os_config.into_chain_info(),
-            versioned_constants: VersionedConstants::latest_constants().clone(),
+            versioned_constants,
             tx_executor: None,
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
@@ -392,6 +396,16 @@ impl PyBlockExecutor {
             tx_executor: None,
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn native_create_for_testing(
+        concurrency_config: PyConcurrencyConfig,
+        general_config: PyGeneralConfig,
+        path: std::path::PathBuf,
+        max_state_diff_size: usize,
+    ) -> Self {
+        Self::create_for_testing(concurrency_config, general_config, path, max_state_diff_size)
     }
 }
 
