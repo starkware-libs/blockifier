@@ -7,7 +7,9 @@ use rstest::{fixture, rstest};
 use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, Nonce, PatriciaKey,
 };
-use starknet_api::transaction::{Calldata, ContractAddressSalt, Fee, TransactionVersion};
+use starknet_api::transaction::{
+    Calldata, ContractAddressSalt, Fee, ResourceBoundsMapping, TransactionVersion,
+};
 use starknet_api::{calldata, class_hash, contract_address, felt, patricia_key};
 
 use crate::abi::abi_utils::{get_fee_token_var_address, get_storage_var_address};
@@ -28,10 +30,10 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE};
+use crate::test_utils::{CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{FeeType, TransactionInfoCreator};
-use crate::transaction::test_utils::l1_resource_bounds;
+use crate::transaction::test_utils::{l1_resource_bounds, max_resource_bounds};
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::{compiled_class_hash, deploy_account_tx_args, nonce, storage_key};
 
@@ -188,9 +190,9 @@ fn test_versioned_state_proxy() {
     );
 }
 
-#[test]
+#[rstest]
 // Test parallel execution of two transactions that use the same versioned state.
-fn test_run_parallel_txs() {
+fn test_run_parallel_txs(max_resource_bounds: ResourceBoundsMapping) {
     let block_context = BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
     let zero_bounds = true;
@@ -232,7 +234,7 @@ fn test_run_parallel_txs() {
     let constructor_calldata = calldata![ctor_grind_arg, ctor_storage_arg];
     let deploy_tx_args = deploy_account_tx_args! {
         class_hash,
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds,
         constructor_calldata: constructor_calldata.clone(),
     };
     let nonce_manager = &mut NonceManager::default();
@@ -241,7 +243,7 @@ fn test_run_parallel_txs() {
     let account_tx_2 = AccountTransaction::DeployAccount(deploy_account_tx_2);
 
     let deployed_account_balance_key = get_fee_token_var_address(account_address);
-    let fee_token_address = chain_info.fee_token_address(&FeeType::Eth);
+    let fee_token_address = chain_info.fee_token_address(&FeeType::Strk);
     state_2
         .set_storage_at(fee_token_address, deployed_account_balance_key, felt!(BALANCE))
         .unwrap();
@@ -255,8 +257,8 @@ fn test_run_parallel_txs() {
             assert_eq!(result.is_err(), enforce_fee);
         });
         s.spawn(move || {
-            account_tx_2.execute(&mut state_2, &block_context_2, true, true).unwrap();
-
+            let result = account_tx_2.execute(&mut state_2, &block_context_2, true, true);
+            result.unwrap();
             // Check that the constructor wrote ctor_arg to the storage.
             let storage_key = get_storage_var_address("ctor_arg", &[]);
             let deployed_contract_address = calculate_contract_address(

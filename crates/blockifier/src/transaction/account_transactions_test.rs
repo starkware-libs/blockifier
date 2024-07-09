@@ -272,7 +272,6 @@ fn test_infinite_recursion(
 #[case(TransactionVersion::ONE)]
 #[case(TransactionVersion::THREE)]
 fn test_max_fee_limit_validate(
-    max_fee: Fee,
     block_context: BlockContext,
     #[case] version: TransactionVersion,
     max_resource_bounds: ResourceBoundsMapping,
@@ -307,7 +306,7 @@ fn test_max_fee_limit_validate(
         chain_info,
         deploy_account_tx_args! {
             class_hash: grindy_class_hash,
-            max_fee,
+            resource_bounds: max_resource_bounds.clone(),
             constructor_calldata: calldata![ctor_grind_arg, ctor_storage_arg],
         },
     );
@@ -323,7 +322,7 @@ fn test_max_fee_limit_validate(
         chain_info,
         deploy_account_tx_args! {
             class_hash: grindy_class_hash,
-            max_fee,
+            resource_bounds: max_resource_bounds.clone(),
             constructor_calldata: calldata![ctor_grind_arg, ctor_storage_arg],
         },
     );
@@ -983,7 +982,7 @@ fn test_insufficient_max_fee_reverts(
 
 #[rstest]
 fn test_deploy_account_constructor_storage_write(
-    max_fee: Fee,
+    max_resource_bounds: ResourceBoundsMapping,
     block_context: BlockContext,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
 ) {
@@ -1001,7 +1000,7 @@ fn test_deploy_account_constructor_storage_write(
         chain_info,
         deploy_account_tx_args! {
             class_hash,
-            max_fee,
+            resource_bounds: max_resource_bounds,
             constructor_calldata: constructor_calldata.clone(),
         },
     );
