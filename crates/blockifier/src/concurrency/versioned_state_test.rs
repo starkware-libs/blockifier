@@ -28,7 +28,7 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::deploy_account::deploy_account_tx;
 use crate::test_utils::dict_state_reader::DictStateReader;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE, MAX_FEE};
+use crate::test_utils::{CairoVersion, NonceManager, BALANCE, DEFAULT_STRK_L1_GAS_PRICE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::objects::{FeeType, TransactionInfoCreator};
 use crate::transaction::test_utils::l1_resource_bounds;
@@ -232,7 +232,6 @@ fn test_run_parallel_txs() {
     let constructor_calldata = calldata![ctor_grind_arg, ctor_storage_arg];
     let deploy_tx_args = deploy_account_tx_args! {
         class_hash,
-        max_fee: Fee(MAX_FEE),
         constructor_calldata: constructor_calldata.clone(),
     };
     let nonce_manager = &mut NonceManager::default();
