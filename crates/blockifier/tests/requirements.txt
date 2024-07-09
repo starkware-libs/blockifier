@@ -1,2 +1,3 @@
 # Locked for the stake of CI stability, bump this version as needed.
 cairo-lang==0.12.2
+sympy==1.12.0 # pypy3.9 issue.
