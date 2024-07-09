@@ -70,7 +70,18 @@ pub fn fill_sequencer_balance_reads(
     fee_transfer_call_info: &mut CallInfo,
     sequencer_balance: (Felt, Felt),
 ) {
-    let storage_read_values = &mut fee_transfer_call_info.storage_read_values;
+    let storage_read_values = if fee_transfer_call_info.inner_calls.is_empty() {
+        &mut fee_transfer_call_info.storage_read_values
+    } else
+    // Proxy pattern.
+    {
+        assert_eq!(
+            fee_transfer_call_info.inner_calls.len(),
+            1,
+            "Proxy pattern should have one inner call"
+        );
+        &mut fee_transfer_call_info.inner_calls[0].storage_read_values
+    };
     assert_eq!(storage_read_values.len(), 4, "Storage read values should have 4 elements");
 
     let (low_index, high_index) = STORAGE_READ_SEQUENCER_BALANCE_INDICES;
