@@ -9,7 +9,10 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::errors::{NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult};
+use crate::errors::{
+    InvalidNativeBlockifierInputError, NativeBlockifierError, NativeBlockifierInputError,
+    NativeBlockifierResult,
+};
 
 // From Rust to Python.
 
@@ -117,7 +120,14 @@ fn hash_map_into_builtin_count(
             .ok_or(NativeBlockifierInputError::UnknownBuiltin(builtin_name.clone()))?;
         wrapper.insert(builtin, *count);
     }
-    Ok(wrapper.into())
+    let builtin_count: BuiltinCount = wrapper.into();
+    if builtin_count.all_non_zero() {
+        Ok(builtin_count)
+    } else {
+        Err(NativeBlockifierInputError::InvalidNativeBlockifierInputError(
+            InvalidNativeBlockifierInputError::InvalidBuiltinCounts(builtin_count),
+        ))
+    }
 }
 
 fn hash_map_into_bouncer_weights(

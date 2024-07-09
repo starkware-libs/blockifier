@@ -25,6 +25,6 @@ jobs:
           LD_LIBRARY_PATH: ${{ env.Python3_ROOT_DIR }}/bin
         run: echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
 
-      - run:
-          pip install -r crates/blockifier/tests/requirements.txt;
+      - run: |
+          pip install -r crates/blockifier/tests/requirements.txt
           cargo test -- --include-ignored

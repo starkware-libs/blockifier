@@ -279,11 +279,6 @@
                 },
                 "n_memory_holes": 0
             },
-            "Sha256ProcessBlock": {
-                "builtin_instance_counter": {},
-                "n_memory_holes": 0,
-                "n_steps": 0
-            },
             "LibraryCall": {
                 "n_steps": 751,
                 "builtin_instance_counter": {
@@ -381,6 +376,11 @@
                     "range_check_builtin": 1
                 },
                 "n_memory_holes": 0
+            },
+            "Sha256ProcessBlock": {
+                "builtin_instance_counter": {},
+                "n_memory_holes": 0,
+                "n_steps": 0
             },
             "StorageRead": {
                 "n_steps": 87,
