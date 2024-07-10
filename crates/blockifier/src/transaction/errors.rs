@@ -10,6 +10,7 @@ use crate::execution::errors::{ConstructorEntryPointExecutionError, EntryPointEx
 use crate::execution::stack_trace::gen_transaction_execution_error_trace;
 use crate::fee::fee_checks::FeeCheckError;
 use crate::state::errors::StateError;
+use crate::test_utils::CairoVersion;
 
 // TODO(Yoni, 1/9/2024): implement Display for Fee.
 #[derive(Debug, Error)]
@@ -50,10 +51,13 @@ pub enum TransactionFeeError {
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
     #[error(
-        "Declare transaction version {declare_version:?} must have a contract class of Cairo \
-         version {cairo_version:?}."
+        "Declare transaction version {} must have a contract class of Cairo \
+         version {cairo_version:?}.", **declare_version
     )]
-    ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
+    ContractClassVersionMismatch {
+        declare_version: TransactionVersion,
+        cairo_version: CairoVersion,
+    },
     #[error(
         "Contract constructor execution has failed:\n{}",
         String::from(gen_transaction_execution_error_trace(self))

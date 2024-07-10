@@ -2,6 +2,7 @@ use starknet_api::transaction::TransactionVersion;
 
 use crate::execution::call_info::CallInfo;
 use crate::execution::contract_class::ContractClass;
+use crate::test_utils::CairoVersion;
 use crate::transaction::errors::TransactionExecutionError;
 
 pub fn update_remaining_gas(remaining_gas: &mut u64, call_info: &CallInfo) {
@@ -22,7 +23,7 @@ pub fn verify_contract_class_version(
             }
             Err(TransactionExecutionError::ContractClassVersionMismatch {
                 declare_version,
-                cairo_version: 0,
+                cairo_version: CairoVersion::Cairo0,
             })
         }
         ContractClass::V1(_) => {
@@ -33,7 +34,7 @@ pub fn verify_contract_class_version(
             }
             Err(TransactionExecutionError::ContractClassVersionMismatch {
                 declare_version,
-                cairo_version: 1,
+                cairo_version: CairoVersion::Cairo1,
             })
         }
     }
