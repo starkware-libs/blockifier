@@ -802,7 +802,7 @@ fn test_max_fee_exceeds_balance(
 
     // V3 invoke.
     let invalid_tx = account_invoke_tx(invoke_tx_args! {
-        resource_bounds: invalid_resource_bounds,
+        resource_bounds: invalid_resource_bounds.clone(),
         version: TransactionVersion::THREE,
         ..default_args
     });
@@ -819,14 +819,14 @@ fn test_max_fee_exceeds_balance(
     assert_failure_if_resource_bounds_exceed_balance(state, block_context, invalid_tx);
 
     // Declare.
-    let contract_to_declare = FeatureContract::Empty(CairoVersion::Cairo0);
+    let contract_to_declare = FeatureContract::Empty(CairoVersion::Cairo1);
     let class_info = calculate_class_info_for_testing(contract_to_declare.get_class());
     let invalid_tx = declare_tx(
         declare_tx_args! {
             class_hash: contract_to_declare.get_class_hash(),
             compiled_class_hash: contract_to_declare.get_compiled_class_hash(),
             sender_address: account_contract_address,
-            max_fee: invalid_max_fee,
+            resource_bounds: invalid_resource_bounds,
         },
         class_info,
     );

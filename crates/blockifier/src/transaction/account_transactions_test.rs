@@ -279,8 +279,8 @@ fn test_max_fee_limit_validate(
 ) {
     let chain_info = &block_context.chain_info;
     let TestInitData { mut state, account_address, contract_address, mut nonce_manager } =
-        create_test_init_data(chain_info, CairoVersion::Cairo0);
-    let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo0);
+        create_test_init_data(chain_info, CairoVersion::Cairo1);
+    let grindy_validate_account = FeatureContract::AccountWithLongValidate(CairoVersion::Cairo1);
     let grindy_class_hash = grindy_validate_account.get_class_hash();
     let block_info = &block_context.block_info;
     let class_info = calculate_class_info_for_testing(grindy_validate_account.get_class());
@@ -290,7 +290,7 @@ fn test_max_fee_limit_validate(
         declare_tx_args! {
             class_hash: grindy_class_hash,
             sender_address: account_address,
-            max_fee: Fee(MAX_FEE),
+            resource_bounds: max_resource_bounds.clone(),
             nonce: nonce_manager.next(account_address),
         },
         class_info,
