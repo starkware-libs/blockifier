@@ -6,6 +6,5 @@ dist
 target
 */.vscode/*
 *.DS_Store
-
 tmp_venv/*
-
+.spr.yml
