@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
-use starknet_api::transaction::{ContractAddressSalt, ResourceBoundsMapping, TransactionVersion};
+use starknet_api::transaction::{ContractAddressSalt, ResourceBoundsMapping};
 use starknet_api::{contract_address, felt, patricia_key};
 use starknet_types_core::felt::Felt;
 
@@ -546,7 +546,6 @@ fn test_deploy_before_declare(max_resource_bounds: ResourceBoundsMapping) {
             resource_bounds: max_resource_bounds.clone(),
             class_hash: test_class_hash,
             compiled_class_hash: test_compiled_class_hash,
-            version: TransactionVersion::THREE,
             nonce: nonce!(0_u8),
         },
         test_class_info.clone(),
