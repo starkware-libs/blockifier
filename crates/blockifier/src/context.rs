@@ -1,3 +1,7 @@
+use std::collections::BTreeMap;
+
+use papyrus_config::dumping::{append_sub_config_name, ser_param, SerializeConfig};
+use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
 use serde::{Deserialize, Serialize};
 use starknet_api::core::{ChainId, ContractAddress};
 
@@ -90,6 +94,25 @@ impl Default for ChainInfo {
     }
 }
 
+impl SerializeConfig for ChainInfo {
+    fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
+        let members = BTreeMap::from_iter([ser_param(
+            "chain_id",
+            &self.chain_id,
+            "chain id",
+            ParamPrivacyInput::Public,
+        )]);
+
+        vec![
+            members,
+            append_sub_config_name(self.fee_token_addresses.dump(), "fee_token_addresses"),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct FeeTokenAddresses {
     pub strk_fee_token_address: ContractAddress,
@@ -102,5 +125,24 @@ impl FeeTokenAddresses {
             FeeType::Strk => self.strk_fee_token_address,
             FeeType::Eth => self.eth_fee_token_address,
         }
+    }
+}
+
+impl SerializeConfig for FeeTokenAddresses {
+    fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
+        BTreeMap::from_iter([
+            ser_param(
+                "strk_fee_token_address",
+                &self.strk_fee_token_address,
+                "strk token fee token address",
+                ParamPrivacyInput::Public,
+            ),
+            ser_param(
+                "eth_fee_token_address",
+                &self.eth_fee_token_address,
+                "eth fee token address",
+                ParamPrivacyInput::Public,
+            ),
+        ])
     }
 }
