@@ -50,8 +50,8 @@ pub enum TransactionFeeError {
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
     #[error(
-        "Declare transaction version {declare_version:?} must have a contract class of Cairo \
-         version {cairo_version:?}."
+        "Declare transaction version {} must have a contract class of Cairo \
+         version {cairo_version:?}.", **declare_version
     )]
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
     #[error(
