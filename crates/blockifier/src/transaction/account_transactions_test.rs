@@ -1332,10 +1332,10 @@ fn test_concurrent_fee_transfer_when_sender_is_sequencer(
     let fee_token_address = block_context.chain_info.fee_token_address(fee_type);
 
     let mut transactional_state = TransactionalState::create_transactional(state);
-    let charge_fee = true;
-    let validate = true;
+    let execution_flags =
+        ExecutionFlags { charge_fee: true, validate: true, concurrency_mode: true };
     let result =
-        account_tx.execute(&mut transactional_state, &block_context, charge_fee, validate).unwrap();
+        account_tx.execute_raw(&mut transactional_state, &block_context, execution_flags).unwrap();
     assert!(!result.is_reverted());
     // Check that the sequencer balance was updated (in this case, was not changed).
     for (seq_key, seq_value) in
