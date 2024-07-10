@@ -63,7 +63,7 @@ pub enum TransactionExecutionError {
         String::from(gen_transaction_execution_error_trace(self))
     )]
     ContractConstructorExecutionFailed(#[from] ConstructorEntryPointExecutionError),
-    #[error("Class with hash {class_hash:?} is already declared.")]
+    #[error("Class with hash {:#064x} is already declared.", **class_hash)]
     DeclareTransactionError { class_hash: ClassHash },
     #[error(
         "Transaction execution has failed:\n{}",
