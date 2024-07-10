@@ -28,3 +28,15 @@ fn test_declare_transaction_error_format() {
          already declared."
     );
 }
+
+#[test]
+fn test_invalid_version_format() {
+    let error = TransactionExecutionError::InvalidVersion {
+        version: TransactionVersion::THREE,
+        allowed_versions: vec![TransactionVersion::ONE, TransactionVersion::TWO],
+    };
+    assert_eq!(
+        error.to_string(),
+        "Transaction version 0x3 is not supported. Supported versions: [0x1, 0x2]."
+    );
+}

@@ -82,8 +82,8 @@ pub enum TransactionExecutionError {
     #[error("The `validate` entry point should return `VALID`. Got {actual:?}.")]
     InvalidValidateReturnData { actual: Retdata },
     #[error(
-        "Transaction version {version:?} is not supported. Supported versions: \
-         {allowed_versions:?}."
+        "Transaction version {:?} is not supported. Supported versions: \
+         {:?}.", **version, allowed_versions.iter().map(|v| **v).collect::<Vec<_>>()
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
     #[error(transparent)]
