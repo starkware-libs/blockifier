@@ -118,8 +118,8 @@ pub enum TransactionExecutionError {
 #[derive(Debug, Error)]
 pub enum TransactionPreValidationError {
     #[error(
-        "Invalid transaction nonce of contract at address {address:?}. Account nonce: \
-         {account_nonce:?}; got: {incoming_tx_nonce:?}."
+        "Invalid transaction nonce of contract at address {:#064x}. Account nonce: \
+         {:#064x}; got: {:#064x}.", ***address, **account_nonce, **incoming_tx_nonce
     )]
     InvalidNonce { address: ContractAddress, account_nonce: Nonce, incoming_tx_nonce: Nonce },
     #[error(transparent)]
