@@ -1,9 +1,9 @@
 use rstest::rstest;
-use starknet_api::core::ClassHash;
+use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::transaction::TransactionVersion;
 
-use crate::transaction::errors::TransactionExecutionError;
+use crate::transaction::errors::{TransactionExecutionError, TransactionPreValidationError};
 
 #[rstest]
 fn test_contract_class_version_mismatch_format() {
@@ -38,5 +38,21 @@ fn test_invalid_version_format() {
     assert_eq!(
         error.to_string(),
         "Transaction version 0x3 is not supported. Supported versions: [0x1, 0x2]."
+    );
+}
+
+#[rstest]
+fn test_invalid_nounce_format() {
+    let error = TransactionPreValidationError::InvalidNonce {
+        address: ContractAddress(PatriciaKey::from(20_u8)),
+        account_nonce: Nonce(StarkHash::THREE),
+        incoming_tx_nonce: Nonce(StarkHash::TWO),
+    };
+    assert_eq!(
+        error.to_string(),
+        "Invalid transaction nonce of contract at address \
+         0x0000000000000000000000000000000000000000000000000000000000000014. Account nonce: \
+         0x0000000000000000000000000000000000000000000000000000000000000003; got: \
+         0x0000000000000000000000000000000000000000000000000000000000000002."
     );
 }
