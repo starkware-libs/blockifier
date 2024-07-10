@@ -430,6 +430,7 @@ dependencies = [
  "num-rational",
  "num-traits 0.2.19",
  "once_cell",
+ "papyrus_config",
  "phf",
  "pretty_assertions",
  "rand",
