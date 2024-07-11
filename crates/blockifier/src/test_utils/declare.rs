@@ -35,7 +35,7 @@ impl Default for DeclareTxArgs {
             max_fee: Fee::default(),
             signature: TransactionSignature::default(),
             sender_address: ContractAddress::default(),
-            version: TransactionVersion::ONE,
+            version: TransactionVersion::THREE,
             resource_bounds: default_testing_resource_bounds(),
             tip: Tip::default(),
             nonce_data_availability_mode: DataAvailabilityMode::L1,
