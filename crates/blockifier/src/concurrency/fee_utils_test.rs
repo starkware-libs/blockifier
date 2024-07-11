@@ -1,7 +1,7 @@
 use num_bigint::BigUint;
 use rstest::rstest;
 use starknet_api::felt;
-use starknet_api::transaction::{Fee, ResourceBoundsMapping, TransactionVersion};
+use starknet_api::transaction::{Fee, ResourceBoundsMapping};
 use starknet_types_core::felt::Felt;
 
 use crate::concurrency::fee_utils::{add_fee_to_sequencer_balance, fill_sequencer_balance_reads};
@@ -27,7 +27,6 @@ pub fn test_fill_sequencer_balance_reads(
         sender_address: account.get_instance_address(0),
         calldata: create_trivial_calldata(account.get_instance_address(0)),
         resource_bounds: max_resource_bounds,
-        version: TransactionVersion::THREE
     });
     let chain_info = &block_context.chain_info;
     let state = &mut test_state_inner(chain_info, BALANCE, &[(account, 1)], erc20_version);
