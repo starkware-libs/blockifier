@@ -47,7 +47,7 @@ pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 pub const ERC20_CONTRACT_PATH: &str = "./ERC20/ERC20_Cairo0/ERC20_without_some_syscalls/ERC20/\
                                        erc20_contract_without_some_syscalls_compiled.json";
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Hash, PartialEq, Eq, Copy, Debug)]
 pub enum CairoVersion {
     Cairo0,
     Cairo1,
