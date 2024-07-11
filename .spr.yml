@@ -1,0 +1,12 @@
+githubRepoOwner: starkware-libs
+githubRepoName: blockifier
+githubHost: github.com
+githubRemote: origin/aviv
+githubBranch: origin/aviv_blockifier
+requireChecks: true
+requireApproval: true
+mergeMethod: rebase
+mergeQueue: false
+forceFetchTags: false
+showPrTitlesInStack: false
+branchPushIndividually: false
