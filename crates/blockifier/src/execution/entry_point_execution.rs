@@ -3,9 +3,12 @@ use std::collections::HashSet;
 use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
-use num_traits::ToPrimitive;
+use cairo_vm::vm::security::verify_secure_runner;
+use num_traits::{ToPrimitive, Zero};
 use starknet_api::felt;
 use starknet_types_core::felt::Felt;
 
@@ -280,17 +283,65 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> EntryPointExecutionResult<()> {
-    let verify_secure = true;
+    // Note that we run `verify_secure_runner` manually after filling the holes in the rc96 segment.
+    let verify_secure = false;
     let args: Vec<&CairoArg> = args.iter().collect();
-    let result = runner.run_from_entrypoint(
+    runner.run_from_entrypoint(
         entry_point.pc(),
         &args,
         verify_secure,
         Some(program_segment_size),
         hint_processor,
-    );
+    )?;
 
-    Ok(result?)
+    let opt_rc96_idx =
+        entry_point.builtins.iter().rev().position(|name| name.as_str() == "range_check96_builtin");
+
+    let opt_rc96_index_and_runner = runner.vm.get_builtin_runners().iter().find_map(|builtin| {
+        let rc96_offset = opt_rc96_idx?;
+        if let BuiltinRunner::RangeCheck96(rc96_builtin_runner) = builtin {
+            Some((rc96_offset, rc96_builtin_runner))
+        } else {
+            None
+        }
+    });
+
+    // Fill holes in the rc96 segment.
+    if let Some((rc96_offset, rc96_builtin_runner)) = opt_rc96_index_and_runner {
+        // 'EntryPointReturnValues' is returned after the implicits and its size is 5,
+        // So the last implicit is at offset 5 + 1.
+        let implicits_offset = 6;
+        let rc_96_stop_ptr = (runner.vm.get_ap() - (implicits_offset + rc96_offset))
+            .map_err(|err| CairoRunError::VirtualMachine(VirtualMachineError::Math(err)))?;
+
+        let rc96_base = rc96_builtin_runner.base();
+        let rc96_segment: isize =
+            rc96_base.try_into().expect("Builtin segment index must fit in isize.");
+
+        let Relocatable { segment_index: rc96_stop_segment, offset: stop_offset } =
+            runner.vm.get_relocatable(rc_96_stop_ptr).map_err(CairoRunError::MemoryError)?;
+        assert_eq!(rc96_stop_segment, rc96_segment);
+
+        runner
+            .vm
+            .segments
+            .segment_used_sizes
+            .as_mut()
+            .expect("Segments used sizes should be calculated at this point")[rc96_base] =
+            stop_offset;
+
+        for offset in 0..stop_offset {
+            // If the value is already set, ignore the error.
+            let _ = runner
+                .vm
+                .insert_value(Relocatable { segment_index: rc96_segment, offset }, Felt::zero());
+        }
+    }
+
+    verify_secure_runner(runner, false, Some(program_segment_size))
+        .map_err(CairoRunError::VirtualMachine)?;
+
+    Ok(())
 }
 
 pub fn finalize_execution(
