@@ -63,7 +63,7 @@ const ERC20_CAIRO1_CONTRACT_PATH: &str = "./ERC20/ERC20_Cairo1/erc20.casm.json";
 
 /// Enum representing all feature contracts.
 /// The contracts that are implemented in both Cairo versions include a version field.
-#[derive(Clone, Copy, Debug, EnumIter)]
+#[derive(Clone, Copy, Debug, EnumIter, Hash, PartialEq, Eq)]
 pub enum FeatureContract {
     AccountWithLongValidate(CairoVersion),
     AccountWithoutValidations(CairoVersion),
