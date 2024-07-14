@@ -19,7 +19,7 @@ pub enum StateError {
     OutOfRangeContractAddress,
     #[error(transparent)]
     ProgramError(#[from] ProgramError),
-    #[error("Requested {0:?} is unavailable for deployment.")]
+    #[error("Requested {:#064x} is unavailable for deployment.",***.0)]
     UnavailableContractAddress(ContractAddress),
     #[error("Class with hash {:#064x} is not declared.", **.0)]
     UndeclaredClassHash(ClassHash),
