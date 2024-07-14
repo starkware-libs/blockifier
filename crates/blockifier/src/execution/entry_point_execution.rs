@@ -280,7 +280,7 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> EntryPointExecutionResult<()> {
-    let verify_secure = true;
+    let verify_secure = false;
     let args: Vec<&CairoArg> = args.iter().collect();
     let result = runner.run_from_entrypoint(
         entry_point.pc(),
