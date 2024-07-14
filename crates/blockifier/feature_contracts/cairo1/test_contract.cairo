@@ -553,4 +553,14 @@ mod TestContract {
 
         assert!(outputs.get_output(mul) == u384 { limb0: 6, limb1: 0, limb2: 0, limb3: 0 });
     }
+
+
+    // Add drop for AddInputResult as it only has PanicDesturct.
+    impl AddInputResultDrop<C> of Drop<core::circuit::AddInputResult<C>>;
+
+    #[external(v0)]
+    fn test_missing_rc96_values(ref self: ContractState) {
+        let in1 = CircuitElement::<CircuitInput<0>> {};
+        (in1,).new_inputs();
+    }
 }

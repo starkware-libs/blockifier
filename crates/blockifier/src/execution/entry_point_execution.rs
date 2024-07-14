@@ -3,9 +3,12 @@ use std::collections::HashSet;
 use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
-use num_traits::ToPrimitive;
+use cairo_vm::vm::security::verify_secure_runner;
+use num_traits::{ToPrimitive, Zero};
 use starknet_api::felt;
 use starknet_types_core::felt::Felt;
 
@@ -280,7 +283,7 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> EntryPointExecutionResult<()> {
-    let verify_secure = true;
+    let verify_secure = false;
     let args: Vec<&CairoArg> = args.iter().collect();
     let result = runner.run_from_entrypoint(
         entry_point.pc(),
@@ -289,6 +292,29 @@ pub fn run_entry_point(
         Some(program_segment_size),
         hint_processor,
     );
+
+    // Fill holes in the rc96 segment.
+    if let Some(rc96_builtin_runner) = runner.vm.get_builtin_runners().iter().find_map(|builtin| {
+        if let BuiltinRunner::RangeCheck96(builtin_runner) = builtin {
+            Some(builtin_runner)
+        } else {
+            None
+        }
+    }) {
+        let base = rc96_builtin_runner.base() as isize;
+        let used = rc96_builtin_runner
+            .get_used_cells(&runner.vm.segments)
+            .map_err(|err| CairoRunError::MemoryError(err))?;
+
+        for offset in 0..used {
+            // If the value is already set, ignore the error.
+            let _ =
+                runner.vm.insert_value(Relocatable { segment_index: base, offset }, Felt::zero());
+        }
+    }
+
+    verify_secure_runner(runner, false, Some(program_segment_size))
+        .map_err(|err| CairoRunError::VirtualMachine(err))?;
 
     Ok(result?)
 }
