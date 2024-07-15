@@ -157,7 +157,6 @@ pub fn initialize_execution_context<'a>(
         BuiltinName::bitwise,
         BuiltinName::ec_op,
         BuiltinName::ecdsa,
-        BuiltinName::output,
         BuiltinName::pedersen,
         BuiltinName::poseidon,
         BuiltinName::range_check,
