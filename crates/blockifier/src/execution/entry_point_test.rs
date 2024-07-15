@@ -529,12 +529,11 @@ fn test_cairo1_entry_point_segment_arena() {
         ..trivial_external_entry_point_new(test_contract)
     };
 
-    assert!(
-        entry_point_call
-            .execute_directly(&mut state)
-            .unwrap()
-            .resources
-            .builtin_instance_counter
-            .contains_key(&BuiltinName::segment_arena)
+    assert_eq!(
+        entry_point_call.execute_directly(&mut state).unwrap().resources.builtin_instance_counter
+            [&BuiltinName::segment_arena],
+        // Note: the number of segment_arena instances should not depend on the compiler or VM
+        // version. Do not manually fix this then when upgrading them - it might be a bug.
+        2
     );
 }
