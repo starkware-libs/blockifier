@@ -118,6 +118,9 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 
     fn execute(&self, tx_index: TxIndex) {
         self.execute_tx(tx_index);
+        if tx_index ==1 {
+            panic!("test concurrency panic behaviour");
+        }
         self.scheduler.finish_execution(tx_index)
     }
 

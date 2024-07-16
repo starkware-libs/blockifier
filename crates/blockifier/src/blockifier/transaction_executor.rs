@@ -1,6 +1,10 @@
 #[cfg(feature = "concurrency")]
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "concurrency")]
+use std::io::{self, Write};
+#[cfg(feature = "concurrency")]
+use std::panic::{self, catch_unwind, AssertUnwindSafe};
+#[cfg(feature = "concurrency")]
 use std::sync::Arc;
 #[cfg(feature = "concurrency")]
 use std::sync::Mutex;
@@ -227,6 +231,14 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
             Mutex::new(&mut self.bouncer),
         ));
 
+        // Change the defult way of handling panics to write to stderr.
+        // this ensure that the panic massge and location will be printed to stderr.
+        // without adding flags to the cargo command.
+        let orig_hook = panic::take_hook();
+        panic::set_hook(Box::new(move |panic_info| {
+            let _ = writeln!(io::stderr(), "{}", panic_info);
+        }));
+
         // No thread pool implementation is needed here since we already have our scheduler. The
         // initialized threads below will "busy wait" for new tasks using the `run` method until the
         // chunk execution is completed, and then they will be joined together in a for loop.
@@ -236,10 +248,18 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
             for _ in 0..self.config.concurrency_config.n_workers {
                 let worker_executor = Arc::clone(&worker_executor);
                 s.spawn(move || {
-                    worker_executor.run();
+                    let result = catch_unwind(AssertUnwindSafe(|| {
+                        worker_executor.run();
+                    }));
+                    if result.is_err() {
+                        ::std::process::abort();
+                    }
                 });
             }
         });
+
+        // Restore the original panic hook.
+        panic::set_hook(orig_hook);
 
         let n_committed_txs = worker_executor.scheduler.get_n_committed_txs();
         let mut tx_execution_results = Vec::new();
@@ -270,7 +290,6 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
             })
             .commit_chunk_and_recover_block_state(n_committed_txs, visited_pcs);
         self.block_state.replace(block_state_after_commit);
-
         tx_execution_results
     }
 }
