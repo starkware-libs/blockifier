@@ -52,7 +52,7 @@ impl<'a> TransactionCommitter<'a> {
         assert!(*self.commit_index_guard > 0, "Commit index underflow.");
         *self.commit_index_guard -= 1;
 
-        self.scheduler.done_marker.store(true, Ordering::Release);
+        self.scheduler.halt();
     }
 }
 
@@ -159,6 +159,10 @@ impl Scheduler {
 
     pub fn get_n_committed_txs(&self) -> usize {
         *self.commit_index.lock().unwrap()
+    }
+
+    pub fn halt(&self) {
+        self.done_marker.store(true, Ordering::Release);
     }
 
     fn lock_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {
