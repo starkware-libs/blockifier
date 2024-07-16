@@ -249,8 +249,8 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
                         worker_executor.run();
                     })) {
                         // If the program panics here, the abort guard will exit the program.
-                        // In this case, no panic message will be logged. Adding the cargo flag
-                        // --nocapture will log the panic messages.
+                         // In this case, no panic message will be logged. Add the cargo flag
+                        // --nocapture to log the panic message.
                         worker_executor.scheduler.halt();
                         abort_guard.release();
                         panic::resume_unwind(err);

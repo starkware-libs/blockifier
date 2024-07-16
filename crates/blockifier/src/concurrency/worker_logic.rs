@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::Mutex;
@@ -118,6 +119,9 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 
     fn execute(&self, tx_index: TxIndex) {
         self.execute_tx(tx_index);
+        if tx_index == 1{
+            panic!("Panic in execute_tx");
+        }
         self.scheduler.finish_execution(tx_index)
     }
 
