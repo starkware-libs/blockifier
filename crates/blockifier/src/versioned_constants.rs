@@ -64,7 +64,7 @@ pub struct VersionedConstants {
     // Fee related.
     // TODO: Consider making this a struct, this will require change the way we access these
     // values.
-    vm_resource_fee_cost: Arc<HashMap<String, ResourceCost>>,
+    pub vm_resource_fee_cost: Arc<HashMap<String, ResourceCost>>,
 }
 
 impl VersionedConstants {

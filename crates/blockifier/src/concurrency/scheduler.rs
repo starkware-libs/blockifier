@@ -163,6 +163,7 @@ impl Scheduler {
 
     pub fn halt(&self) {
         self.done_marker.store(true, Ordering::Release);
+        panic!("Scheduler halted.");
     }
 
     fn lock_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {

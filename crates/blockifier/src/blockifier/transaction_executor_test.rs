@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -28,6 +31,7 @@ use crate::transaction::test_utils::{
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::transaction::transactions::L1HandlerTransaction;
+use crate::versioned_constants::ResourceCost;
 use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args, nonce};
 
 fn tx_executor_test_body<S: StateReader>(
@@ -341,4 +345,32 @@ fn test_execute_txs_bouncing() {
             .unwrap(),
         nonce!(4_u32)
     );
+}
+
+#[test]
+#[should_panic(expected = "a scoped thread panicked")]
+fn test_thread_panic() {
+    let config = TransactionExecutorConfig::create_for_testing();
+    let max_n_events_in_block = 10;
+    let block_context = BlockContext::create_for_bouncer_testing(max_n_events_in_block);
+
+    let TestInitData { state, account_address, contract_address, .. } =
+        create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);
+
+    let mut tx_executor = TransactionExecutor::new(state, block_context, config);
+
+    let txs: Vec<Transaction> = [
+        emit_n_events_tx(1, account_address, contract_address, nonce!(0_u32)),
+        emit_n_events_tx(2, account_address, contract_address, nonce!(1_u32)),
+        emit_n_events_tx(3, account_address, contract_address, nonce!(2_u32)),
+    ]
+    .into_iter()
+    .map(Transaction::AccountTransaction)
+    .collect();
+
+    tx_executor.block_context.versioned_constants.vm_resource_fee_cost =
+        Arc::new(HashMap::<String, ResourceCost>::default());
+
+    // Run.
+    tx_executor.execute_txs(&txs);
 }
