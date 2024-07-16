@@ -1,6 +1,8 @@
 #[cfg(feature = "concurrency")]
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "concurrency")]
+use std::panic::{self, catch_unwind, AssertUnwindSafe};
+#[cfg(feature = "concurrency")]
 use std::sync::Arc;
 #[cfg(feature = "concurrency")]
 use std::sync::Mutex;
@@ -218,6 +220,8 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
         &mut self,
         chunk: &[Transaction],
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        use crate::concurrency::utils::AbortIfPanic;
+
         let block_state = self.block_state.take().expect("The block state should be `Some`.");
 
         let worker_executor = Arc::new(WorkerExecutor::initialize(
@@ -236,7 +240,24 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
             for _ in 0..self.config.concurrency_config.n_workers {
                 let worker_executor = Arc::clone(&worker_executor);
                 s.spawn(move || {
-                    worker_executor.run();
+                    // Making sure that the program will abort if a panic accured while halting the
+                    // scheduler.
+                    let abort_guard = AbortIfPanic;
+                    // If a panic is not handled or the handling logic itself panics, then we abort
+                    // the program.
+                    if let Err(err) = catch_unwind(AssertUnwindSafe(|| {
+                        worker_executor.run();
+                    })) {
+                        // If the program panics here, the abort guard will exit the program.
+                        // In this case, no panic message will be logged. Add the cargo flag
+                        // --nocapture to log the panic message.
+
+                        worker_executor.scheduler.halt();
+                        abort_guard.release();
+                        panic::resume_unwind(err);
+                    }
+
+                    abort_guard.release();
                 });
             }
         });
