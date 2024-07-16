@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ResourceTracker;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -82,6 +83,45 @@ fn test_circuit(block_context: BlockContext, max_resource_bounds: ResourceBounds
 
     assert!(tx_execution_info.revert_error.is_none());
     assert_eq!(tx_execution_info.transaction_receipt.gas, GasVector::from_l1_gas(6682));
+}
+
+#[rstest]
+fn test_rc96_holes(block_context: BlockContext, max_resource_bounds: ResourceBoundsMapping) {
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let chain_info = &block_context.chain_info;
+    let state = &mut test_state(chain_info, BALANCE, &[(test_contract, 1), (account, 1)]);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let account_address = account.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
+
+    // Invoke a function that changes the state and reverts.
+    let tx_args = invoke_tx_args! {
+        sender_address: account_address,
+        calldata: create_calldata(
+                test_contract_address,
+                "test_rc96_holes",
+                &[]
+            ),
+        nonce: nonce_manager.next(account_address)
+    };
+    let tx_execution_info = run_invoke_tx(
+        state,
+        &block_context,
+        invoke_tx_args! {
+            resource_bounds: max_resource_bounds,
+            ..tx_args
+        },
+    )
+    .unwrap();
+
+    assert!(!tx_execution_info.is_reverted());
+    assert_eq!(
+        tx_execution_info.transaction_receipt.resources.vm_resources.builtin_instance_counter
+            [&BuiltinName::range_check96],
+        24
+    );
+    assert_eq!(tx_execution_info.transaction_receipt.gas, GasVector::from_l1_gas(6598));
 }
 
 #[rstest]
