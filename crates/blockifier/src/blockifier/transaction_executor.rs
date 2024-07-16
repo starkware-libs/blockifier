@@ -1,6 +1,8 @@
 #[cfg(feature = "concurrency")]
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "concurrency")]
+use std::panic::{self, catch_unwind, AssertUnwindSafe};
+#[cfg(feature = "concurrency")]
 use std::sync::Arc;
 #[cfg(feature = "concurrency")]
 use std::sync::Mutex;
@@ -233,10 +235,17 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
         // TODO(barak, 01/07/2024): Consider using tokio and spawn tasks that will be served by some
         // upper level tokio thread pool (Runtime in tokio terminology).
         std::thread::scope(|s| {
-            for _ in 0..self.config.concurrency_config.n_workers {
+            for i in 0..self.config.concurrency_config.n_workers {
                 let worker_executor = Arc::clone(&worker_executor);
                 s.spawn(move || {
-                    worker_executor.run();
+                    let result = catch_unwind(AssertUnwindSafe(|| {
+                        worker_executor.run();
+                    }));
+                    if let Err(err) = result {
+                        println!("Thread {} caught a panic, propagating it.", i);
+                        worker_executor.scheduler.halt();
+                        panic::resume_unwind(err);
+                    }
                 });
             }
         });
