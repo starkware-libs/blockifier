@@ -231,8 +231,12 @@ impl Scheduler {
     }
 
     /// Returns the done marker.
-    fn done(&self) -> bool {
+    pub(crate) fn done(&self) -> bool {
         self.done_marker.load(Ordering::Acquire)
+    }
+
+    pub fn mark_done(&self) {
+        self.done_marker.store(true, Ordering::Release);
     }
 
     #[cfg(any(feature = "testing", test))]
