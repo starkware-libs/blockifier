@@ -1,6 +1,8 @@
 #[cfg(feature = "concurrency")]
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "concurrency")]
+use std::panic::{self, catch_unwind, AssertUnwindSafe};
+#[cfg(feature = "concurrency")]
 use std::sync::Arc;
 #[cfg(feature = "concurrency")]
 use std::sync::Mutex;
@@ -218,6 +220,8 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
         &mut self,
         chunk: &[Transaction],
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
+        use crate::concurrency::utils::AbortGuard;
+
         let block_state = self.block_state.take().expect("The block state should be `Some`.");
 
         let worker_executor = Arc::new(WorkerExecutor::initialize(
@@ -236,7 +240,22 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
             for _ in 0..self.config.concurrency_config.n_workers {
                 let worker_executor = Arc::clone(&worker_executor);
                 s.spawn(move || {
-                    worker_executor.run();
+                    // to make sure that if one of the threads panicked all threads would stop,
+                    // and the main thread would panic.
+                    let abort_guard = AbortGuard;
+                    let result = catch_unwind(AssertUnwindSafe(|| {
+                        worker_executor.run();
+                    }));
+                    // this make sure that the program will abort if a panic accured
+                    // while halting the scheduler.
+                    if let Err(err) = result {
+                        // if the program panics here there will be no error message in the logs
+                        // only that the program aborted.
+                        worker_executor.scheduler.halt();
+                        abort_guard.release();
+                        panic::resume_unwind(err);
+                    }
+                    abort_guard.release();
                 });
             }
         });
