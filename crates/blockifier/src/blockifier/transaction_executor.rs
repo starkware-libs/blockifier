@@ -1,6 +1,10 @@
 #[cfg(feature = "concurrency")]
 use std::collections::{HashMap, HashSet};
 #[cfg(feature = "concurrency")]
+use std::io::{self, Write};
+#[cfg(feature = "concurrency")]
+use std::panic::{self, catch_unwind, AssertUnwindSafe};
+#[cfg(feature = "concurrency")]
 use std::sync::Arc;
 #[cfg(feature = "concurrency")]
 use std::sync::Mutex;
@@ -227,16 +231,29 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
             Mutex::new(&mut self.bouncer),
         ));
 
+        // Change the defult way of handling panics to write to stderr.
+        // this ensure that the panic massge and location will be printed to stderr.
+        // without adding flags to the cargo command.
+        panic::set_hook(Box::new(move |panic_info| {
+            let _ = writeln!(io::stderr(), "{}", panic_info);
+        }));
+
         // No thread pool implementation is needed here since we already have our scheduler. The
         // initialized threads below will "busy wait" for new tasks using the `run` method until the
         // chunk execution is completed, and then they will be joined together in a for loop.
         // TODO(barak, 01/07/2024): Consider using tokio and spawn tasks that will be served by some
         // upper level tokio thread pool (Runtime in tokio terminology).
+
         std::thread::scope(|s| {
             for _ in 0..self.config.concurrency_config.n_workers {
                 let worker_executor = Arc::clone(&worker_executor);
                 s.spawn(move || {
-                    worker_executor.run();
+                    let result = catch_unwind(AssertUnwindSafe(|| {
+                        worker_executor.run();
+                    }));
+                    if result.is_err() {
+                        ::std::process::abort();
+                    }
                 });
             }
         });
