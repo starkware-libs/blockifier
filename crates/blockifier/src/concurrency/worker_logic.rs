@@ -84,6 +84,9 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     }
 
     pub fn run(&self) {
+        if self.scheduler.done() {
+            return;
+        };
         let mut task = Task::AskForTask;
         loop {
             self.commit_while_possible();
@@ -118,7 +121,10 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
 
     fn execute(&self, tx_index: TxIndex) {
         self.execute_tx(tx_index);
-        self.scheduler.finish_execution(tx_index)
+        if tx_index ==1 {
+            panic!("test concurrency panic behaviour");
+        }
+        self.scheduler.finish_execution(tx_index);
     }
 
     fn execute_tx(&self, tx_index: TxIndex) {
@@ -189,6 +195,7 @@ impl<'a, S: StateReader> WorkerExecutor<'a, S> {
     ///     * Else (execution failed), commit the transaction without fixing the call info or
     ///       updating the sequencer balance.
     fn commit_tx(&self, tx_index: TxIndex) -> bool {
+        println!("commit_tx {}", tx_index);
         let execution_output = lock_mutex_in_array(&self.execution_outputs, tx_index);
         let execution_output_ref = execution_output.as_ref().expect(EXECUTION_OUTPUTS_UNWRAP_ERROR);
         let reads = &execution_output_ref.reads;

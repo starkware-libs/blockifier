@@ -68,7 +68,8 @@ pub struct Scheduler {
     // Set to true when all transactions have been committed, or when calling the halt_scheduler
     // procedure, providing a cheap way for all threads to exit their main loops.
     done_marker: AtomicBool,
-}
+    // Set to true when one of the threads panic during the execution of the transactions.
+    }
 
 impl Scheduler {
     pub fn new(chunk_size: usize) -> Scheduler {
@@ -231,8 +232,12 @@ impl Scheduler {
     }
 
     /// Returns the done marker.
-    fn done(&self) -> bool {
+    pub(crate) fn done(&self) -> bool {
         self.done_marker.load(Ordering::Acquire)
+    }
+
+    pub fn mark_done(&self) {
+        self.done_marker.store(true, Ordering::Release);
     }
 
     #[cfg(any(feature = "testing", test))]
