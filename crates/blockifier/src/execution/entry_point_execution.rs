@@ -17,6 +17,7 @@ use crate::execution::entry_point::{
 use crate::execution::errors::{EntryPointExecutionError, PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
     read_execution_retdata, write_felt, write_maybe_relocatable, Args, ReadOnlySegments,
+    SEGMENT_ARENA_BUILTIN_SIZE,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
@@ -318,12 +319,18 @@ pub fn finalize_execution(
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
-    let vm_resources_without_inner_calls = runner
+    let mut vm_resources_without_inner_calls = runner
         .get_execution_resources()
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
-    *syscall_handler.resources += &vm_resources_without_inner_calls;
     let versioned_constants = syscall_handler.context.versioned_constants();
+    if versioned_constants.count_segment_arena_cells_not_instances {
+        vm_resources_without_inner_calls
+            .builtin_instance_counter
+            .get_mut(&BuiltinName::segment_arena)
+            .map_or_else(|| {}, |val| *val *= SEGMENT_ARENA_BUILTIN_SIZE);
+    }
+    *syscall_handler.resources += &vm_resources_without_inner_calls;
     // Take into account the syscall resources of the current call.
     *syscall_handler.resources += &versioned_constants
         .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
