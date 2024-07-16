@@ -50,8 +50,8 @@ pub enum TransactionFeeError {
 #[derive(Debug, Error)]
 pub enum TransactionExecutionError {
     #[error(
-        "Declare transaction version {declare_version:?} must have a contract class of Cairo \
-         version {cairo_version:?}."
+        "Declare transaction version {} must have a contract class of Cairo \
+         version {cairo_version:?}.", **declare_version
     )]
     ContractClassVersionMismatch { declare_version: TransactionVersion, cairo_version: u64 },
     #[error(
@@ -59,7 +59,7 @@ pub enum TransactionExecutionError {
         String::from(gen_transaction_execution_error_trace(self))
     )]
     ContractConstructorExecutionFailed(#[from] ConstructorEntryPointExecutionError),
-    #[error("Class with hash {class_hash:?} is already declared.")]
+    #[error("Class with hash {:#064x} is already declared.", **class_hash)]
     DeclareTransactionError { class_hash: ClassHash },
     #[error(
         "Transaction execution has failed:\n{}",
@@ -78,8 +78,8 @@ pub enum TransactionExecutionError {
     #[error("The `validate` entry point should return `VALID`. Got {actual:?}.")]
     InvalidValidateReturnData { actual: Retdata },
     #[error(
-        "Transaction version {version:?} is not supported. Supported versions: \
-         {allowed_versions:?}."
+        "Transaction version {:?} is not supported. Supported versions: \
+         {:?}.", **version, allowed_versions.iter().map(|v| **v).collect::<Vec<_>>()
     )]
     InvalidVersion { version: TransactionVersion, allowed_versions: Vec<TransactionVersion> },
     #[error(transparent)]
@@ -114,8 +114,8 @@ pub enum TransactionExecutionError {
 #[derive(Debug, Error)]
 pub enum TransactionPreValidationError {
     #[error(
-        "Invalid transaction nonce of contract at address {address:?}. Account nonce: \
-         {account_nonce:?}; got: {incoming_tx_nonce:?}."
+        "Invalid transaction nonce of contract at address {:#064x}. Account nonce: \
+         {:#064x}; got: {:#064x}.", ***address, **account_nonce, **incoming_tx_nonce
     )]
     InvalidNonce { address: ContractAddress, account_nonce: Nonce, incoming_tx_nonce: Nonce },
     #[error(transparent)]
