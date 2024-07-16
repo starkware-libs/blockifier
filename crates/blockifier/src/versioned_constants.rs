@@ -48,6 +48,11 @@ pub struct VersionedConstants {
     pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
     pub validate_max_n_steps: u32,
+    // BACKWARD COMPATIBILITY: If true, the segment_arena builtin instance counter will be
+    // multiplied by 3. This offsets a bug in the vm where the counter counted the number of felts
+    // used by instances of the builtin, instead of the number of instances.
+    #[serde(default)]
+    pub segment_arena_builtin_instance_counter_backward_compatibility: bool,
 
     // Transactions settings.
     #[serde(default)]

@@ -328,7 +328,14 @@ pub fn finalize_execution(
     *syscall_handler.resources += &versioned_constants
         .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
 
-    let full_call_resources = &*syscall_handler.resources - &previous_resources;
+    let mut full_call_resources = &*syscall_handler.resources - &previous_resources;
+
+    if versioned_constants.segment_arena_builtin_instance_counter_backward_compatibility {
+        full_call_resources
+            .builtin_instance_counter
+            .get_mut(&BuiltinName::segment_arena)
+            .map_or_else(|| {}, |val| *val *= 3);
+    }
     Ok(CallInfo {
         call: syscall_handler.call,
         execution: CallExecution {
