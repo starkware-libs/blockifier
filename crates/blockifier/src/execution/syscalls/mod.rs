@@ -259,6 +259,7 @@ pub fn deploy(
         ctor_context,
         request.constructor_calldata,
         *remaining_gas,
+        None,
     )?;
 
     let constructor_retdata =

@@ -55,7 +55,7 @@ fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
     };
 
     assert_eq!(
-        entry_point_call.clone().execute_directly(&mut state).unwrap().execution,
+        entry_point_call.clone().execute_directly(&mut state, None).unwrap().execution,
         CallExecution {
             gas_consumed: expected_gas,
             ..CallExecution::from_retdata(retdata![block_hash])
@@ -76,8 +76,10 @@ fn negative_flow_execution_mode_validate(test_contract: FeatureContract) {
         ..trivial_external_entry_point_new(test_contract)
     };
 
-    let error =
-        entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err().to_string();
+    let error = entry_point_call
+        .execute_directly_in_validate_mode(&mut state, None)
+        .unwrap_err()
+        .to_string();
     // check_entry_point_execution_error_for_custom_hint!(
     //     &error,
     //     "Unauthorized syscall get_block_hash in execution mode Validate.",
@@ -100,7 +102,7 @@ fn negative_flow_block_number_out_of_range(test_contract: FeatureContract) {
         ..trivial_external_entry_point_new(test_contract)
     };
 
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.execute_directly(&mut state, None).unwrap_err().to_string();
     assert!(error.contains("Block number out of range"));
     assert_consistent_contract_version(test_contract, &state);
 }

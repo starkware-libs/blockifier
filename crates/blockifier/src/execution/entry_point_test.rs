@@ -86,7 +86,7 @@ fn test_entry_point_without_arg() {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::default()
     );
 }
@@ -102,7 +102,7 @@ fn test_entry_point_with_arg() {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::default()
     );
 }
@@ -118,7 +118,7 @@ fn test_long_retdata() {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::from_retdata(retdata![
             stark_felt!(0_u8),
             stark_felt!(1_u8),
@@ -140,7 +140,7 @@ fn test_entry_point_with_builtin() {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::default()
     );
 }
@@ -156,7 +156,7 @@ fn test_entry_point_with_hint() {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::default()
     );
 }
@@ -172,7 +172,7 @@ fn test_entry_point_with_return_value() {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(23_u8)])
     );
 }
@@ -184,7 +184,7 @@ fn test_entry_point_not_found_in_contract() {
     let entry_point_selector = EntryPointSelector(stark_felt!(2_u8));
     let entry_point_call =
         CallEntryPoint { entry_point_selector, ..trivial_external_entry_point_new(test_contract) };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err();
+    let error = entry_point_call.execute_directly(&mut state, None).unwrap_err();
     assert_eq!(
         format!("Entry point {entry_point_selector:?} not found in contract."),
         format!("{error}")
@@ -200,7 +200,7 @@ fn test_storage_var() {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::default()
     );
 }
@@ -221,7 +221,7 @@ fn run_security_test(
         initial_gas: versioned_constants.os_constants.gas_costs.initial_gas_cost,
         ..Default::default()
     };
-    let error = match entry_point_call.execute_directly(state) {
+    let error = match entry_point_call.execute_directly(state, None) {
         Err(error) => error.to_string(),
         Ok(_) => panic!(
             "Entry point '{entry_point_name}' did not fail! Expected error: {expected_error}"
@@ -519,7 +519,7 @@ fn test_storage_related_members() {
         entry_point_selector: selector_from_name("test_storage_var"),
         ..trivial_external_entry_point_new(test_contract)
     };
-    let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
+    let actual_call_info = entry_point_call.execute_directly(&mut state, None).unwrap();
     assert_eq!(actual_call_info.storage_read_values, vec![stark_felt!(39_u8)]);
     assert_eq!(
         actual_call_info.accessed_storage_keys,
@@ -535,7 +535,7 @@ fn test_storage_related_members() {
         entry_point_selector: selector_from_name("test_storage_read_write"),
         ..trivial_external_entry_point_new(test_contract)
     };
-    let actual_call_info = entry_point_call.execute_directly(&mut state).unwrap();
+    let actual_call_info = entry_point_call.execute_directly(&mut state, None).unwrap();
     assert_eq!(actual_call_info.storage_read_values, vec![value]);
     assert_eq!(actual_call_info.accessed_storage_keys, HashSet::from([storage_key!(key)]));
 }
@@ -554,7 +554,7 @@ fn test_cairo1_entry_point_segment_arena() {
 
     assert!(
         entry_point_call
-            .execute_directly(&mut state)
+            .execute_directly(&mut state, None)
             .unwrap()
             .resources
             .builtin_instance_counter
@@ -1091,7 +1091,7 @@ Execution failed. Failure reason: 0x496e76616c6964207363656e6172696f ('Invalid s
     // Clean pc locations from the trace.
     let re = Regex::new(r"pc=0:[0-9]+").unwrap();
     let cleaned_expected_error = &re.replace_all(&expected_error, "pc=0:*");
-    let actual_error = account_tx.execute(state, block_context, true, true).unwrap_err();
+    let actual_error = account_tx.execute(state, block_context, true, true, None).unwrap_err();
     let actual_error_str = actual_error.to_string();
     let cleaned_actual_error = &re.replace_all(&actual_error_str, "pc=0:*");
     // Compare actual trace to the expected trace (sans pc locations).

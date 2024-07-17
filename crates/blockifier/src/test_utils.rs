@@ -522,6 +522,7 @@ pub fn deploy_contract(
         ctor_context,
         wrapper_calldata,
         u64::MAX,
+        None,
     )
     .map_err(|_| vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()])?;
 
@@ -654,7 +655,7 @@ impl TestContext {
         };
 
         let result =
-            entry_point_call.execute_directly(&mut self.state).map_err(|e| e.to_string())?;
+            entry_point_call.execute_directly(&mut self.state, None).map_err(|e| e.to_string())?;
 
         let events = result.execution.events.clone();
 

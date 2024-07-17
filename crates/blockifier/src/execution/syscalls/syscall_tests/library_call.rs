@@ -49,7 +49,7 @@ fn test_library_call(test_contract: FeatureContract, expected_gas: u64) {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(91_u16)],
             gas_consumed: expected_gas,
@@ -78,7 +78,7 @@ fn test_library_call_assert_fails(test_contract: FeatureContract) {
         ..trivial_external_entry_point_new(test_contract)
     };
 
-    let err = entry_point_call.execute_directly(&mut state).unwrap_err();
+    let err = entry_point_call.execute_directly(&mut state, None).unwrap_err();
     assert!(err.to_string().contains("x != y"));
 }
 
@@ -231,5 +231,5 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         ..Default::default()
     };
 
-    assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
+    assert_eq!(main_entry_point.execute_directly(&mut state, None).unwrap(), expected_call_info);
 }

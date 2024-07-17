@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::sync::Arc;
 
+use cairo_native::cache::ProgramCache;
 use cairo_vm::vm::runners::cairo_runner::{ExecutionResources, ResourceTracker, RunResources};
 use num_traits::{Inv, Zero};
 use serde::Serialize;
@@ -10,6 +11,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, TransactionVersion};
 
+use super::native::utils::get_native_aot_program_cache;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
 use crate::context::{BlockContext, TransactionContext};
@@ -67,6 +69,7 @@ impl CallEntryPoint {
         state: &mut dyn State,
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
+        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> EntryPointExecutionResult<CallInfo> {
         let tx_context = &context.tx_context;
         let mut decrement_when_dropped = RecursionDepthGuard::new(
@@ -98,7 +101,31 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(class_hash)?;
 
-        execute_entry_point_call(self, contract_class, state, resources, context)
+        match program_cache {
+            Some(program_cache) => execute_entry_point_call(
+                self,
+                contract_class,
+                state,
+                resources,
+                context,
+                program_cache,
+            ),
+            None => {
+                // If no cache was provided, create a temporary one to last for the duration of this
+                // execution
+                let program_cache = get_native_aot_program_cache();
+                let program_cache = &mut (*program_cache.borrow_mut());
+
+                execute_entry_point_call(
+                    self,
+                    contract_class,
+                    state,
+                    resources,
+                    context,
+                    program_cache,
+                )
+            }
+        }
     }
 }
 
@@ -295,6 +322,7 @@ pub fn execute_constructor_entry_point(
     ctor_context: ConstructorContext,
     calldata: Calldata,
     remaining_gas: u64,
+    program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
 ) -> ConstructorEntryPointExecutionResult<CallInfo> {
     // Ensure the class is declared (by reading it).
     let contract_class =
@@ -319,7 +347,7 @@ pub fn execute_constructor_entry_point(
         initial_gas: remaining_gas,
     };
 
-    constructor_call.execute(state, resources, context).map_err(|error| {
+    constructor_call.execute(state, resources, context, program_cache).map_err(|error| {
         ConstructorEntryPointExecutionError::new(error, &ctor_context, Some(constructor_selector))
     })
 }

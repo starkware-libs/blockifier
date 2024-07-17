@@ -67,7 +67,7 @@ impl PyValidator {
     ) -> NativeBlockifierResult<()> {
         let account_tx = py_account_tx(tx, optional_py_class_info).expect(PY_TX_PARSING_ERR);
         let deploy_account_tx_hash = deploy_account_tx_hash.map(|hash| TransactionHash(hash.0));
-        self.stateful_validator.perform_validations(account_tx, deploy_account_tx_hash)?;
+        self.stateful_validator.perform_validations(account_tx, deploy_account_tx_hash, None)?;
 
         Ok(())
     }

@@ -24,7 +24,7 @@ fn test_secp256k1(test_contract: FeatureContract, expected_gas: u64) {
     };
 
     pretty_assertions::assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution { gas_consumed: expected_gas, ..Default::default() }
     );
 }
@@ -43,7 +43,7 @@ fn test_secp256r1(test_contract: FeatureContract, expected_gas: u64) {
     };
 
     pretty_assertions::assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution { gas_consumed: expected_gas, ..Default::default() }
     );
 }

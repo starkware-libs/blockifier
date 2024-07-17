@@ -109,7 +109,7 @@ fn test_revert_on_overdraft(
     });
     let tx_info = approve_tx.create_tx_info();
     let approval_execution_info =
-        approve_tx.execute(&mut state, &block_context, true, true).unwrap();
+        approve_tx.execute(&mut state, &block_context, true, true, None).unwrap();
     assert!(!approval_execution_info.is_reverted());
 
     // Transfer a valid amount of funds to compute the cost of a successful

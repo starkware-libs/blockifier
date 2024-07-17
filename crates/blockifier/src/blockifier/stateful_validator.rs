@@ -1,4 +1,5 @@
-use starknet_api::core::Nonce;
+use cairo_native::cache::ProgramCache;
+use starknet_api::core::{ClassHash, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionHash;
 use thiserror::Error;
@@ -62,12 +63,13 @@ impl<S: StateReader> StatefulValidator<S> {
         &mut self,
         tx: AccountTransaction,
         deploy_account_tx_hash: Option<TransactionHash>,
+        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> StatefulValidatorResult<()> {
         // Deploy account transactions should be fully executed, since the constructor must run
         // before `__validate_deploy__`. The execution already includes all necessary validations,
         // so they are skipped here.
         if let AccountTransaction::DeployAccount(_) = tx {
-            self.execute(tx)?;
+            self.execute(tx, program_cache)?;
             return Ok(());
         }
 
@@ -88,7 +90,7 @@ impl<S: StateReader> StatefulValidator<S> {
         // `__validate__` call.
         let versioned_constants = &tx_context.block_context.versioned_constants();
         let (_optional_call_info, actual_cost) =
-            self.validate(&tx, versioned_constants.tx_initial_gas())?;
+            self.validate(&tx, versioned_constants.tx_initial_gas(), program_cache)?;
 
         // Post validations.
         PostValidationReport::verify(&tx_context, &actual_cost)?;
@@ -96,8 +98,12 @@ impl<S: StateReader> StatefulValidator<S> {
         Ok(())
     }
 
-    fn execute(&mut self, tx: AccountTransaction) -> StatefulValidatorResult<()> {
-        self.tx_executor.execute(&Transaction::AccountTransaction(tx), true)?;
+    fn execute(
+        &mut self,
+        tx: AccountTransaction,
+        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
+    ) -> StatefulValidatorResult<()> {
+        self.tx_executor.execute(&Transaction::AccountTransaction(tx), true, program_cache)?;
         Ok(())
     }
 
@@ -147,7 +153,8 @@ impl<S: StateReader> StatefulValidator<S> {
         &mut self,
         tx: &AccountTransaction,
         remaining_gas: u64,
+        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> StatefulValidatorResult<(Option<CallInfo>, TransactionReceipt)> {
-        Ok(self.tx_executor.validate(tx, remaining_gas)?)
+        Ok(self.tx_executor.validate(tx, remaining_gas, program_cache)?)
     }
 }

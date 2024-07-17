@@ -105,7 +105,7 @@ fn do_transfer(
     let account_tx = AccountTransaction::Invoke(tx);
     let charge_fee = CHARGE_FEE;
     let validate = RUN_VALIDATION;
-    account_tx.execute(state, block_context, charge_fee, validate).unwrap();
+    account_tx.execute(state, block_context, charge_fee, validate, None).unwrap();
 }
 
 criterion_group!(benches, transfers_benchmark);

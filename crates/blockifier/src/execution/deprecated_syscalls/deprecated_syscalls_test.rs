@@ -55,7 +55,7 @@ fn test_storage_read_write() {
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(value)])
     );
     // Verify that the state has changed.
@@ -83,7 +83,7 @@ fn test_library_call() {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::from_retdata(retdata![stark_felt!(91_u16)])
     );
 }
@@ -189,7 +189,7 @@ fn test_nested_library_call() {
         ..Default::default()
     };
 
-    assert_eq!(main_entry_point.execute_directly(&mut state).unwrap(), expected_call_info);
+    assert_eq!(main_entry_point.execute_directly(&mut state, None).unwrap(), expected_call_info);
 }
 
 #[test]
@@ -216,7 +216,7 @@ fn test_call_contract() {
         calldata: calldata.clone(),
         ..trivial_external_entry_point
     };
-    let call_info = entry_point_call.execute_directly(&mut state).unwrap();
+    let call_info = entry_point_call.execute_directly(&mut state, None).unwrap();
 
     let expected_execution = CallExecution { retdata: retdata![value], ..Default::default() };
     let expected_inner_call_info = CallInfo {
@@ -276,7 +276,7 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point_new(test_contract)
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.execute_directly(&mut state, None).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
 
     // Positive flow.
@@ -288,7 +288,7 @@ fn test_replace_class() {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point_new(test_contract)
     };
-    entry_point_call.execute_directly(&mut state).unwrap();
+    entry_point_call.execute_directly(&mut state, None).unwrap();
     assert_eq!(state.get_class_hash_at(test_address).unwrap(), new_class_hash);
 }
 
@@ -360,11 +360,11 @@ fn test_deploy(
 
     if !available_for_deployment {
         // Deploy an instance of the contract for the scenario: deploy_to_unavailable_address.
-        entry_point_call.clone().execute_directly(&mut state).unwrap();
+        entry_point_call.clone().execute_directly(&mut state, None).unwrap();
     }
 
     if let Some(expected_error) = expected_error {
-        let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+        let error = entry_point_call.execute_directly(&mut state, None).unwrap_err().to_string();
         assert!(error.contains(expected_error.as_str()));
         return;
     }
@@ -378,7 +378,7 @@ fn test_deploy(
     )
     .unwrap();
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution::from_retdata(retdata![*contract_address.0.key()])
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
@@ -418,7 +418,8 @@ fn test_block_info_syscalls(
 
     if execution_mode == ExecutionMode::Validate {
         if block_info_member_name == "sequencer_address" {
-            let error = entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap_err();
+            let error =
+                entry_point_call.execute_directly_in_validate_mode(&mut state, None).unwrap_err();
             check_entry_point_execution_error_for_custom_hint!(
                 &error,
                 &format!(
@@ -428,13 +429,16 @@ fn test_block_info_syscalls(
             );
         } else {
             assert_eq!(
-                entry_point_call.execute_directly_in_validate_mode(&mut state).unwrap().execution,
+                entry_point_call
+                    .execute_directly_in_validate_mode(&mut state, None)
+                    .unwrap()
+                    .execution,
                 CallExecution::from_retdata(retdata![])
             );
         }
     } else {
         assert_eq!(
-            entry_point_call.execute_directly(&mut state).unwrap().execution,
+            entry_point_call.execute_directly(&mut state, None).unwrap().execution,
             CallExecution::from_retdata(retdata![])
         );
     }
@@ -480,7 +484,7 @@ fn test_tx_info(#[values(false, true)] only_query: bool) {
     });
     let limit_steps_by_resources = true;
     let result = entry_point_call
-        .execute_directly_given_tx_info(&mut state, tx_info, limit_steps_by_resources)
+        .execute_directly_given_tx_info(&mut state, tx_info, limit_steps_by_resources, None)
         .unwrap();
 
     assert!(!result.execution.failed)
@@ -565,5 +569,5 @@ fn emit_events(
         ..trivial_external_entry_point_new(test_contract)
     };
 
-    entry_point_call.execute_directly(&mut state)
+    entry_point_call.execute_directly(&mut state, None)
 }

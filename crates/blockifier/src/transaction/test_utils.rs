@@ -258,7 +258,7 @@ pub fn run_invoke_tx(
     block_context: &BlockContext,
     invoke_args: InvokeTxArgs,
 ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-    account_invoke_tx(invoke_args).execute(state, block_context, true, true)
+    account_invoke_tx(invoke_args).execute(state, block_context, true, true, None)
 }
 
 /// Creates a `ResourceBoundsMapping` with the given `max_amount` and `max_price` for L1 gas limits.

@@ -89,10 +89,8 @@ pub fn get_native_jit_program_cache<'context>() -> Rc<RefCell<ProgramCache<'cont
 pub fn get_native_executor<'context>(
     class_hash: ClassHash,
     program: &SierraProgram,
-    program_cache: Rc<RefCell<ProgramCache<'context, ClassHash>>>,
+    program_cache: &mut ProgramCache<'context, ClassHash>,
 ) -> NativeExecutor<'context> {
-    let program_cache = &mut (*program_cache.borrow_mut());
-
     match program_cache {
         ProgramCache::Aot(cache) => {
             let cached_executor = cache.get(&class_hash);
@@ -146,7 +144,7 @@ pub fn run_native_executor(
     native_executor: NativeExecutor<'_>,
     sierra_entry_function_id: &FunctionId,
     call: CallEntryPoint,
-    mut syscall_handler: NativeSyscallHandler<'_>,
+    mut syscall_handler: NativeSyscallHandler<'_, '_>,
 ) -> EntryPointExecutionResult<CallInfo> {
     let stark_felts_to_native_felts = |data: &[StarkFelt]| -> Vec<Felt> {
         data.iter().map(|stark_felt| stark_felt_to_native_felt(*stark_felt)).collect_vec()

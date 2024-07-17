@@ -26,6 +26,6 @@ fn test_out_of_gas(test_contract: FeatureContract) {
         initial_gas: REQUIRED_GAS_STORAGE_READ_WRITE_TEST - 1,
         ..trivial_external_entry_point_new(test_contract)
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.execute_directly(&mut state, None).unwrap_err().to_string();
     assert!(error.contains("Out of gas"));
 }

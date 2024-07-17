@@ -23,7 +23,7 @@ fn undeclared_class_hash(test_contract: FeatureContract) {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point_new(test_contract)
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.execute_directly(&mut state, None).unwrap_err().to_string();
     assert!(error.contains("is not declared"));
 }
 
@@ -45,7 +45,7 @@ fn cairo0_class_hash(test_contract: FeatureContract) {
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point_new(test_contract)
     };
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.execute_directly(&mut state, None).unwrap_err().to_string();
     assert!(error.contains("Cannot replace V1 class hash with V0 class hash"));
 }
 
@@ -70,7 +70,7 @@ fn positive_flow(test_contract: FeatureContract, gas_consumed: u64) {
         ..trivial_external_entry_point_new(test_contract)
     };
     assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution { gas_consumed, ..Default::default() }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), new_class_hash);

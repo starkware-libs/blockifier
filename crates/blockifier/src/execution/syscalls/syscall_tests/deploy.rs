@@ -48,7 +48,7 @@ fn no_constructor(deployer_contract: FeatureContract) {
     )
     .unwrap();
 
-    let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];
+    let deploy_call = &entry_point_call.execute_directly(&mut state, None).unwrap().inner_calls[0];
     assert_eq!(deploy_call.call.storage_address, deployed_contract_address);
     assert_eq!(
         deploy_call.execution,
@@ -82,7 +82,7 @@ fn no_constructor_nonempty_calldata(deployer_contract: FeatureContract) {
         ..trivial_external_entry_point_new(deployer_contract)
     };
 
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.execute_directly(&mut state, None).unwrap_err().to_string();
     assert!(error.contains(
         "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no \
          constructor."
@@ -125,7 +125,7 @@ fn with_constructor(deployer_contract: FeatureContract, expected_gas: u64) {
         deployer_contract.get_instance_address(0),
     )
     .unwrap();
-    let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];
+    let deploy_call = &entry_point_call.execute_directly(&mut state, None).unwrap().inner_calls[0];
     assert_eq!(deploy_call.call.storage_address, contract_address);
     assert_eq!(
         deploy_call.execution,
@@ -166,9 +166,9 @@ fn to_unavailable_address(deployer_contract: FeatureContract) {
         ..trivial_external_entry_point_new(deployer_contract)
     };
 
-    entry_point_call.clone().execute_directly(&mut state).unwrap();
+    entry_point_call.clone().execute_directly(&mut state, None).unwrap();
 
-    let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+    let error = entry_point_call.execute_directly(&mut state, None).unwrap_err().to_string();
     assert!(error.contains("is unavailable for deployment."));
     assert_consistent_contract_version(deployer_contract, &state);
     assert_consistent_contract_version(empty_contract, &state);

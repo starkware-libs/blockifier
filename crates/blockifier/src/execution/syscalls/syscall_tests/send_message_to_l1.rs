@@ -44,7 +44,7 @@ fn test_send_message_to_l1(test_contract: FeatureContract, expected_gas: u64) {
     let message = MessageToL1 { to_address, payload: L2ToL1Payload(payload) };
 
     pretty_assertions::assert_eq!(
-        entry_point_call.execute_directly(&mut state).unwrap().execution,
+        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
         CallExecution {
             l2_to_l1_messages: vec![OrderedL2ToL1Message { order: 0, message }],
             gas_consumed: expected_gas,

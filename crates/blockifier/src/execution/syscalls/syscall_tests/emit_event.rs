@@ -118,7 +118,7 @@ fn emit_events(
         ..trivial_external_entry_point_new(test_contract)
     };
 
-    let result = entry_point_call.execute_directly(&mut state);
+    let result = entry_point_call.execute_directly(&mut state, None);
     assert_consistent_contract_version(test_contract, &state);
     result
 }
