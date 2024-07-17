@@ -1,0 +1,12 @@
+githubRepoOwner: starkware-libs
+githubRepoName: blockifier
+githubHost: github.com
+githubRemote: origin
+githubBranch: main-v0.13.2
+requireChecks: true
+requireApproval: true
+mergeMethod: squash
+mergeQueue: false
+forceFetchTags: false
+showPrTitlesInStack: false
+branchPushIndividually: false
