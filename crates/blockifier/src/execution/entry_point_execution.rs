@@ -397,7 +397,7 @@ pub fn finalize_execution(
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
     let versioned_constants = syscall_handler.context.versioned_constants();
-    if versioned_constants.count_segment_arena_cells_not_instances {
+    if versioned_constants.segment_arena_cells {
         vm_resources_without_inner_calls
             .builtin_instance_counter
             .get_mut(&BuiltinName::segment_arena)
