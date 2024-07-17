@@ -227,7 +227,7 @@ pub fn u256_to_biguint(u256: U256) -> BigUint {
     let lo = BigUint::from(u256.lo);
     let hi = BigUint::from(u256.hi);
 
-    hi + (lo << 128) // 128 is the size of lo
+    (hi << 128) + lo
 }
 
 pub fn big4int_to_u256(b_int: BigInt<4>) -> U256 {

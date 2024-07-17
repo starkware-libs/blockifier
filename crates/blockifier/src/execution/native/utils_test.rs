@@ -20,7 +20,7 @@ fn test_u256_to_biguint() {
     let u256 = U256 { lo: 0x1234_5678, hi: 0x9abc_def0 };
 
     let expected_biguint =
-        BigUint::from_str_radix("123456780000000000000000000000009abcdef0", 16).unwrap();
+        BigUint::from_str_radix("9abcdef000000000000000000000000012345678", 16).unwrap();
 
     let actual_biguint = u256_to_biguint(u256);
 

@@ -577,8 +577,8 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
         }
 
         Ok(U256 {
-            lo: u128::from(state[2]) | (u128::from(state[3]) << 64),
-            hi: u128::from(state[0]) | (u128::from(state[1]) << 64),
+            hi: u128::from(state[2]) | (u128::from(state[3]) << 64),
+            lo: u128::from(state[0]) | (u128::from(state[1]) << 64),
         })
     }
 
@@ -820,19 +820,11 @@ where
     ark_ff::BigInt<4>: From<<Curve>::BaseField>,
 {
     fn from(point: Affine<Curve>) -> Self {
-        // A workaround for turning big4int into a u256 that matches the way the
-        // result of native and VM are displayed.
-        // Having to swap around is most-likely a bug, but best investigated after
-        // https://github.com/NethermindEth/blockifier/issues/97
-        fn swap(x: U256) -> U256 {
-            U256 { hi: x.lo, lo: x.hi }
-        }
-
         // Here /into/ must be used, accessing the BigInt via .0 will lead to an
         // transformation being missed.
         let x = big4int_to_u256(point.x.into());
         let y = big4int_to_u256(point.y.into());
 
-        Self { x: swap(x), y: swap(y), _phantom: Default::default() }
+        Self { x, y, _phantom: Default::default() }
     }
 }
