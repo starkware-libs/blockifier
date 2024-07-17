@@ -1014,7 +1014,7 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?rev=dc6f129c9e943923443345f2ea40842e463d50a8#dc6f129c9e943923443345f2ea40842e463d50a8"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=72d10b7923cb4f97ae0b1688ea7de1d34297b0b2#72d10b7923cb4f97ae0b1688ea7de1d34297b0b2"
 dependencies = [
  "anyhow",
  "bumpalo",
@@ -1064,7 +1064,7 @@ dependencies = [
 [[package]]
 name = "cairo-native-runtime"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?rev=dc6f129c9e943923443345f2ea40842e463d50a8#dc6f129c9e943923443345f2ea40842e463d50a8"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=72d10b7923cb4f97ae0b1688ea7de1d34297b0b2#72d10b7923cb4f97ae0b1688ea7de1d34297b0b2"
 dependencies = [
  "cairo-lang-runner",
  "cairo-lang-sierra-gas",
