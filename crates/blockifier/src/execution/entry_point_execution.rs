@@ -3,9 +3,13 @@ use std::collections::HashSet;
 use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
+use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
+use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
-use num_traits::ToPrimitive;
+use cairo_vm::vm::security::verify_secure_runner;
+use num_traits::{ToPrimitive, Zero};
 use starknet_api::felt;
 use starknet_types_core::felt::Felt;
 
@@ -17,6 +21,7 @@ use crate::execution::entry_point::{
 use crate::execution::errors::{EntryPointExecutionError, PostExecutionError, PreExecutionError};
 use crate::execution::execution_utils::{
     read_execution_retdata, write_felt, write_maybe_relocatable, Args, ReadOnlySegments,
+    SEGMENT_ARENA_BUILTIN_SIZE,
 };
 use crate::execution::syscalls::hint_processor::SyscallHintProcessor;
 use crate::state::state_api::State;
@@ -157,7 +162,6 @@ pub fn initialize_execution_context<'a>(
         BuiltinName::bitwise,
         BuiltinName::ec_op,
         BuiltinName::ecdsa,
-        BuiltinName::output,
         BuiltinName::pedersen,
         BuiltinName::poseidon,
         BuiltinName::range_check,
@@ -280,17 +284,86 @@ pub fn run_entry_point(
     args: Args,
     program_segment_size: usize,
 ) -> EntryPointExecutionResult<()> {
-    let verify_secure = true;
+    // Note that we run `verify_secure_runner` manually after filling the holes in the rc96 segment.
+    let verify_secure = false;
     let args: Vec<&CairoArg> = args.iter().collect();
-    let result = runner.run_from_entrypoint(
+    runner.run_from_entrypoint(
         entry_point.pc(),
         &args,
         verify_secure,
         Some(program_segment_size),
         hint_processor,
-    );
+    )?;
 
-    Ok(result?)
+    maybe_fill_holes(entry_point, runner)?;
+
+    verify_secure_runner(runner, false, Some(program_segment_size))
+        .map_err(CairoRunError::VirtualMachine)?;
+
+    Ok(())
+}
+
+/// Fills the holes after running the entry point.
+/// Currently only fills the holes in the rc96 segment.
+fn maybe_fill_holes(
+    entry_point: EntryPointV1,
+    runner: &mut CairoRunner,
+) -> Result<(), EntryPointExecutionError> {
+    let Some(rc96_offset) = entry_point
+        .builtins
+        .iter()
+        .rev()
+        .position(|name| name.as_str() == BuiltinName::range_check96.to_str_with_suffix())
+    else {
+        return Ok(());
+    };
+    let rc96_builtin_runner = runner
+        .vm
+        .get_builtin_runners()
+        .iter()
+        .find_map(|builtin| {
+            if let BuiltinRunner::RangeCheck96(rc96_builtin_runner) = builtin {
+                Some(rc96_builtin_runner)
+            } else {
+                None
+            }
+        })
+        .expect("RangeCheck96 builtin runner not found.");
+
+    // 'EntryPointReturnValues' is returned after the implicits and its size is 5,
+    // So the last implicit is at offset 5 + 1.
+    const IMPLICITS_OFFSET: usize = 6;
+    let rc_96_stop_ptr = (runner.vm.get_ap() - (IMPLICITS_OFFSET + rc96_offset))
+        .map_err(|err| CairoRunError::VirtualMachine(VirtualMachineError::Math(err)))?;
+
+    let rc96_base = rc96_builtin_runner.base();
+    let rc96_segment: isize =
+        rc96_base.try_into().expect("Builtin segment index must fit in isize.");
+
+    let Relocatable { segment_index: rc96_stop_segment, offset: stop_offset } =
+        runner.vm.get_relocatable(rc_96_stop_ptr).map_err(CairoRunError::MemoryError)?;
+    assert_eq!(rc96_stop_segment, rc96_segment);
+
+    // Update `segment_used_sizes` to include the holes.
+    runner
+        .vm
+        .segments
+        .segment_used_sizes
+        .as_mut()
+        .expect("Segments used sizes should be calculated at this point")[rc96_base] = stop_offset;
+
+    for offset in 0..stop_offset {
+        match runner
+            .vm
+            .insert_value(Relocatable { segment_index: rc96_segment, offset }, Felt::zero())
+        {
+            // If the value is already set, ignore the error.
+            Ok(()) | Err(MemoryError::InconsistentMemory(_)) => {}
+            Err(err) => panic!("Unexpected error when filling holes: {err}."),
+        }
+    }
+
+    Ok(())
 }
 
 pub fn finalize_execution(
@@ -319,12 +392,18 @@ pub fn finalize_execution(
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
-    let vm_resources_without_inner_calls = runner
+    let mut vm_resources_without_inner_calls = runner
         .get_execution_resources()
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
-    *syscall_handler.resources += &vm_resources_without_inner_calls;
     let versioned_constants = syscall_handler.context.versioned_constants();
+    if versioned_constants.segment_arena_cells {
+        vm_resources_without_inner_calls
+            .builtin_instance_counter
+            .get_mut(&BuiltinName::segment_arena)
+            .map_or_else(|| {}, |val| *val *= SEGMENT_ARENA_BUILTIN_SIZE);
+    }
+    *syscall_handler.resources += &vm_resources_without_inner_calls;
     // Take into account the syscall resources of the current call.
     *syscall_handler.resources += &versioned_constants
         .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;
