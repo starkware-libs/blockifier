@@ -25,6 +25,7 @@
     },
     "disable_cairo0_redeclaration": true,
     "max_recursion_depth": 50,
+    "segment_arena_cells": false,
     "os_constants": {
         "block_hash_contract_address": 1,
         "call_contract_gas_cost": {

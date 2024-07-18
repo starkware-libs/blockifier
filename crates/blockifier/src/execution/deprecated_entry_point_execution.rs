@@ -1,3 +1,4 @@
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
@@ -6,6 +7,7 @@ use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkHash;
 
+use super::execution_utils::SEGMENT_ARENA_BUILTIN_SIZE;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, DEFAULT_ENTRY_POINT_SELECTOR};
 use crate::execution::call_info::{CallExecution, CallInfo};
@@ -227,12 +229,18 @@ pub fn finalize_execution(
 
     // Take into account the VM execution resources of the current call, without inner calls.
     // Has to happen after marking holes in segments as accessed.
-    let vm_resources_without_inner_calls = runner
+    let mut vm_resources_without_inner_calls = runner
         .get_execution_resources()
         .map_err(VirtualMachineError::RunnerError)?
         .filter_unused_builtins();
-    *syscall_handler.resources += &vm_resources_without_inner_calls;
     let versioned_constants = syscall_handler.context.versioned_constants();
+    if versioned_constants.segment_arena_cells {
+        vm_resources_without_inner_calls
+            .builtin_instance_counter
+            .get_mut(&BuiltinName::segment_arena)
+            .map_or_else(|| {}, |val| *val *= SEGMENT_ARENA_BUILTIN_SIZE);
+    }
+    *syscall_handler.resources += &vm_resources_without_inner_calls;
     // Take into account the syscall resources of the current call.
     *syscall_handler.resources += &versioned_constants
         .get_additional_os_syscall_resources(&syscall_handler.syscall_counter)?;

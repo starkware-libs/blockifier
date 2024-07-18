@@ -47,7 +47,15 @@ pub const TEST_ERC20_CONTRACT_CLASS_HASH: &str = "0x1010";
 pub const ERC20_CONTRACT_PATH: &str = "./ERC20/ERC20_Cairo0/ERC20_without_some_syscalls/ERC20/\
                                        erc20_contract_without_some_syscalls_compiled.json";
 
+<<<<<<< HEAD
 #[derive(Clone, Hash, PartialEq, Eq, Copy, Debug)]
+||||||| 7e872363
+#[derive(Clone, Copy, Debug)]
+=======
+// TODO(Aviv, 14/7/2024): Move from test utils module, and use it in ContractClassVersionMismatch
+// error.
+#[derive(Clone, Copy, Debug)]
+>>>>>>> origin/main-v0.13.2
 pub enum CairoVersion {
     Cairo0,
     Cairo1,

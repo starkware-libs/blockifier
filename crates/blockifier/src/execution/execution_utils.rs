@@ -34,6 +34,8 @@ use crate::transaction::objects::TransactionInfo;
 
 pub type Args = Vec<CairoArg>;
 
+pub const SEGMENT_ARENA_BUILTIN_SIZE: usize = 3;
+
 /// Executes a specific call to a contract entry point and returns its output.
 pub fn execute_entry_point_call(
     call: CallEntryPoint,
