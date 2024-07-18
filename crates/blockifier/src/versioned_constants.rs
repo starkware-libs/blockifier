@@ -52,7 +52,7 @@ pub struct VersionedConstants {
     // multiplied by 3. This offsets a bug in the old vm where the counter counted the number of
     // cells used by instances of the builtin, instead of the number of instances.
     #[serde(default)]
-    pub count_segment_arena_cells_not_instances: bool,
+    pub segment_arena_cells: bool,
 
     // Transactions settings.
     #[serde(default)]
