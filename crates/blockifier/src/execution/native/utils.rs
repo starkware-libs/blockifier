@@ -1,7 +1,5 @@
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::RandomState;
-use std::rc::Rc;
 
 use ark_ff::BigInt;
 use cairo_lang_sierra::ids::FunctionId;
@@ -74,16 +72,12 @@ pub fn match_entrypoint(
 static NATIVE_CONTEXT: std::sync::OnceLock<cairo_native::context::NativeContext> =
     std::sync::OnceLock::new();
 
-pub fn get_native_aot_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
-    Rc::new(RefCell::new(ProgramCache::Aot(AotProgramCache::new(
-        NATIVE_CONTEXT.get_or_init(NativeContext::new),
-    ))))
+pub fn get_native_aot_program_cache<'context>() -> ProgramCache<'context, ClassHash> {
+    ProgramCache::Aot(AotProgramCache::new(NATIVE_CONTEXT.get_or_init(NativeContext::new)))
 }
 
-pub fn get_native_jit_program_cache<'context>() -> Rc<RefCell<ProgramCache<'context, ClassHash>>> {
-    Rc::new(RefCell::new(ProgramCache::Jit(JitProgramCache::new(
-        NATIVE_CONTEXT.get_or_init(NativeContext::new),
-    ))))
+pub fn get_native_jit_program_cache<'context>() -> ProgramCache<'context, ClassHash> {
+    ProgramCache::Jit(JitProgramCache::new(NATIVE_CONTEXT.get_or_init(NativeContext::new)))
 }
 
 pub fn get_native_executor<'context>(

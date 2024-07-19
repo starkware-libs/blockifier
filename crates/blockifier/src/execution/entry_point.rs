@@ -101,31 +101,12 @@ impl CallEntryPoint {
         self.class_hash = Some(class_hash);
         let contract_class = state.get_compiled_contract_class(class_hash)?;
 
-        match program_cache {
-            Some(program_cache) => execute_entry_point_call(
-                self,
-                contract_class,
-                state,
-                resources,
-                context,
-                program_cache,
-            ),
-            None => {
-                // If no cache was provided, create a temporary one to last for the duration of this
-                // execution
-                let program_cache = get_native_aot_program_cache();
-                let program_cache = &mut (*program_cache.borrow_mut());
+        let mut empty_program_cache = get_native_aot_program_cache();
 
-                execute_entry_point_call(
-                    self,
-                    contract_class,
-                    state,
-                    resources,
-                    context,
-                    program_cache,
-                )
-            }
-        }
+        let program_cache =
+            program_cache.unwrap_or(std::borrow::BorrowMut::borrow_mut(&mut empty_program_cache));
+
+        execute_entry_point_call(self, contract_class, state, resources, context, program_cache)
     }
 }
 

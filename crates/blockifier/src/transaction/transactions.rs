@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::sync::Arc;
 
 use cairo_native::cache::ProgramCache;
@@ -56,27 +57,18 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
         let mut transactional_state = CachedState::create_transactional(state);
-        let execution_result = match program_cache {
-            Some(program_cache) => self.execute_raw(
-                &mut transactional_state,
-                block_context,
-                charge_fee,
-                validate,
-                Some(program_cache),
-            ),
-            None => {
-                let program_cache = get_native_aot_program_cache();
-                let program_cache = &mut (*program_cache.borrow_mut());
 
-                self.execute_raw(
-                    &mut transactional_state,
-                    block_context,
-                    charge_fee,
-                    validate,
-                    Some(program_cache),
-                )
-            }
-        };
+        let mut empty_program_cache = get_native_aot_program_cache();
+
+        let program_cache = program_cache.unwrap_or(empty_program_cache.borrow_mut());
+
+        let execution_result = self.execute_raw(
+            &mut transactional_state,
+            block_context,
+            charge_fee,
+            validate,
+            Some(program_cache),
+        );
 
         match execution_result {
             Ok(value) => {
