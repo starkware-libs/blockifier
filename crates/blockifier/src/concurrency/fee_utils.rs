@@ -82,7 +82,10 @@ pub fn fill_sequencer_balance_reads(
         );
         &mut fee_transfer_call_info.inner_calls[0].storage_read_values
     };
-    assert_eq!(storage_read_values.len(), 4, "Storage read values should have 4 elements");
+    assert!(
+        storage_read_values.len() == 4 || storage_read_values.len() == 6,
+        "Storage read values should have 4 or 6 elements"
+    );
 
     let (low_index, high_index) = STORAGE_READ_SEQUENCER_BALANCE_INDICES;
     for index in [low_index, high_index] {
