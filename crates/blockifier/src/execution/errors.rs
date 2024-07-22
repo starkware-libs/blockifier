@@ -42,6 +42,8 @@ pub enum PreExecutionError {
     StateError(#[from] StateError),
     #[error("Requested contract address {:#064x} is not deployed.", .0.key())]
     UninitializedStorageAddress(ContractAddress),
+    #[error("Unsupported cairo0 builtin.")]
+    UnsupportedCairo0Builtin,
 }
 
 impl From<RunnerError> for PreExecutionError {
