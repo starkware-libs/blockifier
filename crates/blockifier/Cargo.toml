@@ -38,6 +38,7 @@ num-integer.workspace = true
 num-rational.workspace = true
 num-traits.workspace = true
 once_cell.workspace = true
+paste.workspace = true
 phf.workspace = true
 rand = { workspace = true, optional = true }
 rstest = { workspace = true, optional = true }
