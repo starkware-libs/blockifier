@@ -509,7 +509,7 @@ pub struct OsConstants {
 }
 
 impl OsConstants {
-    // List of additinal os constants, beside the gas cost and validate rounding constants, that are
+    // List of additional os constants, beside the gas cost and validate rounding constants, that are
     // not used by the blockifier but included for transparency. These constanst will be ignored
     // during the creation of the struct containing the gas costs.
 
