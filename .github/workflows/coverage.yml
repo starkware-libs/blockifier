@@ -20,19 +20,17 @@ jobs:
         with:
           python-version: 'pypy3.9'
       - run: ln -s '${{ steps.setup-pypy.outputs.python-path }}' /usr/local/bin/pypy3.9
-      - env:
-          LD_LIBRARY_PATH: ${{ steps.setup-pypy.outputs.pythonLocation }}/bin
-        run: echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-      # - name: Generate code coverage
-      #   run: cargo llvm-cov --codecov --output-path codecov.json
-      #   env:
-      #     SEED: 0
-      # - name: Upload coverage to Codecov
-      #   uses: codecov/codecov-action@v3
-      #   with:
-      #     token: ${{ secrets.CODECOV_TOKEN }}
-      #     verbose: true
-      #     fail_ci_if_error: true
+      - name: Generate code coverage
+        run: cargo llvm-cov --codecov --output-path codecov.json
+        env:
+          SEED: 0
+          LD_LIBRARY_PATH: ${{ env.Python3_ROOT_DIR }}/bin
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          fail_ci_if_error: true
