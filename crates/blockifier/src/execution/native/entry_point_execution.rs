@@ -35,7 +35,9 @@ pub fn execute_entry_point_call(
             info: String::from("Class hash was not found"),
         })?;
 
+    println!("Blockfier-Native: calling `get_native_executor`");
     let native_executor = get_native_executor(code_class_hash, sierra_program, program_cache);
+    println!("Blockfier-Native: `get_native_executor` returned succesfully");
 
     let syscall_handler: NativeSyscallHandler<'_, '_> = NativeSyscallHandler::new(
         state,
@@ -50,5 +52,9 @@ pub fn execute_entry_point_call(
     let sierra_entry_function_id =
         get_sierra_entry_function_id(matching_entrypoint, sierra_program);
 
-    run_native_executor(native_executor, sierra_entry_function_id, call, syscall_handler)
+    println!("Blockifier-Native: running the Native Executor");
+    let result =
+        run_native_executor(native_executor, sierra_entry_function_id, call, syscall_handler);
+    println!("Blockifier-Native: Native Executor finished running");
+    result
 }

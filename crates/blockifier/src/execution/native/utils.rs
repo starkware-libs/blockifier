@@ -89,15 +89,27 @@ pub fn get_native_executor<'context>(
         ProgramCache::Aot(cache) => {
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Aot(match cached_executor {
-                Some(executor) => executor,
-                None => cache.compile_and_insert(class_hash, program, OptLevel::Default),
+                Some(executor) => {
+                    println!("AOT Cache Hit");
+                    executor
+                }
+                None => {
+                    println!("AOT Cache Miss");
+                    cache.compile_and_insert(class_hash, program, OptLevel::Default)
+                }
             })
         }
         ProgramCache::Jit(cache) => {
             let cached_executor = cache.get(&class_hash);
             NativeExecutor::Jit(match cached_executor {
-                Some(executor) => executor,
-                None => cache.compile_and_insert(class_hash, program, OptLevel::Default),
+                Some(executor) => {
+                    println!("JIT Cache Hit");
+                    executor
+                }
+                None => {
+                    println!("JIT Cache Miss");
+                    cache.compile_and_insert(class_hash, program, OptLevel::Default)
+                }
             })
         }
     }
