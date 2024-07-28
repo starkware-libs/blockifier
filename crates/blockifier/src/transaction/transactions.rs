@@ -2,12 +2,14 @@ use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::calldata;
-use starknet_api::core::{calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, Nonce,
+};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, DeclareTransactionV2,
-    DeclareTransactionV3, Fee, TransactionHash, TransactionSignature, TransactionVersion,
-    Transaction as StarknetApiTransaction
+    DeclareTransactionV3, Fee, Transaction as StarknetApiTransaction, TransactionHash,
+    TransactionSignature, TransactionVersion,
 };
 use starknet_types_core::felt::Felt;
 
@@ -26,7 +28,7 @@ use crate::state::errors::StateError;
 use crate::state::state_api::{State, UpdatableState};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants;
-use crate::transaction::errors::{TransactionFeeError, TransactionExecutionError};
+use crate::transaction::errors::{TransactionExecutionError, TransactionFeeError};
 use crate::transaction::objects::{
     CommonAccountFields, CurrentTransactionInfo, DeprecatedTransactionInfo, HasRelatedFeeType,
     TransactionExecutionInfo, TransactionExecutionResult, TransactionInfo, TransactionInfoCreator,
@@ -51,7 +53,6 @@ pub struct ExecutionFlags {
     pub validate: bool,
     pub concurrency_mode: bool,
 }
-
 pub trait ExecutableTransaction<U: UpdatableState>: Sized {
     /// Executes the transaction in a transactional manner
     /// (if it fails, given state does not modify).
@@ -574,7 +575,6 @@ impl TransactionInfoCreator for L1HandlerTransaction {
         })
     }
 }
-
 
 #[derive(Debug, derive_more::From)]
 pub enum Transaction {
