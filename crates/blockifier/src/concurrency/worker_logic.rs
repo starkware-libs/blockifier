@@ -20,7 +20,7 @@ use crate::state::cached_state::{
 };
 use crate::state::state_api::{StateReader, UpdatableState};
 use crate::transaction::objects::{TransactionExecutionInfo, TransactionExecutionResult};
-use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transactions::Transaction;
 use crate::transaction::transactions::{ExecutableTransaction, ExecutionFlags};
 
 #[cfg(test)]

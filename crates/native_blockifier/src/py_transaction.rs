@@ -4,7 +4,7 @@ use blockifier::execution::contract_class::{
     ClassInfo, ContractClass, ContractClassV0, ContractClassV1,
 };
 use blockifier::transaction::account_transaction::AccountTransaction;
-use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transactions::Transaction;
 use blockifier::transaction::transaction_types::TransactionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

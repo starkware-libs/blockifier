@@ -22,7 +22,7 @@ use crate::state::errors::StateError;
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
 use crate::transaction::objects::TransactionExecutionInfo;
-use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transactions::Transaction;
 use crate::transaction::transactions::{ExecutableTransaction, ExecutionFlags};
 
 #[cfg(test)]
