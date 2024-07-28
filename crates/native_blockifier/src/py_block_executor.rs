@@ -9,7 +9,7 @@ use blockifier::execution::call_info::CallInfo;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::global_cache::GlobalContractCache;
 use blockifier::transaction::objects::{GasVector, ResourcesMapping, TransactionExecutionInfo};
-use blockifier::transaction::transaction_execution::Transaction;
+use blockifier::transaction::transactions::Transaction;
 use blockifier::versioned_constants::VersionedConstants;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};

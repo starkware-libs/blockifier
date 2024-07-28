@@ -17,7 +17,7 @@ use crate::test_utils::invoke::invoke_tx;
 use crate::test_utils::{CairoVersion, NonceManager, BALANCE, MAX_FEE};
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::TRANSFER_ENTRY_POINT_NAME;
-use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transactions::Transaction;
 
 const N_ACCOUNTS: u16 = 10000;
 const N_TXS: usize = 1000;
