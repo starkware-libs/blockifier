@@ -65,7 +65,7 @@ fn test_call_contract(
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(48_u8)],
             gas_consumed: expected_gas,

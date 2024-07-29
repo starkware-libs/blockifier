@@ -5,17 +5,14 @@ use ark_ff::BigInt;
 use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_starknet_classes::contract_class::{ContractEntryPoint, ContractEntryPoints};
-use cairo_native::cache::{AotProgramCache, JitProgramCache, ProgramCache};
-use cairo_native::context::NativeContext;
 use cairo_native::execution_result::ContractExecutionResult;
-use cairo_native::executor::NativeExecutor;
+use cairo_native::executor::AotNativeExecutor;
 use cairo_native::starknet::{ResourceBounds, SyscallResult, TxV2Info, U256};
-use cairo_native::OptLevel;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
 use num_bigint::BigUint;
 use num_traits::ToBytes;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
+use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -69,52 +66,6 @@ pub fn match_entrypoint(
         })
 }
 
-static NATIVE_CONTEXT: std::sync::OnceLock<cairo_native::context::NativeContext> =
-    std::sync::OnceLock::new();
-
-pub fn get_native_aot_program_cache<'context>() -> ProgramCache<'context, ClassHash> {
-    ProgramCache::Aot(AotProgramCache::new(NATIVE_CONTEXT.get_or_init(NativeContext::new)))
-}
-
-pub fn get_native_jit_program_cache<'context>() -> ProgramCache<'context, ClassHash> {
-    ProgramCache::Jit(JitProgramCache::new(NATIVE_CONTEXT.get_or_init(NativeContext::new)))
-}
-
-pub fn get_native_executor<'context>(
-    class_hash: ClassHash,
-    program: &SierraProgram,
-    program_cache: &mut ProgramCache<'context, ClassHash>,
-) -> NativeExecutor<'context> {
-    match program_cache {
-        ProgramCache::Aot(cache) => {
-            let cached_executor = cache.get(&class_hash);
-            NativeExecutor::Aot(match cached_executor {
-                Some(executor) => {
-                    println!("AOT Cache Hit");
-                    executor
-                }
-                None => {
-                    println!("AOT Cache Miss");
-                    cache.compile_and_insert(class_hash, program, OptLevel::Default)
-                }
-            })
-        }
-        ProgramCache::Jit(cache) => {
-            let cached_executor = cache.get(&class_hash);
-            NativeExecutor::Jit(match cached_executor {
-                Some(executor) => {
-                    println!("JIT Cache Hit");
-                    executor
-                }
-                None => {
-                    println!("JIT Cache Miss");
-                    cache.compile_and_insert(class_hash, program, OptLevel::Default)
-                }
-            })
-        }
-    }
-}
-
 pub fn get_sierra_entry_function_id<'a>(
     matching_entrypoint: &'a ContractEntryPoint,
     sierra_program: &'a SierraProgram,
@@ -147,29 +98,21 @@ pub fn contract_entrypoint_to_entrypoint_selector(
 }
 
 pub fn run_native_executor(
-    native_executor: NativeExecutor<'_>,
+    native_executor: &AotNativeExecutor,
     sierra_entry_function_id: &FunctionId,
     call: CallEntryPoint,
-    mut syscall_handler: NativeSyscallHandler<'_, '_>,
+    mut syscall_handler: NativeSyscallHandler<'_>,
 ) -> EntryPointExecutionResult<CallInfo> {
     let stark_felts_to_native_felts = |data: &[StarkFelt]| -> Vec<Felt> {
         data.iter().map(|stark_felt| stark_felt_to_native_felt(*stark_felt)).collect_vec()
     };
 
-    let execution_result = match native_executor {
-        NativeExecutor::Aot(executor) => executor.invoke_contract_dynamic(
-            sierra_entry_function_id,
-            &stark_felts_to_native_felts(&call.calldata.0),
-            Some(call.initial_gas.into()),
-            &mut syscall_handler,
-        ),
-        NativeExecutor::Jit(executor) => executor.invoke_contract_dynamic(
-            sierra_entry_function_id,
-            &stark_felts_to_native_felts(&call.calldata.0),
-            Some(call.initial_gas.into()),
-            &mut syscall_handler,
-        ),
-    };
+    let execution_result = native_executor.invoke_contract_dynamic(
+        sierra_entry_function_id,
+        &stark_felts_to_native_felts(&call.calldata.0),
+        Some(call.initial_gas.into()),
+        &mut syscall_handler,
+    );
 
     let run_result = match execution_result {
         Ok(res) if res.failure_flag => Err(EntryPointExecutionError::NativeExecutionError {

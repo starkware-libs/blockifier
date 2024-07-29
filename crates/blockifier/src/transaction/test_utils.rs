@@ -258,7 +258,7 @@ pub fn run_invoke_tx(
     block_context: &BlockContext,
     invoke_args: InvokeTxArgs,
 ) -> TransactionExecutionResult<TransactionExecutionInfo> {
-    account_invoke_tx(invoke_args).execute(state, block_context, true, true, None)
+    account_invoke_tx(invoke_args).execute(state, block_context, true, true)
 }
 
 /// Creates a `ResourceBoundsMapping` with the given `max_amount` and `max_price` for L1 gas limits.
@@ -275,7 +275,7 @@ pub fn calculate_class_info_for_testing(contract_class: ContractClass) -> ClassI
     let sierra_program_length = match contract_class {
         ContractClass::V0(_) => 0,
         ContractClass::V1(_) => 100,
-        ContractClass::V1Sierra(_) => todo!("should this also be 100?"),
+        ContractClass::V1Native(_) => todo!("should this also be 100?"),
     };
     ClassInfo::new(&contract_class, sierra_program_length, 100).unwrap()
 }

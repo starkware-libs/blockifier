@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use cairo_native::cache::ProgramCache;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde_json::Value;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
-use starknet_api::core::{ChainId, ClassHash, ContractAddress, PatriciaKey};
+use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
 use starknet_api::hash::StarkHash;
 use starknet_api::{contract_address, patricia_key};
 
@@ -13,7 +12,7 @@ use crate::blockifier::block::{BlockInfo, GasPrices};
 use crate::bouncer::{BouncerConfig, BouncerWeights, BuiltinCount};
 use crate::context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext};
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
-use crate::execution::contract_class::{ContractClassV0, ContractClassV1, SierraContractClassV1};
+use crate::execution::contract_class::{ContractClassV0, ContractClassV1, NativeContractClassV1};
 use crate::execution::entry_point::{
     CallEntryPoint, EntryPointExecutionContext, EntryPointExecutionResult,
 };
@@ -32,16 +31,11 @@ use crate::versioned_constants::{
 impl CallEntryPoint {
     /// Executes the call directly, without account context. Limits the number of steps by resource
     /// bounds.
-    pub fn execute_directly(
-        self,
-        state: &mut dyn State,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
-    ) -> EntryPointExecutionResult<CallInfo> {
+    pub fn execute_directly(self, state: &mut dyn State) -> EntryPointExecutionResult<CallInfo> {
         self.execute_directly_given_tx_info(
             state,
             TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
             true,
-            program_cache,
         )
     }
 
@@ -50,14 +44,13 @@ impl CallEntryPoint {
         state: &mut dyn State,
         tx_info: TransactionInfo,
         limit_steps_by_resources: bool,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> EntryPointExecutionResult<CallInfo> {
         let tx_context =
             TransactionContext { block_context: BlockContext::create_for_testing(), tx_info };
         let mut context =
             EntryPointExecutionContext::new_invoke(Arc::new(tx_context), limit_steps_by_resources)
                 .unwrap();
-        self.execute(state, &mut ExecutionResources::default(), &mut context, program_cache)
+        self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 
     /// Executes the call directly in validate mode, without account context. Limits the number of
@@ -65,13 +58,11 @@ impl CallEntryPoint {
     pub fn execute_directly_in_validate_mode(
         self,
         state: &mut dyn State,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> EntryPointExecutionResult<CallInfo> {
         self.execute_directly_given_tx_info_in_validate_mode(
             state,
             TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
             true,
-            program_cache,
         )
     }
 
@@ -80,7 +71,6 @@ impl CallEntryPoint {
         state: &mut dyn State,
         tx_info: TransactionInfo,
         limit_steps_by_resources: bool,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> EntryPointExecutionResult<CallInfo> {
         let tx_context =
             TransactionContext { block_context: BlockContext::create_for_testing(), tx_info };
@@ -89,7 +79,7 @@ impl CallEntryPoint {
             limit_steps_by_resources,
         )
         .unwrap();
-        self.execute(state, &mut ExecutionResources::default(), &mut context, program_cache)
+        self.execute(state, &mut ExecutionResources::default(), &mut context)
     }
 }
 
@@ -199,7 +189,7 @@ impl ContractClassV1 {
     }
 }
 
-impl SierraContractClassV1 {
+impl NativeContractClassV1 {
     pub fn from_file(contract_path: &str) -> Self {
         let raw_contract_class = get_raw_contract_class(contract_path);
         Self::try_from_json_string(&raw_contract_class).unwrap()

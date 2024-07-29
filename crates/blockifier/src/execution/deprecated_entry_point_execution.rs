@@ -1,9 +1,8 @@
-use cairo_native::cache::ProgramCache;
 use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::{CairoArg, CairoRunner, ExecutionResources};
 use cairo_vm::vm::vm_core::VirtualMachine;
-use starknet_api::core::{ClassHash, EntryPointSelector};
+use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkHash;
 
@@ -21,10 +20,10 @@ use crate::execution::execution_utils::{
 };
 use crate::state::state_api::State;
 
-pub struct VmExecutionContext<'a, 'context> {
+pub struct VmExecutionContext<'a> {
     pub runner: CairoRunner,
     pub vm: VirtualMachine,
-    pub syscall_handler: DeprecatedSyscallHintProcessor<'a, 'context>,
+    pub syscall_handler: DeprecatedSyscallHintProcessor<'a>,
     pub initial_syscall_ptr: Relocatable,
     pub entry_point_pc: usize,
 }
@@ -36,7 +35,6 @@ pub fn execute_entry_point_call(
     state: &mut dyn State,
     resources: &mut ExecutionResources,
     context: &mut EntryPointExecutionContext,
-    cache: &mut ProgramCache<'_, ClassHash>,
 ) -> EntryPointExecutionResult<CallInfo> {
     let VmExecutionContext {
         mut runner,
@@ -44,7 +42,7 @@ pub fn execute_entry_point_call(
         mut syscall_handler,
         initial_syscall_ptr,
         entry_point_pc,
-    } = initialize_execution_context(&call, contract_class, state, resources, context, cache)?;
+    } = initialize_execution_context(&call, contract_class, state, resources, context)?;
 
     let (implicit_args, args) = prepare_call_arguments(
         &call,
@@ -71,14 +69,13 @@ pub fn execute_entry_point_call(
     )?)
 }
 
-pub fn initialize_execution_context<'a, 'context>(
+pub fn initialize_execution_context<'a>(
     call: &CallEntryPoint,
     contract_class: ContractClassV0,
     state: &'a mut dyn State,
     resources: &'a mut ExecutionResources,
     context: &'a mut EntryPointExecutionContext,
-    cache: &'a mut ProgramCache<'context, ClassHash>,
-) -> Result<VmExecutionContext<'a, 'context>, PreExecutionError> {
+) -> Result<VmExecutionContext<'a>, PreExecutionError> {
     // Resolve initial PC from EP indicator.
     let entry_point_pc = resolve_entry_point_pc(call, &contract_class)?;
 
@@ -101,7 +98,6 @@ pub fn initialize_execution_context<'a, 'context>(
         initial_syscall_ptr,
         call.storage_address,
         call.caller_address,
-        cache,
     );
 
     Ok(VmExecutionContext { runner, vm, syscall_handler, initial_syscall_ptr, entry_point_pc })
@@ -192,7 +188,7 @@ pub fn prepare_call_arguments(
 pub fn run_entry_point(
     vm: &mut VirtualMachine,
     runner: &mut CairoRunner,
-    hint_processor: &mut DeprecatedSyscallHintProcessor<'_, '_>,
+    hint_processor: &mut DeprecatedSyscallHintProcessor<'_>,
     entry_point_pc: usize,
     args: Args,
 ) -> EntryPointExecutionResult<()> {
@@ -214,7 +210,7 @@ pub fn run_entry_point(
 pub fn finalize_execution(
     mut vm: VirtualMachine,
     runner: CairoRunner,
-    syscall_handler: DeprecatedSyscallHintProcessor<'_, '_>,
+    syscall_handler: DeprecatedSyscallHintProcessor<'_>,
     call: CallEntryPoint,
     previous_resources: ExecutionResources,
     implicit_args: Vec<MaybeRelocatable>,
@@ -267,7 +263,7 @@ pub fn finalize_execution(
 pub fn validate_run(
     vm: &mut VirtualMachine,
     runner: &CairoRunner,
-    syscall_handler: &DeprecatedSyscallHintProcessor<'_, '_>,
+    syscall_handler: &DeprecatedSyscallHintProcessor<'_>,
     implicit_args: Vec<MaybeRelocatable>,
     implicit_args_end: Relocatable,
 ) -> Result<(), PostExecutionError> {

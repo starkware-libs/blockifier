@@ -43,7 +43,7 @@ fn test_calculate_contract_address() {
                 .unwrap();
 
         assert_eq!(
-            entry_point_call.execute_directly(state, None).unwrap().execution,
+            entry_point_call.execute_directly(state).unwrap().execution,
             CallExecution::from_retdata(retdata![*contract_address.0.key()])
         );
     }

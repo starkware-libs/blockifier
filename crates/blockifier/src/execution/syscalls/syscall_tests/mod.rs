@@ -28,7 +28,7 @@ fn assert_contract_uses_native(class_hash: ClassHash, state: &dyn State) {
         state
             .get_compiled_contract_class(class_hash)
             .unwrap_or_else(|_| panic!("Expected contract class at {class_hash}")),
-        ContractClass::V1Sierra(_)
+        ContractClass::V1Native(_)
     )
 }
 

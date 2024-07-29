@@ -78,7 +78,6 @@ fn fee_transfer_resources(
                 false,
             )
             .unwrap(),
-            None,
         )
         .unwrap()
         .resources

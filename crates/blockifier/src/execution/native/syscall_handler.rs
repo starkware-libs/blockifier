@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
-use cairo_native::cache::ProgramCache;
 use cairo_native::starknet::{
     BlockInfo, ExecutionInfoV2, Secp256k1Point, Secp256r1Point, StarknetSyscallHandler,
     SyscallResult, TxInfo, TxV2Info, U256,
@@ -43,7 +42,7 @@ use crate::execution::syscalls::hint_processor::{
 };
 use crate::state::state_api::State;
 use crate::transaction::objects::TransactionInfo;
-pub struct NativeSyscallHandler<'state, 'native> {
+pub struct NativeSyscallHandler<'state> {
     // Input for execution
     pub state: &'state mut dyn State,
     pub execution_resources: &'state mut ExecutionResources,
@@ -61,11 +60,9 @@ pub struct NativeSyscallHandler<'state, 'native> {
     // Additional execution result info
     pub storage_read_values: Vec<StarkFelt>,
     pub accessed_storage_keys: HashSet<StorageKey, RandomState>,
-
-    pub program_cache: &'state mut ProgramCache<'native, ClassHash>,
 }
 
-impl<'state, 'native> NativeSyscallHandler<'state, 'native> {
+impl<'state> NativeSyscallHandler<'state> {
     pub fn new(
         state: &'state mut dyn State,
         caller_address: ContractAddress,
@@ -73,8 +70,7 @@ impl<'state, 'native> NativeSyscallHandler<'state, 'native> {
         entry_point_selector: EntryPointSelector,
         execution_resources: &'state mut ExecutionResources,
         execution_context: &'state mut EntryPointExecutionContext,
-        program_cache: &'state mut ProgramCache<'native, ClassHash>,
-    ) -> NativeSyscallHandler<'state, 'native> {
+    ) -> NativeSyscallHandler<'state> {
         NativeSyscallHandler {
             state,
             caller_address,
@@ -87,12 +83,11 @@ impl<'state, 'native> NativeSyscallHandler<'state, 'native> {
             inner_calls: Vec::new(),
             storage_read_values: Vec::new(),
             accessed_storage_keys: HashSet::new(),
-            program_cache,
         }
     }
 }
 
-impl<'state, 'native> StarknetSyscallHandler for &mut NativeSyscallHandler<'state, 'native> {
+impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
     fn get_block_hash(
         &mut self,
         block_number: u64,
@@ -325,7 +320,6 @@ impl<'state, 'native> StarknetSyscallHandler for &mut NativeSyscallHandler<'stat
             ctor_context,
             wrapper_calldata,
             u64::try_from(*remaining_gas).unwrap(),
-            Some(self.program_cache),
         )
         .map_err(|error| encode_str_as_felts(&error.to_string()))?;
 
@@ -353,7 +347,7 @@ impl<'state, 'native> StarknetSyscallHandler for &mut NativeSyscallHandler<'stat
             ContractClass::V0(_) => Err(encode_str_as_felts(
                 &SyscallExecutionError::ForbiddenClassReplacement { class_hash }.to_string(),
             )),
-            ContractClass::V1(_) | ContractClass::V1Sierra(_) => {
+            ContractClass::V1(_) | ContractClass::V1Native(_) => {
                 self.state
                     .set_class_hash_at(self.contract_address, class_hash)
                     .map_err(|e| encode_str_as_felts(&e.to_string()))?;
@@ -395,12 +389,7 @@ impl<'state, 'native> StarknetSyscallHandler for &mut NativeSyscallHandler<'stat
         };
 
         let call_info = entry_point
-            .execute(
-                self.state,
-                self.execution_resources,
-                self.execution_context,
-                Some(self.program_cache),
-            )
+            .execute(self.state, self.execution_resources, self.execution_context)
             .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
         let retdata = call_info
@@ -459,12 +448,7 @@ impl<'state, 'native> StarknetSyscallHandler for &mut NativeSyscallHandler<'stat
         };
 
         let call_info = entry_point
-            .execute(
-                self.state,
-                self.execution_resources,
-                self.execution_context,
-                Some(self.program_cache),
-            )
+            .execute(self.state, self.execution_resources, self.execution_context)
             .map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
         let retdata = call_info

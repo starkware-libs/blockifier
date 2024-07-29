@@ -72,6 +72,6 @@ fn test_transaction_validator(
         BouncerConfig::create_for_testing(),
     );
 
-    let reuslt = stateful_validator.perform_validations(tx, None, None);
+    let reuslt = stateful_validator.perform_validations(tx, None);
     assert!(reuslt.is_ok(), "Validation failed: {:?}", reuslt.unwrap_err());
 }

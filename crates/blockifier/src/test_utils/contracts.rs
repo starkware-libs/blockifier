@@ -4,7 +4,7 @@ use starknet_api::hash::StarkHash;
 use starknet_api::{class_hash, contract_address, patricia_key};
 
 use crate::execution::contract_class::{
-    ContractClass, ContractClassV0, ContractClassV1, SierraContractClassV1,
+    ContractClass, ContractClassV0, ContractClassV1, NativeContractClassV1,
 };
 use crate::test_utils::{get_raw_contract_class, CairoVersion};
 
@@ -178,7 +178,7 @@ impl FeatureContract {
         match self {
             // TODO replace once vm/native is a flag
             Self::SierraTestContract | Self::SierraExecutionInfoV1Contract => {
-                SierraContractClassV1::from_file(&self.get_compiled_path()).into()
+                NativeContractClassV1::from_file(&self.get_compiled_path()).into()
             }
             _ => match self.cairo_version() {
                 CairoVersion::Cairo0 => {

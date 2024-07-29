@@ -1,7 +1,5 @@
-use std::borrow::BorrowMut;
 use std::sync::Arc;
 
-use cairo_native::cache::ProgramCache;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::calldata;
 use starknet_api::core::{ClassHash, ContractAddress, Nonce};
@@ -20,7 +18,6 @@ use crate::execution::entry_point::{
     CallEntryPoint, CallType, ConstructorContext, EntryPointExecutionContext,
 };
 use crate::execution::execution_utils::execute_deployment;
-use crate::execution::native::utils::get_native_aot_program_cache;
 use crate::state::cached_state::{CachedState, TransactionalState};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateReader};
@@ -53,22 +50,12 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
         let mut transactional_state = CachedState::create_transactional(state);
 
-        let mut empty_program_cache = get_native_aot_program_cache();
-
-        let program_cache = program_cache.unwrap_or(empty_program_cache.borrow_mut());
-
-        let execution_result = self.execute_raw(
-            &mut transactional_state,
-            block_context,
-            charge_fee,
-            validate,
-            Some(program_cache),
-        );
+        let execution_result =
+            self.execute_raw(&mut transactional_state, block_context, charge_fee, validate);
 
         match execution_result {
             Ok(value) => {
@@ -94,7 +81,6 @@ pub trait ExecutableTransaction<S: StateReader>: Sized {
         block_context: &BlockContext,
         charge_fee: bool,
         validate: bool,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutionResult<TransactionExecutionInfo>;
 }
 
@@ -105,7 +91,6 @@ pub trait Executable<S: State> {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
@@ -118,7 +103,6 @@ pub trait ValidatableTransaction {
         tx_context: Arc<TransactionContext>,
         remaining_gas: &mut u64,
         limit_steps_by_resources: bool,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutionResult<Option<CallInfo>>;
 }
 
@@ -185,7 +169,6 @@ impl<S: State> Executable<S> for DeclareTransaction {
         _resources: &mut ExecutionResources,
         _context: &mut EntryPointExecutionContext,
         _remaining_gas: &mut u64,
-        _program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.class_hash();
 
@@ -309,7 +292,6 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let class_hash = self.class_hash();
         let ctor_context = ConstructorContext {
@@ -325,7 +307,6 @@ impl<S: State> Executable<S> for DeployAccountTransaction {
             ctor_context,
             self.constructor_calldata(),
             *remaining_gas,
-            program_cache,
         )?;
         update_remaining_gas(remaining_gas, &call_info);
 
@@ -403,7 +384,6 @@ impl<S: State> Executable<S> for InvokeTransaction {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let entry_point_selector = match &self.tx {
             starknet_api::transaction::InvokeTransaction::V0(tx) => tx.entry_point_selector,
@@ -426,15 +406,14 @@ impl<S: State> Executable<S> for InvokeTransaction {
             initial_gas: *remaining_gas,
         };
 
-        let call_info =
-            execute_call.execute(state, resources, context, program_cache).map_err(|error| {
-                TransactionExecutionError::ExecutionError {
-                    error,
-                    class_hash,
-                    storage_address,
-                    selector: entry_point_selector,
-                }
-            })?;
+        let call_info = execute_call.execute(state, resources, context).map_err(|error| {
+            TransactionExecutionError::ExecutionError {
+                error,
+                class_hash,
+                storage_address,
+                selector: entry_point_selector,
+            }
+        })?;
         update_remaining_gas(remaining_gas, &call_info);
 
         Ok(Some(call_info))
@@ -528,7 +507,6 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
         resources: &mut ExecutionResources,
         context: &mut EntryPointExecutionContext,
         remaining_gas: &mut u64,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         let tx = &self.tx;
         let storage_address = tx.contract_address;
@@ -546,7 +524,7 @@ impl<S: State> Executable<S> for L1HandlerTransaction {
             initial_gas: *remaining_gas,
         };
 
-        execute_call.execute(state, resources, context, program_cache).map(Some).map_err(|error| {
+        execute_call.execute(state, resources, context).map(Some).map_err(|error| {
             TransactionExecutionError::ExecutionError {
                 error,
                 class_hash,

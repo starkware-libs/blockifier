@@ -6,6 +6,7 @@ dist
 target
 */.vscode/*
 *.DS_Store
+.envrc
 
 tmp_venv/*
 

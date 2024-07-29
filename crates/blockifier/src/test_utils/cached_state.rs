@@ -7,7 +7,7 @@ use starknet_api::core::ClassHash;
 use starknet_api::hash::StarkHash;
 
 use super::{ERC20_FULL_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH};
-use crate::execution::contract_class::{ContractClassV1, SierraContractClassV1};
+use crate::execution::contract_class::{ContractClassV1, NativeContractClassV1};
 use crate::state::cached_state::ContractClassMapping;
 use crate::test_utils::{TEST_EMPTY_CONTRACT_CLASS_HASH, TEST_ERC20_FULL_CONTRACT_CLASS_HASH};
 
@@ -15,7 +15,7 @@ pub fn get_erc20_class_hash_mapping() -> ContractClassMapping {
     HashMap::from([
         (
             class_hash!(TEST_ERC20_FULL_CONTRACT_CLASS_HASH),
-            SierraContractClassV1::from_file(ERC20_FULL_CONTRACT_PATH).into(),
+            NativeContractClassV1::from_file(ERC20_FULL_CONTRACT_PATH).into(),
         ),
         (
             class_hash!(TEST_EMPTY_CONTRACT_CLASS_HASH),

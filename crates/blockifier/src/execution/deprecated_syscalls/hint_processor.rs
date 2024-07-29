@@ -2,7 +2,6 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
 use cairo_felt::Felt252;
-use cairo_native::cache::ProgramCache;
 use cairo_vm::hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
     BuiltinHintProcessor, HintProcessorData,
 };
@@ -134,7 +133,7 @@ impl DeprecatedSyscallExecutionError {
 
 /// Executes Starknet syscalls (stateful protocol hints) during the execution of an entry point
 /// call.
-pub struct DeprecatedSyscallHintProcessor<'a, 'context> {
+pub struct DeprecatedSyscallHintProcessor<'a> {
     // Input for execution.
     pub state: &'a mut dyn State,
     pub resources: &'a mut ExecutionResources,
@@ -163,11 +162,9 @@ pub struct DeprecatedSyscallHintProcessor<'a, 'context> {
     // Transaction info. and signature segments; allocated on-demand.
     tx_signature_start_ptr: Option<Relocatable>,
     tx_info_start_ptr: Option<Relocatable>,
-
-    program_cache: &'a mut ProgramCache<'context, ClassHash>,
 }
 
-impl<'a, 'context> DeprecatedSyscallHintProcessor<'a, 'context> {
+impl<'a> DeprecatedSyscallHintProcessor<'a> {
     pub fn new(
         state: &'a mut dyn State,
         resources: &'a mut ExecutionResources,
@@ -175,7 +172,6 @@ impl<'a, 'context> DeprecatedSyscallHintProcessor<'a, 'context> {
         initial_syscall_ptr: Relocatable,
         storage_address: ContractAddress,
         caller_address: ContractAddress,
-        program_cache: &'a mut ProgramCache<'context, ClassHash>,
     ) -> Self {
         DeprecatedSyscallHintProcessor {
             state,
@@ -194,7 +190,6 @@ impl<'a, 'context> DeprecatedSyscallHintProcessor<'a, 'context> {
             builtin_hint_processor: extended_builtin_hint_processor(),
             tx_signature_start_ptr: None,
             tx_info_start_ptr: None,
-            program_cache,
         }
     }
 
@@ -321,7 +316,7 @@ impl<'a, 'context> DeprecatedSyscallHintProcessor<'a, 'context> {
         ExecuteCallback: FnOnce(
             Request,
             &mut VirtualMachine,
-            &mut DeprecatedSyscallHintProcessor<'_, 'context>,
+            &mut DeprecatedSyscallHintProcessor<'_>,
         ) -> DeprecatedSyscallResult<Response>,
     {
         let request = Request::read(vm, &mut self.syscall_ptr)?;
@@ -407,7 +402,7 @@ impl<'a, 'context> DeprecatedSyscallHintProcessor<'a, 'context> {
     }
 }
 
-impl<'context> ResourceTracker for DeprecatedSyscallHintProcessor<'_, 'context> {
+impl ResourceTracker for DeprecatedSyscallHintProcessor<'_> {
     fn consumed(&self) -> bool {
         self.context.vm_run_resources.consumed()
     }
@@ -425,7 +420,7 @@ impl<'context> ResourceTracker for DeprecatedSyscallHintProcessor<'_, 'context> 
     }
 }
 
-impl<'context> HintProcessorLogic for DeprecatedSyscallHintProcessor<'_, 'context> {
+impl HintProcessorLogic for DeprecatedSyscallHintProcessor<'_> {
     fn execute_hint(
         &mut self,
         vm: &mut VirtualMachine,
@@ -477,14 +472,10 @@ pub fn read_call_params(
 pub fn execute_inner_call(
     call: CallEntryPoint,
     vm: &mut VirtualMachine,
-    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_, '_>,
+    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
 ) -> DeprecatedSyscallResult<ReadOnlySegment> {
-    let call_info = call.execute(
-        syscall_handler.state,
-        syscall_handler.resources,
-        syscall_handler.context,
-        Some(syscall_handler.program_cache),
-    )?;
+    let call_info =
+        call.execute(syscall_handler.state, syscall_handler.resources, syscall_handler.context)?;
     let retdata = &call_info.execution.retdata.0;
     let retdata: Vec<MaybeRelocatable> =
         retdata.iter().map(|&x| MaybeRelocatable::from(stark_felt_to_felt(x))).collect();
@@ -495,7 +486,7 @@ pub fn execute_inner_call(
 }
 
 pub fn execute_library_call(
-    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_, '_>,
+    syscall_handler: &mut DeprecatedSyscallHintProcessor<'_>,
     vm: &mut VirtualMachine,
     class_hash: ClassHash,
     code_address: Option<ContractAddress>,

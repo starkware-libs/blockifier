@@ -244,12 +244,12 @@ fn test_run_parallel_txs() {
     let block_context_2 = block_context.clone();
     // Execute transactions
     let thread_handle_1 = thread::spawn(move || {
-        let result = account_tx_1.execute(&mut state_1, &block_context_1, true, true, None);
+        let result = account_tx_1.execute(&mut state_1, &block_context_1, true, true);
         assert_eq!(result.is_err(), enforce_fee);
     });
 
     let thread_handle_2 = thread::spawn(move || {
-        account_tx_2.execute(&mut state_2, &block_context_2, true, true, None).unwrap();
+        account_tx_2.execute(&mut state_2, &block_context_2, true, true).unwrap();
 
         // Check that the constructor wrote ctor_arg to the storage.
         let storage_key = get_storage_var_address("ctor_arg", &[]);

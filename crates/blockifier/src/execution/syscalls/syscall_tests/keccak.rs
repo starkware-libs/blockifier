@@ -25,7 +25,7 @@ fn test_keccak(test_contract: FeatureContract, expected_gas: u64) {
     };
 
     assert_eq!(
-        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution { gas_consumed: expected_gas, ..CallExecution::from_retdata(retdata![]) }
     );
 }

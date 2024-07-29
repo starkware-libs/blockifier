@@ -36,7 +36,7 @@ fn test_storage_read_write(test_contract: FeatureContract, expected_gas: u64) {
     };
     let storage_address = entry_point_call.storage_address;
     assert_eq!(
-        entry_point_call.execute_directly(&mut state, None).unwrap().execution,
+        entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
             retdata: retdata![stark_felt!(value)],
             gas_consumed: expected_gas,

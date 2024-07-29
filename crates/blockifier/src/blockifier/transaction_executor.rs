@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use cairo_native::cache::ProgramCache;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::FoldWhile::{Continue, Done};
 use itertools::Itertools;
@@ -73,18 +72,12 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         tx: &Transaction,
         charge_fee: bool,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutorResult<TransactionExecutionInfo> {
         let mut transactional_state = CachedState::create_transactional(&mut self.state);
         let validate = true;
 
-        let tx_execution_result = tx.execute_raw(
-            &mut transactional_state,
-            &self.block_context,
-            charge_fee,
-            validate,
-            program_cache,
-        );
+        let tx_execution_result =
+            tx.execute_raw(&mut transactional_state, &self.block_context, charge_fee, validate);
         match tx_execution_result {
             Ok(tx_execution_info) => {
                 self.bouncer.try_update(
@@ -109,10 +102,9 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         txs: &[Transaction],
         charge_fee: bool,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         if !self.config.concurrency_config.enabled {
-            self.execute_txs_sequentially(txs, charge_fee, program_cache)
+            self.execute_txs_sequentially(txs, charge_fee)
         } else {
             txs.chunks(self.config.concurrency_config.chunk_size)
                 .fold_while(Vec::new(), |mut results, chunk| {
@@ -142,14 +134,9 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         txs: &[Transaction],
         charge_fee: bool,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> Vec<TransactionExecutorResult<TransactionExecutionInfo>> {
         let mut results_to_return = Vec::new();
-        let results = if let Some(cache) = program_cache {
-            txs.iter().map(|tx| self.execute(tx, charge_fee, Some(cache))).collect_vec()
-        } else {
-            txs.iter().map(|tx| self.execute(tx, charge_fee, None)).collect_vec()
-        };
+        let results = txs.iter().map(|tx| self.execute(tx, charge_fee)).collect_vec();
 
         for result in results {
             match result {
@@ -166,7 +153,6 @@ impl<S: StateReader> TransactionExecutor<S> {
         &mut self,
         account_tx: &AccountTransaction,
         mut remaining_gas: u64,
-        program_cache: Option<&mut ProgramCache<'_, ClassHash>>,
     ) -> TransactionExecutorResult<(Option<CallInfo>, TransactionReceipt)> {
         let mut execution_resources = ExecutionResources::default();
         let tx_context = Arc::new(self.block_context.to_tx_context(account_tx));
@@ -186,7 +172,6 @@ impl<S: StateReader> TransactionExecutor<S> {
             tx_context.clone(),
             &mut remaining_gas,
             limit_steps_by_resources,
-            program_cache,
         )?;
 
         let tx_receipt = TransactionReceipt::from_account_tx(

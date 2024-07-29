@@ -13,6 +13,8 @@ use cairo_lang_starknet_classes::contract_class::{
 };
 use cairo_lang_starknet_classes::NestedIntList;
 use cairo_lang_utils::bigint::BigUintAsHex;
+use cairo_native::executor::AotNativeExecutor;
+use cairo_native::OptLevel;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
@@ -51,11 +53,11 @@ pub mod test;
 
 pub type ContractClassResult<T> = Result<T, ContractClassError>;
 
-#[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
+#[derive(Clone, Debug, PartialEq, derive_more::From)]
 pub enum ContractClass {
     V0(ContractClassV0),
     V1(ContractClassV1),
-    V1Sierra(SierraContractClassV1),
+    V1Native(NativeContractClassV1),
 }
 
 impl ContractClass {
@@ -63,7 +65,7 @@ impl ContractClass {
         match self {
             ContractClass::V0(class) => class.constructor_selector(),
             ContractClass::V1(class) => class.constructor_selector(),
-            ContractClass::V1Sierra(class) => class.constructor_selector(),
+            ContractClass::V1Native(class) => class.constructor_selector(),
         }
     }
 
@@ -71,7 +73,7 @@ impl ContractClass {
         match self {
             ContractClass::V0(class) => class.estimate_casm_hash_computation_resources(),
             ContractClass::V1(class) => class.estimate_casm_hash_computation_resources(),
-            ContractClass::V1Sierra(_) => todo!("sierra estimate casm hash computation resources"),
+            ContractClass::V1Native(_) => todo!("sierra estimate casm hash computation resources"),
         }
     }
 
@@ -84,7 +86,7 @@ impl ContractClass {
                 panic!("get_visited_segments is not supported for v0 contracts.")
             }
             ContractClass::V1(class) => class.get_visited_segments(visited_pcs),
-            ContractClass::V1Sierra(_) => todo!("sierra visited segments"),
+            ContractClass::V1Native(_) => todo!("sierra visited segments"),
         }
     }
 
@@ -92,7 +94,7 @@ impl ContractClass {
         match self {
             ContractClass::V0(class) => class.bytecode_length(),
             ContractClass::V1(class) => class.bytecode_length(),
-            ContractClass::V1Sierra(_) => todo!("sierra estimate casm hash computation resources"),
+            ContractClass::V1Native(_) => todo!("sierra estimate casm hash computation resources"),
         }
     }
 }
@@ -516,7 +518,7 @@ impl ClassInfo {
         let (contract_class_version, condition) = match contract_class {
             ContractClass::V0(_) => (0, sierra_program_length == 0),
             ContractClass::V1(_) => (1, sierra_program_length > 0),
-            ContractClass::V1Sierra(_) => (1, sierra_program_length > 0),
+            ContractClass::V1Native(_) => (1, sierra_program_length > 0),
         };
 
         if condition {
@@ -530,29 +532,44 @@ impl ClassInfo {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SierraContractClassV1(pub Arc<SierraContractClassV1Inner>);
-impl Deref for SierraContractClassV1 {
-    type Target = SierraContractClassV1Inner;
+#[derive(Clone, Debug, PartialEq)]
+pub struct NativeContractClassV1(pub Arc<NativeContractClassV1Inner>);
+impl Deref for NativeContractClassV1 {
+    type Target = NativeContractClassV1Inner;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl SierraContractClassV1 {
+impl NativeContractClassV1 {
     fn constructor_selector(&self) -> Option<EntryPointSelector> {
         let entrypoint = self.deref().entry_points_by_type.constructor.first()?;
         Some(contract_entrypoint_to_entrypoint_selector(entrypoint))
     }
 
-    pub fn try_from_json_string(
-        raw_contract_class: &str,
-    ) -> Result<SierraContractClassV1, ProgramError> {
-        let sierra_contract_class: SierraContractClass = serde_json::from_str(raw_contract_class)?;
-        let contract_class: SierraContractClassV1 = sierra_contract_class.try_into()?;
+    pub fn try_from_json_string(raw_contract_class: &str) -> Result<Self, ProgramError> {
+        fn compile(sierra_program: &SierraProgram) -> AotNativeExecutor {
+            let native_context = cairo_native::context::NativeContext::new();
+            let native_program = native_context.compile(sierra_program, None).unwrap();
+            AotNativeExecutor::from_native_module(native_program, OptLevel::Default)
+        }
 
-        Ok(contract_class)
+        let sierra_contract_class: SierraContractClass = serde_json::from_str(raw_contract_class)?;
+        // todo(rodro): we are having two instances of a sierra program, one it's object form
+        // and another in its felt encoded form. This can be avoided by either:
+        //   1. Having access to the encoding/decoding functions
+        //   2. Refactoring the code on the Cairo mono-repo
+
+        let sierra_program = sierra_contract_class.extract_sierra_program().unwrap();
+        let executor = compile(&sierra_program);
+
+        Ok(Self(Arc::new(NativeContractClassV1Inner {
+            sierra_program,
+            entry_points_by_type: sierra_contract_class.entry_points_by_type,
+            sierra_program_raw: sierra_contract_class.sierra_program,
+            executor,
+        })))
     }
 
     pub fn to_casm_contract_class(
@@ -571,26 +588,23 @@ impl SierraContractClassV1 {
     }
 }
 
-impl TryFrom<SierraContractClass> for SierraContractClassV1 {
-    // TODO error type
-    type Error = ProgramError;
-
-    fn try_from(class: SierraContractClass) -> Result<Self, Self::Error> {
-        // todo(rodro): we are having two instances of a sierra program, one it's object form
-        // and another in its felt encoded form. This can be avoided by either:
-        //   1. Having access to the encoding/decoding functions
-        //   2. Refactoring the code on the Cairo mono-repo
-        Ok(Self(Arc::new(SierraContractClassV1Inner {
-            sierra_program: class.extract_sierra_program().unwrap(),
-            entry_points_by_type: class.entry_points_by_type,
-            sierra_program_raw: class.sierra_program,
-        })))
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SierraContractClassV1Inner {
+#[derive(Debug)]
+pub struct NativeContractClassV1Inner {
+    // todo(xrvdg) can we make sierra_program private such that it
+    // is only available for debugging purposes?
+    // For now execute_entry_point_call needs it
+    // to get the entry function
     pub sierra_program: SierraProgram,
     pub entry_points_by_type: SierraContractEntryPoints,
     sierra_program_raw: Vec<BigUintAsHex>,
+    pub executor: AotNativeExecutor,
+}
+
+// Manual implementation as the executor has no comparison
+impl PartialEq for NativeContractClassV1Inner {
+    fn eq(&self, other: &Self) -> bool {
+        self.sierra_program == other.sierra_program
+            && self.entry_points_by_type == other.entry_points_by_type
+            && self.sierra_program_raw == other.sierra_program_raw
+    }
 }

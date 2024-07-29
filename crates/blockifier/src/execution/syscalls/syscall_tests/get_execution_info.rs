@@ -296,10 +296,11 @@ fn test_get_execution_info(
     };
 
     let result = match execution_mode {
-        ExecutionMode::Validate => entry_point_call
-            .execute_directly_given_tx_info_in_validate_mode(state, tx_info, false, None),
+        ExecutionMode::Validate => {
+            entry_point_call.execute_directly_given_tx_info_in_validate_mode(state, tx_info, false)
+        }
         ExecutionMode::Execute => {
-            entry_point_call.execute_directly_given_tx_info(state, tx_info, false, None)
+            entry_point_call.execute_directly_given_tx_info(state, tx_info, false)
         }
     };
 
