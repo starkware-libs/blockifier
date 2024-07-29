@@ -210,7 +210,7 @@ impl EntryPointExecutionContext {
             }
             TransactionInfo::Current(context) => {
                 // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
-                // convertion works.
+                // conversion works.
                 context
                     .l1_resource_bounds()?
                     .max_amount

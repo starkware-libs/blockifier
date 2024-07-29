@@ -298,7 +298,7 @@ pub struct OsResources {
     // Mapping from every syscall to its execution resources in the OS (e.g., amount of Cairo
     // steps).
     // TODO(Arni, 14/6/2023): Update `GetBlockHash` values.
-    // TODO(ilya): Consider moving the resources of a keccak round to a seperate dict.
+    // TODO(ilya): Consider moving the resources of a keccak round to a separate dict.
     execute_syscalls: HashMap<SyscallSelector, ExecutionResources>,
     // Mapping from every transaction to its extra execution resources in the OS,
     // i.e., resources that don't count during the execution itself.
@@ -509,7 +509,7 @@ pub struct OsConstants {
 }
 
 impl OsConstants {
-    // List of additinal os constants, beside the gas cost and validate rounding constants, that are
+    // List of additional os constants, beside the gas cost and validate rounding constants, that are
     // not used by the blockifier but included for transparency. These constanst will be ignored
     // during the creation of the struct containing the gas costs.
 
