@@ -203,7 +203,7 @@ impl AccountTransaction {
                     return Err(TransactionFeeError::MaxL1GasAmountTooLow {
                         max_l1_gas_amount,
                         // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why
-                        // the convertion works.
+                        // the conversion works.
                         minimal_l1_gas_amount: (minimal_l1_gas_amount
                             .try_into()
                             .expect("Failed to convert u128 to u64.")),
