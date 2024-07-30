@@ -1,52 +1,87 @@
 use std::cmp::min;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, TryLockError};
 
+use crate::concurrency::utils::lock_mutex_in_array;
 use crate::concurrency::TxIndex;
 
 #[cfg(test)]
 #[path = "scheduler_test.rs"]
 pub mod test;
 
-// TODO(Avi, 01/04/2024): Remove dead_code attribute.
-#[allow(dead_code)]
+#[cfg(test)]
+#[path = "flow_test.rs"]
+pub mod flow_test;
+
+pub struct TransactionCommitter<'a> {
+    scheduler: &'a Scheduler,
+    commit_index_guard: MutexGuard<'a, usize>,
+}
+
+impl<'a> TransactionCommitter<'a> {
+    pub fn new(scheduler: &'a Scheduler, commit_index_guard: MutexGuard<'a, usize>) -> Self {
+        Self { scheduler, commit_index_guard }
+    }
+
+    /// Tries to commit the next uncommitted transaction in the chunk. Returns the index of the
+    /// transaction to commit if successful, or None if the transaction is not yet executed.
+    pub fn try_commit(&mut self) -> Option<usize> {
+        if self.scheduler.done() {
+            return None;
+        };
+        assert!(
+            *self.commit_index_guard < self.scheduler.chunk_size,
+            "The commit index must be less than the chunk size, since the scheduler is not done."
+        );
+
+        let mut status = self.scheduler.lock_tx_status(*self.commit_index_guard);
+        if *status != TransactionStatus::Executed {
+            return None;
+        }
+        *status = TransactionStatus::Committed;
+        *self.commit_index_guard += 1;
+        if *self.commit_index_guard == self.scheduler.chunk_size {
+            self.scheduler.done_marker.store(true, Ordering::Release);
+        }
+        Some(*self.commit_index_guard - 1)
+    }
+
+    /// Halts the scheduler. Decrements the commit index to indicate that the final transaction to
+    /// commit has been excluded from the block.
+    pub fn halt_scheduler(&mut self) {
+        assert!(*self.commit_index_guard > 0, "Commit index underflow.");
+        *self.commit_index_guard -= 1;
+
+        self.scheduler.halt();
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Scheduler {
     execution_index: AtomicUsize,
     validation_index: AtomicUsize,
-    /// Read twice upon checking the chunk completion. Used to detect if validation or execution
-    /// index decreased from their observed values after ensuring that the number of active tasks
-    /// is zero.
-    decrease_counter: AtomicUsize,
-    n_active_tasks: AtomicUsize,
+    // The index of the next transaction to commit.
+    commit_index: Mutex<usize>,
     chunk_size: usize,
     // TODO(Avi, 15/05/2024): Consider using RwLock instead of Mutex.
     tx_statuses: Box<[Mutex<TransactionStatus>]>,
-    /// Updated by the `check_done` procedure, providing a cheap way for all threads to exit their
-    /// main loops.
+    // Set to true when all transactions have been committed, or when calling the halt_scheduler
+    // procedure, providing a cheap way for all threads to exit their main loops.
     done_marker: AtomicBool,
 }
 
-// TODO(Avi, 01/04/2024): Remove dead_code attribute.
-#[allow(dead_code)]
 impl Scheduler {
     pub fn new(chunk_size: usize) -> Scheduler {
         Scheduler {
             execution_index: AtomicUsize::new(0),
             validation_index: AtomicUsize::new(chunk_size),
-            decrease_counter: AtomicUsize::new(0),
-            n_active_tasks: AtomicUsize::new(0),
+            commit_index: Mutex::new(0),
             chunk_size,
             tx_statuses: std::iter::repeat_with(|| Mutex::new(TransactionStatus::ReadyToExecute))
                 .take(chunk_size)
                 .collect(),
             done_marker: AtomicBool::new(false),
         }
-    }
-
-    /// Returns the done marker.
-    pub fn done(&self) -> bool {
-        self.done_marker.load(Ordering::Acquire)
     }
 
     pub fn next_task(&self) -> Task {
@@ -58,7 +93,7 @@ impl Scheduler {
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
 
         if min(index_to_validate, index_to_execute) >= self.chunk_size {
-            return Task::NoTask;
+            return Task::NoTaskAvailable;
         }
 
         if index_to_validate < index_to_execute {
@@ -71,7 +106,7 @@ impl Scheduler {
             return Task::ExecutionTask(tx_index);
         }
 
-        Task::NoTask
+        Task::AskForTask
     }
 
     /// Updates the Scheduler that an execution task has been finished and triggers the creation of
@@ -79,10 +114,7 @@ impl Scheduler {
     /// already scheduled.
     pub fn finish_execution(&self, tx_index: TxIndex) {
         self.set_executed_status(tx_index);
-        if self.validation_index.load(Ordering::Acquire) > tx_index {
-            self.decrease_validation_index(tx_index);
-        }
-        self.safe_decrement_n_active_tasks();
+        self.decrease_validation_index(tx_index);
     }
 
     pub fn try_validation_abort(&self, tx_index: TxIndex) -> bool {
@@ -94,50 +126,47 @@ impl Scheduler {
         false
     }
 
-    /// Updates the Scheduler that a validation task has been finished and triggers the creation of
-    /// new tasks in case of failure: schedules validation for higher transactions + re-executes the
-    /// current transaction (if ready).
-    pub fn finish_validation(&self, tx_index: TxIndex, aborted: bool) -> Option<Task> {
-        if aborted {
-            self.set_ready_status(tx_index);
-            if self.execution_index.load(Ordering::Acquire) > tx_index
-                && self.try_incarnate(tx_index)
-            {
-                return Some(Task::ExecutionTask(tx_index));
+    /// Updates the Scheduler that a validation task has aborted and triggers the creation of new
+    /// tasks: schedules validation for higher transactions + re-executes the current transaction
+    /// (if ready).
+    pub fn finish_abort(&self, tx_index: TxIndex) -> Task {
+        self.set_ready_status(tx_index);
+        if self.execution_index.load(Ordering::Acquire) > tx_index && self.try_incarnate(tx_index) {
+            Task::ExecutionTask(tx_index)
+        } else {
+            Task::AskForTask
+        }
+    }
+
+    /// This method is called after a transaction gets re-executed during a commit. It decreases the
+    /// validation index to ensure that higher transactions are validated. There is no need to set
+    /// the transaction status to Executed, as it is already set to Committed.
+    pub fn finish_execution_during_commit(&self, tx_index: TxIndex) {
+        self.decrease_validation_index(tx_index + 1);
+    }
+
+    /// Tries to takes the lock on the commit index. Returns a `TransactionCommitter` if successful,
+    /// or None if the lock is already taken.
+    pub fn try_enter_commit_phase(&self) -> Option<TransactionCommitter<'_>> {
+        match self.commit_index.try_lock() {
+            Ok(guard) => Some(TransactionCommitter::new(self, guard)),
+            Err(TryLockError::WouldBlock) => None,
+            Err(TryLockError::Poisoned(error)) => {
+                panic!("Commit index is poisoned. Data: {:?}.", *error.get_ref())
             }
         }
-        self.safe_decrement_n_active_tasks();
-        None
     }
 
-    /// Checks if all transactions have been executed and validated.
-    fn check_done(&self) {
-        let observed_decrease_counter = self.decrease_counter.load(Ordering::Acquire);
-
-        if min(
-            self.validation_index.load(Ordering::Acquire),
-            self.execution_index.load(Ordering::Acquire),
-        ) >= self.chunk_size
-            && self.n_active_tasks.load(Ordering::Acquire) == 0
-            && observed_decrease_counter == self.decrease_counter.load(Ordering::Acquire)
-        {
-            self.done_marker.store(true, Ordering::Release);
-        }
+    pub fn get_n_committed_txs(&self) -> usize {
+        *self.commit_index.lock().unwrap()
     }
 
-    fn safe_decrement_n_active_tasks(&self) {
-        let previous_n_active_tasks = self.n_active_tasks.fetch_sub(1, Ordering::SeqCst);
-        assert!(previous_n_active_tasks > 0, "n_active_tasks underflow");
+    pub fn halt(&self) {
+        self.done_marker.store(true, Ordering::Release);
     }
 
     fn lock_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {
-        self.tx_statuses[tx_index].lock().unwrap_or_else(|error| {
-            panic!(
-                "Status of transaction index {} is poisoned. Data: {:?}.",
-                tx_index,
-                *error.get_ref()
-            )
-        })
+        lock_mutex_in_array(&self.tx_statuses, tx_index)
     }
 
     fn set_executed_status(&self, tx_index: TxIndex) {
@@ -163,19 +192,7 @@ impl Scheduler {
     }
 
     fn decrease_validation_index(&self, target_index: TxIndex) {
-        let previous_validation_index =
-            self.validation_index.fetch_min(target_index, Ordering::SeqCst);
-        if target_index < previous_validation_index {
-            self.decrease_counter.fetch_add(1, Ordering::SeqCst);
-        }
-    }
-
-    fn decrease_execution_index(&self, target_index: TxIndex) {
-        let previous_execution_index =
-            self.execution_index.fetch_min(target_index, Ordering::SeqCst);
-        if target_index < previous_execution_index {
-            self.decrease_counter.fetch_add(1, Ordering::SeqCst);
-        }
+        self.validation_index.fetch_min(target_index, Ordering::SeqCst);
     }
 
     /// Updates a transaction's status to `Executing` if it is ready to execute.
@@ -187,17 +204,14 @@ impl Scheduler {
                 return true;
             }
         }
-        self.safe_decrement_n_active_tasks();
         false
     }
 
     fn next_version_to_validate(&self) -> Option<TxIndex> {
         let index_to_validate = self.validation_index.load(Ordering::Acquire);
         if index_to_validate >= self.chunk_size {
-            self.check_done();
             return None;
         }
-        self.n_active_tasks.fetch_add(1, Ordering::SeqCst);
         let index_to_validate = self.validation_index.fetch_add(1, Ordering::SeqCst);
         if index_to_validate < self.chunk_size {
             let status = self.lock_tx_status(index_to_validate);
@@ -205,17 +219,14 @@ impl Scheduler {
                 return Some(index_to_validate);
             }
         }
-        self.safe_decrement_n_active_tasks();
         None
     }
 
     fn next_version_to_execute(&self) -> Option<TxIndex> {
         let index_to_execute = self.execution_index.load(Ordering::Acquire);
         if index_to_execute >= self.chunk_size {
-            self.check_done();
             return None;
         }
-        self.n_active_tasks.fetch_add(1, Ordering::SeqCst);
         let index_to_execute = self.execution_index.fetch_add(1, Ordering::SeqCst);
         if self.try_incarnate(index_to_execute) {
             return Some(index_to_execute);
@@ -223,12 +234,22 @@ impl Scheduler {
         None
     }
 
-    #[cfg(test)]
-    fn set_tx_status(&self, tx_index: TxIndex, status: TransactionStatus) {
+    /// Returns the done marker.
+    fn done(&self) -> bool {
+        self.done_marker.load(Ordering::Acquire)
+    }
+
+    #[cfg(any(feature = "testing", test))]
+    pub fn set_tx_status(&self, tx_index: TxIndex, status: TransactionStatus) {
         if tx_index < self.chunk_size {
             let mut tx_status = self.lock_tx_status(tx_index);
             *tx_status = status;
         }
+    }
+
+    #[cfg(any(feature = "testing", test))]
+    pub fn get_tx_status(&self, tx_index: TxIndex) -> MutexGuard<'_, TransactionStatus> {
+        self.lock_tx_status(tx_index)
     }
 }
 
@@ -236,16 +257,16 @@ impl Scheduler {
 pub enum Task {
     ExecutionTask(TxIndex),
     ValidationTask(TxIndex),
-    NoTask,
+    AskForTask,
+    NoTaskAvailable,
     Done,
 }
 
-// TODO(Barak, 01/04/2024): Remove dead_code attribute.
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum TransactionStatus {
+pub enum TransactionStatus {
     ReadyToExecute,
     Executing,
     Executed,
     Aborting,
+    Committed,
 }

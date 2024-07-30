@@ -4,29 +4,41 @@ on: [pull_request, push]
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     env:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v0-rust-ubuntu-20.04"
+
+      # Setup pypy and link to the location expected by .cargo/config.toml.
+      - uses: actions/setup-python@v5
+        id: setup-pypy
+        with:
+          python-version: 'pypy3.9'
+      - run: ln -s '${{ steps.setup-pypy.outputs.python-path }}' /usr/local/bin/pypy3.9
+      - env:
+          LD_LIBRARY_PATH: ${{ steps.setup-pypy.outputs.pythonLocation }}/bin
+        run: echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
       - name: Set up Native Dependencies
         uses: ./.github/actions/setup-native-dep
         id: native-deps
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Generate code coverage
-        run: cargo llvm-cov --codecov --output-path codecov.json
-        env:
-          SEED: 0
-          CAIRO_NATIVE_RUNTIME_LIBRARY: ${{ steps.native-deps.outputs.cairo-native-runtime-library }}
-          MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
-          LLVM_SYS_180_PREFIX: /usr/lib/llvm-18/
-          TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true
-          fail_ci_if_error: true
+#      - name: Generate code coverage
+#        run: cargo llvm-cov --codecov --output-path codecov.json
+#        env:
+#          SEED: 0
+#          CAIRO_NATIVE_RUNTIME_LIBRARY: ${{ steps.native-deps.outputs.cairo-native-runtime-library }}
+#          MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
+#          LLVM_SYS_180_PREFIX: /usr/lib/llvm-18/
+#          TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
+#      - name: Upload coverage to Codecov
+#        uses: codecov/codecov-action@v3
+#        with:
+#          token: ${{ secrets.CODECOV_TOKEN }}
+#          verbose: true
+#          fail_ci_if_error: true

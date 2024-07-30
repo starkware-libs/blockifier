@@ -1,5 +1,5 @@
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
+use starknet_types_core::felt::Felt;
 use thiserror::Error;
 
 use crate::context::TransactionContext;
@@ -16,13 +16,13 @@ use crate::transaction::objects::{
 pub enum FeeCheckError {
     #[error("Insufficient max L1 gas: max amount: {max_amount}, actual used: {actual_amount}.")]
     MaxL1GasAmountExceeded { max_amount: u128, actual_amount: u128 },
-    #[error("Insufficient max fee: max fee: {max_fee:?}, actual fee: {actual_fee:?}")]
+    #[error("Insufficient max fee: max fee: {}, actual fee: {}.", max_fee.0, actual_fee.0)]
     MaxFeeExceeded { max_fee: Fee, actual_fee: Fee },
     #[error(
-        "Insufficient fee token balance. Fee: {fee:?}, balance: low/high \
-         {balance_low:?}/{balance_high:?}."
+        "Insufficient fee token balance. Fee: {}, balance: low/high \
+         {balance_low}/{balance_high}.", fee.0
     )]
-    InsufficientFeeTokenBalance { fee: Fee, balance_low: StarkFelt, balance_high: StarkFelt },
+    InsufficientFeeTokenBalance { fee: Fee, balance_low: Felt, balance_high: Felt },
 }
 
 /// This struct holds the result of fee checks: recommended fee to charge (useful in post-execution

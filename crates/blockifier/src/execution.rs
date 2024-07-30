@@ -10,4 +10,5 @@ pub mod errors;
 pub mod execution_utils;
 pub mod hint_code;
 pub mod native;
+pub mod stack_trace;
 pub mod syscalls;

@@ -17,18 +17,24 @@ on:
 
 jobs:
   verify_cairo_file_dependencies:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          components: rustfmt
-          toolchain: nightly-2024-01-12
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-          cache: 'pip'
+          prefix-key: "v0-rust-ubuntu-20.04"
+
+      # Setup pypy and link to the location expected by .cargo/config.toml.
+      - uses: actions/setup-python@v5
+        id: setup-pypy
+        with:
+          python-version: 'pypy3.9'
+      - run: ln -s '${{ steps.setup-pypy.outputs.python-path }}' /usr/local/bin/pypy3.9
+      - env:
+          LD_LIBRARY_PATH: ${{ env.Python3_ROOT_DIR }}/bin
+        run: echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+
       - run:
           pip install -r crates/blockifier/tests/requirements.txt;
           cargo test verify_feature_contracts -- --include-ignored

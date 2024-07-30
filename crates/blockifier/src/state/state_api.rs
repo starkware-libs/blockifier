@@ -1,9 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
+use super::cached_state::{ContractClassMapping, StateMaps};
 use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::sierra_types::next_storage_key;
 use crate::execution::contract_class::ContractClass;
@@ -29,7 +30,7 @@ pub trait StateReader {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt>;
+    ) -> StateResult<Felt>;
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
@@ -54,7 +55,7 @@ pub trait StateReader {
         &mut self,
         contract_address: ContractAddress,
         fee_token_address: ContractAddress,
-    ) -> Result<(StarkFelt, StarkFelt), StateError> {
+    ) -> Result<(Felt, Felt), StateError> {
         let low_key = get_fee_token_var_address(contract_address);
         let high_key = next_storage_key(&low_key)?;
         let low = self.get_storage_at(fee_token_address, low_key)?;
@@ -74,7 +75,7 @@ pub trait State: StateReader {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) -> StateResult<()>;
 
     /// Increments the nonce of the given contract instance.
@@ -107,4 +108,14 @@ pub trait State: StateReader {
     // TODO(lior): Once we have a BlockResources object, move this logic there. Make sure reverted
     //   entry points do not affect the final set of PCs.
     fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>);
+}
+
+/// A class defining the API for updating a state with transactions writes.
+pub trait UpdatableState: StateReader {
+    fn apply_writes(
+        &mut self,
+        writes: &StateMaps,
+        class_hash_to_class: &ContractClassMapping,
+        visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
+    );
 }

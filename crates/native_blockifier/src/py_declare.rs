@@ -9,6 +9,7 @@ use starknet_api::transaction::{
     AccountDeploymentData, DeclareTransactionV0V1, DeclareTransactionV2, DeclareTransactionV3, Fee,
     PaymasterData, ResourceBoundsMapping, Tip, TransactionHash, TransactionSignature,
 };
+use starknet_types_core::felt::Felt;
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_transaction::{PyClassInfo, PyDataAvailabilityMode, PyResourceBoundsMapping};
@@ -102,32 +103,29 @@ pub fn py_declare(
     py_tx: &PyAny,
     py_class_info: PyClassInfo,
 ) -> NativeBlockifierResult<DeclareTransaction> {
-    let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
-    let tx = match version {
-        0 => {
-            let py_declare_tx: PyDeclareTransactionV0V1 = py_tx.extract()?;
-            let declare_tx = DeclareTransactionV0V1::try_from(py_declare_tx)?;
-            Ok(starknet_api::transaction::DeclareTransaction::V0(declare_tx))
-        }
-        1 => {
-            let py_declare_tx: PyDeclareTransactionV0V1 = py_tx.extract()?;
-            let declare_tx = DeclareTransactionV0V1::try_from(py_declare_tx)?;
-            Ok(starknet_api::transaction::DeclareTransaction::V1(declare_tx))
-        }
-        2 => {
-            let py_declare_tx: PyDeclareTransactionV2 = py_tx.extract()?;
-            let declare_tx = DeclareTransactionV2::try_from(py_declare_tx)?;
-            Ok(starknet_api::transaction::DeclareTransaction::V2(declare_tx))
-        }
-        3 => {
-            let py_declare_tx: PyDeclareTransactionV3 = py_tx.extract()?;
-            let declare_tx = DeclareTransactionV3::try_from(py_declare_tx)?;
-            Ok(starknet_api::transaction::DeclareTransaction::V3(declare_tx))
-        }
-        _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
+    let version = py_attr::<PyFelt>(py_tx, "version")?.0;
+    // TODO: Make TransactionVersion an enum and use match here.
+    let tx = if version == Felt::ZERO {
+        let py_declare_tx: PyDeclareTransactionV0V1 = py_tx.extract()?;
+        let declare_tx = DeclareTransactionV0V1::try_from(py_declare_tx)?;
+        Ok(starknet_api::transaction::DeclareTransaction::V0(declare_tx))
+    } else if version == Felt::ONE {
+        let py_declare_tx: PyDeclareTransactionV0V1 = py_tx.extract()?;
+        let declare_tx = DeclareTransactionV0V1::try_from(py_declare_tx)?;
+        Ok(starknet_api::transaction::DeclareTransaction::V1(declare_tx))
+    } else if version == Felt::TWO {
+        let py_declare_tx: PyDeclareTransactionV2 = py_tx.extract()?;
+        let declare_tx = DeclareTransactionV2::try_from(py_declare_tx)?;
+        Ok(starknet_api::transaction::DeclareTransaction::V2(declare_tx))
+    } else if version == Felt::THREE {
+        let py_declare_tx: PyDeclareTransactionV3 = py_tx.extract()?;
+        let declare_tx = DeclareTransactionV3::try_from(py_declare_tx)?;
+        Ok(starknet_api::transaction::DeclareTransaction::V3(declare_tx))
+    } else {
+        Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::Declare,
-            version,
-        }),
+            version: version.to_biguint(),
+        })
     }?;
     let tx_hash = TransactionHash(py_attr::<PyFelt>(py_tx, "hash_value")?.0);
     let class_info = PyClassInfo::try_from(py_class_info, &tx)?;

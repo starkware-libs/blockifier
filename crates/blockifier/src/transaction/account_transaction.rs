@@ -4,22 +4,23 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::calldata;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Fee, ResourceBounds, TransactionVersion};
+use starknet_types_core::felt::Felt;
 
-use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
-use crate::abi::sierra_types::next_storage_key;
+use crate::abi::abi_utils::selector_from_name;
 use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, Retdata};
 use crate::execution::contract_class::ContractClass;
 use crate::execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext};
 use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::fee_checks::{FeeCheckReportFields, PostExecutionReport};
-use crate::fee::fee_utils::{get_fee_by_gas_vector, verify_can_pay_committed_bounds};
+use crate::fee::fee_utils::{
+    get_fee_by_gas_vector, get_sequencer_balance_keys, verify_can_pay_committed_bounds,
+};
 use crate::fee::gas_usage::{compute_discounted_gas_from_gas_vector, estimate_minimal_gas_vector};
 use crate::retdata;
-use crate::state::cached_state::{CachedState, StateChanges, TransactionalState};
-use crate::state::state_api::{State, StateReader};
+use crate::state::cached_state::{StateChanges, TransactionalState};
+use crate::state::state_api::{State, StateReader, UpdatableState};
 use crate::transaction::constants;
 use crate::transaction::errors::{
     TransactionExecutionError, TransactionFeeError, TransactionPreValidationError,
@@ -33,7 +34,7 @@ use crate::transaction::transaction_types::TransactionType;
 use crate::transaction::transaction_utils::update_remaining_gas;
 use crate::transaction::transactions::{
     DeclareTransaction, DeployAccountTransaction, Executable, ExecutableTransaction,
-    InvokeTransaction, ValidatableTransaction,
+    ExecutionFlags, InvokeTransaction, ValidatableTransaction,
 };
 
 #[cfg(test)]
@@ -309,6 +310,7 @@ impl AccountTransaction {
         tx_context: Arc<TransactionContext>,
         actual_fee: Fee,
         charge_fee: bool,
+        concurrency_mode: bool,
     ) -> TransactionExecutionResult<Option<CallInfo>> {
         if !charge_fee || actual_fee == Fee(0) {
             // Fee charging is not enforced in some transaction simulations and tests.
@@ -318,10 +320,7 @@ impl AccountTransaction {
         // TODO(Amos, 8/04/2024): Add test for this assert.
         Self::assert_actual_fee_in_bounds(&tx_context, actual_fee)?;
 
-        let fee_transfer_call_info = if tx_context.block_context.concurrency_mode
-            && tx_context.block_context.block_info.sequencer_address
-                != tx_context.tx_info.sender_address()
-        {
+        let fee_transfer_call_info = if concurrency_mode && !tx_context.is_sequencer_the_sender() {
             Self::concurrency_execute_fee_transfer(state, tx_context, actual_fee)?
         } else {
             Self::execute_fee_transfer(state, tx_context, actual_fee)?
@@ -336,9 +335,9 @@ impl AccountTransaction {
         actual_fee: Fee,
     ) -> TransactionExecutionResult<CallInfo> {
         // The least significant 128 bits of the amount transferred.
-        let lsb_amount = StarkFelt::from(actual_fee.0);
+        let lsb_amount = Felt::from(actual_fee.0);
         // The most significant 128 bits of the amount transferred.
-        let msb_amount = StarkFelt::from(0_u8);
+        let msb_amount = Felt::from(0_u8);
 
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
         let storage_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
@@ -380,16 +379,14 @@ impl AccountTransaction {
         println!("Concurrency execute fee transfer");
         let TransactionContext { block_context, tx_info } = tx_context.as_ref();
         let fee_address = block_context.chain_info.fee_token_address(&tx_info.fee_type());
-        let sequencer_address = block_context.block_info.sequencer_address;
-        let sequencer_balance_key_low = get_fee_token_var_address(sequencer_address);
-        let sequencer_balance_key_high = next_storage_key(&sequencer_balance_key_low)
-            .expect("Cannot get sequencer balance high key.");
-        let mut transfer_state = CachedState::create_transactional(state);
+        let (sequencer_balance_key_low, sequencer_balance_key_high) =
+            get_sequencer_balance_keys(block_context);
+        let mut transfer_state = TransactionalState::create_transactional(state);
 
         // Set the initial sequencer balance to avoid tarnishing the read-set of the transaction.
         let cache = transfer_state.cache.get_mut();
         for key in [sequencer_balance_key_low, sequencer_balance_key_high] {
-            cache.set_storage_initial_value(fee_address, key, StarkFelt::ZERO);
+            cache.set_storage_initial_value(fee_address, key, Felt::ZERO);
         }
 
         let fee_transfer_call_info =
@@ -515,7 +512,7 @@ impl AccountTransaction {
         // Create copies of state and resources for the execution.
         // Both will be rolled back if the execution is reverted or committed upon success.
         let mut execution_resources = resources.clone();
-        let mut execution_state = CachedState::create_transactional(state);
+        let mut execution_state = TransactionalState::create_transactional(state);
 
         let execution_result = self.run_execute(
             &mut execution_state,
@@ -638,20 +635,24 @@ impl AccountTransaction {
     }
 }
 
-impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
+impl<U: UpdatableState> ExecutableTransaction<U> for AccountTransaction {
     fn execute_raw(
         &self,
-        state: &mut TransactionalState<'_, S>,
+        state: &mut TransactionalState<'_, U>,
         block_context: &BlockContext,
-        charge_fee: bool,
-        validate: bool,
+        execution_flags: ExecutionFlags,
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         let tx_context = Arc::new(block_context.to_tx_context(self));
         self.verify_tx_version(tx_context.tx_info.version())?;
 
         // Nonce and fee check should be done before running user code.
         let strict_nonce_check = true;
-        self.perform_pre_validation_stage(state, &tx_context, charge_fee, strict_nonce_check)?;
+        self.perform_pre_validation_stage(
+            state,
+            &tx_context,
+            execution_flags.charge_fee,
+            strict_nonce_check,
+        )?;
 
         // Run validation and execution.
         let mut remaining_gas = block_context.versioned_constants.tx_initial_gas();
@@ -664,24 +665,33 @@ impl<S: StateReader> ExecutableTransaction<S> for AccountTransaction {
                     fee: final_fee,
                     da_gas: final_da_gas,
                     resources: final_resources,
-                    ..
+                    gas: total_gas,
                 },
         } = self.run_or_revert(
             state,
             &mut remaining_gas,
             tx_context.clone(),
-            validate,
-            charge_fee,
+            execution_flags.validate,
+            execution_flags.charge_fee,
         )?;
-        let fee_transfer_call_info = self.handle_fee(state, tx_context, final_fee, charge_fee)?;
+        let fee_transfer_call_info = self.handle_fee(
+            state,
+            tx_context,
+            final_fee,
+            execution_flags.charge_fee,
+            execution_flags.concurrency_mode,
+        )?;
 
         let tx_execution_info = TransactionExecutionInfo {
             validate_call_info,
             execute_call_info,
             fee_transfer_call_info,
-            actual_fee: final_fee,
-            da_gas: final_da_gas,
-            actual_resources: final_resources,
+            transaction_receipt: TransactionReceipt {
+                fee: final_fee,
+                da_gas: final_da_gas,
+                resources: final_resources,
+                gas: total_gas,
+            },
             revert_error,
         };
         Ok(tx_execution_info)
@@ -775,7 +785,7 @@ impl ValidatableTransaction for AccountTransaction {
         if let ContractClass::V1(_) = contract_class {
             // The account contract class is a Cairo 1.0 contract; the `validate` entry point should
             // return `VALID`.
-            let expected_retdata = retdata![StarkFelt::try_from(constants::VALIDATE_RETDATA)?];
+            let expected_retdata = retdata![Felt::from_hex(constants::VALIDATE_RETDATA)?];
             if validate_call_info.execution.retdata != expected_retdata {
                 return Err(TransactionExecutionError::InvalidValidateReturnData {
                     actual: validate_call_info.execution.retdata,

@@ -1,6 +1,7 @@
 use starknet_api::core::{ChainId, ContractAddress};
 
 use crate::blockifier::block::BlockInfo;
+use crate::bouncer::BouncerConfig;
 use crate::transaction::objects::{
     FeeType, HasRelatedFeeType, TransactionInfo, TransactionInfoCreator,
 };
@@ -17,31 +18,28 @@ impl TransactionContext {
     pub fn fee_token_address(&self) -> ContractAddress {
         self.block_context.chain_info.fee_token_address(&self.tx_info.fee_type())
     }
+    pub fn is_sequencer_the_sender(&self) -> bool {
+        self.tx_info.sender_address() == self.block_context.block_info.sequencer_address
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct BlockContext {
+    // TODO(Yoni, 1/10/2024): consider making these fields public.
     pub(crate) block_info: BlockInfo,
     pub(crate) chain_info: ChainInfo,
     pub(crate) versioned_constants: VersionedConstants,
-    pub(crate) concurrency_mode: bool,
+    pub(crate) bouncer_config: BouncerConfig,
 }
 
 impl BlockContext {
-    /// Note: Prefer using the recommended constructor methods as detailed in the struct
-    /// documentation. This method is intended for internal use and will be deprecated in future
-    /// versions.
-    pub fn new_unchecked(
-        block_info: &BlockInfo,
-        chain_info: &ChainInfo,
-        versioned_constants: &VersionedConstants,
+    pub fn new(
+        block_info: BlockInfo,
+        chain_info: ChainInfo,
+        versioned_constants: VersionedConstants,
+        bouncer_config: BouncerConfig,
     ) -> Self {
-        BlockContext {
-            block_info: block_info.clone(),
-            chain_info: chain_info.clone(),
-            versioned_constants: versioned_constants.clone(),
-            concurrency_mode: false,
-        }
+        BlockContext { block_info, chain_info, versioned_constants, bouncer_config }
     }
 
     pub fn block_info(&self) -> &BlockInfo {
@@ -56,12 +54,6 @@ impl BlockContext {
         &self.versioned_constants
     }
 
-    pub fn concurrency_mode(&self) -> bool {
-        self.concurrency_mode
-    }
-}
-
-impl BlockContext {
     pub fn to_tx_context(
         &self,
         tx_info_creator: &impl TransactionInfoCreator,
@@ -91,7 +83,7 @@ impl ChainInfo {
 impl Default for ChainInfo {
     fn default() -> Self {
         ChainInfo {
-            chain_id: ChainId("0x0".to_string()),
+            chain_id: ChainId::Other("0x0".to_string()),
             fee_token_addresses: FeeTokenAddresses::default(),
         }
     }

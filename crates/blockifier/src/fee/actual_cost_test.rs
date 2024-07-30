@@ -1,7 +1,6 @@
 use rstest::{fixture, rstest};
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
-use starknet_api::transaction::{Fee, L2ToL1Payload, TransactionVersion};
+use starknet_api::transaction::{L2ToL1Payload, ResourceBoundsMapping};
+use starknet_types_core::felt::Felt;
 
 use crate::context::BlockContext;
 use crate::execution::call_info::{CallExecution, CallInfo, MessageToL1, OrderedL2ToL1Message};
@@ -13,10 +12,12 @@ use crate::fee::gas_usage::{
 use crate::state::cached_state::StateChangesCount;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
-use crate::test_utils::{create_calldata, create_trivial_calldata, CairoVersion, BALANCE, MAX_FEE};
+use crate::test_utils::{create_calldata, create_trivial_calldata, CairoVersion, BALANCE};
 use crate::transaction::constants;
 use crate::transaction::objects::{GasVector, HasRelatedFeeType, StarknetResources};
-use crate::transaction::test_utils::{account_invoke_tx, calculate_class_info_for_testing};
+use crate::transaction::test_utils::{
+    account_invoke_tx, calculate_class_info_for_testing, max_resource_bounds,
+};
 use crate::transaction::transactions::ExecutableTransaction;
 use crate::utils::{u128_from_usize, usize_from_u128};
 use crate::versioned_constants::VersionedConstants;
@@ -139,7 +140,7 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
 
     let mut call_infos = Vec::new();
     for i in 0..4 {
-        let payload_vec = vec![stark_felt!(0_u16); i];
+        let payload_vec = vec![Felt::ZERO; i];
         let call_info = CallInfo {
             execution: CallExecution {
                 l2_to_l1_messages: vec![OrderedL2ToL1Message {
@@ -279,7 +280,10 @@ fn test_calculate_tx_gas_usage_basic<'a>(#[values(false, true)] use_kzg_da: bool
 // TODO(Nimrod, 1/5/2024): Test regression w.r.t. all resources (including VM). (Only starknet
 // resources are taken into account).
 #[rstest]
-fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
+fn test_calculate_tx_gas_usage(
+    max_resource_bounds: ResourceBoundsMapping,
+    #[values(false, true)] use_kzg_da: bool,
+) {
     let account_cairo_version = CairoVersion::Cairo0;
     let test_contract_cairo_version = CairoVersion::Cairo0;
     let block_context = &BlockContext::create_for_account_testing_with_kzg(use_kzg_da);
@@ -291,9 +295,9 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     let state = &mut test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
-        sender_address: account_contract_address,
-        calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
-        max_fee: Fee(MAX_FEE),
+            sender_address: account_contract_address,
+            calldata: create_trivial_calldata(test_contract.get_instance_address(0)),
+            resource_bounds: max_resource_bounds.clone(),
     });
     let calldata_length = account_tx.calldata_length();
     let signature_length = account_tx.signature_length();
@@ -320,7 +324,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     assert_eq!(
         starknet_resources.to_gas_vector(versioned_constants, use_kzg_da),
         tx_execution_info
-            .actual_resources
+            .transaction_receipt
+            .resources
             .starknet_resources
             .to_gas_vector(versioned_constants, use_kzg_da)
     );
@@ -332,16 +337,15 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
         constants::TRANSFER_ENTRY_POINT_NAME,
         &[
             *some_other_account_address.0.key(), // Calldata: recipient.
-            stark_felt!(2_u8),                   // Calldata: lsb amount.
-            stark_felt!(0_u8),                   // Calldata: msb amount.
+            Felt::TWO,                           // Calldata: lsb amount.
+            Felt::ZERO,                          // Calldata: msb amount.
         ],
     );
 
     let account_tx = account_invoke_tx(invoke_tx_args! {
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds,
         sender_address: account_contract_address,
         calldata: execute_calldata,
-        version: TransactionVersion::ONE,
         nonce: nonce!(1_u8),
     });
 
@@ -371,7 +375,8 @@ fn test_calculate_tx_gas_usage(#[values(false, true)] use_kzg_da: bool) {
     assert_eq!(
         starknet_resources.to_gas_vector(versioned_constants, use_kzg_da),
         tx_execution_info
-            .actual_resources
+            .transaction_receipt
+            .resources
             .starknet_resources
             .to_gas_vector(versioned_constants, use_kzg_da)
     );

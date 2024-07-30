@@ -32,7 +32,7 @@ impl Default for DeployAccountTxArgs {
             max_fee: Fee::default(),
             signature: TransactionSignature::default(),
             deployer_address: ContractAddress::default(),
-            version: TransactionVersion::ONE,
+            version: TransactionVersion::THREE,
             resource_bounds: default_testing_resource_bounds(),
             tip: Tip::default(),
             nonce_data_availability_mode: DataAvailabilityMode::L1,
@@ -75,32 +75,31 @@ pub fn deploy_account_tx(
     )
     .unwrap();
 
-    let tx = match deploy_tx_args.version {
-        TransactionVersion::ONE => {
-            starknet_api::transaction::DeployAccountTransaction::V1(DeployAccountTransactionV1 {
-                max_fee: deploy_tx_args.max_fee,
-                signature: deploy_tx_args.signature,
-                nonce: nonce_manager.next(contract_address),
-                class_hash: deploy_tx_args.class_hash,
-                contract_address_salt: deploy_tx_args.contract_address_salt,
-                constructor_calldata: deploy_tx_args.constructor_calldata,
-            })
-        }
-        TransactionVersion::THREE => {
-            starknet_api::transaction::DeployAccountTransaction::V3(DeployAccountTransactionV3 {
-                signature: deploy_tx_args.signature,
-                resource_bounds: deploy_tx_args.resource_bounds,
-                tip: deploy_tx_args.tip,
-                nonce_data_availability_mode: deploy_tx_args.nonce_data_availability_mode,
-                fee_data_availability_mode: deploy_tx_args.fee_data_availability_mode,
-                paymaster_data: deploy_tx_args.paymaster_data,
-                nonce: nonce_manager.next(contract_address),
-                class_hash: deploy_tx_args.class_hash,
-                contract_address_salt: deploy_tx_args.contract_address_salt,
-                constructor_calldata: deploy_tx_args.constructor_calldata,
-            })
-        }
-        version => panic!("Unsupported transaction version: {:?}.", version),
+    // TODO: Make TransactionVersion an enum and use match here.
+    let tx = if deploy_tx_args.version == TransactionVersion::ONE {
+        starknet_api::transaction::DeployAccountTransaction::V1(DeployAccountTransactionV1 {
+            max_fee: deploy_tx_args.max_fee,
+            signature: deploy_tx_args.signature,
+            nonce: nonce_manager.next(contract_address),
+            class_hash: deploy_tx_args.class_hash,
+            contract_address_salt: deploy_tx_args.contract_address_salt,
+            constructor_calldata: deploy_tx_args.constructor_calldata,
+        })
+    } else if deploy_tx_args.version == TransactionVersion::THREE {
+        starknet_api::transaction::DeployAccountTransaction::V3(DeployAccountTransactionV3 {
+            signature: deploy_tx_args.signature,
+            resource_bounds: deploy_tx_args.resource_bounds,
+            tip: deploy_tx_args.tip,
+            nonce_data_availability_mode: deploy_tx_args.nonce_data_availability_mode,
+            fee_data_availability_mode: deploy_tx_args.fee_data_availability_mode,
+            paymaster_data: deploy_tx_args.paymaster_data,
+            nonce: nonce_manager.next(contract_address),
+            class_hash: deploy_tx_args.class_hash,
+            contract_address_salt: deploy_tx_args.contract_address_salt,
+            constructor_calldata: deploy_tx_args.constructor_calldata,
+        })
+    } else {
+        panic!("Unsupported transaction version: {:?}.", deploy_tx_args.version)
     };
 
     DeployAccountTransaction::new(tx, TransactionHash::default(), contract_address)

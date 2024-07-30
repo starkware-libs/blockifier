@@ -1,9 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_vm::serde::deserialize_program::BuiltinName;
-use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use starknet_api::core::ClassHash;
 
 use crate::blockifier::transaction_executor::{
@@ -11,10 +10,12 @@ use crate::blockifier::transaction_executor::{
 };
 use crate::execution::call_info::ExecutionSummary;
 use crate::fee::gas_usage::get_onchain_data_segment_length;
-use crate::state::cached_state::{StateChangesKeys, StorageEntry, TransactionalState};
+use crate::state::cached_state::{StateChangesKeys, StorageEntry};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionExecutionError;
-use crate::transaction::objects::{ExecutionResourcesTraits, TransactionResources};
+use crate::transaction::objects::{
+    ExecutionResourcesTraits, TransactionExecutionResult, TransactionResources,
+};
 
 #[cfg(test)]
 #[path = "bouncer_test.rs"]
@@ -34,20 +35,24 @@ macro_rules! impl_checked_sub {
     };
 }
 
-pub type HashMapWrapper = HashMap<String, usize>;
+pub type HashMapWrapper = HashMap<BuiltinName, usize>;
 
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
-    pub block_max_capacity_with_keccak: BouncerWeights,
 }
 
 impl BouncerConfig {
     pub fn max() -> Self {
-        Self {
-            block_max_capacity_with_keccak: BouncerWeights::max(true),
-            block_max_capacity: BouncerWeights::max(false),
-        }
+        Self { block_max_capacity: BouncerWeights::max() }
+    }
+
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    pub fn has_room(&self, weights: BouncerWeights) -> bool {
+        self.block_max_capacity.has_room(weights)
     }
 }
 
@@ -61,6 +66,7 @@ impl BouncerConfig {
     derive_more::Sub,
     Deserialize,
     PartialEq,
+    Serialize,
 )]
 /// Represents the execution resources counted throughout block creation.
 pub struct BouncerWeights {
@@ -86,14 +92,14 @@ impl BouncerWeights {
         self.checked_sub(other).is_some()
     }
 
-    pub fn max(with_keccak: bool) -> Self {
+    pub fn max() -> Self {
         Self {
             gas: usize::MAX,
             n_steps: usize::MAX,
             message_segment_length: usize::MAX,
             state_diff_size: usize::MAX,
             n_events: usize::MAX,
-            builtin_count: BuiltinCount::max(with_keccak),
+            builtin_count: BuiltinCount::max(),
         }
     }
 }
@@ -108,30 +114,62 @@ impl BouncerWeights {
     derive_more::Sub,
     Deserialize,
     PartialEq,
+    Serialize,
 )]
 pub struct BuiltinCount {
+    pub add_mod: usize,
     pub bitwise: usize,
     pub ecdsa: usize,
     pub ec_op: usize,
     pub keccak: usize,
+    pub mul_mod: usize,
     pub pedersen: usize,
     pub poseidon: usize,
     pub range_check: usize,
+    pub range_check96: usize,
+}
+
+macro_rules! impl_all_non_zero {
+    ($($field:ident),+) => {
+        pub fn all_non_zero(&self) -> bool {
+            $( self.$field != 0 )&&+
+        }
+    };
+}
+
+macro_rules! impl_builtin_variants {
+    ($($field:ident),+) => {
+        impl_checked_sub!($($field),+);
+        impl_all_non_zero!($($field),+);
+    };
 }
 
 impl BuiltinCount {
-    impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
+    impl_builtin_variants!(
+        add_mod,
+        bitwise,
+        ec_op,
+        ecdsa,
+        keccak,
+        mul_mod,
+        pedersen,
+        poseidon,
+        range_check,
+        range_check96
+    );
 
-    pub fn max(with_keccak: bool) -> Self {
-        let keccak = if with_keccak { usize::MAX } else { 0 };
+    pub fn max() -> Self {
         Self {
+            add_mod: usize::MAX,
             bitwise: usize::MAX,
             ecdsa: usize::MAX,
             ec_op: usize::MAX,
-            keccak,
+            keccak: usize::MAX,
+            mul_mod: usize::MAX,
             pedersen: usize::MAX,
             poseidon: usize::MAX,
             range_check: usize::MAX,
+            range_check96: usize::MAX,
         }
     }
 }
@@ -142,13 +180,16 @@ impl From<HashMapWrapper> for BuiltinCount {
         // ExecutionResources contains all the builtins.
         // The keccak config we get from python is not always present.
         let builtin_count = Self {
-            bitwise: data.remove(BuiltinName::bitwise.name()).unwrap_or_default(),
-            ecdsa: data.remove(BuiltinName::ecdsa.name()).unwrap_or_default(),
-            ec_op: data.remove(BuiltinName::ec_op.name()).unwrap_or_default(),
-            keccak: data.remove(BuiltinName::keccak.name()).unwrap_or_default(),
-            pedersen: data.remove(BuiltinName::pedersen.name()).unwrap_or_default(),
-            poseidon: data.remove(BuiltinName::poseidon.name()).unwrap_or_default(),
-            range_check: data.remove(BuiltinName::range_check.name()).unwrap_or_default(),
+            add_mod: data.remove(&BuiltinName::add_mod).unwrap_or_default(),
+            bitwise: data.remove(&BuiltinName::bitwise).unwrap_or_default(),
+            ecdsa: data.remove(&BuiltinName::ecdsa).unwrap_or_default(),
+            ec_op: data.remove(&BuiltinName::ec_op).unwrap_or_default(),
+            keccak: data.remove(&BuiltinName::keccak).unwrap_or_default(),
+            mul_mod: data.remove(&BuiltinName::mul_mod).unwrap_or_default(),
+            pedersen: data.remove(&BuiltinName::pedersen).unwrap_or_default(),
+            poseidon: data.remove(&BuiltinName::poseidon).unwrap_or_default(),
+            range_check: data.remove(&BuiltinName::range_check).unwrap_or_default(),
+            range_check96: data.remove(&BuiltinName::range_check96).unwrap_or_default(),
         };
         assert!(
             data.is_empty(),
@@ -182,7 +223,51 @@ impl Bouncer {
         &self.accumulated_weights
     }
 
-    fn _update(
+    /// Updates the bouncer with a new transaction.
+    pub fn try_update<S: StateReader>(
+        &mut self,
+        state_reader: &S,
+        tx_state_changes_keys: &StateChangesKeys,
+        tx_execution_summary: &ExecutionSummary,
+        tx_resources: &TransactionResources,
+    ) -> TransactionExecutorResult<()> {
+        // The countings here should be linear in the transactional state changes and execution info
+        // rather than the cumulative state attributes.
+        let marginal_state_changes_keys =
+            tx_state_changes_keys.difference(&self.state_changes_keys);
+        let marginal_executed_class_hashes = tx_execution_summary
+            .executed_class_hashes
+            .difference(&self.executed_class_hashes)
+            .cloned()
+            .collect();
+        let n_marginal_visited_storage_entries = tx_execution_summary
+            .visited_storage_entries
+            .difference(&self.visited_storage_entries)
+            .count();
+        let tx_weights = get_tx_weights(
+            state_reader,
+            &marginal_executed_class_hashes,
+            n_marginal_visited_storage_entries,
+            tx_resources,
+            &marginal_state_changes_keys,
+        )?;
+
+        // Check if the transaction can fit the current block available capacity.
+        if !self.bouncer_config.has_room(self.accumulated_weights + tx_weights) {
+            log::debug!(
+                "Transaction cannot be added to the current block, block capacity reached; \
+                 transaction weights: {tx_weights:?}, block weights: {:?}.",
+                self.accumulated_weights
+            );
+            Err(TransactionExecutorError::BlockFull)?
+        }
+
+        self.update(tx_weights, tx_execution_summary, &marginal_state_changes_keys);
+
+        Ok(())
+    }
+
+    fn update(
         &mut self,
         tx_weights: BouncerWeights,
         tx_execution_summary: &ExecutionSummary,
@@ -196,132 +281,90 @@ impl Bouncer {
         self.state_changes_keys.extend(state_changes_keys);
     }
 
-    /// Updates the bouncer with a new transaction.
-    pub fn try_update<S: StateReader>(
-        &mut self,
-        state: &mut TransactionalState<'_, S>,
-        tx_execution_summary: &ExecutionSummary,
-        tx_resources: &TransactionResources,
-    ) -> TransactionExecutorResult<()> {
-        // The countings here should be linear in the transactional state changes and execution info
-        // rather than the cumulative state attributes.
-        let state_changes_keys = self.get_state_changes_keys(state)?;
-        let tx_weights =
-            self.get_tx_weights(state, tx_execution_summary, tx_resources, &state_changes_keys)?;
-
-        let mut max_capacity = self.bouncer_config.block_max_capacity;
-        if self.accumulated_weights.builtin_count.keccak > 0 || tx_weights.builtin_count.keccak > 0
-        {
-            max_capacity = self.bouncer_config.block_max_capacity_with_keccak;
-        }
-
-        // Check if the transaction is too large to fit any block.
-        if !max_capacity.has_room(tx_weights) {
-            Err(TransactionExecutionError::TransactionTooLarge)?
-        }
-
-        // Check if the transaction can fit the current block available capacity.
-        if !max_capacity.has_room(self.accumulated_weights + tx_weights) {
-            log::debug!(
-                "Transaction cannot be added to the current block, block capacity reached; \
-                 transaction weights: {tx_weights:?}, block weights: {:?}.",
-                self.accumulated_weights
-            );
-            Err(TransactionExecutorError::BlockFull)?
-        }
-
-        self._update(tx_weights, tx_execution_summary, &state_changes_keys);
-
-        Ok(())
-    }
-
-    pub fn get_tx_weights<S: StateReader>(
-        &mut self,
-        state: &mut TransactionalState<'_, S>,
-        tx_execution_summary: &ExecutionSummary,
-        tx_resources: &TransactionResources,
-        state_changes_keys: &StateChangesKeys,
-    ) -> TransactionExecutorResult<BouncerWeights> {
-        let (message_segment_length, gas_usage) =
-            tx_resources.starknet_resources.calculate_message_l1_resources();
-
-        let mut additional_os_resources = get_casm_hash_calculation_resources(
-            state,
-            &self.executed_class_hashes,
-            &tx_execution_summary.executed_class_hashes,
-        )?;
-        additional_os_resources += &get_particia_update_resources(
-            &self.visited_storage_entries,
-            &tx_execution_summary.visited_storage_entries,
-        );
-
-        let vm_resources = &additional_os_resources + &tx_resources.vm_resources;
-
-        Ok(BouncerWeights {
-            gas: gas_usage,
-            message_segment_length,
-            n_events: tx_resources.starknet_resources.n_events,
-            n_steps: vm_resources.total_n_steps(),
-            builtin_count: BuiltinCount::from(vm_resources.prover_builtins()),
-            state_diff_size: get_onchain_data_segment_length(&state_changes_keys.count()),
-        })
-    }
-
-    pub fn get_state_changes_keys<S: StateReader>(
-        &self,
-        state: &mut TransactionalState<'_, S>,
-    ) -> TransactionExecutorResult<StateChangesKeys> {
-        let tx_state_changes_keys = state.get_actual_state_changes()?.into_keys();
-        Ok(tx_state_changes_keys.difference(&self.state_changes_keys))
-    }
-
     #[cfg(test)]
     pub fn set_accumulated_weights(&mut self, weights: BouncerWeights) {
         self.accumulated_weights = weights;
     }
 }
 
-/// Returns the estimated VM resources for Casm hash calculation (done by the OS), of the newly
-/// executed classes by the current transaction.
-pub fn get_casm_hash_calculation_resources<S: StateReader>(
-    state: &mut TransactionalState<'_, S>,
-    block_executed_class_hashes: &HashSet<ClassHash>,
-    tx_executed_class_hashes: &HashSet<ClassHash>,
-) -> TransactionExecutorResult<ExecutionResources> {
-    let newly_executed_class_hashes: HashSet<&ClassHash> =
-        tx_executed_class_hashes.difference(block_executed_class_hashes).collect();
+pub fn get_tx_weights<S: StateReader>(
+    state_reader: &S,
+    executed_class_hashes: &HashSet<ClassHash>,
+    n_visited_storage_entries: usize,
+    tx_resources: &TransactionResources,
+    state_changes_keys: &StateChangesKeys,
+) -> TransactionExecutionResult<BouncerWeights> {
+    let (message_segment_length, gas_usage) =
+        tx_resources.starknet_resources.calculate_message_l1_resources();
 
+    let mut additional_os_resources =
+        get_casm_hash_calculation_resources(state_reader, executed_class_hashes)?;
+    additional_os_resources += &get_particia_update_resources(n_visited_storage_entries);
+
+    let vm_resources = &additional_os_resources + &tx_resources.vm_resources;
+
+    Ok(BouncerWeights {
+        gas: gas_usage,
+        message_segment_length,
+        n_events: tx_resources.starknet_resources.n_events,
+        n_steps: vm_resources.total_n_steps(),
+        builtin_count: BuiltinCount::from(vm_resources.prover_builtins()),
+        state_diff_size: get_onchain_data_segment_length(&state_changes_keys.count()),
+    })
+}
+
+/// Returns the estimated Cairo resources for Casm hash calculation (done by the OS), of the given
+/// classes.
+pub fn get_casm_hash_calculation_resources<S: StateReader>(
+    state_reader: &S,
+    executed_class_hashes: &HashSet<ClassHash>,
+) -> TransactionExecutionResult<ExecutionResources> {
     let mut casm_hash_computation_resources = ExecutionResources::default();
 
-    for class_hash in newly_executed_class_hashes {
-        let class = state.get_compiled_contract_class(*class_hash)?;
+    for class_hash in executed_class_hashes {
+        let class = state_reader.get_compiled_contract_class(*class_hash)?;
         casm_hash_computation_resources += &class.estimate_casm_hash_computation_resources();
     }
 
     Ok(casm_hash_computation_resources)
 }
 
-/// Returns the estimated VM resources for Patricia tree updates, or hash invocations
-/// (done by the OS), required by the execution of the current transaction.
+/// Returns the estimated Cairo resources for Patricia tree updates, or hash invocations
+/// (done by the OS), required for accessing (read/write) the given storage entries.
 // For each tree: n_visited_leaves * log(n_initialized_leaves)
 // as the height of a Patricia tree with N uniformly distributed leaves is ~log(N),
 // and number of visited leaves includes reads and writes.
-pub fn get_particia_update_resources(
-    block_visited_storage_entries: &HashSet<StorageEntry>,
-    tx_visited_storage_entries: &HashSet<StorageEntry>,
-) -> ExecutionResources {
-    let newly_visited_storage_entries: HashSet<&StorageEntry> =
-        tx_visited_storage_entries.difference(block_visited_storage_entries).collect();
-    let n_newly_visited_leaves = newly_visited_storage_entries.len();
-
+pub fn get_particia_update_resources(n_visited_storage_entries: usize) -> ExecutionResources {
     const TREE_HEIGHT_UPPER_BOUND: usize = 24;
-    let n_updates = n_newly_visited_leaves * TREE_HEIGHT_UPPER_BOUND;
+    let n_updates = n_visited_storage_entries * TREE_HEIGHT_UPPER_BOUND;
 
     ExecutionResources {
         // TODO(Yoni, 1/5/2024): re-estimate this.
         n_steps: 32 * n_updates,
         // For each Patricia update there are two hash calculations.
-        builtin_instance_counter: HashMap::from([(HASH_BUILTIN_NAME.to_string(), 2 * n_updates)]),
+        builtin_instance_counter: HashMap::from([(BuiltinName::pedersen, 2 * n_updates)]),
         n_memory_holes: 0,
     }
+}
+
+pub fn verify_tx_weights_in_bounds<S: StateReader>(
+    state_reader: &S,
+    tx_execution_summary: &ExecutionSummary,
+    tx_resources: &TransactionResources,
+    tx_state_changes_keys: &StateChangesKeys,
+    bouncer_config: &BouncerConfig,
+) -> TransactionExecutionResult<()> {
+    let tx_weights = get_tx_weights(
+        state_reader,
+        &tx_execution_summary.executed_class_hashes,
+        tx_execution_summary.visited_storage_entries.len(),
+        tx_resources,
+        tx_state_changes_keys,
+    )?;
+
+    if !bouncer_config.has_room(tx_weights) {
+        return Err(TransactionExecutionError::TransactionTooLarge);
+    }
+
+    Ok(())
 }

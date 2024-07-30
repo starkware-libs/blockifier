@@ -1,5 +1,6 @@
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::blockifier::transaction_executor::TransactionExecutorError;
+use blockifier::bouncer::BuiltinCount;
 use blockifier::execution::errors::ContractClassError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::{
@@ -7,10 +8,12 @@ use blockifier::transaction::errors::{
 };
 use blockifier::transaction::transaction_types::TransactionType;
 use cairo_vm::types::errors::program_errors::ProgramError;
+use num_bigint::BigUint;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::FromStrError;
 use thiserror::Error;
 
 pub type NativeBlockifierResult<T> = Result<T, NativeBlockifierError>;
@@ -52,8 +55,7 @@ macro_rules! native_blockifier_errors {
                         // Constructs with the tuple `(error_code, error_message)`.
                         (
                             String::from("native_blockifier.") + stringify!($py_error_name),
-                            // TODO(Yoni, 14/5/2024): remove the `?` to get a prettier message.
-                            format!("{:?}", error),
+                            format!("{}", error),
                         )
                     )),*
                 }
@@ -79,10 +81,6 @@ native_blockifier_errors!(
 
 #[derive(Debug, Error)]
 pub enum NativeBlockifierInputError {
-    #[error("Max steps per tx out of range: {0}")]
-    MaxStepsPerTxOutOfRange(u32),
-    #[error("Max validate steps per tx out of range: {0}")]
-    MaxValidateStepsPerTxOutOfRange(u32),
     #[error(transparent)]
     InvalidNativeBlockifierInputError(#[from] InvalidNativeBlockifierInputError),
     #[error(transparent)]
@@ -90,15 +88,21 @@ pub enum NativeBlockifierInputError {
     #[error(transparent)]
     ProgramError(#[from] ProgramError),
     #[error(transparent)]
+    PyFeltParseError(#[from] FromStrError),
+    #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
+    #[error("Unknown builtin: {0}.")]
+    UnknownBuiltin(String),
     #[error("Contract class of version {version} is unsupported.")]
     UnsupportedContractClassVersion { version: usize },
     #[error("Transaction of type {tx_type:?} is unsupported in version {version}.")]
-    UnsupportedTransactionVersion { tx_type: TransactionType, version: usize },
+    UnsupportedTransactionVersion { tx_type: TransactionType, version: BigUint },
 }
 
 #[derive(Debug, Error)]
 pub enum InvalidNativeBlockifierInputError {
+    #[error("Invalid builtin count: {0:?}.")]
+    InvalidBuiltinCounts(BuiltinCount),
     #[error("Invalid Wei gas price: {0}.")]
     InvalidGasPriceWei(u128),
     #[error("Invalid Fri gas price: {0}.")]

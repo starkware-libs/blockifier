@@ -3,8 +3,7 @@ use indexmap::indexmap;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::core::PatriciaKey;
-use starknet_api::hash::StarkHash;
-use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{class_hash, contract_address, felt, patricia_key};
 
 use crate::context::{BlockContext, ChainInfo};
 use crate::state::cached_state::*;
@@ -20,7 +19,7 @@ fn set_initial_state_values(
     class_hash_to_class: ContractClassMapping,
     nonce_initial_values: HashMap<ContractAddress, Nonce>,
     class_hash_initial_values: HashMap<ContractAddress, ClassHash>,
-    storage_initial_values: HashMap<StorageEntry, StarkFelt>,
+    storage_initial_values: HashMap<StorageEntry, Felt>,
 ) {
     assert!(*state.cache.borrow() == StateCache::default(), "Cache already initialized.");
 
@@ -34,19 +33,19 @@ fn set_initial_state_values(
 fn get_uninitialized_storage_value() {
     let state: CachedState<DictStateReader> = CachedState::default();
     let contract_address = contract_address!("0x1");
-    let key = storage_key!("0x10");
+    let key = storage_key!(0x10_u16);
 
-    assert_eq!(state.get_storage_at(contract_address, key).unwrap(), StarkFelt::default());
+    assert_eq!(state.get_storage_at(contract_address, key).unwrap(), Felt::default());
 }
 
 #[test]
 fn get_and_set_storage_value() {
     let contract_address0 = contract_address!("0x100");
     let contract_address1 = contract_address!("0x200");
-    let key0 = storage_key!("0x10");
-    let key1 = storage_key!("0x20");
-    let storage_val0: StarkFelt = stark_felt!("0x1");
-    let storage_val1: StarkFelt = stark_felt!("0x5");
+    let key0 = storage_key!(0x10_u16);
+    let key1 = storage_key!(0x20_u16);
+    let storage_val0: Felt = felt!("0x1");
+    let storage_val1: Felt = felt!("0x5");
 
     let mut state = CachedState::from(DictStateReader {
         storage_view: HashMap::from([
@@ -58,12 +57,12 @@ fn get_and_set_storage_value() {
     assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), storage_val0);
     assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
 
-    let modified_storage_value0 = stark_felt!("0xA");
+    let modified_storage_value0 = felt!("0xA");
     state.set_storage_at(contract_address0, key0, modified_storage_value0).unwrap();
     assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
     assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), storage_val1);
 
-    let modified_storage_value1 = stark_felt!("0x7");
+    let modified_storage_value1 = felt!("0x7");
     state.set_storage_at(contract_address1, key1, modified_storage_value1).unwrap();
     assert_eq!(state.get_storage_at(contract_address0, key0).unwrap(), modified_storage_value0);
     assert_eq!(state.get_storage_at(contract_address1, key1).unwrap(), modified_storage_value1);
@@ -71,16 +70,16 @@ fn get_and_set_storage_value() {
 
 #[test]
 fn cast_between_storage_mapping_types() {
-    let empty_map: IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>> = IndexMap::default();
+    let empty_map: IndexMap<ContractAddress, IndexMap<StorageKey, Felt>> = IndexMap::default();
     assert_eq!(empty_map, IndexMap::from(StorageView::default()));
 
     let contract_address0 = contract_address!("0x100");
     let contract_address1 = contract_address!("0x200");
-    let key0 = storage_key!("0x10");
-    let key1 = storage_key!("0x20");
-    let storage_val0: StarkFelt = stark_felt!("0x1");
-    let storage_val1: StarkFelt = stark_felt!("0x5");
-    let storage_val2: StarkFelt = stark_felt!("0xa");
+    let key0 = storage_key!(0x10_u16);
+    let key1 = storage_key!(0x20_u16);
+    let storage_val0: Felt = felt!("0x1");
+    let storage_val1: Felt = felt!("0x5");
+    let storage_val2: Felt = felt!("0xa");
 
     let storage_map = StorageView(HashMap::from([
         ((contract_address0, key0), storage_val0),
@@ -132,7 +131,7 @@ fn declare_contract() {
 fn get_and_increment_nonce() {
     let contract_address1 = contract_address!("0x100");
     let contract_address2 = contract_address!("0x200");
-    let initial_nonce = nonce!("0x1");
+    let initial_nonce = Nonce(felt!(1_u8));
 
     let mut state = CachedState::from(DictStateReader {
         address_to_nonce: HashMap::from([
@@ -145,17 +144,17 @@ fn get_and_increment_nonce() {
     assert_eq!(state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
 
     assert!(state.increment_nonce(contract_address1).is_ok());
-    let nonce1_plus_one = nonce!("0x2");
+    let nonce1_plus_one = Nonce(felt!(2_u8));
     assert_eq!(state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_one);
     assert_eq!(state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
 
     assert!(state.increment_nonce(contract_address1).is_ok());
-    let nonce1_plus_two = nonce!("0x3");
+    let nonce1_plus_two = Nonce(felt!(3_u8));
     assert_eq!(state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_two);
     assert_eq!(state.get_nonce_at(contract_address2).unwrap(), initial_nonce);
 
     assert!(state.increment_nonce(contract_address2).is_ok());
-    let nonce2_plus_one = nonce!("0x2");
+    let nonce2_plus_one = Nonce(felt!(2_u8));
     assert_eq!(state.get_nonce_at(contract_address1).unwrap(), nonce1_plus_two);
     assert_eq!(state.get_nonce_at(contract_address2).unwrap(), nonce2_plus_one);
 }
@@ -230,11 +229,11 @@ fn cached_state_state_diff_conversion() {
     // key_x will not be changed.
     // key_y will be changed, but only with contract_address2 the value ends up being different, so
     // should only appear with contract_address2.
-    let key_x = storage_key!("0x10");
-    let key_y = storage_key!("0x20");
-    let storage_val0: StarkFelt = stark_felt!("0x1");
-    let storage_val1: StarkFelt = stark_felt!("0x5");
-    let storage_val2: StarkFelt = stark_felt!("0x6");
+    let key_x = storage_key!(0x10_u16);
+    let key_y = storage_key!(0x20_u16);
+    let storage_val0: Felt = felt!("0x1");
+    let storage_val1: Felt = felt!("0x5");
+    let storage_val2: Felt = felt!("0x6");
     let storage_initial_values = HashMap::from([
         ((contract_address0, key_x), storage_val0),
         ((contract_address1, key_y), storage_val1),
@@ -257,18 +256,23 @@ fn cached_state_state_diff_conversion() {
     );
 
     // Declare a new class.
-    let class_hash = FeatureContract::Empty(CairoVersion::Cairo0).get_class_hash(); // Some unused class hash.
+    let class_hash = FeatureContract::Empty(CairoVersion::Cairo0).get_class_hash();
     let compiled_class_hash = compiled_class_hash!(1_u8);
+    // Cache the initial read value, as in regular declare flow.
+    state.get_compiled_contract_class(class_hash).unwrap_err();
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
     // Write the initial value using key contract_address1.
     state.set_storage_at(contract_address1, key_y, storage_val1).unwrap();
 
     // Write new values using key contract_address2.
-    let new_value = stark_felt!("0x12345678");
+    let new_value = felt!("0x12345678");
     state.set_storage_at(contract_address2, key_y, new_value).unwrap();
     assert!(state.increment_nonce(contract_address2).is_ok());
     let new_class_hash = class_hash!("0x11111111");
+
+    // Cache the initial read value, as in regular deploy flow.
+    state.get_class_hash_at(contract_address2).unwrap();
     assert!(state.set_class_hash_at(contract_address2, new_class_hash).is_ok());
 
     // Only changes to contract_address2 should be shown, since contract_address_0 wasn't changed
@@ -280,7 +284,7 @@ fn cached_state_state_diff_conversion() {
         address_to_nonce: IndexMap::from_iter([(contract_address2, nonce!(1_u64))]),
     };
 
-    assert_eq!(expected_state_diff, state.to_state_diff());
+    assert_eq!(expected_state_diff, state.to_state_diff().unwrap().into());
 }
 
 fn create_state_changes_for_test<S: StateReader>(
@@ -291,25 +295,31 @@ fn create_state_changes_for_test<S: StateReader>(
     let contract_address = contract_address!(CONTRACT_ADDRESS);
     let contract_address2 = contract_address!("0x101");
     let class_hash = class_hash!("0x10");
-    let compiled_class_hash = compiled_class_hash!("0x11");
-    let key = storage_key!("0x10");
-    let storage_val: StarkFelt = stark_felt!("0x1");
+    let compiled_class_hash = compiled_class_hash!(0x11_u16);
+    let key = storage_key!(0x10_u16);
+    let storage_val: Felt = felt!("0x1");
 
+    // Fill the initial read value, as in regular flow.
+    state.get_class_hash_at(contract_address).unwrap();
     state.set_class_hash_at(contract_address, class_hash).unwrap();
+
     state.set_storage_at(contract_address, key, storage_val).unwrap();
     state.increment_nonce(contract_address2).unwrap();
+
+    // Fill the initial read value, as in regular flow.
+    state.get_compiled_contract_class(class_hash).unwrap_err();
     state.set_compiled_class_hash(class_hash, compiled_class_hash).unwrap();
 
     // Assign the existing value to the storage (this shouldn't be considered a change).
     // As the first access:
-    state.set_storage_at(contract_address2, key, StarkFelt::default()).unwrap();
+    state.set_storage_at(contract_address2, key, Felt::default()).unwrap();
     // As the second access:
     state.set_storage_at(contract_address, key, storage_val).unwrap();
 
     if let Some(sender_address) = sender_address {
         // Charge fee from the sender.
         let sender_balance_key = get_fee_token_var_address(sender_address);
-        state.set_storage_at(fee_token_address, sender_balance_key, stark_felt!("0x1999")).unwrap();
+        state.set_storage_at(fee_token_address, sender_balance_key, felt!("0x1999")).unwrap();
     }
 
     state.get_actual_state_changes().unwrap()
@@ -341,7 +351,7 @@ fn test_state_changes_merge(
     // Create a transactional state containing the `create_state_changes_for_test` logic, get the
     // state changes and then commit.
     let mut state: CachedState<DictStateReader> = CachedState::default();
-    let mut transactional_state = CachedState::create_transactional(&mut state);
+    let mut transactional_state = TransactionalState::create_transactional(&mut state);
     let block_context = BlockContext::create_for_testing();
     let fee_token_address = block_context.chain_info.fee_token_addresses.eth_fee_token_address;
     let state_changes1 =
@@ -350,7 +360,7 @@ fn test_state_changes_merge(
 
     // After performing `commit`, the transactional state is moved (into state).  We need to create
     // a new transactional state that wraps `state` to continue.
-    let mut transactional_state = CachedState::create_transactional(&mut state);
+    let mut transactional_state = TransactionalState::create_transactional(&mut state);
     // Make sure that `get_actual_state_changes` on a newly created transactional state returns null
     // state changes and that merging null state changes with non-null state changes results in the
     // non-null state changes, no matter the order.
@@ -366,7 +376,7 @@ fn test_state_changes_merge(
     );
 
     // Get the storage updates addresses and keys from the state_changes1, to overwrite.
-    let mut storage_updates_keys = state_changes1.storage_updates.keys();
+    let mut storage_updates_keys = state_changes1.0.storage.keys();
     let &(contract_address, storage_key) = storage_updates_keys
         .find(|(contract_address, _)| contract_address == &contract_address!(CONTRACT_ADDRESS))
         .unwrap();
@@ -374,11 +384,9 @@ fn test_state_changes_merge(
     let new_contract_address = ContractAddress(patricia_key!("0x111"));
 
     // Overwrite existing and new storage values.
+    transactional_state.set_storage_at(contract_address, storage_key, felt!("0x1234")).unwrap();
     transactional_state
-        .set_storage_at(contract_address, storage_key, stark_felt!("0x1234"))
-        .unwrap();
-    transactional_state
-        .set_storage_at(new_contract_address, storage_key, stark_felt!("0x43210"))
+        .set_storage_at(new_contract_address, storage_key, felt!("0x43210"))
         .unwrap();
     transactional_state.increment_nonce(contract_address).unwrap();
     // Get the new state changes and then commit the transactional state.
@@ -428,7 +436,7 @@ fn test_cache_get_write_keys() {
     assert_eq!(StateChanges::default().into_keys(), StateChangesKeys::default());
 
     // Interesting case.
-    let some_felt = stark_felt!("0x1");
+    let some_felt = felt!("0x1");
     let some_class_hash = class_hash!("0x1");
 
     let contract_address0 = contract_address!("0x200");
@@ -438,27 +446,28 @@ fn test_cache_get_write_keys() {
 
     let class_hash0 = class_hash!("0x300");
 
-    let state_changes = StateChanges {
-        nonce_updates: HashMap::from([(contract_address0, Nonce(some_felt))]),
-        class_hash_updates: HashMap::from([
+    let state_changes = StateChanges(StateMaps {
+        nonces: HashMap::from([(contract_address0, Nonce(some_felt))]),
+        class_hashes: HashMap::from([
             (contract_address1, some_class_hash),
             (contract_address2, some_class_hash),
         ]),
-        storage_updates: HashMap::from([
-            ((contract_address1, storage_key!("0x300")), some_felt),
-            ((contract_address1, storage_key!("0x600")), some_felt),
-            ((contract_address3, storage_key!("0x600")), some_felt),
+        storage: HashMap::from([
+            ((contract_address1, storage_key!(0x300_u16)), some_felt),
+            ((contract_address1, storage_key!(0x600_u16)), some_felt),
+            ((contract_address3, storage_key!(0x600_u16)), some_felt),
         ]),
-        compiled_class_hash_updates: HashMap::from([(class_hash0, compiled_class_hash!("0x3"))]),
-    };
+        compiled_class_hashes: HashMap::from([(class_hash0, compiled_class_hash!(0x3_u16))]),
+        declared_contracts: HashMap::default(),
+    });
 
     let expected_keys = StateChangesKeys {
         nonce_keys: HashSet::from([contract_address0]),
         class_hash_keys: HashSet::from([contract_address1, contract_address2]),
         storage_keys: HashSet::from([
-            (contract_address1, storage_key!("0x300")),
-            (contract_address1, storage_key!("0x600")),
-            (contract_address3, storage_key!("0x600")),
+            (contract_address1, storage_key!(0x300_u16)),
+            (contract_address1, storage_key!(0x600_u16)),
+            (contract_address3, storage_key!(0x600_u16)),
         ]),
         compiled_class_hash_keys: HashSet::from([class_hash0]),
         modified_contracts: HashSet::from([
@@ -487,8 +496,8 @@ fn test_state_changes_keys() {
         nonce_keys: HashSet::from([contract_address0]),
         class_hash_keys: HashSet::from([contract_address1]),
         storage_keys: HashSet::from([
-            (contract_address2, storage_key!("0x300")),
-            (contract_address2, storage_key!("0x200")),
+            (contract_address2, storage_key!(0x300_u16)),
+            (contract_address2, storage_key!(0x200_u16)),
         ]),
         compiled_class_hash_keys: HashSet::from([class_hash0, class_hash1]),
         modified_contracts: HashSet::from([contract_address1, contract_address2]),
@@ -521,7 +530,7 @@ fn test_state_changes_keys() {
     let mut keys1 = StateChangesKeys {
         nonce_keys: HashSet::from([contract_address1]),
         class_hash_keys: HashSet::from([contract_address1, contract_address2]),
-        storage_keys: HashSet::from([(contract_address2, storage_key!("0x300"))]),
+        storage_keys: HashSet::from([(contract_address2, storage_key!(0x300_u16))]),
         compiled_class_hash_keys: HashSet::from([class_hash0]),
         modified_contracts: HashSet::from([contract_address1, contract_address3]),
     };
@@ -531,7 +540,7 @@ fn test_state_changes_keys() {
         StateChangesKeys {
             nonce_keys: HashSet::from([contract_address0]),
             class_hash_keys: HashSet::new(),
-            storage_keys: HashSet::from([(contract_address2, storage_key!("0x200"),)]),
+            storage_keys: HashSet::from([(contract_address2, storage_key!(0x200_u16),)]),
             compiled_class_hash_keys: HashSet::from([class_hash1]),
             modified_contracts: HashSet::from([contract_address2]),
         }
@@ -557,8 +566,8 @@ fn test_state_changes_keys() {
             nonce_keys: HashSet::from([contract_address0, contract_address1]),
             class_hash_keys: HashSet::from([contract_address1, contract_address2]),
             storage_keys: HashSet::from([
-                (contract_address2, storage_key!("0x300")),
-                (contract_address2, storage_key!("0x200")),
+                (contract_address2, storage_key!(0x300_u16)),
+                (contract_address2, storage_key!(0x200_u16)),
             ]),
             compiled_class_hash_keys: HashSet::from([class_hash0, class_hash1]),
             modified_contracts: HashSet::from([
@@ -573,11 +582,11 @@ fn test_state_changes_keys() {
 #[rstest]
 fn test_state_maps() {
     let contract_address1 = contract_address!("0x101");
-    let storage_key1 = storage_key!("0x102");
+    let storage_key1 = storage_key!(0x102_u16);
     let class_hash1 = class_hash!("0x103");
-    let nonce1 = nonce!("0x104");
-    let compiled_class_hash1 = compiled_class_hash!("0x105");
-    let some_felt1 = stark_felt!("0x106");
+    let nonce1 = Nonce(felt!(0x104_u16));
+    let compiled_class_hash1 = compiled_class_hash!(0x105_u16);
+    let some_felt1 = felt!("0x106");
     let maps = StateMaps {
         nonces: HashMap::from([(contract_address1, nonce1)]),
         class_hashes: HashMap::from([(contract_address1, class_hash1)]),

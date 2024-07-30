@@ -2,15 +2,13 @@ use std::num::NonZeroU128;
 
 use starknet_api::block::{BlockHash, BlockNumber, BlockTimestamp};
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 use crate::abi::constants;
-use crate::context::{BlockContext, ChainInfo};
 use crate::state::errors::StateError;
 use crate::state::state_api::{State, StateResult};
 use crate::transaction::objects::FeeType;
-use crate::versioned_constants::VersionedConstants;
 
 #[cfg(test)]
 #[path = "block_test.rs"]
@@ -59,13 +57,10 @@ impl GasPrices {
 pub fn pre_process_block(
     state: &mut dyn State,
     old_block_number_and_hash: Option<BlockNumberHashPair>,
-    block_info: BlockInfo,
-    chain_info: ChainInfo,
-    versioned_constants: VersionedConstants,
-    concurrency_mode: bool,
-) -> StateResult<BlockContext> {
+    next_block_number: BlockNumber,
+) -> StateResult<()> {
     let should_block_hash_be_provided =
-        block_info.block_number >= BlockNumber(constants::STORED_BLOCK_HASH_BUFFER);
+        next_block_number >= BlockNumber(constants::STORED_BLOCK_HASH_BUFFER);
     if let Some(BlockNumberHashPair { number: block_number, hash: block_hash }) =
         old_block_number_and_hash
     {
@@ -81,7 +76,7 @@ pub fn pre_process_block(
         return Err(StateError::OldBlockHashNotProvided);
     }
 
-    Ok(BlockContext { block_info, chain_info, versioned_constants, concurrency_mode })
+    Ok(())
 }
 
 pub struct BlockNumberHashPair {
@@ -90,7 +85,7 @@ pub struct BlockNumberHashPair {
 }
 
 impl BlockNumberHashPair {
-    pub fn new(block_number: u64, block_hash: StarkFelt) -> BlockNumberHashPair {
+    pub fn new(block_number: u64, block_hash: Felt) -> BlockNumberHashPair {
         BlockNumberHashPair { number: BlockNumber(block_number), hash: BlockHash(block_hash) }
     }
 }

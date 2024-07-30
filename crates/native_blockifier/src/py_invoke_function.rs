@@ -11,6 +11,7 @@ use starknet_api::transaction::{
     InvokeTransactionV3, PaymasterData, ResourceBoundsMapping, Tip, TransactionHash,
     TransactionSignature,
 };
+use starknet_types_core::felt::Felt;
 
 use crate::errors::{NativeBlockifierInputError, NativeBlockifierResult};
 use crate::py_transaction::{PyDataAvailabilityMode, PyResourceBoundsMapping};
@@ -97,27 +98,25 @@ impl TryFrom<PyInvokeTransactionV3> for InvokeTransactionV3 {
 }
 
 pub fn py_invoke_function(py_tx: &PyAny) -> NativeBlockifierResult<InvokeTransaction> {
-    let version = usize::try_from(py_attr::<PyFelt>(py_tx, "version")?.0)?;
-    let tx = match version {
-        0 => {
-            let py_invoke_tx: PyInvokeTransactionV0 = py_tx.extract()?;
-            let invoke_tx = InvokeTransactionV0::try_from(py_invoke_tx)?;
-            Ok(starknet_api::transaction::InvokeTransaction::V0(invoke_tx))
-        }
-        1 => {
-            let py_invoke_tx: PyInvokeTransactionV1 = py_tx.extract()?;
-            let invoke_tx = InvokeTransactionV1::try_from(py_invoke_tx)?;
-            Ok(starknet_api::transaction::InvokeTransaction::V1(invoke_tx))
-        }
-        3 => {
-            let py_invoke_tx: PyInvokeTransactionV3 = py_tx.extract()?;
-            let invoke_tx = InvokeTransactionV3::try_from(py_invoke_tx)?;
-            Ok(starknet_api::transaction::InvokeTransaction::V3(invoke_tx))
-        }
-        _ => Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
+    let version = py_attr::<PyFelt>(py_tx, "version")?.0;
+    // TODO: Make TransactionVersion an enum and use match here.
+    let tx = if version == Felt::ZERO {
+        let py_invoke_tx: PyInvokeTransactionV0 = py_tx.extract()?;
+        let invoke_tx = InvokeTransactionV0::try_from(py_invoke_tx)?;
+        Ok(starknet_api::transaction::InvokeTransaction::V0(invoke_tx))
+    } else if version == Felt::ONE {
+        let py_invoke_tx: PyInvokeTransactionV1 = py_tx.extract()?;
+        let invoke_tx = InvokeTransactionV1::try_from(py_invoke_tx)?;
+        Ok(starknet_api::transaction::InvokeTransaction::V1(invoke_tx))
+    } else if version == Felt::THREE {
+        let py_invoke_tx: PyInvokeTransactionV3 = py_tx.extract()?;
+        let invoke_tx = InvokeTransactionV3::try_from(py_invoke_tx)?;
+        Ok(starknet_api::transaction::InvokeTransaction::V3(invoke_tx))
+    } else {
+        Err(NativeBlockifierInputError::UnsupportedTransactionVersion {
             tx_type: TransactionType::InvokeFunction,
-            version,
-        }),
+            version: version.to_biguint(),
+        })
     }?;
 
     let tx_hash = TransactionHash(py_attr::<PyFelt>(py_tx, "hash_value")?.0);

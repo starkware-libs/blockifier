@@ -1,17 +1,21 @@
 use std::collections::HashSet;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use starknet_api::hash::StarkFelt;
+use num_bigint::BigUint;
+use starknet_api::core::ContractAddress;
+use starknet_api::state::StorageKey;
 use starknet_api::transaction::Fee;
+use starknet_types_core::felt::Felt;
 
+use crate::abi::abi_utils::get_fee_token_var_address;
 use crate::abi::constants;
+use crate::abi::sierra_types::next_storage_key;
 use crate::blockifier::block::BlockInfo;
 use crate::context::{BlockContext, TransactionContext};
 use crate::state::state_api::StateReader;
 use crate::transaction::errors::TransactionFeeError;
 use crate::transaction::objects::{
     ExecutionResourcesTraits, FeeType, GasVector, TransactionFeeResult, TransactionInfo,
-    TransactionResources,
 };
 use crate::utils::u128_from_usize;
 use crate::versioned_constants::VersionedConstants;
@@ -30,7 +34,7 @@ pub fn calculate_l1_gas_by_vm_usage(
 ) -> TransactionFeeResult<GasVector> {
     // TODO(Yoni, 1/7/2024): rename vm -> cairo.
     let vm_resource_fee_costs = versioned_constants.vm_resource_fee_cost();
-    let mut vm_resource_usage_for_fee = vm_resource_usage.prover_builtins();
+    let mut vm_resource_usage_for_fee = vm_resource_usage.prover_builtins_by_name();
     vm_resource_usage_for_fee.insert(
         constants::N_STEPS_RESOURCE.to_string(),
         vm_resource_usage.total_n_steps() + n_reverted_steps,
@@ -72,23 +76,12 @@ pub fn get_fee_by_gas_vector(
     )
 }
 
-/// Calculates the fee that should be charged, given transaction resources.
-pub fn calculate_tx_fee(
-    tx_resources: &TransactionResources,
-    block_context: &BlockContext,
-    fee_type: &FeeType,
-) -> TransactionFeeResult<Fee> {
-    let gas_vector = tx_resources
-        .to_gas_vector(&block_context.versioned_constants, block_context.block_info.use_kzg_da)?;
-    Ok(get_fee_by_gas_vector(&block_context.block_info, gas_vector, fee_type))
-}
-
 /// Returns the current fee balance and a boolean indicating whether the balance covers the fee.
 pub fn get_balance_and_if_covers_fee(
     state: &mut dyn StateReader,
     tx_context: &TransactionContext,
     fee: Fee,
-) -> TransactionFeeResult<(StarkFelt, StarkFelt, bool)> {
+) -> TransactionFeeResult<(Felt, Felt, bool)> {
     let tx_info = &tx_context.tx_info;
     let (balance_low, balance_high) =
         state.get_fee_token_balance(tx_info.sender_address(), tx_context.fee_token_address())?;
@@ -97,7 +90,7 @@ pub fn get_balance_and_if_covers_fee(
         balance_high,
         // TODO(Dori,1/10/2023): If/when fees can be more than 128 bit integers, this should be
         //   updated.
-        balance_high > StarkFelt::from(0_u8) || balance_low >= StarkFelt::from(fee.0),
+        balance_high > Felt::from(0_u8) || balance_low >= Felt::from(fee.0),
     ))
 }
 
@@ -129,15 +122,32 @@ pub fn verify_can_pay_committed_bounds(
                 TransactionFeeError::L1GasBoundsExceedBalance {
                     max_amount: l1_bounds.max_amount,
                     max_price: l1_bounds.max_price_per_unit,
-                    balance_low,
-                    balance_high,
+                    balance: balance_to_big_uint(&balance_low, &balance_high),
                 }
             }
             TransactionInfo::Deprecated(context) => TransactionFeeError::MaxFeeExceedsBalance {
                 max_fee: context.max_fee,
-                balance_low,
-                balance_high,
+                balance: balance_to_big_uint(&balance_low, &balance_high),
             },
         })
     }
+}
+
+pub fn get_sequencer_balance_keys(block_context: &BlockContext) -> (StorageKey, StorageKey) {
+    let sequencer_address = block_context.block_info.sequencer_address;
+    get_address_balance_keys(sequencer_address)
+}
+
+pub fn get_address_balance_keys(address: ContractAddress) -> (StorageKey, StorageKey) {
+    let balance_key_low = get_fee_token_var_address(address);
+    let balance_key_high = next_storage_key(&balance_key_low).unwrap_or_else(|_| {
+        panic!("Failed to get balance_key_high for address: {:?}", address.0);
+    });
+    (balance_key_low, balance_key_high)
+}
+
+pub(crate) fn balance_to_big_uint(balance_low: &Felt, balance_high: &Felt) -> BigUint {
+    let low = BigUint::from_bytes_be(&balance_low.to_bytes_be());
+    let high = BigUint::from_bytes_be(&balance_high.to_bytes_be());
+    (high << 128) + low
 }

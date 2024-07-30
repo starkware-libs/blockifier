@@ -1,5 +1,4 @@
-use cairo_felt::Felt252;
-use cairo_vm::types::relocatable::Relocatable;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
 use cairo_vm::vm::vm_core::VirtualMachine;
 use num_traits::ToPrimitive;
 use starknet_api::block::{BlockHash, BlockNumber};
@@ -7,11 +6,11 @@ use starknet_api::core::{
     calculate_contract_address, ClassHash, ContractAddress, EntryPointSelector, EthAddress,
 };
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::{
     Calldata, ContractAddressSalt, EventContent, EventData, EventKey, L2ToL1Payload,
 };
+use starknet_types_core::felt::Felt;
 
 use self::hint_processor::{
     create_retdata_segment, execute_inner_call, execute_library_call, felt_to_bool,
@@ -24,8 +23,7 @@ use crate::execution::contract_class::ContractClass;
 use crate::execution::deprecated_syscalls::DeprecatedSyscallSelector;
 use crate::execution::entry_point::{CallEntryPoint, CallType, ConstructorContext};
 use crate::execution::execution_utils::{
-    execute_deployment, felt_from_ptr, felt_to_stark_felt, stark_felt_from_ptr, stark_felt_to_felt,
-    write_felt, write_maybe_relocatable, write_stark_felt, ReadOnlySegment,
+    execute_deployment, felt_from_ptr, write_felt, write_maybe_relocatable, ReadOnlySegment,
 };
 use crate::execution::syscalls::hint_processor::{INVALID_INPUT_LENGTH_ERROR, OUT_OF_GAS_ERROR};
 use crate::transaction::transaction_utils::update_remaining_gas;
@@ -60,7 +58,7 @@ impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
         let gas_counter = felt_from_ptr(vm, ptr)?;
         let gas_counter =
             gas_counter.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
-                input: felt_to_stark_felt(&gas_counter),
+                input: gas_counter,
                 info: String::from("Unexpected gas."),
             })?;
         Ok(Self { gas_counter, request: T::read(vm, ptr)? })
@@ -69,27 +67,27 @@ impl<T: SyscallRequest> SyscallRequest for SyscallRequestWrapper<T> {
 
 pub enum SyscallResponseWrapper<T: SyscallResponse> {
     Success { gas_counter: u64, response: T },
-    Failure { gas_counter: u64, error_data: Vec<StarkFelt> },
+    Failure { gas_counter: u64, error_data: Vec<Felt> },
 }
 impl<T: SyscallResponse> SyscallResponse for SyscallResponseWrapper<T> {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
         match self {
             Self::Success { gas_counter, response } => {
-                write_felt(vm, ptr, Felt252::from(gas_counter))?;
+                write_felt(vm, ptr, Felt::from(gas_counter))?;
                 // 0 to indicate success.
-                write_stark_felt(vm, ptr, StarkFelt::from(0_u8))?;
+                write_felt(vm, ptr, Felt::from(0_u8))?;
                 response.write(vm, ptr)
             }
             Self::Failure { gas_counter, error_data } => {
-                write_felt(vm, ptr, Felt252::from(gas_counter))?;
+                write_felt(vm, ptr, Felt::from(gas_counter))?;
                 // 1 to indicate failure.
-                write_stark_felt(vm, ptr, StarkFelt::from(1_u8))?;
+                write_felt(vm, ptr, Felt::from(1_u8))?;
 
                 // Write the error data to a new memory segment.
                 let revert_reason_start = vm.add_memory_segment();
                 let revert_reason_end = vm.load_data(
                     revert_reason_start,
-                    &error_data.into_iter().map(stark_felt_to_felt).map(Into::into).collect(),
+                    &error_data.into_iter().map(Into::into).collect(),
                 )?;
 
                 // Write the start and end pointers of the error data.
@@ -143,7 +141,7 @@ pub struct CallContractRequest {
 
 impl SyscallRequest for CallContractRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<CallContractRequest> {
-        let contract_address = ContractAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
+        let contract_address = ContractAddress::try_from(felt_from_ptr(vm, ptr)?)?;
         let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(CallContractRequest { contract_address, function_selector, calldata })
@@ -198,10 +196,10 @@ pub struct DeployRequest {
 
 impl SyscallRequest for DeployRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<DeployRequest> {
-        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
-        let contract_address_salt = ContractAddressSalt(stark_felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
+        let contract_address_salt = ContractAddressSalt(felt_from_ptr(vm, ptr)?);
         let constructor_calldata = read_calldata(vm, ptr)?;
-        let deploy_from_zero = stark_felt_from_ptr(vm, ptr)?;
+        let deploy_from_zero = felt_from_ptr(vm, ptr)?;
 
         Ok(DeployRequest {
             class_hash,
@@ -223,7 +221,7 @@ pub struct DeployResponse {
 
 impl SyscallResponse for DeployResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_stark_felt(vm, ptr, *self.contract_address.0.key())?;
+        write_felt(vm, ptr, *self.contract_address.0.key())?;
         write_segment(vm, ptr, self.constructor_retdata)
     }
 }
@@ -347,7 +345,7 @@ impl SyscallRequest for GetBlockHashRequest {
         let felt = felt_from_ptr(vm, ptr)?;
         let block_number = BlockNumber(felt.to_u64().ok_or_else(|| {
             SyscallExecutionError::InvalidSyscallInput {
-                input: felt_to_stark_felt(&felt),
+                input: felt,
                 info: String::from("Block number must fit within 64 bits."),
             }
         })?);
@@ -363,7 +361,7 @@ pub struct GetBlockHashResponse {
 
 impl SyscallResponse for GetBlockHashResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_stark_felt(vm, ptr, self.block_hash.0)?;
+        write_felt(vm, ptr, self.block_hash.0)?;
         Ok(())
     }
 }
@@ -392,14 +390,14 @@ pub fn get_block_hash(
     if current_block_number < constants::STORED_BLOCK_HASH_BUFFER
         || requested_block_number > current_block_number - constants::STORED_BLOCK_HASH_BUFFER
     {
-        let out_of_range_error = StarkFelt::try_from(BLOCK_NUMBER_OUT_OF_RANGE_ERROR)
-            .map_err(SyscallExecutionError::from)?;
+        let out_of_range_error =
+            Felt::from_hex(BLOCK_NUMBER_OUT_OF_RANGE_ERROR).map_err(SyscallExecutionError::from)?;
         return Err(SyscallExecutionError::SyscallError { error_data: vec![out_of_range_error] });
     }
 
-    let key = StorageKey::try_from(StarkFelt::from(requested_block_number))?;
+    let key = StorageKey::try_from(Felt::from(requested_block_number))?;
     let block_hash_contract_address =
-        ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
+        ContractAddress::try_from(Felt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS))?;
     let block_hash =
         BlockHash(syscall_handler.state.get_storage_at(block_hash_contract_address, key)?);
     Ok(GetBlockHashResponse { block_hash })
@@ -442,7 +440,7 @@ pub struct LibraryCallRequest {
 
 impl SyscallRequest for LibraryCallRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<LibraryCallRequest> {
-        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
         let (function_selector, calldata) = read_call_params(vm, ptr)?;
 
         Ok(LibraryCallRequest { class_hash, function_selector, calldata })
@@ -502,7 +500,7 @@ pub struct ReplaceClassRequest {
 
 impl SyscallRequest for ReplaceClassRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<ReplaceClassRequest> {
-        let class_hash = ClassHash(stark_felt_from_ptr(vm, ptr)?);
+        let class_hash = ClassHash(felt_from_ptr(vm, ptr)?);
 
         Ok(ReplaceClassRequest { class_hash })
     }
@@ -543,7 +541,7 @@ pub struct SendMessageToL1Request {
 impl SyscallRequest for SendMessageToL1Request {
     // The Cairo struct contains: `to_address`, `payload_size`, `payload`.
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<SendMessageToL1Request> {
-        let to_address = EthAddress::try_from(stark_felt_from_ptr(vm, ptr)?)?;
+        let to_address = EthAddress::try_from(felt_from_ptr(vm, ptr)?)?;
         let payload = L2ToL1Payload(read_felt_array::<SyscallExecutionError>(vm, ptr)?);
 
         Ok(SendMessageToL1Request { message: MessageToL1 { to_address, payload } })
@@ -574,29 +572,29 @@ pub fn send_message_to_l1(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadRequest {
-    pub address_domain: StarkFelt,
+    pub address_domain: Felt,
     pub address: StorageKey,
 }
 
 impl SyscallRequest for StorageReadRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageReadRequest> {
-        let address_domain = stark_felt_from_ptr(vm, ptr)?;
-        if address_domain != StarkFelt::from(0_u8) {
+        let address_domain = felt_from_ptr(vm, ptr)?;
+        if address_domain != Felt::from(0_u8) {
             return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
         }
-        let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
+        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
         Ok(StorageReadRequest { address_domain, address })
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageReadResponse {
-    pub value: StarkFelt,
+    pub value: Felt,
 }
 
 impl SyscallResponse for StorageReadResponse {
     fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
-        write_stark_felt(vm, ptr, self.value)?;
+        write_felt(vm, ptr, self.value)?;
         Ok(())
     }
 }
@@ -614,19 +612,19 @@ pub fn storage_read(
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct StorageWriteRequest {
-    pub address_domain: StarkFelt,
+    pub address_domain: Felt,
     pub address: StorageKey,
-    pub value: StarkFelt,
+    pub value: Felt,
 }
 
 impl SyscallRequest for StorageWriteRequest {
     fn read(vm: &VirtualMachine, ptr: &mut Relocatable) -> SyscallResult<StorageWriteRequest> {
-        let address_domain = stark_felt_from_ptr(vm, ptr)?;
-        if address_domain != StarkFelt::from(0_u8) {
+        let address_domain = felt_from_ptr(vm, ptr)?;
+        if address_domain != Felt::from(0_u8) {
             return Err(SyscallExecutionError::InvalidAddressDomain { address_domain });
         }
-        let address = StorageKey::try_from(stark_felt_from_ptr(vm, ptr)?)?;
-        let value = stark_felt_from_ptr(vm, ptr)?;
+        let address = StorageKey::try_from(felt_from_ptr(vm, ptr)?)?;
+        let value = felt_from_ptr(vm, ptr)?;
         Ok(StorageWriteRequest { address_domain, address, value })
     }
 }
@@ -662,8 +660,8 @@ impl SyscallRequest for KeccakRequest {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct KeccakResponse {
-    pub result_low: Felt252,
-    pub result_high: Felt252,
+    pub result_low: Felt,
+    pub result_high: Felt,
 }
 
 impl SyscallResponse for KeccakResponse {
@@ -688,8 +686,7 @@ pub fn keccak(
     if remainder != 0 {
         return Err(SyscallExecutionError::SyscallError {
             error_data: vec![
-                StarkFelt::try_from(INVALID_INPUT_LENGTH_ERROR)
-                    .map_err(SyscallExecutionError::from)?,
+                Felt::from_hex(INVALID_INPUT_LENGTH_ERROR).map_err(SyscallExecutionError::from)?,
             ],
         });
     }
@@ -699,7 +696,7 @@ pub fn keccak(
     let gas_cost = n_rounds_as_u64 * syscall_handler.context.gas_costs().keccak_round_cost_gas_cost;
     if gas_cost > *remaining_gas {
         let out_of_gas_error =
-            StarkFelt::try_from(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;
+            Felt::from_hex(OUT_OF_GAS_ERROR).map_err(SyscallExecutionError::from)?;
 
         return Err(SyscallExecutionError::SyscallError { error_data: vec![out_of_gas_error] });
     }
@@ -715,7 +712,7 @@ pub fn keccak(
     for chunk in data.chunks(KECCAK_FULL_RATE_IN_WORDS) {
         for (i, val) in chunk.iter().enumerate() {
             state[i] ^= val.to_u64().ok_or_else(|| SyscallExecutionError::InvalidSyscallInput {
-                input: felt_to_stark_felt(val),
+                input: **val,
                 info: String::from("Invalid input for the keccak syscall."),
             })?;
         }
@@ -723,7 +720,81 @@ pub fn keccak(
     }
 
     Ok(KeccakResponse {
-        result_low: (Felt252::from(state[1]) << 64u32) + Felt252::from(state[0]),
-        result_high: (Felt252::from(state[3]) << 64u32) + Felt252::from(state[2]),
+        result_low: (Felt::from(state[1]) * Felt::TWO.pow(64_u128)) + Felt::from(state[0]),
+        result_high: (Felt::from(state[3]) * Felt::TWO.pow(64_u128)) + Felt::from(state[2]),
     })
+}
+
+// Sha256ProcessBlock syscall.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Sha256ProcessBlockRequest {
+    pub state_ptr: Relocatable,
+    pub input_start: Relocatable,
+}
+
+impl SyscallRequest for Sha256ProcessBlockRequest {
+    fn read(
+        vm: &VirtualMachine,
+        ptr: &mut Relocatable,
+    ) -> SyscallResult<Sha256ProcessBlockRequest> {
+        let state_start = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        let input_start = vm.get_relocatable(*ptr)?;
+        *ptr = (*ptr + 1)?;
+        Ok(Sha256ProcessBlockRequest { state_ptr: state_start, input_start })
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Sha256ProcessBlockResponse {
+    pub state_ptr: Relocatable,
+}
+
+impl SyscallResponse for Sha256ProcessBlockResponse {
+    fn write(self, vm: &mut VirtualMachine, ptr: &mut Relocatable) -> WriteResponseResult {
+        write_maybe_relocatable(vm, ptr, self.state_ptr)?;
+        Ok(())
+    }
+}
+
+pub fn sha_256_process_block(
+    request: Sha256ProcessBlockRequest,
+    vm: &mut VirtualMachine,
+    syscall_handler: &mut SyscallHintProcessor<'_>,
+    _remaining_gas: &mut u64,
+) -> SyscallResult<Sha256ProcessBlockResponse> {
+    const SHA256_BLOCK_SIZE: usize = 16;
+
+    let data = vm.get_integer_range(request.input_start, SHA256_BLOCK_SIZE)?;
+    const SHA256_STATE_SIZE: usize = 8;
+    let prev_state = vm.get_integer_range(request.state_ptr, SHA256_STATE_SIZE)?;
+
+    let data_as_bytes =
+        sha2::digest::generic_array::GenericArray::from_exact_iter(data.iter().flat_map(|felt| {
+            felt.to_bigint()
+                .to_u32()
+                .expect("libfunc should ensure the input is an [u32; 16].")
+                .to_be_bytes()
+        }))
+        .expect(
+            "u32.to_be_bytes() returns 4 bytes, and data.len() == 16. So data contains 64 bytes.",
+        );
+
+    let mut state_as_words: [u32; SHA256_STATE_SIZE] = core::array::from_fn(|i| {
+        prev_state[i].to_bigint().to_u32().expect(
+            "libfunc only accepts SHA256StateHandle which can only be created from an Array<u32>.",
+        )
+    });
+
+    sha2::compress256(&mut state_as_words, &[data_as_bytes]);
+
+    let segment = syscall_handler.sha256_segment_end_ptr.unwrap_or(vm.add_memory_segment());
+
+    let response = segment;
+    let data: Vec<MaybeRelocatable> =
+        state_as_words.iter().map(|&arg| MaybeRelocatable::from(Felt::from(arg))).collect();
+
+    syscall_handler.sha256_segment_end_ptr = Some(vm.load_data(segment, &data)?);
+
+    Ok(Sha256ProcessBlockResponse { state_ptr: response })
 }

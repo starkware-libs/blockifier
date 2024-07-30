@@ -1,6 +1,7 @@
 #[starknet::contract]
 mod TestContract {
     use box::BoxTrait;
+    use core::sha256::{compute_sha256_u32_array, sha256_state_handle_init, SHA256_INITIAL_STATE};
     use dict::Felt252DictTrait;
     use ec::EcPointTrait;
     use starknet::ClassHash;
@@ -20,11 +21,16 @@ mod TestContract {
         info::{BlockInfo, SyscallResultTrait}, info::v2::{ExecutionInfo, TxInfo, ResourceBounds,},
         syscalls
     };
+    use core::circuit::{
+        CircuitElement, CircuitInput, circuit_add, circuit_sub, circuit_mul, circuit_inverse,
+        EvalCircuitResult, EvalCircuitTrait, u384, CircuitOutputsTrait,
+        CircuitModulus, CircuitInputs, AddInputResultTrait
+    };
 
     #[storage]
     struct Storage {
         my_storage_var: felt252,
-        two_counters: LegacyMap<felt252, (felt252, felt252)>,
+        two_counters: starknet::storage::Map<felt252, (felt252, felt252)>,
         ec_point: (felt252, felt252),
     }
 
@@ -218,6 +224,16 @@ mod TestContract {
                 *revert_reason.at(0) == 'Invalid input length', 'Wrong error msg'
             ),
         }
+    }
+
+    #[external(v0)]
+    fn test_sha256(ref self: ContractState) {
+        let mut input: Array::<u32> = Default::default();
+        input.append('aaaa');
+
+        // Test the sha256 syscall computation of the string 'aaaa'.
+        let [res, _, _, _, _, _, _, _,] = compute_sha256_u32_array(input, 0, 0);
+        assert(res == 0x61be55a8, 'Wrong hash value');
     }
 
     #[external(v0)]
@@ -520,5 +536,37 @@ mod TestContract {
         payload.append(12);
         payload.append(34);
         starknet::send_message_to_l1_syscall(to_address, payload.span()).unwrap_syscall();
+    }
+
+    #[external(v0)]
+    fn test_circuit(ref self: ContractState) {
+        let in1 = CircuitElement::<CircuitInput<0>> {};
+        let in2 = CircuitElement::<CircuitInput<1>> {};
+        let add = circuit_add(in1, in2);
+        let inv = circuit_inverse(add);
+        let sub = circuit_sub(inv, in2);
+        let mul = circuit_mul(inv, sub);
+
+        let modulus = TryInto::<_, CircuitModulus>::try_into([7, 0, 0, 0]).unwrap();
+        let outputs =
+            (mul,).new_inputs().next([3, 0, 0, 0]).next([6, 0, 0, 0]).done().eval(modulus).unwrap();
+
+        assert!(outputs.get_output(mul) == u384 { limb0: 6, limb1: 0, limb2: 0, limb3: 0 });
+    }
+
+
+    // Add drop for AddInputResult as it only has PanicDestruct.
+    impl AddInputResultDrop<C> of Drop<core::circuit::AddInputResult<C>>;
+
+    #[external(v0)]
+    fn test_rc96_holes(ref self: ContractState) {
+        test_rc96_holes_helper();
+        test_rc96_holes_helper();
+    }
+
+    #[inline(never)]
+    fn test_rc96_holes_helper() {
+        let in1 = CircuitElement::<CircuitInput<0>> {};
+        (in1,).new_inputs().next([3, 0, 0, 0]);
     }
 }

@@ -36,8 +36,7 @@ impl Default for InvokeTxArgs {
             signature: TransactionSignature::default(),
             sender_address: ContractAddress::default(),
             calldata: calldata![],
-            // TODO(Dori, 10/10/2023): Change to THREE when supported.
-            version: TransactionVersion::ONE,
+            version: TransactionVersion::THREE,
             resource_bounds: default_testing_resource_bounds(),
             tip: Tip::default(),
             nonce_data_availability_mode: DataAvailabilityMode::L1,
@@ -68,41 +67,39 @@ macro_rules! invoke_tx_args {
 }
 
 pub fn invoke_tx(invoke_args: InvokeTxArgs) -> InvokeTransaction {
-    let invoke_tx = match invoke_args.version {
-        TransactionVersion::ZERO => {
-            starknet_api::transaction::InvokeTransaction::V0(InvokeTransactionV0 {
-                max_fee: invoke_args.max_fee,
-                calldata: invoke_args.calldata,
-                contract_address: invoke_args.sender_address,
-                signature: invoke_args.signature,
-                // V0 transactions should always select the `__execute__` entry point.
-                entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
-            })
-        }
-        TransactionVersion::ONE => {
-            starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
-                max_fee: invoke_args.max_fee,
-                sender_address: invoke_args.sender_address,
-                nonce: invoke_args.nonce,
-                calldata: invoke_args.calldata,
-                signature: invoke_args.signature,
-            })
-        }
-        TransactionVersion::THREE => {
-            starknet_api::transaction::InvokeTransaction::V3(InvokeTransactionV3 {
-                resource_bounds: invoke_args.resource_bounds,
-                calldata: invoke_args.calldata,
-                sender_address: invoke_args.sender_address,
-                nonce: invoke_args.nonce,
-                signature: invoke_args.signature,
-                tip: invoke_args.tip,
-                nonce_data_availability_mode: invoke_args.nonce_data_availability_mode,
-                fee_data_availability_mode: invoke_args.fee_data_availability_mode,
-                paymaster_data: invoke_args.paymaster_data,
-                account_deployment_data: invoke_args.account_deployment_data,
-            })
-        }
-        _ => panic!("Unsupported transaction version: {:?}.", invoke_args.version),
+    // TODO: Make TransactionVersion an enum and use match here.
+    let invoke_tx = if invoke_args.version == TransactionVersion::ZERO {
+        starknet_api::transaction::InvokeTransaction::V0(InvokeTransactionV0 {
+            max_fee: invoke_args.max_fee,
+            calldata: invoke_args.calldata,
+            contract_address: invoke_args.sender_address,
+            signature: invoke_args.signature,
+            // V0 transactions should always select the `__execute__` entry point.
+            entry_point_selector: selector_from_name(EXECUTE_ENTRY_POINT_NAME),
+        })
+    } else if invoke_args.version == TransactionVersion::ONE {
+        starknet_api::transaction::InvokeTransaction::V1(InvokeTransactionV1 {
+            max_fee: invoke_args.max_fee,
+            sender_address: invoke_args.sender_address,
+            nonce: invoke_args.nonce,
+            calldata: invoke_args.calldata,
+            signature: invoke_args.signature,
+        })
+    } else if invoke_args.version == TransactionVersion::THREE {
+        starknet_api::transaction::InvokeTransaction::V3(InvokeTransactionV3 {
+            resource_bounds: invoke_args.resource_bounds,
+            calldata: invoke_args.calldata,
+            sender_address: invoke_args.sender_address,
+            nonce: invoke_args.nonce,
+            signature: invoke_args.signature,
+            tip: invoke_args.tip,
+            nonce_data_availability_mode: invoke_args.nonce_data_availability_mode,
+            fee_data_availability_mode: invoke_args.fee_data_availability_mode,
+            paymaster_data: invoke_args.paymaster_data,
+            account_deployment_data: invoke_args.account_deployment_data,
+        })
+    } else {
+        panic!("Unsupported transaction version: {:?}.", invoke_args.version)
     };
 
     let default_tx_hash = TransactionHash::default();

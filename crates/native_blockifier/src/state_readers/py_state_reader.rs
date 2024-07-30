@@ -3,8 +3,8 @@ use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
 use pyo3::{FromPyObject, PyAny, PyErr, PyObject, PyResult, Python};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 use crate::errors::{
     NativeBlockifierError, NativeBlockifierInputError, NativeBlockifierResult,
@@ -35,7 +35,7 @@ impl StateReader for PyStateReader {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         Python::with_gil(|py| -> PyResult<PyFelt> {
             let args = (ON_CHAIN_STORAGE_DOMAIN, PyFelt::from(contract_address), PyFelt::from(key));
             self.state_reader_proxy.as_ref(py).call_method1("get_storage_at", args)?.extract()

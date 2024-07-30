@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use cairo_felt::Felt252;
-use cairo_vm::vm::runners::builtin_runner::SEGMENT_ARENA_BUILTIN_NAME;
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use num_traits::Pow;
 use serde::Serialize;
@@ -11,14 +10,15 @@ use starknet_api::transaction::{
     AccountDeploymentData, Fee, PaymasterData, Resource, ResourceBounds, ResourceBoundsMapping,
     Tip, TransactionHash, TransactionSignature, TransactionVersion,
 };
+use starknet_types_core::felt::Felt;
 use strum_macros::EnumIter;
 
 use crate::abi::constants as abi_constants;
-use crate::context::BlockContext;
+use crate::blockifier::block::BlockInfo;
 use crate::execution::call_info::{CallInfo, ExecutionSummary, MessageL1CostInfo, OrderedEvent};
-use crate::execution::execution_utils::{felt_to_stark_felt, stark_felt_to_felt};
+use crate::fee::actual_cost::TransactionReceipt;
 use crate::fee::eth_gas_constants;
-use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, calculate_tx_fee};
+use crate::fee::fee_utils::{calculate_l1_gas_by_vm_usage, get_fee_by_gas_vector};
 use crate::fee::gas_usage::{
     get_consumed_message_to_l2_emissions_cost, get_da_gas_cost,
     get_log_message_to_l1_emissions_cost, get_onchain_data_segment_length,
@@ -83,9 +83,9 @@ impl TransactionInfo {
             return version;
         }
 
-        let query_version_base = Pow::pow(Felt252::from(2_u8), constants::QUERY_VERSION_BASE_BIT);
-        let query_version = query_version_base + stark_felt_to_felt(version.0);
-        TransactionVersion(felt_to_stark_felt(&query_version))
+        let query_version_base = Felt::TWO.pow(constants::QUERY_VERSION_BASE_BIT);
+        let query_version = query_version_base + version.0;
+        TransactionVersion(query_version)
     }
 
     pub fn enforce_fee(&self) -> TransactionFeeResult<bool> {
@@ -224,17 +224,14 @@ pub struct TransactionExecutionInfo {
     pub execute_call_info: Option<CallInfo>,
     /// Fee transfer call info; [None] for `L1Handler`.
     pub fee_transfer_call_info: Option<CallInfo>,
-    /// The actual fee that was charged (in Wei).
-    pub actual_fee: Fee,
-    /// Actual gas consumption the transaction is charged for data availability.
-    pub da_gas: GasVector,
-    /// Actual execution resources the transaction is charged for,
-    /// including L1 gas and additional OS resources estimation.
-    pub actual_resources: TransactionResources,
-    /// Error string for reverted transactions; [None] if transaction execution was successful.
-    // TODO(Dori, 1/8/2023): If the `Eq` and `PartialEq` traits are removed, or implemented on all
-    //   internal structs in this enum, this field should be `Option<TransactionExecutionError>`.
     pub revert_error: Option<String>,
+    /// The receipt of the transaction.
+    /// Including the actual fee that was charged (in units of the relevant fee token),
+    /// actual gas consumption the transaction is charged for data availability,
+    /// actual execution resources the transaction is charged for
+    /// (including L1 gas and additional OS resources estimation),
+    /// and total gas consumed.
+    pub transaction_receipt: TransactionReceipt,
 }
 
 impl TransactionExecutionInfo {
@@ -489,9 +486,9 @@ impl TransactionResources {
                     .expect("This conversion should not fail as the value is a converted usize."),
             ),
         ]));
-        let revrted_steps_to_add = if with_reverted_steps { self.n_reverted_steps } else { 0 };
+        let reverted_steps_to_add = if with_reverted_steps { self.n_reverted_steps } else { 0 };
         *resources.0.get_mut(abi_constants::N_STEPS_RESOURCE).unwrap_or(&mut 0) +=
-            revrted_steps_to_add;
+            reverted_steps_to_add;
         resources
     }
 
@@ -503,7 +500,8 @@ impl TransactionResources {
 pub trait ExecutionResourcesTraits {
     fn total_n_steps(&self) -> usize;
     fn to_resources_mapping(&self) -> ResourcesMapping;
-    fn prover_builtins(&self) -> HashMap<String, usize>;
+    fn prover_builtins(&self) -> HashMap<BuiltinName, usize>;
+    fn prover_builtins_by_name(&self) -> HashMap<String, usize>;
 }
 
 impl ExecutionResourcesTraits for ExecutionResources {
@@ -518,24 +516,31 @@ impl ExecutionResourcesTraits for ExecutionResources {
             + abi_constants::N_STEPS_PER_SEGMENT_ARENA_BUILTIN
                 * self
                     .builtin_instance_counter
-                    .get(SEGMENT_ARENA_BUILTIN_NAME)
+                    .get(&BuiltinName::segment_arena)
                     .cloned()
                     .unwrap_or_default()
     }
 
-    fn prover_builtins(&self) -> HashMap<String, usize> {
+    fn prover_builtins(&self) -> HashMap<BuiltinName, usize> {
         let mut builtins = self.builtin_instance_counter.clone();
 
         // See "total_n_steps" documentation.
-        builtins.remove(SEGMENT_ARENA_BUILTIN_NAME);
+        builtins.remove(&BuiltinName::segment_arena);
         builtins
+    }
+
+    fn prover_builtins_by_name(&self) -> HashMap<String, usize> {
+        self.prover_builtins()
+            .iter()
+            .map(|(builtin, value)| (builtin.to_str_with_suffix().to_string(), *value))
+            .collect()
     }
 
     // TODO(Nimrod, 1/5/2024): Delete this function when it's no longer in use.
     fn to_resources_mapping(&self) -> ResourcesMapping {
         let mut map =
             HashMap::from([(abi_constants::N_STEPS_RESOURCE.to_string(), self.total_n_steps())]);
-        map.extend(self.prover_builtins());
+        map.extend(self.prover_builtins_by_name());
 
         ResourcesMapping(map)
     }
@@ -554,12 +559,8 @@ pub trait HasRelatedFeeType {
         }
     }
 
-    fn calculate_tx_fee(
-        &self,
-        tx_resources: &TransactionResources,
-        block_context: &BlockContext,
-    ) -> TransactionExecutionResult<Fee> {
-        Ok(calculate_tx_fee(tx_resources, block_context, &self.fee_type())?)
+    fn get_fee_by_gas_vector(&self, block_info: &BlockInfo, gas_vector: GasVector) -> Fee {
+        get_fee_by_gas_vector(block_info, gas_vector, &self.fee_type())
     }
 }
 

@@ -3,15 +3,17 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
-use cairo_vm::vm::runners::builtin_runner;
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use indexmap::{IndexMap, IndexSet};
 use num_rational::Ratio;
 use once_cell::sync::Lazy;
+use paste::paste;
 use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Number, Value};
 use strum::IntoEnumIterator;
+use strum_macros::{EnumCount, EnumIter};
 use thiserror::Error;
 
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
@@ -26,18 +28,56 @@ use crate::transaction::transaction_types::TransactionType;
 #[path = "versioned_constants_test.rs"]
 pub mod test;
 
-pub(crate) const DEFAULT_CONSTANTS_JSON: &str =
-    include_str!("../resources/versioned_constants.json");
-static DEFAULT_CONSTANTS: Lazy<VersionedConstants> = Lazy::new(|| {
-    serde_json::from_str(DEFAULT_CONSTANTS_JSON)
-        .expect("Versioned constants JSON file is malformed")
-});
+/// Auto-generate getters for listed versioned constants versions.
+macro_rules! define_versioned_constants {
+    ($(($variant:ident, $path_to_json:expr)),* $(,)?) => {
+        /// Enum of all the Starknet versions supporting versioned constants.
+        #[derive(Clone, Debug, EnumCount, EnumIter, Hash, Eq, PartialEq)]
+        pub enum StarknetVersion {
+            $($variant,)*
+        }
+
+        // Static (lazy) instances of the versioned constants.
+        // For internal use only; for access to a static instance use the `StarknetVersion` enum.
+        paste! {
+            $(
+                pub(crate) const [<VERSIONED_CONSTANTS_ $variant:upper _JSON>]: &str =
+                    include_str!($path_to_json);
+                static [<VERSIONED_CONSTANTS_ $variant:upper>]: Lazy<VersionedConstants> = Lazy::new(|| {
+                    serde_json::from_str([<VERSIONED_CONSTANTS_ $variant:upper _JSON>])
+                        .expect(&format!("Versioned constants {} is malformed.", $path_to_json))
+                });
+            )*
+        }
+
+        /// API to access a static instance of the versioned constants.
+        impl From<StarknetVersion> for &'static VersionedConstants {
+            fn from(version: StarknetVersion) -> Self {
+                match version {
+                    $(
+                        StarknetVersion::$variant => {
+                           & paste! { [<VERSIONED_CONSTANTS_ $variant:upper>] }
+                        }
+                    )*
+                }
+            }
+        }
+    };
+}
+
+define_versioned_constants! {
+    (V0_13_0, "../resources/versioned_constants_13_0.json"),
+    (V0_13_1, "../resources/versioned_constants_13_1.json"),
+    (V0_13_1_1, "../resources/versioned_constants_13_1_1.json"),
+    (Latest, "../resources/versioned_constants.json"),
+}
 
 pub type ResourceCost = Ratio<u128>;
 
 /// Contains constants for the Blockifier that may vary between versions.
 /// Additional constants in the JSON file, not used by Blockifier but included for transparency, are
 /// automatically ignored during deserialization.
+/// Instances of this struct for specific Starknet versions can be selected by using the above enum.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct VersionedConstants {
     // Limits.
@@ -48,6 +88,15 @@ pub struct VersionedConstants {
     pub l2_resource_gas_costs: L2ResourceGasCosts,
     pub max_recursion_depth: usize,
     pub validate_max_n_steps: u32,
+    // BACKWARD COMPATIBILITY: If true, the segment_arena builtin instance counter will be
+    // multiplied by 3. This offsets a bug in the old vm where the counter counted the number of
+    // cells used by instances of the builtin, instead of the number of instances.
+    #[serde(default)]
+    pub segment_arena_cells: bool,
+
+    // Transactions settings.
+    #[serde(default)]
+    pub disable_cairo0_redeclaration: bool,
 
     // Cairo OS constants.
     // Note: if loaded from a json file, there are some assumptions made on its structure.
@@ -64,10 +113,15 @@ pub struct VersionedConstants {
 }
 
 impl VersionedConstants {
+    /// Get the constants for the specified Starknet version.
+    pub fn get(version: StarknetVersion) -> &'static Self {
+        version.into()
+    }
+
     /// Get the constants that shipped with the current version of the Blockifier.
     /// To use custom constants, initialize the struct from a file using `try_from`.
     pub fn latest_constants() -> &'static Self {
-        &DEFAULT_CONSTANTS
+        Self::get(StarknetVersion::Latest)
     }
 
     /// Returns the initial gas of any transaction to run with.
@@ -125,34 +179,22 @@ impl VersionedConstants {
     pub fn create_for_account_testing() -> Self {
         let vm_resource_fee_cost = Arc::new(HashMap::from([
             (crate::abi::constants::N_STEPS_RESOURCE.to_string(), ResourceCost::from_integer(1)),
+            (BuiltinName::pedersen.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
             (
-                cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME.to_string(),
+                BuiltinName::range_check.to_str_with_suffix().to_string(),
                 ResourceCost::from_integer(1),
             ),
+            (BuiltinName::ecdsa.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
+            (BuiltinName::bitwise.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
+            (BuiltinName::poseidon.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
+            (BuiltinName::output.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
+            (BuiltinName::ec_op.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
             (
-                cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(),
+                BuiltinName::range_check96.to_str_with_suffix().to_string(),
                 ResourceCost::from_integer(1),
             ),
-            (
-                cairo_vm::vm::runners::builtin_runner::SIGNATURE_BUILTIN_NAME.to_string(),
-                ResourceCost::from_integer(1),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::BITWISE_BUILTIN_NAME.to_string(),
-                ResourceCost::from_integer(1),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME.to_string(),
-                ResourceCost::from_integer(1),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME.to_string(),
-                ResourceCost::from_integer(1),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::EC_OP_BUILTIN_NAME.to_string(),
-                ResourceCost::from_integer(1),
-            ),
+            (BuiltinName::add_mod.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
+            (BuiltinName::mul_mod.to_str_with_suffix().to_string(), ResourceCost::from_integer(1)),
         ]));
 
         Self { vm_resource_fee_cost, ..Self::create_for_testing() }
@@ -163,34 +205,13 @@ impl VersionedConstants {
     pub fn create_float_for_testing() -> Self {
         let vm_resource_fee_cost = Arc::new(HashMap::from([
             (crate::abi::constants::N_STEPS_RESOURCE.to_string(), ResourceCost::new(25, 10000)),
-            (
-                cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME.to_string(),
-                ResourceCost::new(8, 100),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::RANGE_CHECK_BUILTIN_NAME.to_string(),
-                ResourceCost::new(4, 100),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::SIGNATURE_BUILTIN_NAME.to_string(),
-                ResourceCost::new(512, 100),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::BITWISE_BUILTIN_NAME.to_string(),
-                ResourceCost::new(16, 100),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::POSEIDON_BUILTIN_NAME.to_string(),
-                ResourceCost::new(8, 100),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::OUTPUT_BUILTIN_NAME.to_string(),
-                ResourceCost::from_integer(0),
-            ),
-            (
-                cairo_vm::vm::runners::builtin_runner::EC_OP_BUILTIN_NAME.to_string(),
-                ResourceCost::new(256, 100),
-            ),
+            (BuiltinName::pedersen.to_str_with_suffix().to_string(), ResourceCost::new(8, 100)),
+            (BuiltinName::range_check.to_str_with_suffix().to_string(), ResourceCost::new(4, 100)),
+            (BuiltinName::ecdsa.to_str_with_suffix().to_string(), ResourceCost::new(512, 100)),
+            (BuiltinName::bitwise.to_str_with_suffix().to_string(), ResourceCost::new(16, 100)),
+            (BuiltinName::poseidon.to_str_with_suffix().to_string(), ResourceCost::new(8, 100)),
+            (BuiltinName::output.to_str_with_suffix().to_string(), ResourceCost::from_integer(0)),
+            (BuiltinName::ec_op.to_str_with_suffix().to_string(), ResourceCost::new(256, 100)),
         ]));
 
         Self { vm_resource_fee_cost, ..Self::create_for_testing() }
@@ -201,6 +222,34 @@ impl VersionedConstants {
         max_recursion_depth: usize,
     ) -> Self {
         Self { validate_max_n_steps, max_recursion_depth, ..Self::latest_constants().clone() }
+    }
+
+    // TODO(Amos, 1/8/2024): Remove the explicit `validate_max_n_steps` & `max_recursion_depth`,
+    // they should be part of the general override.
+    /// `versioned_constants_base_overrides` are used if they are provided, otherwise the latest
+    /// versioned constants are used. `validate_max_n_steps` & `max_recursion_depth` override both.
+    pub fn get_versioned_constants(
+        versioned_constants_overrides: VersionedConstantsOverrides,
+    ) -> Self {
+        let VersionedConstantsOverrides {
+            validate_max_n_steps,
+            max_recursion_depth,
+            versioned_constants_base_overrides,
+        } = versioned_constants_overrides;
+        let base_overrides = match versioned_constants_base_overrides {
+            Some(versioned_constants_base_overrides) => {
+                log::debug!(
+                    "Using provided `versioned_constants_base_overrides` (with additional \
+                     overrides)."
+                );
+                versioned_constants_base_overrides
+            }
+            None => {
+                log::debug!("Using latest versioned constants (with additional overrides).");
+                Self::latest_constants().clone()
+            }
+        };
+        Self { validate_max_n_steps, max_recursion_depth, ..base_overrides }
     }
 }
 
@@ -284,17 +333,20 @@ impl OsResources {
             }
         }
 
-        let known_builtin_names: HashSet<&str> = HashSet::from([
-            builtin_runner::OUTPUT_BUILTIN_NAME,
-            builtin_runner::HASH_BUILTIN_NAME,
-            builtin_runner::RANGE_CHECK_BUILTIN_NAME,
-            builtin_runner::SIGNATURE_BUILTIN_NAME,
-            builtin_runner::BITWISE_BUILTIN_NAME,
-            builtin_runner::EC_OP_BUILTIN_NAME,
-            builtin_runner::KECCAK_BUILTIN_NAME,
-            builtin_runner::POSEIDON_BUILTIN_NAME,
-            builtin_runner::SEGMENT_ARENA_BUILTIN_NAME,
-        ]);
+        let known_builtin_names: HashSet<&str> = [
+            BuiltinName::output,
+            BuiltinName::pedersen,
+            BuiltinName::range_check,
+            BuiltinName::ecdsa,
+            BuiltinName::bitwise,
+            BuiltinName::ec_op,
+            BuiltinName::keccak,
+            BuiltinName::poseidon,
+            BuiltinName::segment_arena,
+        ]
+        .iter()
+        .map(|builtin| builtin.to_str_with_suffix())
+        .collect();
 
         let execution_resources = self
             .execute_txs_inner
@@ -310,7 +362,7 @@ impl OsResources {
         let builtin_names =
             execution_resources.flat_map(|resources| resources.builtin_instance_counter.keys());
         for builtin_name in builtin_names {
-            if !(known_builtin_names.contains(builtin_name.as_str())) {
+            if !(known_builtin_names.contains(builtin_name.to_str_with_suffix())) {
                 return Err(DeserializationError::custom(format!(
                     "ValidationError: unknown os resource {builtin_name}"
                 )));
@@ -375,6 +427,12 @@ impl OsResources {
     }
 
     fn os_kzg_da_resources(&self, data_segment_length: usize) -> ExecutionResources {
+        // BACKWARD COMPATIBILITY: we set compute_os_kzg_commitment_info to empty in older versions
+        // where this was not yet computed.
+        let empty_resources = ExecutionResources::default();
+        if self.compute_os_kzg_commitment_info == empty_resources {
+            return empty_resources;
+        }
         &(&self.compute_os_kzg_commitment_info * data_segment_length)
             + &poseidon_hash_many_cost(data_segment_length)
     }
@@ -435,6 +493,7 @@ pub struct GasCosts {
     pub secp256r1_new_gas_cost: u64,
     pub keccak_gas_cost: u64,
     pub keccak_round_cost_gas_cost: u64,
+    pub sha256_process_block_gas_cost: u64,
 }
 
 // Below, serde first deserializes the json into a regular IndexMap wrapped by the newtype
@@ -682,4 +741,10 @@ impl Default for ValidateRoundingConsts {
 pub struct ResourcesByVersion {
     pub resources: ResourcesParams,
     pub deprecated_resources: ResourcesParams,
+}
+
+pub struct VersionedConstantsOverrides {
+    pub validate_max_n_steps: u32,
+    pub max_recursion_depth: usize,
+    pub versioned_constants_base_overrides: Option<VersionedConstants>,
 }
