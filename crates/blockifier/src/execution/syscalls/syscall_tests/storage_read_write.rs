@@ -1,7 +1,6 @@
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -26,8 +25,8 @@ fn test_storage_read_write(test_contract: FeatureContract, expected_gas: u64) {
 
     assert_consistent_contract_version(test_contract, &state);
 
-    let key = stark_felt!(1234_u16);
-    let value = stark_felt!(18_u8);
+    let key = felt!(1234_u16);
+    let value = felt!(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
@@ -38,7 +37,7 @@ fn test_storage_read_write(test_contract: FeatureContract, expected_gas: u64) {
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
-            retdata: retdata![stark_felt!(value)],
+            retdata: retdata![value],
             gas_consumed: expected_gas,
             ..CallExecution::default()
         }

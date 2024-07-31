@@ -1,6 +1,5 @@
 use pretty_assertions::assert_eq;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use test_case::test_case;
 
 use super::{assert_consistent_contract_version, REQUIRED_GAS_CALL_CONTRACT_TEST};
@@ -54,8 +53,8 @@ fn test_call_contract(
         inner_contract.get_instance_address(0),
         "test_storage_read_write",
         &[
-            stark_felt!(405_u16), // Calldata: address.
-            stark_felt!(48_u8),   // Calldata: value.
+            felt!(405_u16), // Calldata: address.
+            felt!(48_u8),   // Calldata: value.
         ],
     );
     let entry_point_call = CallEntryPoint {
@@ -67,7 +66,7 @@ fn test_call_contract(
     assert_eq!(
         entry_point_call.execute_directly(&mut state).unwrap().execution,
         CallExecution {
-            retdata: retdata![stark_felt!(48_u8)],
+            retdata: retdata![felt!(48_u8)],
             gas_consumed: expected_gas,
             ..CallExecution::default()
         }

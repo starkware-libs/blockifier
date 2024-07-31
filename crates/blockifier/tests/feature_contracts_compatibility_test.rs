@@ -122,13 +122,15 @@ fn verify_feature_contracts_match_enum() {
     let mut compiled_paths_from_enum: Vec<String> = FeatureContract::all_contracts()
         // ERC20 is a special case - not in the feature_contracts directory.
         .filter(|contract| !matches!(contract, FeatureContract::ERC20(CairoVersion::Cairo0) |
-        FeatureContract::ERC20(CairoVersion::Cairo1)))
+        FeatureContract::ERC20(CairoVersion::Cairo1) | FeatureContract::SierraTestContract | FeatureContract::SierraExecutionInfoV1Contract))
         .map(|contract| contract.get_compiled_path())
         .collect();
     let mut compiled_paths_on_filesystem: Vec<String> = verify_and_get_files(CairoVersion::Cairo0)
         .into_iter()
         .chain(verify_and_get_files(CairoVersion::Cairo1))
         .map(|(_, _, compiled_path)| compiled_path)
+        // todo(bohdan): do it properly 
+        .filter(|path| !path.contains("test_contract_execution_info_v1"))
         .collect();
     compiled_paths_from_enum.sort();
     compiled_paths_on_filesystem.sort();

@@ -1,10 +1,7 @@
 // run with:
 // cargo test --test erc20_tests --features testing
-use blockifier::execution::native::utils::{
-    contract_address_to_native_felt, native_felt_to_stark_felt, stark_felt_to_native_felt,
-};
+use blockifier::execution::native::utils::contract_address_to_native_felt;
 use blockifier::test_utils::*;
-use starknet_api::hash::StarkFelt;
 use starknet_types_core::felt::Felt;
 
 pub const TOTAL_SUPPLY: u128 = 10_000_000_000_000_000_000_000u128;
@@ -37,8 +34,7 @@ mod read_only_methods_tests {
 
     #[test]
     fn test_balance_of() {
-        let address =
-            native_felt_to_stark_felt(contract_address_to_native_felt(Signers::Alice.into()));
+        let address = contract_address_to_native_felt(Signers::Alice.into());
 
         let mut context = TestContext::new();
         let result = context.call_entry_point("balance_of", vec![address]);
@@ -55,15 +51,15 @@ mod transfer_tests {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
 
-        let total_supply = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY));
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_TO_TRANSFER));
-        let balance_after_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_AFTER_TRANSFER));
+        let total_supply = Felt::from(TOTAL_SUPPLY);
+        let balance_to_transfer = Felt::from(BALANCE_TO_TRANSFER);
+        let balance_after_transfer = Felt::from(BALANCE_AFTER_TRANSFER);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![total_supply, Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -74,19 +70,19 @@ mod transfer_tests {
         assert_eq!(
             context.call_entry_point(
                 "transfer",
-                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                vec![address_to.into(), balance_to_transfer, Felt::from(0u128)],
             ),
             vec![Felt::from(true)]
         );
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(balance_after_transfer), Felt::from(0u128)]
+            vec![(balance_after_transfer), Felt::from(0u128)]
         );
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_to.into()]),
-            vec![stark_felt_to_native_felt(balance_to_transfer), Felt::from(0u128)]
+            vec![(balance_to_transfer), Felt::from(0u128)]
         );
     }
 
@@ -95,14 +91,14 @@ mod transfer_tests {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
 
-        let total_supply = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY));
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY + 1));
+        let total_supply = Felt::from(TOTAL_SUPPLY);
+        let balance_to_transfer = Felt::from(TOTAL_SUPPLY + 1);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -114,7 +110,7 @@ mod transfer_tests {
             &context
                 .call_entry_point_raw(
                     "transfer",
-                    vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                    vec![address_to.into(), balance_to_transfer, Felt::from(0u128)],
                 )
                 .unwrap_err(),
             U256_SUB_OVERFLOW,
@@ -122,7 +118,7 @@ mod transfer_tests {
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -136,15 +132,15 @@ mod transfer_tests {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
 
-        let total_supply = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY));
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_TO_TRANSFER));
-        let balance_after_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_AFTER_TRANSFER));
+        let total_supply = Felt::from(TOTAL_SUPPLY);
+        let balance_to_transfer = Felt::from(BALANCE_TO_TRANSFER);
+        let balance_after_transfer = Felt::from(BALANCE_AFTER_TRANSFER);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -155,32 +151,25 @@ mod transfer_tests {
         assert_eq!(
             context.call_entry_point(
                 "transfer",
-                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                vec![address_to.into(), balance_to_transfer, Felt::from(0u128)],
             ),
             vec![Felt::from(true)]
         );
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(balance_after_transfer), Felt::from(0u128)]
+            vec![(balance_after_transfer), Felt::from(0u128)]
         );
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_to.into()]),
-            vec![stark_felt_to_native_felt(balance_to_transfer), Felt::from(0u128)]
+            vec![(balance_to_transfer), Felt::from(0u128)]
         );
 
         let event = context.get_event(0).unwrap();
         let event = (event.keys[1], event.keys[2], event.data[0]);
 
-        assert_eq!(
-            event,
-            (
-                address_from.into(),
-                address_to.into(),
-                stark_felt_to_native_felt(balance_to_transfer),
-            )
-        );
+        assert_eq!(event, (address_from.into(), address_to.into(), balance_to_transfer));
     }
 }
 
@@ -193,7 +182,7 @@ mod allowance_tests {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
 
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_TO_TRANSFER));
+        let balance_to_transfer = Felt::from(BALANCE_TO_TRANSFER);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
@@ -205,14 +194,14 @@ mod allowance_tests {
         assert_eq!(
             context.call_entry_point(
                 "approve",
-                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                vec![address_to.into(), balance_to_transfer, Felt::from(0u128)],
             ),
             vec![Felt::from(true)]
         );
 
         assert_eq!(
             context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
-            vec![stark_felt_to_native_felt(balance_to_transfer), Felt::from(0u128)]
+            vec![(balance_to_transfer), Felt::from(0u128)]
         );
     }
 
@@ -221,7 +210,7 @@ mod allowance_tests {
         let address_from = Signers::Alice;
         let address_to = Signers::Bob;
 
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_TO_TRANSFER));
+        let balance_to_transfer = Felt::from(BALANCE_TO_TRANSFER);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
@@ -233,27 +222,20 @@ mod allowance_tests {
         assert_eq!(
             context.call_entry_point(
                 "approve",
-                vec![address_to.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                vec![address_to.into(), balance_to_transfer, Felt::from(0u128)],
             ),
             vec![Felt::from(true)]
         );
 
         assert_eq!(
             context.call_entry_point("allowance", vec![address_from.into(), address_to.into()]),
-            vec![stark_felt_to_native_felt(balance_to_transfer), Felt::from(0u128)]
+            vec![(balance_to_transfer), Felt::from(0u128)]
         );
 
         let event = context.get_event(0).unwrap();
         let event = (event.keys[1], event.keys[2], event.data[0]);
 
-        assert_eq!(
-            event,
-            (
-                address_from.into(),
-                address_to.into(),
-                stark_felt_to_native_felt(balance_to_transfer),
-            )
-        );
+        assert_eq!(event, (address_from.into(), address_to.into(), (balance_to_transfer),));
     }
 }
 
@@ -267,15 +249,15 @@ mod transfer_from_tests {
         let address_to = Signers::Bob;
         let address_spender = Signers::Charlie;
 
-        let total_supply = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY));
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_TO_TRANSFER));
-        let balance_after_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_AFTER_TRANSFER));
+        let total_supply = Felt::from(TOTAL_SUPPLY);
+        let balance_to_transfer = Felt::from(BALANCE_TO_TRANSFER);
+        let balance_after_transfer = Felt::from(BALANCE_AFTER_TRANSFER);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -286,7 +268,7 @@ mod transfer_from_tests {
         assert_eq!(
             context.call_entry_point(
                 "approve",
-                vec![address_spender.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                vec![address_spender.into(), balance_to_transfer, Felt::from(0u128)],
             ),
             vec![Felt::from(true)]
         );
@@ -300,7 +282,7 @@ mod transfer_from_tests {
                     address_from.into(),
                     address_to.into(),
                     balance_to_transfer,
-                    StarkFelt::from(0u128)
+                    Felt::from(0u128)
                 ],
             ),
             vec![Felt::from(true)]
@@ -308,12 +290,12 @@ mod transfer_from_tests {
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(balance_after_transfer), Felt::from(0u128)]
+            vec![(balance_after_transfer), Felt::from(0u128)]
         );
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_to.into()]),
-            vec![stark_felt_to_native_felt(balance_to_transfer), Felt::from(0u128)]
+            vec![(balance_to_transfer), Felt::from(0u128)]
         );
     }
 
@@ -323,14 +305,14 @@ mod transfer_from_tests {
         let address_to = Signers::Bob;
         let address_spender = Signers::Charlie;
 
-        let total_supply = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY));
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_TO_TRANSFER));
+        let total_supply = Felt::from(TOTAL_SUPPLY);
+        let balance_to_transfer = Felt::from(BALANCE_TO_TRANSFER);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -341,7 +323,7 @@ mod transfer_from_tests {
         assert_eq!(
             context.call_entry_point(
                 "approve",
-                vec![address_spender.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                vec![address_spender.into(), balance_to_transfer, Felt::from(0u128)],
             ),
             vec![Felt::from(true)]
         );
@@ -355,8 +337,8 @@ mod transfer_from_tests {
                     vec![
                         address_from.into(),
                         address_to.into(),
-                        native_felt_to_stark_felt(Felt::from(BALANCE_TO_TRANSFER + 1)),
-                        StarkFelt::from(0u128)
+                        (Felt::from(BALANCE_TO_TRANSFER + 1)),
+                        Felt::from(0u128)
                     ],
                 )
                 .unwrap_err(),
@@ -365,7 +347,7 @@ mod transfer_from_tests {
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -380,14 +362,14 @@ mod transfer_from_tests {
         let address_to = Signers::Bob;
         let address_spender = Signers::Charlie;
 
-        let total_supply = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY));
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY + 1));
+        let total_supply = Felt::from(TOTAL_SUPPLY);
+        let balance_to_transfer = Felt::from(TOTAL_SUPPLY + 1);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -398,7 +380,7 @@ mod transfer_from_tests {
         assert_eq!(
             context.call_entry_point(
                 "approve",
-                vec![address_spender.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                vec![address_spender.into(), balance_to_transfer, Felt::from(0u128)],
             ),
             vec![Felt::from(true)]
         );
@@ -413,7 +395,7 @@ mod transfer_from_tests {
                         address_from.into(),
                         address_to.into(),
                         balance_to_transfer,
-                        StarkFelt::from(0u128)
+                        Felt::from(0u128)
                     ],
                 )
                 .unwrap_err(),
@@ -422,7 +404,7 @@ mod transfer_from_tests {
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -437,14 +419,14 @@ mod transfer_from_tests {
         let address_to = Signers::Bob;
         let address_spender = Signers::Charlie;
 
-        let total_supply = native_felt_to_stark_felt(Felt::from(TOTAL_SUPPLY));
-        let balance_to_transfer = native_felt_to_stark_felt(Felt::from(BALANCE_TO_TRANSFER));
+        let total_supply = Felt::from(TOTAL_SUPPLY);
+        let balance_to_transfer = Felt::from(BALANCE_TO_TRANSFER);
 
         let mut context = TestContext::new().with_caller(address_from.into());
 
         assert_eq!(
             context.call_entry_point("balance_of", vec![address_from.into()]),
-            vec![stark_felt_to_native_felt(total_supply), Felt::from(0u128)]
+            vec![(total_supply), Felt::from(0u128)]
         );
 
         assert_eq!(
@@ -455,7 +437,7 @@ mod transfer_from_tests {
         assert_eq!(
             context.call_entry_point(
                 "approve",
-                vec![address_spender.into(), balance_to_transfer, StarkFelt::from(0u128)],
+                vec![address_spender.into(), balance_to_transfer, Felt::from(0u128)],
             ),
             vec![Felt::from(true)]
         );
@@ -464,14 +446,7 @@ mod transfer_from_tests {
         let event = context.get_event(0).unwrap();
         let event = (event.keys[1], event.keys[2], event.data[0]);
 
-        assert_eq!(
-            event,
-            (
-                address_from.into(),
-                address_spender.into(),
-                stark_felt_to_native_felt(balance_to_transfer),
-            )
-        );
+        assert_eq!(event, (address_from.into(), address_spender.into(), (balance_to_transfer),));
 
         let mut context = context.with_caller(address_spender.into());
 
@@ -482,7 +457,7 @@ mod transfer_from_tests {
                     address_from.into(),
                     address_to.into(),
                     balance_to_transfer,
-                    StarkFelt::from(0u128)
+                    Felt::from(0u128)
                 ],
             ),
             vec![Felt::from(true)]
@@ -492,14 +467,7 @@ mod transfer_from_tests {
         let event = context.get_event(2).unwrap();
         let event = (event.keys[1], event.keys[2], event.data[0]);
 
-        assert_eq!(
-            event,
-            (
-                address_from.into(),
-                address_to.into(),
-                stark_felt_to_native_felt(balance_to_transfer),
-            )
-        );
+        assert_eq!(event, (address_from.into(), address_to.into(), (balance_to_transfer),));
     }
 }
 
@@ -562,8 +530,8 @@ pub mod mintable_tests {
                 "mint",
                 vec![
                     address_to_mint_to.into(),
-                    StarkFelt::from(BALANCE_TO_TRANSFER),
-                    StarkFelt::from(0u128),
+                    Felt::from(BALANCE_TO_TRANSFER),
+                    Felt::from(0u128),
                 ],
             ),
             vec![]
@@ -598,8 +566,8 @@ pub mod mintable_tests {
                     "mint",
                     vec![
                         address_to_mint_to.into(),
-                        StarkFelt::from(BALANCE_TO_TRANSFER),
-                        StarkFelt::from(0u128)
+                        Felt::from(BALANCE_TO_TRANSFER),
+                        Felt::from(0u128)
                     ]
                 )
                 .unwrap_err(),
@@ -629,8 +597,8 @@ pub mod mintable_tests {
                 "mint",
                 vec![
                     address_to_mint_to.into(),
-                    StarkFelt::from(BALANCE_TO_TRANSFER),
-                    StarkFelt::from(0u128),
+                    Felt::from(BALANCE_TO_TRANSFER),
+                    Felt::from(0u128),
                 ],
             ),
             vec![]
@@ -669,7 +637,7 @@ pub mod burnable_tests {
         assert_eq!(
             context.call_entry_point(
                 "burn",
-                vec![StarkFelt::from(BALANCE_TO_TRANSFER), StarkFelt::from(0u128)],
+                vec![Felt::from(BALANCE_TO_TRANSFER), Felt::from(0u128)],
             ),
             vec![]
         );
@@ -691,10 +659,7 @@ pub mod burnable_tests {
 
         assert_eq!(
             &context
-                .call_entry_point_raw(
-                    "burn",
-                    vec![StarkFelt::from(TOTAL_SUPPLY + 1), StarkFelt::from(0u128)]
-                )
+                .call_entry_point_raw("burn", vec![Felt::from(TOTAL_SUPPLY + 1), Felt::from(0u128)])
                 .unwrap_err(),
             U256_SUB_OVERFLOW,
         );
@@ -714,7 +679,7 @@ pub mod burnable_tests {
         assert_eq!(
             context.call_entry_point(
                 "burn",
-                vec![StarkFelt::from(BALANCE_TO_TRANSFER), StarkFelt::from(0u128)],
+                vec![Felt::from(BALANCE_TO_TRANSFER), Felt::from(0u128)],
             ),
             vec![]
         );
@@ -843,10 +808,7 @@ mod upgradable_tests {
 
         let mut context = TestContext::new().with_caller(owner.into());
 
-        assert_eq!(
-            context.call_entry_point("upgrade", vec![native_felt_to_stark_felt(code_hash)]),
-            vec![]
-        );
+        assert_eq!(context.call_entry_point("upgrade", vec![(code_hash)]), vec![]);
 
         let event = context.get_event(0).unwrap();
 

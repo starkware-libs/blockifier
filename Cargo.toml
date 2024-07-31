@@ -21,9 +21,10 @@ ark-secp256r1 = "0.4.0"
 assert_matches = "1.5.0"
 cached = "0.44.0"
 cairo-felt = "0.9.1"
-cairo-lang-sierra = "=2.6.4"
-cairo-lang-starknet = "=2.6.4"
-cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "72d10b7923cb4f97ae0b1688ea7de1d34297b0b2" } # main
+cairo-lang-sierra = "2.7.0-rc.3"
+cairo-lang-starknet = "2.7.0-rc.3"
+#cairo-native = { git = "https://github.com/lambdaclass/cairo_native", branch = "cairo-lang2.7.0-rc.3" } # main
+cairo-native = { path = "../cairo_native" } # main
 cairo-lang-casm = "2.7.0-rc.3"
 cairo-lang-runner = "2.7.0-rc.3"
 cairo-lang-starknet-classes = "2.7.0-rc.3"
@@ -56,7 +57,7 @@ sha2 = "0.10.8"
 sha3 = "0.10.6"
 starknet-crypto = "0.6.2"
 starknet-types-core = { version = "0.1.5", features = ["hash", "prime-bigint", "serde"] }
-starknet_api = "0.13.0-rc.0"
+starknet_api = "=0.13.0-rc.0"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 tempfile = "3.7.0"

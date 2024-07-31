@@ -107,7 +107,10 @@ impl FeatureContract {
             | Self::FaultyAccount(_)
             | Self::TestContract(_)
             | Self::ERC20(_) => true,
-            Self::SecurityTests | Self::LegacyTestContract => false,
+            Self::SecurityTests
+            | Self::LegacyTestContract
+            | Self::SierraExecutionInfoV1Contract
+            | Self::SierraTestContract => false,
         }
     }
 
@@ -119,7 +122,10 @@ impl FeatureContract {
             | Self::FaultyAccount(v)
             | Self::TestContract(v)
             | Self::ERC20(v) => *v = version,
-            Self::LegacyTestContract | Self::SecurityTests => {
+            Self::LegacyTestContract
+            | Self::SecurityTests
+            | Self::SierraTestContract
+            | Self::SierraExecutionInfoV1Contract => {
                 panic!("{self:?} contract has no configurable version.")
             }
         }
@@ -140,13 +146,6 @@ impl FeatureContract {
     pub fn get_instance_address(&self, instance_id: u16) -> ContractAddress {
         let instance_id_as_u32: u32 = instance_id.into();
         contract_address!(self.get_integer_base() + instance_id_as_u32 + ADDRESS_BIT)
-    }
-
-    pub fn get_class(&self) -> ContractClass {
-        match self.cairo_version() {
-            CairoVersion::Cairo0 => ContractClassV0::from_file(&self.get_compiled_path()).into(),
-            CairoVersion::Cairo1 => ContractClassV1::from_file(&self.get_compiled_path()).into(),
-        }
     }
 
     // TODO(Arni, 1/1/2025): Remove this function, and use the get_class function instead.
@@ -231,23 +230,6 @@ impl FeatureContract {
         )
     }
 
-    pub fn set_cairo_version(&mut self, version: CairoVersion) {
-        match self {
-            Self::AccountWithLongValidate(v)
-            | Self::AccountWithoutValidations(v)
-            | Self::Empty(v)
-            | Self::FaultyAccount(v)
-            | Self::TestContract(v) => *v = version,
-            Self::ERC20
-            | Self::LegacyTestContract
-            | Self::SecurityTests
-            | Self::SierraTestContract
-            | Self::SierraExecutionInfoV1Contract => {
-                panic!("{self:?} contract has no configurable version.")
-            }
-        }
-    }
-
     /// Fetch PC locations from the compiled contract to compute the expected PC locations in the
     /// traceback. Computation is not robust, but as long as the cairo function itself is not
     /// edited, this computation should be stable.
@@ -276,6 +258,9 @@ impl FeatureContract {
                     .find(|ep| ep.selector == entry_point_selector)
                     .unwrap()
                     .offset
+            }
+            ContractClass::V1Native(_) => {
+                panic!("Not implemented for cairo native contracts")
             }
         }
     }

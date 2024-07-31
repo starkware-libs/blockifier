@@ -1,7 +1,6 @@
 use itertools::concat;
 use starknet_api::core::EthAddress;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use starknet_api::transaction::{Calldata, L2ToL1Payload};
 use test_case::test_case;
 
@@ -20,15 +19,15 @@ fn test_send_message_to_l1(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
-    let to_address = stark_felt!(1234_u16);
-    let payload = vec![stark_felt!(2019_u16), stark_felt!(2020_u16), stark_felt!(2021_u16)];
+    let to_address = felt!(1234_u16);
+    let payload = vec![felt!(2019_u16), felt!(2020_u16), felt!(2021_u16)];
     let calldata = Calldata(
         concat(vec![
             vec![
                 to_address,
                 // TODO(Ori, 1/2/2024): Write an indicative expect message explaining why the
                 // convertion works.
-                stark_felt!(u64::try_from(payload.len()).expect("Failed to convert usize to u64.")),
+                felt!(u64::try_from(payload.len()).expect("Failed to convert usize to u64.")),
             ],
             payload.clone(),
         ])

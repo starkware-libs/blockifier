@@ -2,9 +2,8 @@
 
 use std::collections::HashMap;
 
-use starknet_api::class_hash;
 use starknet_api::core::ClassHash;
-use starknet_api::hash::StarkHash;
+use starknet_api::{class_hash, felt};
 
 use super::{ERC20_FULL_CONTRACT_PATH, TEST_EMPTY_CONTRACT_CAIRO1_PATH};
 use crate::execution::contract_class::{ContractClassV1, NativeContractClassV1};

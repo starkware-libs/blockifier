@@ -13,7 +13,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use cairo_felt::Felt252;
 use cairo_native::starknet::SyscallResult;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use starknet_api::core::{
@@ -26,7 +25,6 @@ use starknet_api::transaction::{
 };
 use starknet_api::{class_hash, contract_address, felt, patricia_key};
 use starknet_types_core::felt::Felt;
-use starknet_types_core::felt::Felt;
 
 use self::dict_state_reader::DictStateReader;
 use crate::abi::abi_utils::{get_fee_token_var_address, selector_from_name};
@@ -34,17 +32,14 @@ use crate::context::{BlockContext, TransactionContext};
 use crate::execution::call_info::{CallInfo, OrderedEvent};
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::deprecated_syscalls::hint_processor::SyscallCounter;
-use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::entry_point::{
     CallEntryPoint, ConstructorContext, EntryPointExecutionContext,
 };
-use crate::execution::execution_utils::{execute_deployment, felt_to_stark_felt};
+use crate::execution::execution_utils::execute_deployment;
 use crate::execution::native::utils::{
-    contract_address_to_native_felt, native_felt_to_stark_felt, stark_felt_to_native_felt,
+    contract_address_to_native_felt, decode_felts_as_str, encode_str_as_felts,
 };
-use crate::execution::syscalls::hint_processor::{
-    FAILED_TO_CALCULATE_CONTRACT_ADDRESS, FAILED_TO_EXECUTE_CALL,
-};
+use crate::execution::syscalls::hint_processor::FAILED_TO_CALCULATE_CONTRACT_ADDRESS;
 use crate::execution::syscalls::SyscallSelector;
 use crate::state::cached_state::{CachedState, StateChangesCount};
 use crate::state::state_api::State;
@@ -497,13 +492,12 @@ pub fn deploy_contract(
 ) -> SyscallResult<(Felt, Vec<Felt>)> {
     let deployer_address = ContractAddress::default();
 
-    let class_hash = ClassHash(native_felt_to_stark_felt(class_hash));
+    let class_hash = ClassHash(class_hash);
 
-    let wrapper_calldata =
-        Calldata(Arc::new(calldata.iter().map(|felt| native_felt_to_stark_felt(*felt)).collect()));
+    let wrapper_calldata = Calldata(Arc::new(calldata.to_vec()));
 
     let calculated_contract_address = calculate_contract_address(
-        ContractAddressSalt(native_felt_to_stark_felt(contract_address_salt)),
+        ContractAddressSalt(contract_address_salt),
         class_hash,
         &wrapper_calldata,
         deployer_address,
@@ -533,11 +527,11 @@ pub fn deploy_contract(
         wrapper_calldata,
         u64::MAX,
     )
-    .map_err(|_| vec![Felt::from_hex(FAILED_TO_EXECUTE_CALL).unwrap()])?;
+    .map_err(|err| encode_str_as_felts(&err.to_string()))?;
 
-    let return_data =
-        call_info.execution.retdata.0.into_iter().map(stark_felt_to_native_felt).collect();
-    let contract_address_felt = stark_felt_to_native_felt(*calculated_contract_address.0.key());
+    let return_data = call_info.execution.retdata.0;
+    let contract_address_felt = *calculated_contract_address.0.key();
+
     Ok((contract_address_felt, return_data))
 }
 
@@ -555,11 +549,9 @@ pub fn prepare_erc20_deploy_test_state() -> (ContractAddress, CachedState<DictSt
             contract_address_to_native_felt(Signers::Alice.into()), // Owner
         ],
     )
-    .unwrap();
+    .unwrap_or_else(|e| panic!("Failed to deploy contract: {:?}", decode_felts_as_str(&e)));
 
-    let contract_address = ContractAddress(
-        PatriciaKey::try_from(native_felt_to_stark_felt(contract_address)).unwrap(),
-    );
+    let contract_address = ContractAddress(PatriciaKey::try_from(contract_address).unwrap());
 
     (contract_address, state)
 }
@@ -593,12 +585,6 @@ impl From<Signers> for Felt {
     }
 }
 
-impl From<Signers> for StarkFelt {
-    fn from(val: Signers) -> StarkFelt {
-        native_felt_to_stark_felt(contract_address_to_native_felt(val.get_address()))
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct TestEvent {
     pub data: Vec<Felt>,
@@ -607,8 +593,8 @@ pub struct TestEvent {
 
 impl From<OrderedEvent> for TestEvent {
     fn from(value: OrderedEvent) -> Self {
-        let event_data = value.event.data.0.iter().map(|e| stark_felt_to_native_felt(*e)).collect();
-        let event_keys = value.event.keys.iter().map(|e| stark_felt_to_native_felt(e.0)).collect();
+        let event_data = value.event.data.0;
+        let event_keys = value.event.keys.iter().map(|e| e.0).collect();
         Self { data: event_data, keys: event_keys }
     }
 }
@@ -637,19 +623,15 @@ impl TestContext {
         self
     }
 
-    pub fn call_entry_point(
-        &mut self,
-        entry_point_name: &str,
-        calldata: Vec<StarkFelt>,
-    ) -> Vec<Felt> {
+    pub fn call_entry_point(&mut self, entry_point_name: &str, calldata: Vec<Felt>) -> Vec<Felt> {
         let result = self.call_entry_point_raw(entry_point_name, calldata).unwrap();
-        result.execution.retdata.0.iter().map(|felt| stark_felt_to_native_felt(*felt)).collect()
+        result.execution.retdata.0.iter().copied().collect()
     }
 
     pub fn call_entry_point_raw(
         &mut self,
         entry_point_name: &str,
-        calldata: Vec<StarkFelt>,
+        calldata: Vec<Felt>,
     ) -> Result<CallInfo, String> {
         let entry_point_selector = selector_from_name(entry_point_name);
         let calldata = Calldata(Arc::new(calldata));

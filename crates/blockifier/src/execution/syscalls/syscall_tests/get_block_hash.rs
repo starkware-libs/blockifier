@@ -1,9 +1,9 @@
 use pretty_assertions::assert_eq;
 use starknet_api::core::ContractAddress;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
+use starknet_types_core::felt::Felt;
 use test_case::test_case;
 
 use super::assert_consistent_contract_version;
@@ -23,20 +23,18 @@ use crate::test_utils::{
     trivial_external_entry_point_new, CairoVersion, BALANCE, CURRENT_BLOCK_NUMBER,
 };
 
-fn initialize_state(
-    test_contract: FeatureContract,
-) -> (CachedState<DictStateReader>, StarkFelt, StarkFelt) {
+fn initialize_state(test_contract: FeatureContract) -> (CachedState<DictStateReader>, Felt, Felt) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
     assert_consistent_contract_version(test_contract, &state);
 
     // Initialize block number -> block hash entry.
     let upper_bound_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER;
-    let block_number = stark_felt!(upper_bound_block_number);
-    let block_hash = stark_felt!(66_u64);
+    let block_number = felt!(upper_bound_block_number);
+    let block_hash = felt!(66_u64);
     let key = StorageKey::try_from(block_number).unwrap();
     let block_hash_contract_address =
-        ContractAddress::try_from(StarkFelt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
+        ContractAddress::try_from(Felt::from(constants::BLOCK_HASH_CONTRACT_ADDRESS)).unwrap();
     state.set_storage_at(block_hash_contract_address, key, block_hash).unwrap();
 
     (state, block_number, block_hash)
@@ -92,7 +90,7 @@ fn negative_flow_block_number_out_of_range(test_contract: FeatureContract) {
     let (mut state, _, _) = initialize_state(test_contract);
 
     let requested_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER + 1;
-    let block_number = stark_felt!(requested_block_number);
+    let block_number = felt!(requested_block_number);
     let calldata = calldata![block_number];
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_get_block_hash"),

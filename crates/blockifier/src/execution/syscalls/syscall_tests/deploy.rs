@@ -1,8 +1,7 @@
 use pretty_assertions::assert_eq;
 use starknet_api::core::calculate_contract_address;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, ContractAddressSalt};
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -73,8 +72,7 @@ fn no_constructor_nonempty_calldata(deployer_contract: FeatureContract) {
     assert_consistent_contract_version(deployer_contract, &state);
     assert_consistent_contract_version(empty_contract, &state);
 
-    let calldata =
-        calldata_for_deploy_test(class_hash, &[stark_felt!(1_u8), stark_felt!(1_u8)], true);
+    let calldata = calldata_for_deploy_test(class_hash, &[felt!(1_u8), felt!(1_u8)], true);
 
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
@@ -105,8 +103,8 @@ fn with_constructor(deployer_contract: FeatureContract, expected_gas: u64) {
 
     let class_hash = deployer_contract.get_class_hash();
     let constructor_calldata = vec![
-        stark_felt!(1_u8), // Calldata: address.
-        stark_felt!(1_u8), // Calldata: value.
+        felt!(1_u8), // Calldata: address.
+        felt!(1_u8), // Calldata: value.
     ];
 
     let calldata = calldata_for_deploy_test(class_hash, &constructor_calldata, true);
@@ -154,8 +152,8 @@ fn to_unavailable_address(deployer_contract: FeatureContract) {
 
     let class_hash = deployer_contract.get_class_hash();
     let constructor_calldata = vec![
-        stark_felt!(1_u8), // Calldata: address.
-        stark_felt!(1_u8), // Calldata: value.
+        felt!(1_u8), // Calldata: address.
+        felt!(1_u8), // Calldata: value.
     ];
 
     let calldata = calldata_for_deploy_test(class_hash, &constructor_calldata, true);

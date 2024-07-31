@@ -1,6 +1,5 @@
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -19,7 +18,7 @@ fn undeclared_class_hash(test_contract: FeatureContract) {
     let mut state = test_state(&ChainInfo::create_for_testing(), BALANCE, &[(test_contract, 1)]);
 
     let entry_point_call = CallEntryPoint {
-        calldata: calldata![stark_felt!(1234_u16)],
+        calldata: calldata![felt!(1234_u16)],
         entry_point_selector: selector_from_name("test_replace_class"),
         ..trivial_external_entry_point_new(test_contract)
     };

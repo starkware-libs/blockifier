@@ -3,6 +3,7 @@ use ark_ec::short_weierstrass::SWCurveConfig;
 use ark_ff::{BigInteger, PrimeField};
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
 use starknet_types_core::felt::Felt;

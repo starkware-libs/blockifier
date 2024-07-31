@@ -48,7 +48,7 @@ fn assert_consistent_contract_version(contract: FeatureContract, state: &dyn Sta
             assert_contract_uses_native(hash, state)
         }
         FeatureContract::SecurityTests
-        | FeatureContract::ERC20
+        | FeatureContract::ERC20(_)
         | FeatureContract::LegacyTestContract
         | FeatureContract::AccountWithLongValidate(_)
         | FeatureContract::AccountWithoutValidations(_)

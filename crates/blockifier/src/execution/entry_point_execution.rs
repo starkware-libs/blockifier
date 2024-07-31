@@ -119,7 +119,7 @@ fn register_visited_pcs(
     // after it.
     // TODO(lior): Avoid unnecessary relocation once the VM has a non-relocated `get_trace()`
     //   function.
-    runner.relocate_trace(&[1, 1 + program_segment_size].into())?;
+    runner.relocate_trace(&vec![1, 1 + program_segment_size])?;
     for trace_entry in runner.relocated_trace.as_ref().expect("Relocated trace not found") {
         let pc = trace_entry.pc;
         if pc < 1 {

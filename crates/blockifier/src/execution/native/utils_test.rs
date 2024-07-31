@@ -5,14 +5,12 @@ use num_bigint::BigUint;
 use num_traits::Num;
 use pretty_assertions::assert_eq;
 use starknet_api::core::{ContractAddress, EntryPointSelector, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::{contract_address, patricia_key};
+use starknet_api::{contract_address, felt, patricia_key};
 use starknet_types_core::felt::Felt;
 
 use super::{
     big4int_to_u256, contract_address_to_native_felt, contract_entrypoint_to_entrypoint_selector,
-    decode_felts_as_str, encode_str_as_felts, native_felt_to_stark_felt, stark_felt_to_native_felt,
-    u256_to_biguint,
+    decode_felts_as_str, encode_str_as_felts, u256_to_biguint,
 };
 
 #[test]
@@ -67,28 +65,6 @@ fn test_decode_non_utf8_str() {
 }
 
 #[test]
-fn test_felt_to_stark_felt() {
-    const NUM: u128 = 123;
-
-    let felt = Felt::from(NUM);
-    let expected_stark_felt = StarkFelt::from_u128(NUM);
-    let actual_stark_felt = native_felt_to_stark_felt(felt);
-
-    assert_eq!(actual_stark_felt, expected_stark_felt);
-}
-
-#[test]
-fn test_stark_felt_to_felt() {
-    const NUM: u128 = 123;
-
-    let stark_felt = StarkFelt::from_u128(NUM);
-    let expected_felt = Felt::from(NUM);
-    let actual_felt = stark_felt_to_native_felt(stark_felt);
-
-    assert_eq!(actual_felt, expected_felt);
-}
-
-#[test]
 fn test_contract_address_to_felt() {
     const NUM: u128 = 1234;
 
@@ -104,7 +80,7 @@ fn test_contract_entrypoint_to_entrypoint_selector() {
     const NUM: u128 = 123;
 
     let entrypoint = ContractEntryPoint { selector: BigUint::from(NUM), function_idx: 0 };
-    let expected_entrypoint_selector = EntryPointSelector(StarkFelt::from_u128(NUM));
+    let expected_entrypoint_selector = EntryPointSelector(Felt::from(NUM));
     let actual_entrypoint_selector = contract_entrypoint_to_entrypoint_selector(&entrypoint);
 
     assert_eq!(actual_entrypoint_selector, expected_entrypoint_selector);

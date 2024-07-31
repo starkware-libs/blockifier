@@ -14,7 +14,6 @@ use num_bigint::BigUint;
 use num_traits::ToBytes;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Resource;
 use starknet_types_core::felt::Felt;
@@ -49,13 +48,7 @@ pub fn match_entrypoint(
 
     let cmp_selector_to_entrypoint =
         |selector: EntryPointSelector, entrypoint: &ContractEntryPoint| {
-            let entrypoint_selector_str = entrypoint.selector.to_str_radix(16);
-            let padded_selector_str = format!(
-                "0x{}{}",
-                "0".repeat(64 - entrypoint_selector_str.len()),
-                entrypoint_selector_str
-            );
-            selector.0.to_string() == padded_selector_str
+            selector == contract_entrypoint_to_entrypoint_selector(entrypoint)
         };
 
     entrypoints
@@ -78,23 +71,15 @@ pub fn get_sierra_entry_function_id<'a>(
         .id
 }
 
-pub fn stark_felt_to_native_felt(stark_felt: StarkFelt) -> Felt {
-    Felt::from_bytes_be_slice(stark_felt.bytes())
-}
-
-pub fn native_felt_to_stark_felt(felt: Felt) -> StarkFelt {
-    StarkFelt::new(felt.to_bytes_be()).unwrap()
-}
-
 pub fn contract_address_to_native_felt(contract_address: ContractAddress) -> Felt {
-    Felt::from_bytes_be_slice(contract_address.0.key().bytes())
+    *contract_address.0.key()
 }
 
 pub fn contract_entrypoint_to_entrypoint_selector(
     entrypoint: &ContractEntryPoint,
 ) -> EntryPointSelector {
     let selector_felt = Felt::from_bytes_be_slice(&entrypoint.selector.to_be_bytes());
-    EntryPointSelector(native_felt_to_stark_felt(selector_felt))
+    EntryPointSelector(selector_felt)
 }
 
 pub fn run_native_executor(
@@ -103,13 +88,9 @@ pub fn run_native_executor(
     call: CallEntryPoint,
     mut syscall_handler: NativeSyscallHandler<'_>,
 ) -> EntryPointExecutionResult<CallInfo> {
-    let stark_felts_to_native_felts = |data: &[StarkFelt]| -> Vec<Felt> {
-        data.iter().map(|stark_felt| stark_felt_to_native_felt(*stark_felt)).collect_vec()
-    };
-
     let execution_result = native_executor.invoke_contract_dynamic(
         sierra_entry_function_id,
-        &stark_felts_to_native_felts(&call.calldata.0),
+        &call.calldata.0,
         Some(call.initial_gas.into()),
         &mut syscall_handler,
     );
@@ -145,15 +126,13 @@ pub fn create_callinfo(
     events: Vec<OrderedEvent>,
     l2_to_l1_messages: Vec<OrderedL2ToL1Message>,
     inner_calls: Vec<CallInfo>,
-    storage_read_values: Vec<StarkFelt>,
+    storage_read_values: Vec<Felt>,
     accessed_storage_keys: HashSet<StorageKey, RandomState>,
 ) -> Result<CallInfo, EntryPointExecutionError> {
     Ok(CallInfo {
         call,
         execution: CallExecution {
-            retdata: Retdata(
-                run_result.return_values.into_iter().map(native_felt_to_stark_felt).collect_vec(),
-            ),
+            retdata: Retdata(run_result.return_values),
             events,
             l2_to_l1_messages,
             failed: run_result.failure_flag,
@@ -239,8 +218,8 @@ pub fn default_tx_v2_info() -> TxV2Info {
 pub fn calculate_resource_bounds(
     tx_info: &CurrentTransactionInfo,
 ) -> SyscallResult<Vec<ResourceBounds>> {
-    let l1_gas = StarkFelt::try_from(L1_GAS).map_err(|e| encode_str_as_felts(&e.to_string()))?;
-    let l2_gas = StarkFelt::try_from(L2_GAS).map_err(|e| encode_str_as_felts(&e.to_string()))?;
+    let l1_gas = Felt::from_hex(L1_GAS).map_err(|e| encode_str_as_felts(&e.to_string()))?;
+    let l2_gas = Felt::from_hex(L2_GAS).map_err(|e| encode_str_as_felts(&e.to_string()))?;
 
     Ok(tx_info
         .resource_bounds
@@ -253,7 +232,7 @@ pub fn calculate_resource_bounds(
             };
 
             ResourceBounds {
-                resource: stark_felt_to_native_felt(resource),
+                resource,
                 max_amount: resource_bound.max_amount,
                 max_price_per_unit: resource_bound.max_price_per_unit,
             }

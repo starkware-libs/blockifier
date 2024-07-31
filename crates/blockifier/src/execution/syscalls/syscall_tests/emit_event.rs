@@ -1,8 +1,8 @@
 use itertools::concat;
 use pretty_assertions::assert_eq;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use starknet_api::transaction::{Calldata, EventContent, EventData, EventKey};
+use starknet_types_core::felt::Felt;
 use test_case::test_case;
 
 use super::assert_consistent_contract_version;
@@ -18,10 +18,13 @@ use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{trivial_external_entry_point_new, CairoVersion, BALANCE};
 use crate::versioned_constants::VersionedConstants;
 
-const KEYS: [StarkFelt; 2] = [StarkFelt::from_u128(2019), StarkFelt::from_u128(2020)];
-const DATA: [StarkFelt; 3] =
-    [StarkFelt::from_u128(2021), StarkFelt::from_u128(2022), StarkFelt::from_u128(2023)];
-const N_EMITTED_EVENTS: [StarkFelt; 1] = [StarkFelt::from_u128(1)];
+const KEYS: [Felt; 2] = [Felt::from_hex_unchecked("0x2019"), Felt::from_hex_unchecked("0x2020")];
+const DATA: [Felt; 3] = [
+    Felt::from_hex_unchecked("0x2021"),
+    Felt::from_hex_unchecked("0x2022"),
+    Felt::from_hex_unchecked("0x2023"),
+];
+const N_EMITTED_EVENTS: [Felt; 1] = [Felt::from_hex_unchecked("0x1")];
 
 #[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), 49860; "VM")]
@@ -50,7 +53,7 @@ fn data_length_exceeds_limit(test_contract: FeatureContract) {
     let versioned_constants = VersionedConstants::create_for_testing();
 
     let max_event_data_length = versioned_constants.tx_event_limits.max_data_length;
-    let data_too_long = vec![stark_felt!(2_u16); max_event_data_length + 1];
+    let data_too_long = vec![felt!(2_u16); max_event_data_length + 1];
     let error = emit_events(test_contract, &N_EMITTED_EVENTS, &KEYS, &data_too_long).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxDataLength {
         data_length: max_event_data_length + 1,
@@ -65,7 +68,7 @@ fn keys_length_exceeds_limit(test_contract: FeatureContract) {
     let versioned_constants = VersionedConstants::create_for_testing();
 
     let max_event_keys_length = versioned_constants.tx_event_limits.max_keys_length;
-    let keys_too_long = vec![stark_felt!(1_u16); max_event_keys_length + 1];
+    let keys_too_long = vec![felt!(1_u16); max_event_keys_length + 1];
     let error = emit_events(test_contract, &N_EMITTED_EVENTS, &keys_too_long, &DATA).unwrap_err();
     let expected_error = EmitEventError::ExceedsMaxKeysLength {
         keys_length: max_event_keys_length + 1,
@@ -81,7 +84,7 @@ fn event_number_exceeds_limit(test_contract: FeatureContract) {
     let versioned_constants = VersionedConstants::create_for_testing();
 
     let max_n_emitted_events = versioned_constants.tx_event_limits.max_n_emitted_events;
-    let n_emitted_events_too_big = vec![stark_felt!(
+    let n_emitted_events_too_big = vec![felt!(
         u16::try_from(max_n_emitted_events + 1).expect("Failed to convert usize to u16.")
     )];
     let error = emit_events(test_contract, &n_emitted_events_too_big, &KEYS, &DATA).unwrap_err();
@@ -94,9 +97,9 @@ fn event_number_exceeds_limit(test_contract: FeatureContract) {
 
 fn emit_events(
     test_contract: FeatureContract,
-    n_emitted_events: &[StarkFelt],
-    keys: &[StarkFelt],
-    data: &[StarkFelt],
+    n_emitted_events: &[Felt],
+    keys: &[Felt],
+    data: &[Felt],
 ) -> Result<CallInfo, EntryPointExecutionError> {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
@@ -104,9 +107,9 @@ fn emit_events(
     let calldata = Calldata(
         concat(vec![
             n_emitted_events.to_owned(),
-            vec![stark_felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
+            vec![felt!(u16::try_from(keys.len()).expect("Failed to convert usize to u16."))],
             keys.to_vec(),
-            vec![stark_felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
+            vec![felt!(u16::try_from(data.len()).expect("Failed to convert usize to u16."))],
             data.to_vec(),
         ])
         .into(),

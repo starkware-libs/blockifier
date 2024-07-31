@@ -1,6 +1,5 @@
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Calldata;
-use starknet_api::{calldata, stark_felt};
+use starknet_api::{calldata, felt};
 use test_case::test_case;
 
 use crate::abi::abi_utils::selector_from_name;
@@ -17,8 +16,8 @@ fn test_out_of_gas(test_contract: FeatureContract) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
 
-    let key = stark_felt!(1234_u16);
-    let value = stark_felt!(18_u8);
+    let key = felt!(1234_u16);
+    let value = felt!(18_u8);
     let calldata = calldata![key, value];
     let entry_point_call = CallEntryPoint {
         calldata,
