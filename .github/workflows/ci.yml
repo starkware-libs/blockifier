@@ -92,8 +92,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: "v0-rust-ubuntu-20.04"
+      - name: Set up Native Dependencies
+        uses: ./.github/actions/setup-native-dep
+        id: native-deps
       - run: cargo build -p blockifier
+        env:
+          CAIRO_NATIVE_RUNTIME_LIBRARY: ${{ steps.native-deps.outputs.cairo-native-runtime-library }}
+          MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
+          LLVM_SYS_180_PREFIX: /usr/lib/llvm-18/
+          TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
       - run: cargo test -p blockifier
+        env:
+          CAIRO_NATIVE_RUNTIME_LIBRARY: ${{ steps.native-deps.outputs.cairo-native-runtime-library }}
+          MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
+          LLVM_SYS_180_PREFIX: /usr/lib/llvm-18/
+          TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
 
   run-python-tests:
     runs-on: ubuntu-20.04
