@@ -463,7 +463,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
         let order = self.execution_context.n_emitted_events;
         let event = EventContent {
             keys: keys.iter().copied().map(EventKey).collect(),
-            data: EventData(data.iter().copied().collect()),
+            data: EventData(data.to_vec()),
         };
 
         exceeds_event_size_limit(
@@ -493,7 +493,7 @@ impl<'state> StarknetSyscallHandler for &mut NativeSyscallHandler<'state> {
             message: MessageToL1 {
                 to_address: EthAddress::try_from(to_address)
                     .map_err(|e| encode_str_as_felts(&e.to_string()))?,
-                payload: L2ToL1Payload(payload.iter().copied().collect()),
+                payload: L2ToL1Payload(payload.to_vec()),
             },
         });
 

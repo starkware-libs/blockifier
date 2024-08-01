@@ -1086,6 +1086,7 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.2.0"
+source = "git+https://github.com/NethermindEth/cairo_native?branch=update-deps-2.7.x#a7b9fd49d5eae2620024b5b1675d7d4a7785bbf8"
 dependencies = [
  "anyhow",
  "bumpalo",
@@ -1134,6 +1135,7 @@ dependencies = [
 [[package]]
 name = "cairo-native-runtime"
 version = "0.2.0"
+source = "git+https://github.com/NethermindEth/cairo_native?branch=update-deps-2.7.x#a7b9fd49d5eae2620024b5b1675d7d4a7785bbf8"
 dependencies = [
  "cairo-lang-runner",
  "cairo-lang-sierra-gas",

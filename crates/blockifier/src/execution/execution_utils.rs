@@ -192,7 +192,7 @@ impl ReadOnlySegments {
     pub fn allocate(
         &mut self,
         vm: &mut VirtualMachine,
-        data: &Vec<MaybeRelocatable>,
+        data: &[MaybeRelocatable],
     ) -> Result<Relocatable, MemoryError> {
         let start_ptr = vm.add_memory_segment();
         self.0.push(ReadOnlySegment { start_ptr, length: data.len() });

@@ -625,7 +625,7 @@ impl TestContext {
 
     pub fn call_entry_point(&mut self, entry_point_name: &str, calldata: Vec<Felt>) -> Vec<Felt> {
         let result = self.call_entry_point_raw(entry_point_name, calldata).unwrap();
-        result.execution.retdata.0.iter().copied().collect()
+        result.execution.retdata.0.to_vec()
     }
 
     pub fn call_entry_point_raw(
