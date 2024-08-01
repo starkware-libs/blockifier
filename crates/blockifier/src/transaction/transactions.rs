@@ -60,7 +60,7 @@ pub trait ExecutableTransaction<U: UpdatableState>: Sized {
     ) -> TransactionExecutionResult<TransactionExecutionInfo> {
         log::debug!("Executing Transaction...");
         let mut transactional_state = TransactionalState::create_transactional(state);
-let execution_flags = ExecutionFlags { charge_fee, validate, concurrency_mode: false };
+        let execution_flags = ExecutionFlags { charge_fee, validate, concurrency_mode: false };
         let execution_result =
             self.execute_raw(&mut transactional_state, block_context, execution_flags);
 
