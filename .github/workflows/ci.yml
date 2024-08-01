@@ -205,9 +205,9 @@ jobs:
   udeps:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Set up Native Dependencies
         uses: ./.github/actions/setup-native-dep
-      - uses: actions/checkout@v4
       - name: Run Machete (detect unused dependencies)
         uses: bnjbvr/cargo-machete@main
         env:
