@@ -23,7 +23,7 @@ cached = "0.44.0"
 cairo-felt = "0.9.1"
 cairo-lang-sierra = "2.7.0-rc.3"
 cairo-lang-starknet = "2.7.0-rc.3"
-cairo-native = { git = "https://github.com/lambdaclass/cairo_native", branch = "update-deps-2.7.x" } # main
+cairo-native = { git = "https://github.com/NethermindEth/cairo_native", branch = "update-deps-2.7.x" } # main
 #cairo-native = { path = "../cairo_native" } # main
 cairo-lang-casm = "2.7.0-rc.3"
 cairo-lang-runner = "2.7.0-rc.3"
