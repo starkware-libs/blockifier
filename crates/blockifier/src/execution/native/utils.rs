@@ -12,8 +12,6 @@ use itertools::Itertools;
 use num_bigint::BigUint;
 use num_traits::ToBytes;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
-use starknet_api::hash::StarkFelt;
-use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Resource;
 use starknet_types_core::felt::Felt;
@@ -34,42 +32,6 @@ pub mod test;
 // An arbitrary number, chosen to avoid accidentally aligning with actually calculated gas
 // To be deleted once cairo native gas handling can be used
 pub const NATIVE_GAS_PLACEHOLDER: u64 = 12;
-
-pub fn match_entrypoint(
-    entry_point_type: EntryPointType,
-    entrypoint_selector: EntryPointSelector,
-    contract_entrypoints: &ContractEntryPoints,
-) -> EntryPointExecutionResult<&ContractEntryPoint> {
-    let entrypoints = match entry_point_type {
-        EntryPointType::Constructor => &contract_entrypoints.constructor,
-        EntryPointType::External => &contract_entrypoints.external,
-        EntryPointType::L1Handler => &contract_entrypoints.l1_handler,
-    };
-
-    let cmp_selector_to_entrypoint =
-        |selector: EntryPointSelector, entrypoint: &ContractEntryPoint| {
-            selector == contract_entrypoint_to_entrypoint_selector(entrypoint)
-        };
-
-    entrypoints
-        .iter()
-        .find(|entrypoint| cmp_selector_to_entrypoint(entrypoint_selector, entrypoint))
-        .ok_or(EntryPointExecutionError::NativeExecutionError {
-            info: format!("Entrypoint selector {} not found", entrypoint_selector.0),
-        })
-}
-
-pub fn get_sierra_entry_function_id<'a>(
-    matching_entrypoint: &'a ContractEntryPoint,
-    sierra_program: &'a SierraProgram,
-) -> &'a FunctionId {
-    &sierra_program
-        .funcs
-        .iter()
-        .find(|func| func.id.id == u64::try_from(matching_entrypoint.function_idx).unwrap())
-        .unwrap()
-        .id
-}
 
 pub fn contract_address_to_native_felt(contract_address: ContractAddress) -> Felt {
     *contract_address.0.key()
