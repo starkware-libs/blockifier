@@ -751,7 +751,7 @@ where
     }
 }
 
-/// Similar to Affine<Curve>::new, but with checks for 0 and doesn't panic.
+/// Similar to [`Affine<Curve>::new`], but with checks for 0 and doesn't panic.
 fn maybe_affine<Curve: SWCurveConfig>(
     x: Curve::BaseField,
     y: Curve::BaseField,
