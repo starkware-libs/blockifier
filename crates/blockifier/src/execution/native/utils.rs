@@ -3,8 +3,7 @@ use std::hash::RandomState;
 
 use ark_ff::BigInt;
 use cairo_lang_sierra::ids::FunctionId;
-use cairo_lang_sierra::program::Program as SierraProgram;
-use cairo_lang_starknet_classes::contract_class::{ContractEntryPoint, ContractEntryPoints};
+use cairo_lang_starknet_classes::contract_class::ContractEntryPoint;
 use cairo_native::execution_result::ContractExecutionResult;
 use cairo_native::executor::AotNativeExecutor;
 use cairo_native::starknet::{ResourceBounds, SyscallResult, TxV2Info, U256};
@@ -13,6 +12,7 @@ use itertools::Itertools;
 use num_bigint::BigUint;
 use num_traits::ToBytes;
 use starknet_api::core::{ContractAddress, EntryPointSelector};
+use starknet_api::hash::StarkFelt;
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::state::StorageKey;
 use starknet_api::transaction::Resource;
@@ -84,12 +84,12 @@ pub fn contract_entrypoint_to_entrypoint_selector(
 
 pub fn run_native_executor(
     native_executor: &AotNativeExecutor,
-    sierra_entry_function_id: &FunctionId,
+    function_id: &FunctionId,
     call: CallEntryPoint,
     mut syscall_handler: NativeSyscallHandler<'_>,
 ) -> EntryPointExecutionResult<CallInfo> {
     let execution_result = native_executor.invoke_contract_dynamic(
-        sierra_entry_function_id,
+        function_id,
         &call.calldata.0,
         Some(call.initial_gas.into()),
         &mut syscall_handler,
