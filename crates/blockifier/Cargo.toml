@@ -75,5 +75,10 @@ name = "feature_contracts_compatibility_test"
 path = "tests/feature_contracts_compatibility_test.rs"
 required-features = ["testing"]
 
+[[test]]
+name = "erc20_tests"
+path = "tests/erc20_tests.rs"
+required-features = ["testing"]
+
 [package.metadata.cargo-udeps.ignore]
 normal = ["cairo-native"]
