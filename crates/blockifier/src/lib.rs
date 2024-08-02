@@ -23,7 +23,7 @@ pub mod context;
 pub mod execution;
 pub mod fee;
 pub mod state;
-#[cfg(test)]
+#[cfg(any(feature = "testing", test))]
 pub mod test_utils;
 pub mod transaction;
 pub mod utils;
