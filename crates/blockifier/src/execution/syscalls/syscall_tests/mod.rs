@@ -17,6 +17,7 @@ mod out_of_gas;
 mod replace_class;
 mod secp;
 mod send_message_to_l1;
+mod sha256;
 mod storage_read_write;
 
 pub const REQUIRED_GAS_CALL_CONTRACT_TEST: u64 = 105680;
