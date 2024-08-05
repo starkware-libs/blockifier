@@ -23,8 +23,8 @@ runs:
     - name: Fetch Cairo Native Repository
       uses: actions/checkout@v3
       with:
-        repository: "NethermindEth/cairo_native"
-        ref: "update-deps-2.7.x"
+        repository: "lambdaclass/cairo_native"
+        ref: "cairo-lang2.7.0-rc.3"
         path: "cairo_native"
     - name: Install Cairo Native Runtime Dependencies
       id: set-env-vars
