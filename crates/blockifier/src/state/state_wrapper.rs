@@ -102,13 +102,13 @@ impl StateReader for DynStateWrapper<'_> {
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let current_nonce = Felt::from(self.state.get_nonce_at(contract_address)?.0);
+        let current_nonce = self.state.get_nonce_at(contract_address)?.0;
 
         let delta = *self.nonce_updates.get(&contract_address).unwrap_or(&0u128);
         let delta = Felt::from(delta);
 
         // Check if an overflow occurred during increment.
-        match Felt::from(current_nonce + Felt::ONE * delta) {
+        match current_nonce + Felt::ONE * delta {
             f if f == Felt::from_hex_unchecked("0x0") => {
                 Err(StateError::from(StarknetApiError::OutOfRange {
                     string: format!("{:?}", current_nonce),
