@@ -5,7 +5,7 @@ use starknet_api::transaction::{Calldata, EventContent, EventData, EventKey};
 use starknet_types_core::felt::Felt;
 use test_case::test_case;
 
-use super::assert_consistent_contract_version;
+use super::utils::assert_consistent_contract_version;
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, OrderedEvent};

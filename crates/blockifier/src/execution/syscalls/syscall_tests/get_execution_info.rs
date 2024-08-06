@@ -17,9 +17,7 @@ use crate::context::ChainInfo;
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::syscalls::hint_processor::{L1_GAS, L2_GAS};
-use crate::execution::syscalls::syscall_tests::{
-    assert_consistent_contract_version, verify_compiler_version,
-};
+use crate::execution::syscalls::syscall_tests::utils::assert_consistent_contract_version;
 use crate::nonce;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
@@ -151,7 +149,15 @@ fn test_get_execution_info(
 
     let expected_unsupported_fields = match test_contract {
         FeatureContract::LegacyTestContract => {
-            verify_compiler_version(test_contract, "2.1.0");
+            // Read and parse file content.
+            let raw_contract: serde_json::Value =
+                serde_json::from_str(&test_contract.get_raw_class()).expect("Error parsing JSON");
+            // Verify version.
+            if let Some(compiler_version) = raw_contract["compiler_version"].as_str() {
+                assert_eq!(compiler_version, "2.1.0");
+            } else {
+                panic!("'compiler_version' not found or not a valid string in JSON.");
+            };
             vec![]
         }
         _ => {

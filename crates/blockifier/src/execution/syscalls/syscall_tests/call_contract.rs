@@ -2,12 +2,13 @@ use pretty_assertions::assert_eq;
 use starknet_api::felt;
 use test_case::test_case;
 
-use super::{assert_consistent_contract_version, REQUIRED_GAS_CALL_CONTRACT_TEST};
+use super::consts::REQUIRED_GAS_CALL_CONTRACT_TEST;
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
+use crate::execution::syscalls::syscall_tests::utils::assert_consistent_contract_version;
 use crate::retdata;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;

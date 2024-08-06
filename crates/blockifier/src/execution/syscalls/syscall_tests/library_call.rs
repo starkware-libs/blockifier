@@ -14,7 +14,7 @@ use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
-use crate::execution::syscalls::syscall_tests::{
+use crate::execution::syscalls::syscall_tests::consts::{
     REQUIRED_GAS_LIBRARY_CALL_TEST, REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
 };
 use crate::execution::syscalls::SyscallSelector;
@@ -101,7 +101,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
 
     // Todo(rodrigo): Execution resources from the VM & Native are mesaured differently
     // helper function to change the expected resource values from both of executions
-    let if_sierra = |a, b| {
+    let if_native = |a, b| {
         if matches!(test_contract, FeatureContract::SierraTestContract) { a } else { b }
     };
 
@@ -119,7 +119,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: if_sierra(9999847020, 9999745020),
+        initial_gas: if_native(9999725020, 9999745020),
         ..trivial_external_entry_point_new(test_contract)
     };
     let library_entry_point = CallEntryPoint {
@@ -134,18 +134,18 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         class_hash: Some(test_class_hash),
         code_address: None,
         call_type: CallType::Delegate,
-        initial_gas: if_sierra(9999874550, 9999823550),
+        initial_gas: if_native(9999813550, 9999823550),
         ..trivial_external_entry_point_new(test_contract)
     };
     let storage_entry_point = CallEntryPoint {
         calldata: calldata![felt!(key), felt!(value)],
-        initial_gas: if_sierra(9999874550, 9999656870),
+        initial_gas: if_native(9999752538, 9999656870),
         ..nested_storage_entry_point
     };
 
     // Todo(rodrigo): Execution resources from the VM & Native are mesaured differently
     // Resources are not tracked when using Native
-    let default_resources_if_sierra = |resources| {
+    let default_resources_if_native = |resources| {
         if matches!(test_contract, FeatureContract::SierraTestContract) {
             ExecutionResources::default()
         } else {
@@ -153,7 +153,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         }
     };
 
-    let storage_entry_point_resources = default_resources_if_sierra(ExecutionResources {
+    let storage_entry_point_resources = default_resources_if_native(ExecutionResources {
         n_steps: 243,
         n_memory_holes: 0,
         builtin_instance_counter: HashMap::from([(BuiltinName::range_check, 7)]),
@@ -162,7 +162,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         call: nested_storage_entry_point,
         execution: CallExecution {
             retdata: retdata![felt!(value + 1)],
-            gas_consumed: if_sierra(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
+            gas_consumed: if_native(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
             ..CallExecution::default()
         },
         resources: storage_entry_point_resources.clone(),
@@ -171,7 +171,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         ..Default::default()
     };
 
-    let library_call_resources = default_resources_if_sierra(
+    let library_call_resources = default_resources_if_native(
         &get_syscall_resources(SyscallSelector::LibraryCall)
             + &ExecutionResources {
                 n_steps: 388,
@@ -183,7 +183,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         call: library_entry_point,
         execution: CallExecution {
             retdata: retdata![felt!(value + 1)],
-            gas_consumed: if_sierra(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_LIBRARY_CALL_TEST),
+            gas_consumed: if_native(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_LIBRARY_CALL_TEST),
             ..CallExecution::default()
         },
         resources: library_call_resources,
@@ -195,7 +195,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         call: storage_entry_point,
         execution: CallExecution {
             retdata: retdata![felt!(value)],
-            gas_consumed: if_sierra(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
+            gas_consumed: if_native(NATIVE_GAS_PLACEHOLDER, REQUIRED_GAS_STORAGE_READ_WRITE_TEST),
             ..CallExecution::default()
         },
         resources: storage_entry_point_resources,
@@ -204,7 +204,7 @@ fn test_nested_library_call(test_contract: FeatureContract, expected_gas: u64) {
         ..Default::default()
     };
 
-    let main_call_resources = default_resources_if_sierra(
+    let main_call_resources = default_resources_if_native(
         &(&get_syscall_resources(SyscallSelector::LibraryCall) * 3)
             + &ExecutionResources {
                 n_steps: 749,

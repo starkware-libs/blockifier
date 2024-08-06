@@ -8,9 +8,8 @@ use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
-use crate::execution::syscalls::syscall_tests::{
-    assert_consistent_contract_version, REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
-};
+use crate::execution::syscalls::syscall_tests::consts::REQUIRED_GAS_STORAGE_READ_WRITE_TEST;
+use crate::execution::syscalls::syscall_tests::utils::assert_consistent_contract_version;
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;

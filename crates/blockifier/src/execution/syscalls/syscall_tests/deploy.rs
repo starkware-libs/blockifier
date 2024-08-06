@@ -9,7 +9,7 @@ use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
-use crate::execution::syscalls::syscall_tests::assert_consistent_contract_version;
+use crate::execution::syscalls::syscall_tests::utils::assert_consistent_contract_version;
 use crate::retdata;
 use crate::state::state_api::StateReader;
 use crate::test_utils::contracts::FeatureContract;
@@ -28,17 +28,16 @@ fn no_constructor(deployer_contract: FeatureContract) {
         0,
         &[(deployer_contract, 1), (empty_contract, 0)],
     );
+
     assert_consistent_contract_version(deployer_contract, &state);
     assert_consistent_contract_version(empty_contract, &state);
 
     let calldata = calldata_for_deploy_test(class_hash, &[], true);
-
     let entry_point_call = CallEntryPoint {
         entry_point_selector: selector_from_name("test_deploy"),
         calldata,
         ..trivial_external_entry_point_new(deployer_contract)
     };
-
     let deployed_contract_address = calculate_contract_address(
         ContractAddressSalt::default(),
         class_hash,
@@ -48,12 +47,14 @@ fn no_constructor(deployer_contract: FeatureContract) {
     .unwrap();
 
     let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];
+
     assert_eq!(deploy_call.call.storage_address, deployed_contract_address);
     assert_eq!(
         deploy_call.execution,
         CallExecution { retdata: retdata![], gas_consumed: 0, ..CallExecution::default() }
     );
     assert_eq!(state.get_class_hash_at(deployed_contract_address).unwrap(), class_hash);
+
     assert_consistent_contract_version(deployer_contract, &state);
     assert_consistent_contract_version(empty_contract, &state);
 }
@@ -85,6 +86,7 @@ fn no_constructor_nonempty_calldata(deployer_contract: FeatureContract) {
         "Invalid input: constructor_calldata; Cannot pass calldata to a contract with no \
          constructor."
     ));
+
     assert_consistent_contract_version(deployer_contract, &state);
     assert_consistent_contract_version(empty_contract, &state);
 }
@@ -124,6 +126,7 @@ fn with_constructor(deployer_contract: FeatureContract, expected_gas: u64) {
     )
     .unwrap();
     let deploy_call = &entry_point_call.execute_directly(&mut state).unwrap().inner_calls[0];
+
     assert_eq!(deploy_call.call.storage_address, contract_address);
     assert_eq!(
         deploy_call.execution,
@@ -134,6 +137,7 @@ fn with_constructor(deployer_contract: FeatureContract, expected_gas: u64) {
         }
     );
     assert_eq!(state.get_class_hash_at(contract_address).unwrap(), class_hash);
+
     assert_consistent_contract_version(deployer_contract, &state);
     assert_consistent_contract_version(empty_contract, &state);
 }
@@ -165,9 +169,10 @@ fn to_unavailable_address(deployer_contract: FeatureContract) {
     };
 
     entry_point_call.clone().execute_directly(&mut state).unwrap();
-
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
+
     assert!(error.contains("is unavailable for deployment."));
+
     assert_consistent_contract_version(deployer_contract, &state);
     assert_consistent_contract_version(empty_contract, &state);
 }
