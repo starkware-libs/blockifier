@@ -33,6 +33,7 @@ use crate::execution::native::entry_point_execution as native_entry_point_execut
 use crate::execution::{deprecated_entry_point_execution, entry_point_execution};
 use crate::state::errors::StateError;
 use crate::state::state_api::State;
+use crate::state::state_wrapper::DynStateWrapper;
 use crate::transaction::objects::TransactionInfo;
 
 pub type Args = Vec<CairoArg>;
@@ -65,15 +66,23 @@ pub fn execute_entry_point_call(
             context,
         ),
         ContractClass::V1Native(contract_class) => {
+            // Wrap the state into a DynStateWrapper to be transactional
+            let mut state_wrapped = DynStateWrapper::new(state);
             let fallback = env::var("FALLBACK_ENABLED").unwrap_or(String::from("0")) == "1";
+
             match native_entry_point_execution::execute_entry_point_call(
                 call.clone(),
                 contract_class.clone(),
-                state,
+                &mut state_wrapped,
                 resources,
                 context,
             ) {
-                Ok(res) => Ok(res),
+                Ok(res) => {
+                    // If everything went well, commit the changes to the state
+                    state_wrapped.commit().unwrap();
+
+                    Ok(res)
+                }
                 Err(EntryPointExecutionError::NativeUnexpectedError { .. }) if fallback => {
                     // Fallback to VM execution in case of an Error
                     let casm_contract_class =
@@ -82,6 +91,7 @@ pub fn execute_entry_point_call(
                         })?;
                     let contract_class_v1: ContractClassV1 =
                         casm_contract_class.try_into().unwrap();
+                    // Use old state if native execution failed
                     entry_point_execution::execute_entry_point_call(
                         call,
                         contract_class_v1,

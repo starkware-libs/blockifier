@@ -4,3 +4,4 @@ pub mod error_format_test;
 pub mod errors;
 pub mod global_cache;
 pub mod state_api;
+pub mod state_wrapper;
