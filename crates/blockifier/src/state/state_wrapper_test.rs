@@ -1,6 +1,7 @@
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::hash::StarkHash;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 use crate::state::cached_state::CachedState;
 use crate::state::state_api::{State, StateReader};
@@ -62,38 +63,23 @@ fn test_nonce() {
 
     let mut wrapped_state = DynStateWrapper::new(&mut cached_state);
 
-    assert_eq!(
-        wrapped_state.get_raw_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(1u128))
-    );
+    assert_eq!(wrapped_state.get_raw_nonce_at(contract_address).unwrap(), Nonce(Felt::from(1u128)));
 
-    assert_eq!(
-        wrapped_state.get_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(1u128))
-    );
+    assert_eq!(wrapped_state.get_nonce_at(contract_address).unwrap(), Nonce(Felt::from(1u128)));
 
     wrapped_state.increment_nonce(contract_address).unwrap();
 
-    assert_eq!(
-        wrapped_state.get_raw_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(1u128))
-    );
+    assert_eq!(wrapped_state.get_raw_nonce_at(contract_address).unwrap(), Nonce(Felt::from(1u128)));
 
-    assert_eq!(
-        wrapped_state.get_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(2u128))
-    );
+    assert_eq!(wrapped_state.get_nonce_at(contract_address).unwrap(), Nonce(Felt::from(2u128)));
 
     wrapped_state.commit().unwrap();
 
-    assert_eq!(
-        wrapped_state.get_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(2u128))
-    );
+    assert_eq!(wrapped_state.get_nonce_at(contract_address).unwrap(), Nonce(Felt::from(2u128)));
 
     drop(wrapped_state);
 
-    assert_eq!(cached_state.get_nonce_at(contract_address).unwrap(), Nonce(StarkFelt::from(2u128)));
+    assert_eq!(cached_state.get_nonce_at(contract_address).unwrap(), Nonce(Felt::from(2u128)));
 }
 
 #[test]
@@ -103,44 +89,44 @@ fn test_storage() {
 
     let mut cached_state = CachedState::default();
 
-    cached_state.set_storage_at(contract_address, storage_key, StarkFelt::from(1u128)).unwrap();
+    cached_state.set_storage_at(contract_address, storage_key, Felt::from(1u128)).unwrap();
 
     let mut wrapped_state = DynStateWrapper::new(&mut cached_state);
 
     assert_eq!(
         wrapped_state.get_raw_storage_at(contract_address, storage_key).unwrap(),
-        StarkFelt::from(1u128)
+        Felt::from(1u128)
     );
 
     assert_eq!(
         wrapped_state.get_storage_at(contract_address, storage_key).unwrap(),
-        StarkFelt::from(1u128)
+        Felt::from(1u128)
     );
 
-    wrapped_state.set_storage_at(contract_address, storage_key, StarkFelt::from(2u128)).unwrap();
+    wrapped_state.set_storage_at(contract_address, storage_key, Felt::from(2u128)).unwrap();
 
     assert_eq!(
         wrapped_state.get_raw_storage_at(contract_address, storage_key).unwrap(),
-        StarkFelt::from(1u128)
+        Felt::from(1u128)
     );
 
     assert_eq!(
         wrapped_state.get_storage_at(contract_address, storage_key).unwrap(),
-        StarkFelt::from(2u128)
+        Felt::from(2u128)
     );
 
     wrapped_state.commit().unwrap();
 
     assert_eq!(
         wrapped_state.get_storage_at(contract_address, storage_key).unwrap(),
-        StarkFelt::from(2u128)
+        Felt::from(2u128)
     );
 
     drop(wrapped_state);
 
     assert_eq!(
         cached_state.get_storage_at(contract_address, storage_key).unwrap(),
-        StarkFelt::from(2u128)
+        Felt::from(2u128)
     );
 }
 
@@ -195,37 +181,22 @@ fn test_multiple_nonce_updates() {
 
     let mut wrapped_state = DynStateWrapper::new(&mut cached_state);
 
-    assert_eq!(
-        wrapped_state.get_raw_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(1u128))
-    );
+    assert_eq!(wrapped_state.get_raw_nonce_at(contract_address).unwrap(), Nonce(Felt::from(1u128)));
 
-    assert_eq!(
-        wrapped_state.get_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(1u128))
-    );
+    assert_eq!(wrapped_state.get_nonce_at(contract_address).unwrap(), Nonce(Felt::from(1u128)));
 
     wrapped_state.increment_nonce(contract_address).unwrap();
     wrapped_state.increment_nonce(contract_address).unwrap();
 
-    assert_eq!(
-        wrapped_state.get_raw_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(1u128))
-    );
+    assert_eq!(wrapped_state.get_raw_nonce_at(contract_address).unwrap(), Nonce(Felt::from(1u128)));
 
-    assert_eq!(
-        wrapped_state.get_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(3u128))
-    );
+    assert_eq!(wrapped_state.get_nonce_at(contract_address).unwrap(), Nonce(Felt::from(3u128)));
 
     wrapped_state.commit().unwrap();
 
-    assert_eq!(
-        wrapped_state.get_nonce_at(contract_address).unwrap(),
-        Nonce(StarkFelt::from(3u128))
-    );
+    assert_eq!(wrapped_state.get_nonce_at(contract_address).unwrap(), Nonce(Felt::from(3u128)));
 
     drop(wrapped_state);
 
-    assert_eq!(cached_state.get_nonce_at(contract_address).unwrap(), Nonce(StarkFelt::from(3u128)));
+    assert_eq!(cached_state.get_nonce_at(contract_address).unwrap(), Nonce(Felt::from(3u128)));
 }

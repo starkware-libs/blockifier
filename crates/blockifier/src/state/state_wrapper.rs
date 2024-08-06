@@ -1,10 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use starknet_api::StarknetApiError;
-use starknet_core::types::FieldElement;
+use starknet_types_core::felt::Felt;
 
 use crate::execution::contract_class::ContractClass;
 use crate::state::errors::StateError;
@@ -31,7 +30,7 @@ mod test;
 pub struct DynStateWrapper<'a> {
     pub state: &'a mut dyn State,
 
-    pub storage_updates: HashMap<(ContractAddress, StorageKey), StarkFelt>,
+    pub storage_updates: HashMap<(ContractAddress, StorageKey), Felt>,
     pub nonce_updates: HashMap<ContractAddress, u128>,
     pub class_hashes: HashMap<ContractAddress, ClassHash>,
     pub contract_classes: HashMap<ClassHash, ContractClass>,
@@ -94,7 +93,7 @@ impl StateReader for DynStateWrapper<'_> {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         Ok(self
             .storage_updates
             .get(&(contract_address, key))
@@ -103,16 +102,18 @@ impl StateReader for DynStateWrapper<'_> {
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let current_nonce = FieldElement::from(self.state.get_nonce_at(contract_address)?.0);
+        let current_nonce = Felt::from(self.state.get_nonce_at(contract_address)?.0);
 
         let delta = *self.nonce_updates.get(&contract_address).unwrap_or(&0u128);
-        let delta = FieldElement::from(delta);
+        let delta = Felt::from(delta);
 
         // Check if an overflow occurred during increment.
-        match StarkFelt::from(current_nonce + FieldElement::ONE * delta) {
-            StarkFelt::ZERO => Err(StateError::from(StarknetApiError::OutOfRange {
-                string: format!("{:?}", current_nonce),
-            })),
+        match Felt::from(current_nonce + Felt::ONE * delta) {
+            f if f == Felt::from_hex_unchecked("0x0") => {
+                Err(StateError::from(StarknetApiError::OutOfRange {
+                    string: format!("{:?}", current_nonce),
+                }))
+            }
             incremented_felt => Ok(Nonce(incremented_felt)),
         }
     }
@@ -145,7 +146,7 @@ impl StateReader for DynStateWrapper<'_> {
         &mut self,
         contract_address: ContractAddress,
         fee_token_address: ContractAddress,
-    ) -> Result<(StarkFelt, StarkFelt), StateError> {
+    ) -> Result<(Felt, Felt), StateError> {
         self.state.get_fee_token_balance(contract_address, fee_token_address)
     }
 }
@@ -155,7 +156,7 @@ impl State for DynStateWrapper<'_> {
         &mut self,
         contract_address: ContractAddress,
         key: StorageKey,
-        value: StarkFelt,
+        value: Felt,
     ) -> StateResult<()> {
         self.storage_updates.insert((contract_address, key), value);
 
@@ -211,7 +212,7 @@ impl DynStateWrapper<'_> {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         self.state.get_storage_at(contract_address, key)
     }
 
