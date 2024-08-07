@@ -240,7 +240,7 @@ impl<S: StateReader + Send + Sync> TransactionExecutor<S> {
             for _ in 0..self.config.concurrency_config.n_workers {
                 let worker_executor = Arc::clone(&worker_executor);
                 s.spawn(move || {
-                    // Making sure that the program will abort if a panic accured while halting the
+                    // Making sure that the program will abort if a panic occurs while halting the
                     // scheduler.
                     let abort_guard = AbortIfPanic;
                     // If a panic is not handled or the handling logic itself panics, then we abort

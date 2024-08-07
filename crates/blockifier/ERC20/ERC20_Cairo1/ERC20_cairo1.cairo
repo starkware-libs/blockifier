@@ -305,7 +305,7 @@ mod ERC20 {
             // We emit now so that finalize emits last (if it does).
             self.emit(ImplementationReplaced { implementation_data });
 
-            // Finalize imeplementation, if needed.
+            // Finalize implementation, if needed.
             if (implementation_data.final) {
                 self.finalize();
                 self.emit(ImplementationFinalized { impl_hash: implementation_data.impl_hash });
@@ -314,7 +314,7 @@ mod ERC20 {
             // Handle EIC.
             match implementation_data.eic_data {
                 Option::Some(eic_data) => {
-                    // Wrap the calldata as a span, as preperation for the library_call_syscall
+                    // Wrap the calldata as a span, as preparation for the library_call_syscall
                     // invocation.
                     let mut calldata_wrapper = ArrayTrait::new();
                     eic_data.eic_init_data.serialize(ref calldata_wrapper);
