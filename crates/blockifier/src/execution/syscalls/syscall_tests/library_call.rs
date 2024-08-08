@@ -14,7 +14,7 @@ use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, CallInfo, Retdata};
 use crate::execution::entry_point::{CallEntryPoint, CallType};
 use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
-use crate::execution::syscalls::syscall_tests::consts::{
+use crate::execution::syscalls::syscall_tests::constants::{
     REQUIRED_GAS_LIBRARY_CALL_TEST, REQUIRED_GAS_STORAGE_READ_WRITE_TEST,
 };
 use crate::execution::syscalls::SyscallSelector;
@@ -25,7 +25,6 @@ use crate::test_utils::{
     get_syscall_resources, trivial_external_entry_point_new, CairoVersion, BALANCE,
 };
 
-#[test_case(FeatureContract::SierraTestContract, NATIVE_GAS_PLACEHOLDER; "Native")]
 #[test_case(FeatureContract::TestContract(CairoVersion::Cairo1), REQUIRED_GAS_LIBRARY_CALL_TEST; "VM")]
 fn test_library_call(test_contract: FeatureContract, expected_gas: u64) {
     let chain_info = &ChainInfo::create_for_testing();

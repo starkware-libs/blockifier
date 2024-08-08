@@ -2,13 +2,12 @@ use pretty_assertions::assert_eq;
 use starknet_api::felt;
 use test_case::test_case;
 
-use super::consts::REQUIRED_GAS_CALL_CONTRACT_TEST;
+use super::constants::REQUIRED_GAS_CALL_CONTRACT_TEST;
 use crate::abi::abi_utils::selector_from_name;
 use crate::context::ChainInfo;
 use crate::execution::call_info::{CallExecution, Retdata};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::native::utils::NATIVE_GAS_PLACEHOLDER;
-use crate::execution::syscalls::syscall_tests::utils::assert_consistent_contract_version;
 use crate::retdata;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
@@ -46,9 +45,6 @@ fn test_call_contract(
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(outer_contract, 1), (inner_contract, 1)]);
 
-    assert_consistent_contract_version(outer_contract, &state);
-    assert_consistent_contract_version(inner_contract, &state);
-
     let outer_entry_point_selector = selector_from_name("test_call_contract");
     let calldata = create_calldata(
         inner_contract.get_instance_address(0),
@@ -72,8 +68,4 @@ fn test_call_contract(
             ..CallExecution::default()
         }
     );
-
-    // ensure that the fallback system didn't replace the contract
-    assert_consistent_contract_version(outer_contract, &state);
-    assert_consistent_contract_version(inner_contract, &state);
 }

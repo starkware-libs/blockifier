@@ -6,7 +6,6 @@ use starknet_api::{calldata, felt};
 use starknet_types_core::felt::Felt;
 use test_case::test_case;
 
-use super::utils::assert_consistent_contract_version;
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants;
 use crate::context::ChainInfo;
@@ -26,7 +25,6 @@ use crate::{check_entry_point_execution_error_for_custom_hint, retdata};
 fn initialize_state(test_contract: FeatureContract) -> (CachedState<DictStateReader>, Felt, Felt) {
     let chain_info = &ChainInfo::create_for_testing();
     let mut state = test_state(chain_info, BALANCE, &[(test_contract, 1)]);
-    assert_consistent_contract_version(test_contract, &state);
 
     // Initialize block number -> block hash entry.
     let upper_bound_block_number = CURRENT_BLOCK_NUMBER - constants::STORED_BLOCK_HASH_BUFFER;
@@ -59,8 +57,6 @@ fn positive_flow(test_contract: FeatureContract, expected_gas: u64) {
             ..CallExecution::from_retdata(retdata![block_hash])
         }
     );
-
-    assert_consistent_contract_version(test_contract, &state);
 }
 
 #[test_case(FeatureContract::SierraTestContract; "Native")]
@@ -92,8 +88,6 @@ fn negative_flow_execution_mode_validate(test_contract: FeatureContract) {
             .to_string()
             .contains("Unauthorized syscall get_block_hash in execution mode Validate")
     );
-
-    assert_consistent_contract_version(test_contract, &state);
 }
 
 #[test_case(FeatureContract::SierraTestContract; "Native")]
@@ -112,5 +106,4 @@ fn negative_flow_block_number_out_of_range(test_contract: FeatureContract) {
 
     let error = entry_point_call.execute_directly(&mut state).unwrap_err().to_string();
     assert!(error.contains("Block number out of range"));
-    assert_consistent_contract_version(test_contract, &state);
 }

@@ -1,5 +1,5 @@
 mod call_contract;
-mod consts;
+mod constants;
 mod deploy;
 mod emit_event;
 mod get_block_hash;
@@ -12,4 +12,3 @@ mod secp;
 mod send_message_to_l1;
 mod sha256;
 mod storage_read_write;
-mod utils;

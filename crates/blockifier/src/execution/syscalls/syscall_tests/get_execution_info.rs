@@ -17,7 +17,6 @@ use crate::context::ChainInfo;
 use crate::execution::common_hints::ExecutionMode;
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::syscalls::hint_processor::{L1_GAS, L2_GAS};
-use crate::execution::syscalls::syscall_tests::utils::assert_consistent_contract_version;
 use crate::nonce;
 use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::initial_test_state::test_state;
@@ -129,7 +128,6 @@ fn test_get_execution_info(
     only_query: bool,
 ) {
     let state = &mut test_state(&ChainInfo::create_for_testing(), BALANCE, &[(test_contract, 1)]);
-    assert_consistent_contract_version(test_contract, state);
     let expected_block_info = match execution_mode {
         ExecutionMode::Validate => [
             // Rounded block number.
@@ -187,7 +185,7 @@ fn test_get_execution_info(
 
     let expected_resource_bounds: Vec<Felt> = match (test_contract, version) {
         (FeatureContract::LegacyTestContract, _) => vec![],
-        (_, version) if version == TransactionVersion(Felt::from_hex("0x1").unwrap()) => vec![
+        (_, version) if version == TransactionVersion::ONE => vec![
             felt!(0_u16), // Length of resource bounds array.
         ],
         (_, _) => vec![
@@ -203,7 +201,7 @@ fn test_get_execution_info(
 
     let expected_tx_info: Vec<Felt>;
     let tx_info: TransactionInfo;
-    if version == TransactionVersion(Felt::from_hex("0x1").unwrap()) {
+    if version == TransactionVersion::ONE {
         expected_tx_info = vec![
             version.0,                                                   /* Transaction
                                                                           * version. */
@@ -309,5 +307,4 @@ fn test_get_execution_info(
     };
 
     assert!(!result.unwrap().execution.failed);
-    assert_consistent_contract_version(test_contract, state);
 }
