@@ -31,6 +31,7 @@ pub struct PyValidator {
 
 #[pymethods]
 impl PyValidator {
+    #[allow(clippy::too_many_arguments)]
     #[new]
     #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, invoke_max_n_steps, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
     pub fn create(
