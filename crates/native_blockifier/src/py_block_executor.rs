@@ -86,10 +86,11 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
+    #[pyo3(signature = (general_config, validate_max_n_steps, invoke_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
     pub fn create(
         general_config: PyGeneralConfig,
         validate_max_n_steps: u32,
+        invoke_max_n_steps: u32,
         max_recursion_depth: usize,
         global_contract_cache_size: usize,
         target_storage_config: StorageConfig,
@@ -97,8 +98,11 @@ impl PyBlockExecutor {
         log::debug!("Initializing Block Executor...");
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
-        let versioned_constants =
-            versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
+        let versioned_constants = versioned_constants_with_overrides(
+            validate_max_n_steps,
+            invoke_max_n_steps,
+            max_recursion_depth,
+        );
         log::debug!("Initialized Block Executor.");
 
         Self {
