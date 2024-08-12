@@ -102,10 +102,12 @@ where
 
 pub fn versioned_constants_with_overrides(
     validate_max_n_steps: u32,
+    invoke_max_n_steps: u32,
     max_recursion_depth: usize,
 ) -> VersionedConstants {
     let mut versioned_constants = VersionedConstants::latest_constants().clone();
     versioned_constants.max_recursion_depth = max_recursion_depth;
     versioned_constants.validate_max_n_steps = validate_max_n_steps;
+    versioned_constants.invoke_tx_max_n_steps = invoke_max_n_steps;
     versioned_constants
 }
