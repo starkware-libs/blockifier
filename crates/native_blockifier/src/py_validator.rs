@@ -31,19 +31,24 @@ pub struct PyValidator {
 
 #[pymethods]
 impl PyValidator {
+    #[allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
+    #[pyo3(signature = (general_config, state_reader_proxy, next_block_info, validate_max_n_steps, invoke_max_n_steps, max_recursion_depth, global_contract_cache_size, max_nonce_for_validation_skip))]
     pub fn create(
         general_config: PyGeneralConfig,
         state_reader_proxy: &PyAny,
         next_block_info: PyBlockInfo,
         validate_max_n_steps: u32,
+        invoke_max_n_steps: u32,
         max_recursion_depth: usize,
         global_contract_cache_size: usize,
         max_nonce_for_validation_skip: PyFelt,
     ) -> NativeBlockifierResult<Self> {
-        let versioned_constants =
-            versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
+        let versioned_constants = versioned_constants_with_overrides(
+            validate_max_n_steps,
+            invoke_max_n_steps,
+            max_recursion_depth,
+        );
         let global_contract_cache = GlobalContractCache::new(global_contract_cache_size);
         let state_reader = PyStateReader::new(state_reader_proxy);
         let state = CachedState::new(state_reader, global_contract_cache);

@@ -35,9 +35,6 @@ use crate::transaction_executor::TransactionExecutor;
 #[path = "py_block_executor_test.rs"]
 mod py_block_executor_test;
 
-const MAX_STEPS_PER_TX: u32 = 4_000_000;
-const MAX_VALIDATE_STEPS_PER_TX: u32 = 1_000_000;
-
 /// Stripped down `TransactionExecutionInfo` for Python serialization, containing only the required
 /// fields.
 #[derive(Debug, Serialize)]
@@ -86,10 +83,11 @@ pub struct PyBlockExecutor {
 #[pymethods]
 impl PyBlockExecutor {
     #[new]
-    #[pyo3(signature = (general_config, validate_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
+    #[pyo3(signature = (general_config, validate_max_n_steps, invoke_max_n_steps, max_recursion_depth, global_contract_cache_size, target_storage_config))]
     pub fn create(
         general_config: PyGeneralConfig,
         validate_max_n_steps: u32,
+        invoke_max_n_steps: u32,
         max_recursion_depth: usize,
         global_contract_cache_size: usize,
         target_storage_config: StorageConfig,
@@ -97,8 +95,11 @@ impl PyBlockExecutor {
         log::debug!("Initializing Block Executor...");
         let storage =
             PapyrusStorage::new(target_storage_config).expect("Failed to initialize storage");
-        let versioned_constants =
-            versioned_constants_with_overrides(validate_max_n_steps, max_recursion_depth);
+        let versioned_constants = versioned_constants_with_overrides(
+            validate_max_n_steps,
+            invoke_max_n_steps,
+            max_recursion_depth,
+        );
         log::debug!("Initialized Block Executor.");
 
         Self {
@@ -419,17 +420,6 @@ fn pre_process_block(
 ) -> NativeBlockifierResult<BlockContext> {
     let old_block_number_and_hash = old_block_number_and_hash
         .map(|(block_number, block_hash)| BlockNumberHashPair::new(block_number, block_hash.0));
-
-    // Input validation.
-    if versioned_constants.invoke_tx_max_n_steps > MAX_STEPS_PER_TX {
-        Err(NativeBlockifierInputError::MaxStepsPerTxOutOfRange(
-            versioned_constants.invoke_tx_max_n_steps,
-        ))?;
-    } else if versioned_constants.validate_max_n_steps > MAX_VALIDATE_STEPS_PER_TX {
-        Err(NativeBlockifierInputError::MaxValidateStepsPerTxOutOfRange(
-            versioned_constants.validate_max_n_steps,
-        ))?;
-    }
 
     let (block_info, chain_info) = into_block_context_args(general_config, block_info)?;
     let block_context = pre_process_block_blockifier(
