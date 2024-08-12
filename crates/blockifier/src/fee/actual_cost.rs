@@ -189,7 +189,7 @@ impl<'a> ActualCostBuilder<'a> {
         let bouncer_resources = actual_resources.clone();
 
         // Add reverted steps to actual_resources' n_steps for correct fee charge.
-        *actual_resources.0.get_mut(&abi_constants::N_STEPS_RESOURCE.to_string()).unwrap() +=
+        *actual_resources.0.get_mut(abi_constants::N_STEPS_RESOURCE).unwrap() +=
             self.n_reverted_steps;
 
         let tx_info = &self.tx_context.tx_info;
