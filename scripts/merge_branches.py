@@ -104,8 +104,8 @@ def merge_branches(src_branch: str, dst_branch: Optional[str]):
     print("Committing conflicts...")
     if len(conflicts) == 0:
         run_command(
-            f'git commit --allow-empty -m "No conflicts in {src_branch} -> {dst_branch} merge, '
-            'this commit is for any change needed to pass the CI."'
+            f'git commit --allow-empty -m "chore: merge branch {src_branch} into {dst_branch} '
+            '(resolve issues)"'
         )
     else:
         run_command(
