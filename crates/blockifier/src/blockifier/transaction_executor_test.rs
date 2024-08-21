@@ -26,8 +26,7 @@ use crate::transaction::test_utils::{
     account_invoke_tx, block_context, calculate_class_info_for_testing, create_test_init_data,
     emit_n_events_tx, l1_resource_bounds, TestInitData,
 };
-use crate::transaction::transaction_execution::Transaction;
-use crate::transaction::transactions::L1HandlerTransaction;
+use crate::transaction::transactions::{L1HandlerTransaction, Transaction};
 use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args, nonce};
 
 fn tx_executor_test_body<S: StateReader>(

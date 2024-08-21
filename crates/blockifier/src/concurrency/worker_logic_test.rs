@@ -36,7 +36,7 @@ use crate::transaction::test_utils::{
     account_invoke_tx, calculate_class_info_for_testing, emit_n_events_tx, max_fee,
     max_resource_bounds,
 };
-use crate::transaction::transaction_execution::Transaction;
+use crate::transaction::transactions::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
 
 fn trivial_calldata_invoke_tx(
