@@ -16,6 +16,11 @@
 
 </div>
 
+## Archived
+*** This repository is archived and no longer maintained. ***
+
+The functionality of this repository has been integrated into the [Starknet sequencer monorepo](https://github.com/starkware-libs/sequencer).
+
 <details open="open">
 <summary>Table of Contents</summary>
 
