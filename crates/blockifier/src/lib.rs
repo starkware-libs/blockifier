@@ -2,12 +2,7 @@
 // length to pointer type ([not necessarily true](https://github.com/rust-lang/rust/issues/65473),
 // but it is a reasonable assumption for now), this attribute protects against potential overflow
 // when converting usize to u128.
-#![cfg(any(
-    target_pointer_width = "16",
-    target_pointer_width = "32",
-    target_pointer_width = "64",
-    target_pointer_width = "128"
-))]
+#![cfg(any(target_pointer_width = "16", target_pointer_width = "32", target_pointer_width = "64",))]
 
 #[cfg(feature = "jemalloc")]
 // Override default allocator.
