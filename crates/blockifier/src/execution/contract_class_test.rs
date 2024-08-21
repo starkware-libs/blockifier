@@ -1,11 +1,12 @@
 use std::collections::HashSet;
+use std::fs;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use cairo_lang_starknet_classes::NestedIntList;
 use rstest::rstest;
 
-use crate::execution::contract_class::{ContractClassV1, ContractClassV1Inner};
+use crate::execution::contract_class::{ContractClassV0, ContractClassV1, ContractClassV1Inner};
 use crate::transaction::errors::TransactionExecutionError;
 
 #[rstest]
@@ -41,4 +42,22 @@ fn test_get_visited_segments() {
             .unwrap_err(),
         TransactionExecutionError::InvalidSegmentStructure(907, 807)
     );
+}
+
+#[test]
+fn test_deserialization_of_contract_class_v_0() {
+    let contract_class: ContractClassV0 =
+        serde_json::from_slice(&fs::read("./tests/cairo0/counter.json").unwrap())
+            .expect("failed to deserialize contract class from file");
+
+    assert_eq!(contract_class, ContractClassV0::from_file("./tests/cairo0/counter.json"));
+}
+
+#[test]
+fn test_deserialization_of_contract_class_v_1() {
+    let contract_class: ContractClassV1 =
+        serde_json::from_slice(&fs::read("./tests/cairo1/counter.json").unwrap())
+            .expect("failed to deserialize contract class from file");
+
+    assert_eq!(contract_class, ContractClassV1::from_file("./tests/cairo1/counter.json"));
 }
