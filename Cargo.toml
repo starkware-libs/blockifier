@@ -63,7 +63,14 @@ tikv-jemallocator = "0.5.4"
 future-incompatible = "deny"
 nonstandard-style = "deny"
 rust-2018-idioms = "deny"
-unused = "deny"
+# See [here](https://github.com/taiki-e/cargo-llvm-cov/issues/370) for a discussion on why this is
+# needed (from rust 1.80).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+# Need a priority of `-1` so it is before the `warnings` lint. See
+# [here](https://github.com/rust-lang/cargo/issues/12918) for details on the issue, and
+# [here](https://rust-lang.github.io/rust-clippy/master/index.html#/lint_groups_priority) for the
+# clippy failure this solves.
+unused = { level = "deny", priority = -1 }
 warnings = "deny"
 
 [workspace.lints.clippy]
